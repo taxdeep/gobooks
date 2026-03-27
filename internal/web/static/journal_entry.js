@@ -1,4 +1,13 @@
-// Journal Entry lines: searchable account combobox (assistive UI only; server validates on save).
+// Journal Entry — Phase 1 account picker (QuickBooks-style combobox, client-side filter only).
+//
+// Per-line state (independent for each row):
+//   account_id   — submitted value; hidden input lines[idx][account_id]; never the visible label string.
+//   acctQuery    — visible text: search while editing; after blur/close, synced to selected label or cleared.
+//   acctOpen     — dropdown open/closed.
+//   acctHi       — keyboard highlight index within filteredAccounts(line), or -1.
+// Global: accounts[] from #gobooks-journal-accounts-data (active accounts only; server-built JSON).
+// Filtered list is computed on demand (not stored) via filteredAccounts(line).
+//
 function gobooksJournalEntryDraft() {
   let accounts = [];
   try {
