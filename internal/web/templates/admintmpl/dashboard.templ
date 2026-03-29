@@ -25,7 +25,7 @@ templ AdminDashboard(vm AdminDashboardVM) {
 }
 
 templ bodyAdminDashboard(vm AdminDashboardVM) {
-	@adminPageHeader("Dashboard", "Production-style overview. Use the console menu for navigation — quick actions below jump to the most common tasks.")
+	@adminPageHeader("Dashboard", "System overview — use the left sidebar to navigate between sections.")
 
 	if vm.MaintenanceMode {
 		<div class="mb-6 rounded-lg border border-warning-border bg-warning-soft px-4 py-3 text-body text-warning">
@@ -73,18 +73,11 @@ templ bodyAdminDashboard(vm AdminDashboardVM) {
 	</section>
 
 	<section class="mb-10">
-		@adminSectionHeading("Quick actions", "Full-card targets — same destinations as the left navigation")
-		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-			@adminQuickActionLinkCard("/admin/companies", "Manage companies", "View and manage every organization. Deactivate or reactivate access.", adminIconQABuilding())
-			@adminQuickActionLinkCard("/admin/users", "Manage users", "Business accounts: deactivate, reactivate, and reset passwords.", adminIconQAUsers())
+		@adminSectionHeading("Quick actions", "")
+		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 			@adminQuickActionLogsCard()
 			@adminQuickActionLinkCard("/admin/system", "System control", "Maintenance mode, operational tools, and restart logging.", adminIconQACog())
 		</div>
-		<p class="mt-4 text-small text-text-muted2">
-			<strong class="font-medium text-text-muted3">Console access:</strong>
-			<a href="/admin/sysadmins" class="font-medium text-primary hover:text-primary-hover">SysAdmin accounts</a>
-			controls who can sign in here (same as the sidebar).
-		</p>
 	</section>
 
 	<section>
