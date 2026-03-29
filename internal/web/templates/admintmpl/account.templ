@@ -4,6 +4,7 @@ package admintmpl
 // AdminAccountVM 是 SysAdmin 自助账户页的视图模型。
 type AdminAccountVM struct {
 	AdminEmail           string
+	MaintenanceMode      bool
 	Flash                string
 	CurrentPasswordError string
 	NewPasswordError     string
@@ -12,7 +13,7 @@ type AdminAccountVM struct {
 }
 
 templ AdminAccount(vm AdminAccountVM) {
-	@adminLayout("Account", vm.AdminEmail, bodyAdminAccount(vm))
+	@adminLayout("My account", vm.AdminEmail, "account", vm.MaintenanceMode, bodyAdminAccount(vm))
 }
 
 templ bodyAdminAccount(vm AdminAccountVM) {
@@ -20,7 +21,7 @@ templ bodyAdminAccount(vm AdminAccountVM) {
 	@adminFlashBanner(vm.Flash)
 
 	<!-- 自助密码修改 -->
-	<div class="rounded-lg border border-border bg-surface p-6 max-w-lg">
+	<div class="rounded-lg border border-border bg-surface p-6 max-w-lg shadow-sm">
 		<h2 class="text-section font-semibold text-text mb-4">Change Password</h2>
 		<p class="mb-4 text-small text-text-muted2">
 			You are logged in as <span class="font-mono font-medium text-text">{ vm.AdminEmail }</span>.

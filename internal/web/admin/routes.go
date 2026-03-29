@@ -21,6 +21,7 @@ func (s *Server) RegisterRoutes(app *fiber.App) {
 
 	// 仪表板
 	app.Get("/admin/dashboard", auth(s.handleAdminDashboard)...)
+	app.Get("/admin/system/stats", auth(s.handleAdminSystemStats)...)
 	// /admin 根路径重定向到仪表板
 	app.Get("/admin", auth(func(c *fiber.Ctx) error {
 		return c.Redirect("/admin/dashboard", fiber.StatusSeeOther)

@@ -44,10 +44,14 @@ func (s *Server) handleCustomerCreate(c *fiber.Ctx) error {
 	}
 
 	name := strings.TrimSpace(c.FormValue("name"))
+	address := strings.TrimSpace(c.FormValue("address"))
+	paymentTerm := strings.TrimSpace(c.FormValue("payment_term"))
 
 	vm := pages.CustomersVM{
-		HasCompany: true,
-		Name:       name,
+		HasCompany:  true,
+		Name:        name,
+		Address:     address,
+		PaymentTerm: paymentTerm,
 	}
 
 	if name == "" {
@@ -78,8 +82,10 @@ func (s *Server) handleCustomerCreate(c *fiber.Ctx) error {
 	}
 
 	customer := models.Customer{
-		CompanyID: companyID,
-		Name:      name,
+		CompanyID:   companyID,
+		Name:        name,
+		Address:     address,
+		PaymentTerm: paymentTerm,
 	}
 	if err := s.DB.Create(&customer).Error; err != nil {
 		vm.FormError = "Could not create customer. Please try again."

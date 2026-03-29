@@ -3,46 +3,46 @@ package admintmpl
 
 import "gobooks/internal/models"
 
-// AdminAuditLogVM 是跨公司审计日志页的视图模型。
+// AdminAuditLogVM is the cross-tenant audit log page view model.
 type AdminAuditLogVM struct {
-	AdminEmail   string
-	Items        []models.AuditLog
-	Actions      []string
-	FilterQ      string
-	FilterAction string
-	FilterFrom   string
-	FilterTo     string
-	Page         int
-	TotalCount   int
-	HasPrev      bool
-	HasNext      bool
-	PrevPage     int
-	NextPage     int
+	AdminEmail       string
+	MaintenanceMode  bool
+	Items            []models.AuditLog
+	Actions          []string
+	FilterQ          string
+	FilterAction     string
+	FilterFrom       string
+	FilterTo         string
+	Page             int
+	TotalCount       int
+	HasPrev          bool
+	HasNext          bool
+	PrevPage         int
+	NextPage         int
 }
 
 templ AdminAuditLog(vm AdminAuditLogVM) {
-	@adminLayout("Audit Logs", vm.AdminEmail, bodyAdminAuditLog(vm))
+	@adminLayout("Audit logs", vm.AdminEmail, "audit", vm.MaintenanceMode, bodyAdminAuditLog(vm))
 }
 
 templ bodyAdminAuditLog(vm AdminAuditLogVM) {
-	@adminPageHeader("Audit Logs", "All audit events across all companies.")
+	@adminPageHeader("Audit logs", "Cross-company audit trail. Filter by keyword, action, or date.")
 
-	<!-- 过滤器 -->
-	<div class="mb-6 rounded-lg border border-border bg-surface p-4">
-		<form method="get" action="/admin/audit-logs" class="grid grid-cols-1 gap-3 md:grid-cols-5">
-			<div>
-				<label class="mb-1 block text-small font-medium text-text-muted uppercase tracking-wider">Keyword</label>
+	<div class="mb-4 rounded-lg border border-border bg-surface p-4">
+		<form method="get" action="/admin/audit-logs" class="grid grid-cols-1 gap-4 md:grid-cols-5 md:items-end">
+			<div class="md:col-span-1">
+				<label class="mb-1.5 block text-small font-medium text-text-muted">Keyword</label>
 				<input
 					type="text"
 					name="q"
 					value={ vm.FilterQ }
-					placeholder="action / entity / details"
-					class="w-full rounded-md border border-border-input px-3 py-2 text-body text-text focus:border-primary focus:outline-none"
+					placeholder="action, entity, details…"
+					class="w-full rounded-md border border-border-input bg-background px-3 py-2 text-body text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary-focus"
 				/>
 			</div>
 			<div>
-				<label class="mb-1 block text-small font-medium text-text-muted uppercase tracking-wider">Action</label>
-				<select name="action" class="w-full rounded-md border border-border-input px-3 py-2 text-body text-text focus:border-primary focus:outline-none">
+				<label class="mb-1.5 block text-small font-medium text-text-muted">Action</label>
+				<select name="action" class="w-full rounded-md border border-border-input bg-background px-3 py-2 text-body text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary-focus">
 					<option value="">All</option>
 					for _, a := range vm.Actions {
 						<option value={ a } selected?={ a == vm.FilterAction }>{ a }</option>
@@ -50,78 +50,83 @@ templ bodyAdminAuditLog(vm AdminAuditLogVM) {
 				</select>
 			</div>
 			<div>
-				<label class="mb-1 block text-small font-medium text-text-muted uppercase tracking-wider">From</label>
-				<input type="date" name="from" value={ vm.FilterFrom } class="w-full rounded-md border border-border-input px-3 py-2 text-body text-text focus:border-primary focus:outline-none"/>
+				<label class="mb-1.5 block text-small font-medium text-text-muted">From</label>
+				<input type="date" name="from" value={ vm.FilterFrom } class="w-full rounded-md border border-border-input bg-background px-3 py-2 text-body text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary-focus"/>
 			</div>
 			<div>
-				<label class="mb-1 block text-small font-medium text-text-muted uppercase tracking-wider">To</label>
-				<input type="date" name="to" value={ vm.FilterTo } class="w-full rounded-md border border-border-input px-3 py-2 text-body text-text focus:border-primary focus:outline-none"/>
+				<label class="mb-1.5 block text-small font-medium text-text-muted">To</label>
+				<input type="date" name="to" value={ vm.FilterTo } class="w-full rounded-md border border-border-input bg-background px-3 py-2 text-body text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary-focus"/>
 			</div>
-			<div class="flex items-end gap-2">
-				<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-medium text-white hover:bg-primary-hover">Apply</button>
-				<a href="/admin/audit-logs" class="rounded-md border border-border-input px-4 py-2 text-body font-medium text-text-muted3 hover:bg-background">Reset</a>
+			<div class="flex flex-wrap gap-2">
+				<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-white hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus">Apply filters</button>
+				<a href="/admin/audit-logs" class={ adminClassActionDefault() }>Clear</a>
 			</div>
 		</form>
 	</div>
 
-	<!-- 结果表格 -->
-	<div class="rounded-lg border border-border bg-surface overflow-hidden">
-		<div class="border-b border-border bg-background px-4 py-3 text-small text-text-muted2">
-			Page { adminInt(vm.Page) } — { adminInt(vm.TotalCount) } total records
+	<div class="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
+		<div class="flex flex-col gap-0.5 border-b border-border bg-background px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+			<h2 class="text-section font-semibold text-text">Results</h2>
+			<span class="text-small tabular-nums text-text-muted2">Page { adminInt(vm.Page) } · { adminInt(vm.TotalCount) } rows</span>
 		</div>
 		<div class="overflow-x-auto">
-			<table class="w-full text-left text-body">
-				<thead class="text-small uppercase tracking-wider text-text-muted border-b border-border">
+			<table class="w-full min-w-[56rem] text-left text-body">
+				<thead class="border-b border-border bg-background text-xs font-semibold uppercase tracking-wide text-text-muted">
 					<tr>
-						<th class="py-3 pl-4 pr-4">Time</th>
-						<th class="py-3 pr-4">Company</th>
-						<th class="py-3 pr-4">Action</th>
-						<th class="py-3 pr-4">Entity</th>
-						<th class="py-3 pr-4">Actor</th>
-						<th class="py-3 pr-4">Details</th>
+						<th class="py-2.5 pl-4 pr-3">Time</th>
+						<th class="py-2.5 pr-3">Company</th>
+						<th class="py-2.5 pr-3">Action</th>
+						<th class="py-2.5 pr-3">Entity</th>
+						<th class="py-2.5 pr-3">Actor</th>
+						<th class="py-2.5 pr-4">Details</th>
 					</tr>
 				</thead>
-				<tbody class="text-text">
+				<tbody class="divide-y divide-border-subtle text-text">
 					if len(vm.Items) == 0 {
 						<tr>
-							<td colspan="6" class="py-6 pl-4 text-text-muted2">No audit log entries match the current filters.</td>
+							<td colspan="6" class="px-4 py-8 text-center text-small text-text-muted2">
+								<p class="font-medium text-text">No rows match</p>
+								<p class="mt-1">Adjust filters or date range.</p>
+							</td>
 						</tr>
 					}
 					for _, a := range vm.Items {
-						<tr class="border-b border-border-subtle align-top">
-							<td class="py-3 pl-4 pr-4 whitespace-nowrap text-small">{ a.CreatedAt.Format("2006-01-02 15:04:05") }</td>
-							<td class="py-3 pr-4 text-small text-text-muted2">
+						<tr class={ adminClassTableRow() + " align-top" }>
+							<td class="py-2.5 pl-4 pr-3 whitespace-nowrap text-small text-text-muted2">{ a.CreatedAt.Format("2006-01-02 15:04:05") }</td>
+							<td class="py-2.5 pr-3 text-small text-text-muted2 tabular-nums">
 								if a.CompanyID != nil {
 									{ adminUint(uint(*a.CompanyID)) }
 								} else {
 									—
 								}
 							</td>
-							<td class="py-3 pr-4 font-medium">{ a.Action }</td>
-							<td class="py-3 pr-4 text-small text-text-muted2">{ a.EntityType }</td>
-							<td class="py-3 pr-4 text-small">{ a.Actor }</td>
-							<td class="py-3 pr-4 text-small text-text-muted3 break-all max-w-xs">{ a.DetailsJSON }</td>
+							<td class="py-2.5 pr-3 font-medium">{ a.Action }</td>
+							<td class="py-2.5 pr-3 text-small text-text-muted2">{ a.EntityType }</td>
+							<td class="py-2.5 pr-3 text-small">{ a.Actor }</td>
+							<td class="py-2.5 pr-4 text-small text-text-muted3">
+								<pre class="max-w-md whitespace-pre-wrap break-all font-mono text-xs leading-relaxed text-text-muted2">{ a.DetailsJSON }</pre>
+							</td>
 						</tr>
 					}
 				</tbody>
 			</table>
 		</div>
-		<div class="flex items-center justify-between border-t border-border px-4 py-3">
-			<form method="get" action="/admin/audit-logs">
+		<div class="flex flex-col gap-2 border-t border-border bg-background px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+			<form method="get" action="/admin/audit-logs" class="inline">
 				<input type="hidden" name="q" value={ vm.FilterQ }/>
 				<input type="hidden" name="action" value={ vm.FilterAction }/>
 				<input type="hidden" name="from" value={ vm.FilterFrom }/>
 				<input type="hidden" name="to" value={ vm.FilterTo }/>
 				<input type="hidden" name="page" value={ adminInt(vm.PrevPage) }/>
-				<button type="submit" class="rounded-md border border-border-input px-4 py-2 text-body font-medium text-text-muted3 hover:bg-background" disabled?={ !vm.HasPrev }>← Previous</button>
+				<button type="submit" class={ adminClassActionDefault() + " disabled:cursor-not-allowed disabled:opacity-50" } disabled?={ !vm.HasPrev }>Previous</button>
 			</form>
-			<form method="get" action="/admin/audit-logs">
+			<form method="get" action="/admin/audit-logs" class="inline">
 				<input type="hidden" name="q" value={ vm.FilterQ }/>
 				<input type="hidden" name="action" value={ vm.FilterAction }/>
 				<input type="hidden" name="from" value={ vm.FilterFrom }/>
 				<input type="hidden" name="to" value={ vm.FilterTo }/>
 				<input type="hidden" name="page" value={ adminInt(vm.NextPage) }/>
-				<button type="submit" class="rounded-md border border-border-input px-4 py-2 text-body font-medium text-text-muted3 hover:bg-background" disabled?={ !vm.HasNext }>Next →</button>
+				<button type="submit" class={ adminClassActionDefault() + " disabled:cursor-not-allowed disabled:opacity-50" } disabled?={ !vm.HasNext }>Next</button>
 			</form>
 		</div>
 	</div>

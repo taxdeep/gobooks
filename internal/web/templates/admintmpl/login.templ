@@ -17,23 +17,22 @@ templ AdminLogin(vm AdminLoginVM) {
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<title>SysAdmin Sign in — GoBooks</title>
+			<title>System sign in — GoBooks</title>
 			<link rel="stylesheet" href="/static/app.css?v=2"/>
 		</head>
 		<body class="bg-background text-text">
-			<div class="min-h-screen flex items-center justify-center">
+			<div class="min-h-screen flex items-center justify-center px-4 py-10">
 				<div class="w-full max-w-sm">
-					<!-- 标题区：红色边框表明这是管理员区域 -->
-					<div class="mb-6 text-center">
-						<div class="inline-block rounded-md bg-danger px-3 py-1 text-small font-semibold text-white mb-3">
-							SYSTEM ADMIN
+					<div class="mb-8 text-center">
+						<div class="mb-3 flex justify-center">
+							<span class="rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-text-muted3">GoBooks · System</span>
 						</div>
 						if vm.IsBootstrap {
-							<h1 class="text-title font-semibold">Create first SysAdmin</h1>
-							<p class="mt-1 text-small text-text-muted2">No admin account exists yet. Set up the first account to continue.</p>
+							<h1 class="text-title font-semibold text-text">Create first SysAdmin</h1>
+							<p class="mt-2 text-small text-text-muted2">No administrator exists yet. Create the first account to manage this deployment.</p>
 						} else {
-							<h1 class="text-title font-semibold">SysAdmin Sign in</h1>
-							<p class="mt-1 text-small text-text-muted2">This area is restricted to system administrators.</p>
+							<h1 class="text-title font-semibold text-text">System sign in</h1>
+							<p class="mt-2 text-small text-text-muted2">Restricted to system administrators.</p>
 						}
 					</div>
 
@@ -51,7 +50,7 @@ templ AdminLogin(vm AdminLoginVM) {
 								name="email"
 								value={ vm.Email }
 								autocomplete="username"
-								class="mt-1 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+								class="mt-1 block w-full rounded-md border border-border-input bg-background px-3 py-2 text-body outline-none focus:border-primary focus:ring-1 focus:ring-primary-focus"
 								placeholder="admin@example.com"
 							/>
 							if vm.EmailError != "" {
@@ -64,7 +63,7 @@ templ AdminLogin(vm AdminLoginVM) {
 								type="password"
 								name="password"
 								autocomplete="current-password"
-								class="mt-1 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+								class="mt-1 block w-full rounded-md border border-border-input bg-background px-3 py-2 text-body outline-none focus:border-primary focus:ring-1 focus:ring-primary-focus"
 							/>
 							if vm.PasswordError != "" {
 								<p class="mt-1 text-small text-danger-hover">{ vm.PasswordError }</p>
@@ -77,7 +76,7 @@ templ AdminLogin(vm AdminLoginVM) {
 									type="password"
 									name="confirm_password"
 									autocomplete="new-password"
-									class="mt-1 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+									class="mt-1 block w-full rounded-md border border-border-input bg-background px-3 py-2 text-body outline-none focus:border-primary focus:ring-1 focus:ring-primary-focus"
 								/>
 								if vm.ConfirmError != "" {
 									<p class="mt-1 text-small text-danger-hover">{ vm.ConfirmError }</p>
@@ -86,18 +85,18 @@ templ AdminLogin(vm AdminLoginVM) {
 						}
 						<button
 							type="submit"
-							class="w-full rounded-md bg-danger px-4 py-2 text-body font-semibold text-white hover:bg-danger-hover"
+							class="w-full rounded-md bg-primary px-4 py-2.5 text-body font-semibold text-white hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
 						>
 							if vm.IsBootstrap {
-								Create admin account
+								Create administrator
 							} else {
 								Sign in
 							}
 						</button>
 					</form>
 
-					<p class="mt-4 text-center text-small text-text-muted2">
-						<a href="/" class="hover:underline">← Back to business app</a>
+					<p class="mt-6 text-center text-small text-text-muted2">
+						<a href="/" class="text-primary hover:text-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus rounded">← Back to business app</a>
 					</p>
 				</div>
 			</div>

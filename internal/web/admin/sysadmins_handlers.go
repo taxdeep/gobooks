@@ -24,9 +24,10 @@ func (s *Server) handleAdminSysadmins(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "database error")
 	}
 	return admintmpl.AdminSysadmins(admintmpl.AdminSysadminsVM{
-		AdminEmail: AdminUserFromCtx(c).Email,
-		Items:      items,
-		Flash:      c.Query("flash"),
+		AdminEmail:      AdminUserFromCtx(c).Email,
+		MaintenanceMode: IsMaintenanceMode(),
+		Items:           items,
+		Flash:           c.Query("flash"),
 	}).Render(c.Context(), c)
 }
 
@@ -37,9 +38,10 @@ func (s *Server) handleAdminSysadminCreate(c *fiber.Ctx) error {
 	confirm := c.FormValue("confirm_password")
 
 	vm := admintmpl.AdminSysadminsVM{
-		AdminEmail: AdminUserFromCtx(c).Email,
-		FormEmail:  email,
-		Flash:      "",
+		AdminEmail:      AdminUserFromCtx(c).Email,
+		MaintenanceMode: IsMaintenanceMode(),
+		FormEmail:       email,
+		Flash:           "",
 	}
 
 	// 输入验证
@@ -138,7 +140,7 @@ func (s *Server) handleAdminSysadminDeactivate(c *fiber.Ctx) error {
 		},
 	)
 
-	return c.Redirect("/admin/sysadmins?flash=deactivated", fiber.StatusSeeOther)
+	return c.Redirect("/admin/sysadmins?flash=sysadmin_deactivated", fiber.StatusSeeOther)
 }
 
 // handleAdminSysadminReactivate 重新激活指定系统管理员账户。
@@ -167,7 +169,7 @@ func (s *Server) handleAdminSysadminReactivate(c *fiber.Ctx) error {
 		},
 	)
 
-	return c.Redirect("/admin/sysadmins?flash=reactivated", fiber.StatusSeeOther)
+	return c.Redirect("/admin/sysadmins?flash=sysadmin_reactivated", fiber.StatusSeeOther)
 }
 
 // handleAdminSysadminResetPassword 重置另一位系统管理员的密码（仅其他管理员可操作）。
@@ -222,8 +224,9 @@ func (s *Server) handleAdminSysadminResetPassword(c *fiber.Ctx) error {
 // handleAdminAccountGet 显示当前登录 SysAdmin 的账户页（自助修改密码）。
 func (s *Server) handleAdminAccountGet(c *fiber.Ctx) error {
 	return admintmpl.AdminAccount(admintmpl.AdminAccountVM{
-		AdminEmail: AdminUserFromCtx(c).Email,
-		Flash:      c.Query("flash"),
+		AdminEmail:      AdminUserFromCtx(c).Email,
+		MaintenanceMode: IsMaintenanceMode(),
+		Flash:           c.Query("flash"),
 	}).Render(c.Context(), c)
 }
 
@@ -236,7 +239,8 @@ func (s *Server) handleAdminAccountChangePassword(c *fiber.Ctx) error {
 	confirm := strings.TrimSpace(c.FormValue("confirm_password"))
 
 	vm := admintmpl.AdminAccountVM{
-		AdminEmail: self.Email,
+		AdminEmail:      self.Email,
+		MaintenanceMode: IsMaintenanceMode(),
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(self.PasswordHash), []byte(currentPassword)); err != nil {

@@ -36,9 +36,10 @@ func (s *Server) handleAdminCompanies(c *fiber.Ctx) error {
 	}
 
 	return admintmpl.AdminCompanies(admintmpl.AdminCompaniesVM{
-		AdminEmail: AdminUserFromCtx(c).Email,
-		Companies:  rows,
-		Flash:      c.Query("flash"),
+		AdminEmail:      AdminUserFromCtx(c).Email,
+		MaintenanceMode: IsMaintenanceMode(),
+		Companies:       rows,
+		Flash:           c.Query("flash"),
 	}).Render(c.Context(), c)
 }
 

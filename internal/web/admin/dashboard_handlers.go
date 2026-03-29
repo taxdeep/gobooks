@@ -21,6 +21,8 @@ func (s *Server) handleAdminDashboard(c *fiber.Ctx) error {
 	var recentLogs []models.AuditLog
 	s.DB.Order("created_at desc").Limit(10).Find(&recentLogs)
 
+	sys := collectAdminSystemStats(s)
+
 	return admintmpl.AdminDashboard(admintmpl.AdminDashboardVM{
 		AdminEmail:         user.Email,
 		CompanyCount:       int(companyCount),
@@ -28,5 +30,9 @@ func (s *Server) handleAdminDashboard(c *fiber.Ctx) error {
 		UserCount:          int(userCount),
 		RecentAuditLogs:    recentLogs,
 		MaintenanceMode:    IsMaintenanceMode(),
+		SysCPU:             sys.formatCPU(),
+		SysMemoryMB:        sys.formatMemoryMB(),
+		SysDatabaseSize:    sys.DatabaseSize,
+		SysStorageUsed:     sys.StorageUsedReadable,
 	}).Render(c.Context(), c)
 }

@@ -58,17 +58,18 @@ func (s *Server) handleAdminRuntimeLogs(c *fiber.Ctx) error {
 	}
 
 	return admintmpl.AdminRuntimeLogs(admintmpl.AdminRuntimeLogsVM{
-		AdminEmail:  AdminUserFromCtx(c).Email,
-		Items:       rows,
-		FilterQ:     q,
-		FilterLevel: filterLevel,
-		FilterFrom:  filterFrom,
-		FilterTo:    filterTo,
-		Page:        page,
-		TotalCount:  int(total),
-		HasPrev:     page > 1,
-		HasNext:     page < totalPages,
-		PrevPage:    page - 1,
-		NextPage:    page + 1,
+		AdminEmail:      AdminUserFromCtx(c).Email,
+		MaintenanceMode: IsMaintenanceMode(),
+		Items:           rows,
+		FilterQ:         q,
+		FilterLevel:     filterLevel,
+		FilterFrom:      filterFrom,
+		FilterTo:        filterTo,
+		Page:            page,
+		TotalCount:      int(total),
+		HasPrev:         page > 1,
+		HasNext:         page < totalPages,
+		PrevPage:        page - 1,
+		NextPage:        page + 1,
 	}).Render(c.Context(), c)
 }

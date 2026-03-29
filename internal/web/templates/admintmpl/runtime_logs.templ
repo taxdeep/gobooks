@@ -3,45 +3,45 @@ package admintmpl
 
 import "gobooks/internal/models"
 
-// AdminRuntimeLogsVM 是运行时日志页的视图模型。
+// AdminRuntimeLogsVM is the runtime log browser view model.
 type AdminRuntimeLogsVM struct {
-	AdminEmail  string
-	Items       []models.SystemLog
-	FilterQ     string
-	FilterLevel string
-	FilterFrom  string
-	FilterTo    string
-	Page        int
-	TotalCount  int
-	HasPrev     bool
-	HasNext     bool
-	PrevPage    int
-	NextPage    int
+	AdminEmail       string
+	MaintenanceMode  bool
+	Items            []models.SystemLog
+	FilterQ          string
+	FilterLevel      string
+	FilterFrom       string
+	FilterTo         string
+	Page             int
+	TotalCount       int
+	HasPrev          bool
+	HasNext          bool
+	PrevPage         int
+	NextPage         int
 }
 
 templ AdminRuntimeLogs(vm AdminRuntimeLogsVM) {
-	@adminLayout("Runtime Logs", vm.AdminEmail, bodyAdminRuntimeLogs(vm))
+	@adminLayout("Runtime logs", vm.AdminEmail, "runtime", vm.MaintenanceMode, bodyAdminRuntimeLogs(vm))
 }
 
 templ bodyAdminRuntimeLogs(vm AdminRuntimeLogsVM) {
-	@adminPageHeader("Runtime Logs", "Persisted ERROR and WARN events from the application runtime.")
+	@adminPageHeader("Runtime logs", "Application log lines. Expand a row to view a stack trace when available.")
 
-	<!-- 过滤器 -->
-	<div class="mb-6 rounded-lg border border-border bg-surface p-4">
-		<form method="get" action="/admin/runtime-logs" class="grid grid-cols-1 gap-3 md:grid-cols-5">
-			<div>
-				<label class="mb-1 block text-small font-medium text-text-muted uppercase tracking-wider">Keyword</label>
+	<div class="mb-4 rounded-lg border border-border bg-surface p-4">
+		<form method="get" action="/admin/runtime-logs" class="grid grid-cols-1 gap-4 md:grid-cols-5 md:items-end">
+			<div class="md:col-span-1">
+				<label class="mb-1.5 block text-small font-medium text-text-muted">Keyword</label>
 				<input
 					type="text"
 					name="q"
 					value={ vm.FilterQ }
-					placeholder="message / path / request-id"
-					class="w-full rounded-md border border-border-input px-3 py-2 text-body text-text focus:border-primary focus:outline-none"
+					placeholder="message, path, request id…"
+					class="w-full rounded-md border border-border-input bg-background px-3 py-2 text-body text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary-focus"
 				/>
 			</div>
 			<div>
-				<label class="mb-1 block text-small font-medium text-text-muted uppercase tracking-wider">Level</label>
-				<select name="level" class="w-full rounded-md border border-border-input px-3 py-2 text-body text-text focus:border-primary focus:outline-none">
+				<label class="mb-1.5 block text-small font-medium text-text-muted">Level</label>
+				<select name="level" class="w-full rounded-md border border-border-input bg-background px-3 py-2 text-body text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary-focus">
 					<option value="">All</option>
 					<option value="ERROR" selected?={ vm.FilterLevel == "ERROR" }>ERROR</option>
 					<option value="WARN" selected?={ vm.FilterLevel == "WARN" }>WARN</option>
@@ -49,64 +49,67 @@ templ bodyAdminRuntimeLogs(vm AdminRuntimeLogsVM) {
 				</select>
 			</div>
 			<div>
-				<label class="mb-1 block text-small font-medium text-text-muted uppercase tracking-wider">From</label>
-				<input type="date" name="from" value={ vm.FilterFrom } class="w-full rounded-md border border-border-input px-3 py-2 text-body text-text focus:border-primary focus:outline-none"/>
+				<label class="mb-1.5 block text-small font-medium text-text-muted">From</label>
+				<input type="date" name="from" value={ vm.FilterFrom } class="w-full rounded-md border border-border-input bg-background px-3 py-2 text-body text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary-focus"/>
 			</div>
 			<div>
-				<label class="mb-1 block text-small font-medium text-text-muted uppercase tracking-wider">To</label>
-				<input type="date" name="to" value={ vm.FilterTo } class="w-full rounded-md border border-border-input px-3 py-2 text-body text-text focus:border-primary focus:outline-none"/>
+				<label class="mb-1.5 block text-small font-medium text-text-muted">To</label>
+				<input type="date" name="to" value={ vm.FilterTo } class="w-full rounded-md border border-border-input bg-background px-3 py-2 text-body text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary-focus"/>
 			</div>
-			<div class="flex items-end gap-2">
-				<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-medium text-white hover:bg-primary-hover">Apply</button>
-				<a href="/admin/runtime-logs" class="rounded-md border border-border-input px-4 py-2 text-body font-medium text-text-muted3 hover:bg-background">Reset</a>
+			<div class="flex flex-wrap gap-2">
+				<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-white hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus">Apply filters</button>
+				<a href="/admin/runtime-logs" class={ adminClassActionDefault() }>Clear</a>
 			</div>
 		</form>
 	</div>
 
-	<!-- 结果表格 -->
-	<div class="rounded-lg border border-border bg-surface overflow-hidden">
-		<div class="border-b border-border bg-background px-4 py-3 text-small text-text-muted2">
-			Page { adminInt(vm.Page) } — { adminInt(vm.TotalCount) } total records
+	<div class="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
+		<div class="flex flex-col gap-0.5 border-b border-border bg-background px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+			<h2 class="text-section font-semibold text-text">Results</h2>
+			<span class="text-small tabular-nums text-text-muted2">Page { adminInt(vm.Page) } · { adminInt(vm.TotalCount) } rows</span>
 		</div>
 		<div class="overflow-x-auto">
-			<table class="w-full text-left text-body">
-				<thead class="text-small uppercase tracking-wider text-text-muted border-b border-border">
+			<table class="w-full min-w-[56rem] text-left text-body">
+				<thead class="border-b border-border bg-background text-xs font-semibold uppercase tracking-wide text-text-muted">
 					<tr>
-						<th class="py-3 pl-4 pr-4">Time</th>
-						<th class="py-3 pr-4">Level</th>
-						<th class="py-3 pr-4">Method</th>
-						<th class="py-3 pr-4">Path</th>
-						<th class="py-3 pr-4">Request ID</th>
-						<th class="py-3 pr-4">Message</th>
+						<th class="py-2.5 pl-4 pr-3">Time</th>
+						<th class="py-2.5 pr-3">Level</th>
+						<th class="py-2.5 pr-3">Method</th>
+						<th class="py-2.5 pr-3">Path</th>
+						<th class="py-2.5 pr-3">Request ID</th>
+						<th class="py-2.5 pr-4">Message</th>
 					</tr>
 				</thead>
-				<tbody class="text-text">
+				<tbody class="divide-y divide-border-subtle text-text">
 					if len(vm.Items) == 0 {
 						<tr>
-							<td colspan="6" class="py-6 pl-4 text-text-muted2">No runtime log entries match the current filters.</td>
+							<td colspan="6" class="px-4 py-8 text-center text-small text-text-muted2">
+								<p class="font-medium text-text">No rows match</p>
+								<p class="mt-1">Adjust filters or date range.</p>
+							</td>
 						</tr>
 					}
 					for _, item := range vm.Items {
-						<tr class="border-b border-border-subtle align-top">
-							<td class="py-3 pl-4 pr-4 whitespace-nowrap text-small">{ item.CreatedAt.Format("2006-01-02 15:04:05") }</td>
-							<td class="py-3 pr-4">
+						<tr class={ adminClassTableRow() + " align-top" }>
+							<td class="py-2.5 pl-4 pr-3 whitespace-nowrap text-small text-text-muted2">{ item.CreatedAt.Format("2006-01-02 15:04:05") }</td>
+							<td class="py-2.5 pr-3">
 								if item.Level == "ERROR" {
-									<span class="inline-flex items-center rounded-full bg-danger-soft px-2 py-0.5 text-small font-medium text-danger-hover">ERROR</span>
+									<span class="inline-flex rounded-md border border-danger-border bg-danger-soft px-2 py-0.5 text-small font-semibold text-danger-hover">ERROR</span>
 								} else if item.Level == "WARN" {
-									<span class="inline-flex items-center rounded-full bg-warning-soft px-2 py-0.5 text-small font-medium text-warning">WARN</span>
+									<span class="inline-flex rounded-md border border-warning-border bg-warning-soft px-2 py-0.5 text-small font-semibold text-warning">WARN</span>
 								} else {
-									<span class="inline-flex items-center rounded-full bg-surface px-2 py-0.5 text-small font-medium text-text-muted2">{ item.Level }</span>
+									<span class="inline-flex rounded-md border border-border bg-background px-2 py-0.5 text-small font-medium text-text-muted2">{ item.Level }</span>
 								}
 							</td>
-							<td class="py-3 pr-4 text-small text-text-muted2">{ item.Method }</td>
-							<td class="py-3 pr-4 text-small font-mono">{ item.Path }</td>
-							<td class="py-3 pr-4 text-small text-text-muted3 font-mono">{ item.RequestID }</td>
-							<td class="py-3 pr-4 text-small break-all max-w-xs">
-								{ item.Message }
+							<td class="py-2.5 pr-3 text-small text-text-muted2">{ item.Method }</td>
+							<td class="py-2.5 pr-3 text-small font-mono text-text-muted2">{ item.Path }</td>
+							<td class="py-2.5 pr-3 text-xs font-mono text-text-muted3">{ item.RequestID }</td>
+							<td class="py-2.5 pr-4 text-small">
+								<p class="break-words text-text">{ item.Message }</p>
 								if item.Stack != "" {
-									<details class="mt-1">
-										<summary class="cursor-pointer text-text-muted3 hover:text-text">stack trace</summary>
-										<pre class="mt-2 overflow-x-auto rounded bg-background p-2 text-xs text-text-muted2 whitespace-pre-wrap">{ item.Stack }</pre>
+									<details class="mt-2">
+										<summary class={ adminClassActionDefault() + " cursor-pointer list-none [&::-webkit-details-marker]:hidden" }>Stack trace</summary>
+										<pre class="mt-2 max-h-64 overflow-auto rounded-md border border-border bg-background p-3 text-xs leading-relaxed text-text-muted2 whitespace-pre-wrap">{ item.Stack }</pre>
 									</details>
 								}
 							</td>
@@ -115,22 +118,22 @@ templ bodyAdminRuntimeLogs(vm AdminRuntimeLogsVM) {
 				</tbody>
 			</table>
 		</div>
-		<div class="flex items-center justify-between border-t border-border px-4 py-3">
-			<form method="get" action="/admin/runtime-logs">
+		<div class="flex flex-col gap-2 border-t border-border bg-background px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+			<form method="get" action="/admin/runtime-logs" class="inline">
 				<input type="hidden" name="q" value={ vm.FilterQ }/>
 				<input type="hidden" name="level" value={ vm.FilterLevel }/>
 				<input type="hidden" name="from" value={ vm.FilterFrom }/>
 				<input type="hidden" name="to" value={ vm.FilterTo }/>
 				<input type="hidden" name="page" value={ adminInt(vm.PrevPage) }/>
-				<button type="submit" class="rounded-md border border-border-input px-4 py-2 text-body font-medium text-text-muted3 hover:bg-background" disabled?={ !vm.HasPrev }>← Previous</button>
+				<button type="submit" class={ adminClassActionDefault() + " disabled:cursor-not-allowed disabled:opacity-50" } disabled?={ !vm.HasPrev }>Previous</button>
 			</form>
-			<form method="get" action="/admin/runtime-logs">
+			<form method="get" action="/admin/runtime-logs" class="inline">
 				<input type="hidden" name="q" value={ vm.FilterQ }/>
 				<input type="hidden" name="level" value={ vm.FilterLevel }/>
 				<input type="hidden" name="from" value={ vm.FilterFrom }/>
 				<input type="hidden" name="to" value={ vm.FilterTo }/>
 				<input type="hidden" name="page" value={ adminInt(vm.NextPage) }/>
-				<button type="submit" class="rounded-md border border-border-input px-4 py-2 text-body font-medium text-text-muted3 hover:bg-background" disabled?={ !vm.HasNext }>Next →</button>
+				<button type="submit" class={ adminClassActionDefault() + " disabled:cursor-not-allowed disabled:opacity-50" } disabled?={ !vm.HasNext }>Next</button>
 			</form>
 		</div>
 	</div>

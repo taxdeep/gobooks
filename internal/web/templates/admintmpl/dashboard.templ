@@ -6,7 +6,7 @@ import (
 	"strconv"
 )
 
-// AdminDashboardVM 是管理员仪表板的视图模型。
+// AdminDashboardVM is the admin dashboard view model.
 type AdminDashboardVM struct {
 	AdminEmail         string
 	CompanyCount       int
@@ -14,72 +14,135 @@ type AdminDashboardVM struct {
 	UserCount          int
 	RecentAuditLogs    []models.AuditLog
 	MaintenanceMode    bool
+	SysCPU             string
+	SysMemoryMB        string
+	SysDatabaseSize    string
+	SysStorageUsed     string
 }
 
 templ AdminDashboard(vm AdminDashboardVM) {
-	@adminLayout("Dashboard", vm.AdminEmail, bodyAdminDashboard(vm))
+	@adminLayout("Dashboard", vm.AdminEmail, "dashboard", vm.MaintenanceMode, bodyAdminDashboard(vm))
 }
 
 templ bodyAdminDashboard(vm AdminDashboardVM) {
-	@adminPageHeader("Dashboard", "System overview")
+	@adminPageHeader("Dashboard", "Production-style overview. Use the console menu for navigation — quick actions below jump to the most common tasks.")
 
 	if vm.MaintenanceMode {
-		<div class="mb-6 rounded-md border border-warning-border bg-warning-soft px-4 py-3 text-body text-warning font-medium">
-			⚠ Maintenance mode is currently ON — business users cannot access the application.
+		<div class="mb-6 rounded-lg border border-warning-border bg-warning-soft px-4 py-3 text-body text-warning">
+			<p class="font-semibold">Maintenance mode is on</p>
+			<p class="mt-1 text-small">Business users are blocked; this console stays available. Turn it off under System control.</p>
 		</div>
 	}
 
-	<!-- 统计卡片 -->
-	<div class="grid grid-cols-1 gap-4 md:grid-cols-3 mb-8">
-		@adminStatCard("Total Companies", strconv.Itoa(vm.CompanyCount), strconv.Itoa(vm.ActiveCompanyCount)+" active")
-		@adminStatCard("Total Users", strconv.Itoa(vm.UserCount), "business accounts")
-		if vm.MaintenanceMode {
-			@adminStatCard("System Status", "Maintenance", "business access suspended")
-		} else {
-			@adminStatCard("System Status", "Online", "all systems normal")
-		}
-	</div>
+	<section class="mb-10">
+		@adminSectionHeading("At a glance", "Key counts, system load, and database footprint")
+		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+			@adminStatCard("Companies", strconv.Itoa(vm.CompanyCount), strconv.Itoa(vm.ActiveCompanyCount)+" active", adminIconKPIBuilding(), "")
+			@adminStatCard("Business users", strconv.Itoa(vm.UserCount), "Total accounts", adminIconKPIUsers(), "")
+			if vm.MaintenanceMode {
+				@adminStatCard("System", "Maintenance", "Business app paused", adminIconKPIStatusPause(), "")
+			} else {
+				@adminStatCard("System", "Operational", "Business app available", adminIconKPIStatusOk(), "")
+			}
+			@adminStatCard("CPU usage", vm.SysCPU, "Approx. process CPU (Go runtime)", adminIconKPICPU(), "admin-sys-stat-cpu")
+			@adminStatCard("Memory usage", vm.SysMemoryMB, "Go heap (Alloc)", adminIconKPIMemory(), "admin-sys-stat-mem")
+			@adminStatCard("Database size", vm.SysDatabaseSize, "PostgreSQL current database", adminIconKPIDatabase(), "admin-sys-stat-db")
+			@adminStatCard("Storage used", vm.SysStorageUsed, "Across all companies", adminIconKPIStorage(), "admin-sys-stat-storage")
+		</div>
+		<script>
+			(function () {
+				const cpuEl = document.getElementById("admin-sys-stat-cpu");
+				const memEl = document.getElementById("admin-sys-stat-mem");
+				const dbEl = document.getElementById("admin-sys-stat-db");
+				const storageEl = document.getElementById("admin-sys-stat-storage");
+				if (!cpuEl || !memEl || !dbEl || !storageEl) return;
+				async function refresh() {
+					try {
+						const r = await fetch("/admin/system/stats", { headers: { Accept: "application/json" }, credentials: "same-origin" });
+						if (!r.ok) return;
+						const d = await r.json();
+						if (typeof d.cpuPercent === "number") cpuEl.textContent = d.cpuPercent.toFixed(1) + "%";
+						if (typeof d.memoryMb === "number") memEl.textContent = d.memoryMb.toFixed(1) + " MB";
+						if (typeof d.databaseSize === "string" && d.databaseSize) dbEl.textContent = d.databaseSize;
+						if (typeof d.storage_used === "string" && d.storage_used) storageEl.textContent = d.storage_used;
+					} catch (_) { /* ignore */ }
+				}
+				setInterval(refresh, 20000);
+			})();
+		</script>
+	</section>
 
-	<!-- 最近审计日志 -->
-	<div class="rounded-lg border border-border bg-surface p-6">
-		<div class="mb-4 flex items-center justify-between">
-			<h2 class="text-section font-semibold text-text">Recent activity (all companies)</h2>
-			<a href="/admin/audit-logs" class="text-small font-medium text-primary hover:text-primary-hover">View all →</a>
+	<section class="mb-10">
+		@adminSectionHeading("Quick actions", "Full-card targets — same destinations as the left navigation")
+		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+			@adminQuickActionLinkCard("/admin/companies", "Manage companies", "View and manage every organization. Deactivate or reactivate access.", adminIconQABuilding())
+			@adminQuickActionLinkCard("/admin/users", "Manage users", "Business accounts: deactivate, reactivate, and reset passwords.", adminIconQAUsers())
+			@adminQuickActionLogsCard()
+			@adminQuickActionLinkCard("/admin/system", "System control", "Maintenance mode, operational tools, and restart logging.", adminIconQACog())
 		</div>
-		<div class="overflow-x-auto">
-			<table class="w-full text-left text-body">
-				<thead class="text-small uppercase tracking-wider text-text-muted border-b border-border">
-					<tr>
-						<th class="py-2 pr-4">Time</th>
-						<th class="py-2 pr-4">Action</th>
-						<th class="py-2 pr-4">Entity</th>
-						<th class="py-2 pr-0">Actor</th>
-					</tr>
-				</thead>
-				<tbody class="text-text">
-					if len(vm.RecentAuditLogs) == 0 {
+		<p class="mt-4 text-small text-text-muted2">
+			<strong class="font-medium text-text-muted3">Console access:</strong>
+			<a href="/admin/sysadmins" class="font-medium text-primary hover:text-primary-hover">SysAdmin accounts</a>
+			controls who can sign in here (same as the sidebar).
+		</p>
+	</section>
+
+	<section>
+		@adminSectionHeading("Recent activity", "Latest audit events across all companies")
+		<div class="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
+			<div class="flex flex-col gap-2 border-b border-border bg-background/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+				<p class="text-small text-text-muted2">Newest first · same data as Audit logs</p>
+				<a href="/admin/audit-logs" class={ adminClassPrimaryButtonSmall() }>
+					View full audit log
+				</a>
+			</div>
+			<div class="overflow-x-auto">
+				<table class="w-full text-left text-body">
+					<thead class="border-b border-border bg-background text-xs font-semibold uppercase tracking-wide text-text-muted">
 						<tr>
-							<td colspan="4" class="py-4 text-text-muted2">No audit log entries yet.</td>
+							<th class="py-3 pl-4 pr-3">Time</th>
+							<th class="py-3 pr-3">Action</th>
+							<th class="py-3 pr-3">Entity</th>
+							<th class="py-3 pr-4">Actor</th>
 						</tr>
-					}
-					for _, a := range vm.RecentAuditLogs {
-						<tr class="border-b border-border-subtle">
-							<td class="py-2 pr-4 whitespace-nowrap text-small text-text-muted2">{ a.CreatedAt.Format("2006-01-02 15:04") }</td>
-							<td class="py-2 pr-4 font-medium">{ a.Action }</td>
-							<td class="py-2 pr-4 text-small text-text-muted2">{ a.EntityType }</td>
-							<td class="py-2 pr-0 text-small">{ a.Actor }</td>
-						</tr>
-					}
-				</tbody>
-			</table>
+					</thead>
+					<tbody class="text-text">
+						if len(vm.RecentAuditLogs) == 0 {
+							<tr>
+								<td colspan="4" class="px-4 py-10 text-center text-small text-text-muted2">
+									<p class="font-medium text-text">No activity yet</p>
+									<p class="mt-1">Events appear as admins and users work in the product.</p>
+								</td>
+							</tr>
+						}
+						for _, a := range vm.RecentAuditLogs {
+							<tr class={ adminClassTableRow() }>
+								<td class="py-2.5 pl-4 pr-3 whitespace-nowrap text-small text-text-muted2">{ a.CreatedAt.Format("2006-01-02 15:04") }</td>
+								<td class="py-2.5 pr-3 font-medium">{ a.Action }</td>
+								<td class="py-2.5 pr-3 text-small text-text-muted2">{ a.EntityType }</td>
+								<td class="py-2.5 pr-4 text-small">{ a.Actor }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
 		</div>
-	</div>
+	</section>
 }
 
-templ adminStatCard(title string, value string, subtitle string) {
-	<div class="rounded-lg border border-border bg-surface p-5 shadow-sm">
-		<div class="text-small font-medium uppercase tracking-wider text-text-muted">{ title }</div>
-		<div class="mt-2 text-title font-semibold text-text">{ value }</div>
-		<div class="mt-1 text-small text-text-muted2">{ subtitle }</div>
+templ adminStatCard(title string, value string, subtitle string, icon templ.Component, valueElementID string) {
+	<div class="relative rounded-xl border border-border bg-surface p-4 shadow-sm">
+		<div class="pointer-events-none absolute right-3 top-3 text-text-muted opacity-[0.65]" aria-hidden="true">
+			@icon
+		</div>
+		<div class="min-w-0 pr-10">
+			<p class="text-xs font-semibold uppercase tracking-wide text-text-muted">{ title }</p>
+			if valueElementID != "" {
+				<p id={ valueElementID } class="mt-1.5 text-2xl font-semibold tabular-nums leading-tight text-text sm:text-3xl">{ value }</p>
+			} else {
+				<p class="mt-1.5 text-2xl font-semibold tabular-nums leading-tight text-text sm:text-3xl">{ value }</p>
+			}
+			<p class="mt-1 text-small leading-snug text-text-muted2">{ subtitle }</p>
+		</div>
 	</div>
 }

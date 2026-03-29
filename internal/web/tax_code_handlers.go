@@ -45,7 +45,6 @@ func (s *Server) handleCompanySalesTaxGet(c *fiber.Ctx) error {
 				vm.Rate = tc.Rate.Mul(decimal.NewFromInt(100)).StringFixed(4)
 				// Trim trailing zeros.
 				vm.Rate = trimTrailingZeros(vm.Rate)
-				vm.Scope = string(tc.Scope)
 				vm.RecoveryMode = string(tc.RecoveryMode)
 				vm.RecoveryRate = tc.RecoveryRate.StringFixed(0)
 				if tc.RecoveryRate.IsZero() {
@@ -78,7 +77,7 @@ func (s *Server) handleTaxCodeCreate(c *fiber.Ctx) error {
 		return c.Redirect("/select-company", fiber.StatusSeeOther)
 	}
 
-	name, rateRaw, scopeRaw, recoveryModeRaw, recoveryRateRaw, salesAcctRaw, purchaseAcctRaw := parseTaxCodeForm(c)
+	name, rateRaw, recoveryModeRaw, recoveryRateRaw, salesAcctRaw, purchaseAcctRaw := parseTaxCodeForm(c)
 
 	vm := pages.SalesTaxVM{
 		HasCompany:                   true,
@@ -87,7 +86,6 @@ func (s *Server) handleTaxCodeCreate(c *fiber.Ctx) error {
 		DrawerMode:                   "create",
 		Name:                         name,
 		Rate:                         rateRaw,
-		Scope:                        scopeRaw,
 		RecoveryMode:                 recoveryModeRaw,
 		RecoveryRate:                 recoveryRateRaw,
 		SalesTaxAccountID:            salesAcctRaw,
@@ -95,7 +93,7 @@ func (s *Server) handleTaxCodeCreate(c *fiber.Ctx) error {
 	}
 	_ = s.loadSalesTaxDropdowns(companyID, &vm)
 
-	rate, salesAcctID, purchaseAcctID, valid := validateTaxCodeForm(&vm, name, rateRaw, scopeRaw, recoveryModeRaw, recoveryRateRaw, salesAcctRaw, purchaseAcctRaw)
+	rate, salesAcctID, purchaseAcctID, valid := validateTaxCodeForm(&vm, name, rateRaw, recoveryModeRaw, recoveryRateRaw, salesAcctRaw, purchaseAcctRaw)
 	if !valid {
 		s.loadTaxCodeItems(companyID, &vm)
 		return pages.CompanySalesTax(vm).Render(c.Context(), c)
@@ -121,7 +119,7 @@ func (s *Server) handleTaxCodeCreate(c *fiber.Ctx) error {
 		CompanyID:                    companyID,
 		Name:                         name,
 		Rate:                         rate,
-		Scope:                        models.TaxScope(scopeRaw),
+		Scope:                        models.TaxScopeBoth,
 		RecoveryMode:                 models.TaxRecoveryMode(recoveryModeRaw),
 		RecoveryRate:                 recoveryRate,
 		SalesTaxAccountID:            salesAcctID,
@@ -172,7 +170,7 @@ func (s *Server) handleTaxCodeUpdate(c *fiber.Ctx) error {
 		return c.Redirect("/settings/company/sales-tax", fiber.StatusSeeOther)
 	}
 
-	name, rateRaw, scopeRaw, recoveryModeRaw, recoveryRateRaw, salesAcctRaw, purchaseAcctRaw := parseTaxCodeForm(c)
+	name, rateRaw, recoveryModeRaw, recoveryRateRaw, salesAcctRaw, purchaseAcctRaw := parseTaxCodeForm(c)
 
 	vm := pages.SalesTaxVM{
 		HasCompany:                   true,
@@ -182,7 +180,6 @@ func (s *Server) handleTaxCodeUpdate(c *fiber.Ctx) error {
 		EditingID:                    taxCodeID,
 		Name:                         name,
 		Rate:                         rateRaw,
-		Scope:                        scopeRaw,
 		RecoveryMode:                 recoveryModeRaw,
 		RecoveryRate:                 recoveryRateRaw,
 		SalesTaxAccountID:            salesAcctRaw,
@@ -190,7 +187,7 @@ func (s *Server) handleTaxCodeUpdate(c *fiber.Ctx) error {
 	}
 	_ = s.loadSalesTaxDropdowns(companyID, &vm)
 
-	rate, salesAcctID, purchaseAcctID, valid := validateTaxCodeForm(&vm, name, rateRaw, scopeRaw, recoveryModeRaw, recoveryRateRaw, salesAcctRaw, purchaseAcctRaw)
+	rate, salesAcctID, purchaseAcctID, valid := validateTaxCodeForm(&vm, name, rateRaw, recoveryModeRaw, recoveryRateRaw, salesAcctRaw, purchaseAcctRaw)
 	if !valid {
 		s.loadTaxCodeItems(companyID, &vm)
 		return pages.CompanySalesTax(vm).Render(c.Context(), c)
@@ -200,7 +197,6 @@ func (s *Server) handleTaxCodeUpdate(c *fiber.Ctx) error {
 
 	existing.Name = name
 	existing.Rate = rate
-	existing.Scope = models.TaxScope(scopeRaw)
 	existing.RecoveryMode = models.TaxRecoveryMode(recoveryModeRaw)
 	existing.RecoveryRate = recoveryRate
 	existing.SalesTaxAccountID = salesAcctID
@@ -298,10 +294,9 @@ func (s *Server) loadTaxCodeItems(companyID uint, vm *pages.SalesTaxVM) {
 }
 
 // parseTaxCodeForm extracts all tax code form fields from a POST request.
-func parseTaxCodeForm(c *fiber.Ctx) (name, rate, scope, recoveryMode, recoveryRate, salesAcct, purchaseAcct string) {
+func parseTaxCodeForm(c *fiber.Ctx) (name, rate, recoveryMode, recoveryRate, salesAcct, purchaseAcct string) {
 	name = strings.TrimSpace(c.FormValue("name"))
 	rate = strings.TrimSpace(c.FormValue("rate"))
-	scope = strings.TrimSpace(c.FormValue("scope"))
 	recoveryMode = strings.TrimSpace(c.FormValue("recovery_mode"))
 	recoveryRate = strings.TrimSpace(c.FormValue("recovery_rate"))
 	salesAcct = strings.TrimSpace(c.FormValue("sales_tax_account_id"))
@@ -313,7 +308,7 @@ func parseTaxCodeForm(c *fiber.Ctx) (name, rate, scope, recoveryMode, recoveryRa
 // Sets field errors on vm and returns valid=false if anything fails.
 func validateTaxCodeForm(
 	vm *pages.SalesTaxVM,
-	name, rateRaw, scopeRaw, recoveryModeRaw, recoveryRateRaw, salesAcctRaw, purchaseAcctRaw string,
+	name, rateRaw, recoveryModeRaw, recoveryRateRaw, salesAcctRaw, purchaseAcctRaw string,
 ) (rate decimal.Decimal, salesAcctID uint, purchaseAcctID *uint, valid bool) {
 	valid = true
 
@@ -334,14 +329,6 @@ func validateTaxCodeForm(
 		} else {
 			rate = rPct.Div(decimal.NewFromInt(100))
 		}
-	}
-
-	switch scopeRaw {
-	case "sales", "purchase", "both":
-		// valid
-	default:
-		vm.ScopeError = "Scope is required."
-		valid = false
 	}
 
 	switch recoveryModeRaw {

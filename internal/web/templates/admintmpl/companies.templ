@@ -3,69 +3,83 @@ package admintmpl
 
 import "gobooks/internal/models"
 
-// AdminCompanyRow 是公司列表中的单行数据。
+// AdminCompanyRow is one row in the company list.
 type AdminCompanyRow struct {
 	Company     models.Company
 	MemberCount int
 }
 
-// AdminCompaniesVM 是公司管理页的视图模型。
+// AdminCompaniesVM is the companies page view model.
 type AdminCompaniesVM struct {
-	AdminEmail string
-	Companies  []AdminCompanyRow
-	Flash      string
+	AdminEmail       string
+	MaintenanceMode  bool
+	Companies        []AdminCompanyRow
+	Flash            string
 }
 
 templ AdminCompanies(vm AdminCompaniesVM) {
-	@adminLayout("Companies", vm.AdminEmail, bodyAdminCompanies(vm))
+	@adminLayout("Companies", vm.AdminEmail, "companies", vm.MaintenanceMode, bodyAdminCompanies(vm))
 }
 
 templ bodyAdminCompanies(vm AdminCompaniesVM) {
-	@adminPageHeader("Companies", "All companies registered in the system.")
+	@adminPageHeader("Companies", "Every organization on this server. Deactivate blocks all members (data is kept; there is no delete).")
 	@adminFlashBanner(vm.Flash)
 
-	<div class="rounded-lg border border-border bg-surface overflow-hidden">
+	<div class="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
+		<div class="flex flex-col gap-3 border-b border-border bg-background/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+			<div>
+				<h2 class="text-section font-semibold text-text">Company directory</h2>
+				<p class="mt-0.5 text-xs text-text-muted2">{ adminInt(len(vm.Companies)) } organizations · Deactivate blocks access; permanent delete is not available.</p>
+			</div>
+			<div class="flex flex-wrap items-center gap-2">
+				<a href="/admin/audit-logs" class={ adminClassSecondaryButton() }>View audit log</a>
+			</div>
+		</div>
 		<div class="overflow-x-auto">
-			<table class="w-full text-left text-body">
-				<thead class="text-small uppercase tracking-wider text-text-muted border-b border-border bg-background">
+			<table class="w-full min-w-[640px] text-left text-body">
+				<thead class="border-b border-border bg-background text-xs font-semibold uppercase tracking-wide text-text-muted">
 					<tr>
-						<th class="py-3 pl-4 pr-4">ID</th>
-						<th class="py-3 pr-4">Name</th>
-						<th class="py-3 pr-4">Entity</th>
-						<th class="py-3 pr-4">Members</th>
-						<th class="py-3 pr-4">Created</th>
-						<th class="py-3 pr-4">Status</th>
-						<th class="py-3 pr-4">Actions</th>
+						<th class="py-2.5 pl-4 pr-4">Company</th>
+						<th class="py-2.5 pr-4">Status</th>
+						<th class="py-2.5 pr-4">Created</th>
+						<th class="py-2.5 pr-4">Members</th>
+						<th class="py-2.5 pr-4">Type</th>
+						<th class="py-2.5 pr-4 text-right">Actions</th>
 					</tr>
 				</thead>
 				<tbody class="text-text">
 					if len(vm.Companies) == 0 {
 						<tr>
-							<td colspan="7" class="py-6 pl-4 text-text-muted2">No companies found.</td>
+							<td colspan="6" class="px-4 py-8 text-center text-small text-text-muted2">
+								<p class="font-medium text-text">No companies</p>
+								<p class="mt-1">Create organizations from the business application.</p>
+							</td>
 						</tr>
 					}
 					for _, row := range vm.Companies {
 						<tr class={ adminCompanyRowClass(row.Company) }>
-							<td class="py-3 pl-4 pr-4 text-small text-text-muted2">{ adminUint(uint(row.Company.ID)) }</td>
-							<td class="py-3 pr-4 font-medium">{ row.Company.Name }</td>
-							<td class="py-3 pr-4 text-small text-text-muted2">{ string(row.Company.EntityType) }</td>
-							<td class="py-3 pr-4 text-small">{ adminInt(row.MemberCount) }</td>
-							<td class="py-3 pr-4 text-small text-text-muted2">{ row.Company.CreatedAt.Format("2006-01-02") }</td>
-							<td class="py-3 pr-4">
+							<td class="py-2.5 pl-4 pr-4">
+								<div class="font-semibold text-text">{ row.Company.Name }</div>
+								<div class="text-xs text-text-muted2">ID { adminUint(uint(row.Company.ID)) }</div>
+							</td>
+							<td class="py-2.5 pr-4">
 								if row.Company.IsActive {
-									<span class="rounded-full bg-success-soft px-2 py-0.5 text-small font-medium text-success">Active</span>
+									<span class={ adminClassBadgeActive() }>Active</span>
 								} else {
-									<span class="rounded-full bg-danger-soft px-2 py-0.5 text-small font-medium text-danger-hover">Suspended</span>
+									<span class={ adminClassBadgeInactive() }>Inactive</span>
 								}
 							</td>
-							<td class="py-3 pr-4 whitespace-nowrap">
+							<td class="py-2.5 pr-4 whitespace-nowrap text-small text-text-muted2">{ row.Company.CreatedAt.Format("2006-01-02") }</td>
+							<td class="py-2.5 pr-4 text-small tabular-nums">{ adminInt(row.MemberCount) }</td>
+							<td class="py-2.5 pr-4 text-small text-text-muted2">{ string(row.Company.EntityType) }</td>
+							<td class="py-2.5 pr-4 text-right whitespace-nowrap">
 								if row.Company.IsActive {
-									<form method="post" action={ "/admin/companies/" + adminUint(uint(row.Company.ID)) + "/deactivate" } class="inline" onsubmit="return confirm('Suspend this company? Existing members will be locked out immediately.');">
-										<button type="submit" class="text-small font-medium text-warning hover:text-warning-hover">Suspend</button>
+									<form method="post" action={ "/admin/companies/" + adminUint(uint(row.Company.ID)) + "/deactivate" } class="inline" onsubmit="return confirm('Deactivate this company? All members lose access immediately.');">
+										<button type="submit" class={ adminClassActionCaution() }>Deactivate</button>
 									</form>
 								} else {
-									<form method="post" action={ "/admin/companies/" + adminUint(uint(row.Company.ID)) + "/reactivate" } class="inline">
-										<button type="submit" class="text-small font-medium text-success hover:text-success-hover">Reactivate</button>
+									<form method="post" action={ "/admin/companies/" + adminUint(uint(row.Company.ID)) + "/reactivate" } class="inline" onsubmit="return confirm('Reactivate this company?');">
+										<button type="submit" class={ adminClassActionPositive() }>Reactivate</button>
 									</form>
 								}
 							</td>
@@ -79,7 +93,7 @@ templ bodyAdminCompanies(vm AdminCompaniesVM) {
 
 func adminCompanyRowClass(co models.Company) string {
 	if !co.IsActive {
-		return "border-b border-border-subtle bg-background opacity-70"
+		return adminClassTableRowInactive()
 	}
-	return "border-b border-border-subtle"
+	return adminClassTableRow()
 }

@@ -22,19 +22,23 @@ func (t PartyType) Valid() bool {
 	}
 }
 
-// Customer is a minimal name record (for Journal Entry "Name" selection), scoped to one company.
+// Customer is a company-scoped record for sales-side party selection (invoices, journal, etc.).
 type Customer struct {
-	ID        uint   `gorm:"primaryKey"`
-	CompanyID uint   `gorm:"not null;index"`
-	Name      string `gorm:"not null"`
-	CreatedAt time.Time
+	ID          uint   `gorm:"primaryKey"`
+	CompanyID   uint   `gorm:"not null;index"`
+	Name        string `gorm:"not null"`
+	Address     string `gorm:"type:text"` // optional mailing / billing address
+	PaymentTerm string `gorm:"type:text"` // optional, e.g. Net 30, Due on receipt
+	CreatedAt   time.Time
 }
 
-// Vendor is a minimal name record (for Journal Entry "Name" selection), scoped to one company.
+// Vendor is a company-scoped record for purchase-side party selection (bills, journal, etc.).
 type Vendor struct {
-	ID        uint   `gorm:"primaryKey"`
-	CompanyID uint   `gorm:"not null;index"`
-	Name      string `gorm:"not null"`
-	CreatedAt time.Time
+	ID          uint   `gorm:"primaryKey"`
+	CompanyID   uint   `gorm:"not null;index"`
+	Name        string `gorm:"not null"`
+	Address     string `gorm:"type:text"` // optional mailing / remittance address
+	PaymentTerm string `gorm:"type:text"` // optional, e.g. Net 30, Due on receipt
+	CreatedAt   time.Time
 }
 

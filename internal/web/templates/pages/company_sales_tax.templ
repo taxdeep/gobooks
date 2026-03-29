@@ -138,9 +138,9 @@ templ bodyCompanySalesTax(vm SalesTaxVM) {
 
 		@ui.RightDrawerBackdrop()
 		if vm.DrawerMode == "edit" {
-			@ui.RightDrawerPanel("stDrawer", "st-drawer-title", "Edit Tax Code", "Update rate, scope, and posting accounts.", stEditDrawerForm(vm))
+			@ui.RightDrawerPanel("stDrawer", "st-drawer-title", "Edit Tax Code", "Update rate and posting accounts.", stEditDrawerForm(vm))
 		} else {
-			@ui.RightDrawerPanel("stDrawer", "st-drawer-title", "New Tax Code", "Define a rate, scope, and the accounts to post tax to.", stCreateDrawerForm(vm))
+			@ui.RightDrawerPanel("stDrawer", "st-drawer-title", "New Tax Code", "Define a rate and the accounts to post tax to.", stCreateDrawerForm(vm))
 		}
 	</div>
 }
@@ -274,28 +274,6 @@ templ stFormFields(vm SalesTaxVM) {
 				<p class="mt-1 text-body text-danger">{ vm.RateError }</p>
 			} else {
 				<p class="mt-1 text-small text-text-muted2">Enter as a percentage, e.g. 5 for 5%.</p>
-			}
-		</div>
-
-		<!-- Scope -->
-		<div>
-			<label class="block text-body font-medium text-text">Scope *</label>
-			<select
-				name="scope"
-				class={ stSelectClass(vm.ScopeError != "") }
-			>
-				<option value="">-- Select --</option>
-				<option value="both" selected?={ vm.Scope == "both" }>Sales &amp; Purchase</option>
-				<option value="sales" selected?={ vm.Scope == "sales" }>Sales only</option>
-				<option value="purchase" selected?={ vm.Scope == "purchase" }>Purchase only</option>
-			</select>
-			if vm.ScopeError != "" {
-				<p class="mt-1 text-body text-danger">{ vm.ScopeError }</p>
-			} else {
-				<p class="mt-1 text-small text-text-muted2">
-					Sales codes post to Sales Tax Payable on invoices.
-					Purchase codes apply ITC recoverability on bills.
-				</p>
 			}
 		</div>
 

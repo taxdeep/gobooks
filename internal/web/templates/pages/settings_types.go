@@ -37,7 +37,6 @@ type SalesTaxVM struct {
 	// Form fields (strings so POST round-trips preserve user input on validation errors).
 	Name                         string
 	Rate                         string // display as percentage (e.g. "5" for 5%)
-	Scope                        string
 	RecoveryMode                 string
 	RecoveryRate                 string // 0–100 percentage; only relevant when RecoveryMode = partial
 	SalesTaxAccountID            string
@@ -46,7 +45,6 @@ type SalesTaxVM struct {
 	// Field-level validation errors.
 	NameError                         string
 	RateError                         string
-	ScopeError                        string
 	RecoveryModeError                 string
 	RecoveryRateError                 string
 	SalesTaxAccountIDError            string

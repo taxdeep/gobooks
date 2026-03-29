@@ -34,9 +34,10 @@ func (s *Server) handleAdminUsers(c *fiber.Ctx) error {
 	}
 
 	return admintmpl.AdminUsers(admintmpl.AdminUsersVM{
-		AdminEmail: AdminUserFromCtx(c).Email,
-		Users:      rows,
-		Flash:      c.Query("flash"),
+		AdminEmail:      AdminUserFromCtx(c).Email,
+		MaintenanceMode: IsMaintenanceMode(),
+		Users:           rows,
+		Flash:           c.Query("flash"),
 	}).Render(c.Context(), c)
 }
 
@@ -70,7 +71,7 @@ func (s *Server) handleAdminUserDeactivate(c *fiber.Ctx) error {
 		},
 	)
 
-	return c.Redirect("/admin/users?flash=deactivated", fiber.StatusSeeOther)
+	return c.Redirect("/admin/users?flash=user_deactivated", fiber.StatusSeeOther)
 }
 
 // handleAdminUserReactivate 重新激活指定业务用户。
@@ -99,7 +100,7 @@ func (s *Server) handleAdminUserReactivate(c *fiber.Ctx) error {
 		},
 	)
 
-	return c.Redirect("/admin/users?flash=reactivated", fiber.StatusSeeOther)
+	return c.Redirect("/admin/users?flash=user_reactivated", fiber.StatusSeeOther)
 }
 
 // handleAdminUserResetPassword 重置指定业务用户密码。

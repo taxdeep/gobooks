@@ -33,6 +33,17 @@ templ bodyCustomers(vm CustomersVM) {
 				<h2 class="text-section font-semibold text-text">Add Customer</h2>
 				<div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
 					@textField("Name *", "name", vm.Name, vm.NameError, "e.g. ACME Corp.")
+					@textField("Payment term (optional)", "payment_term", vm.PaymentTerm, "", "e.g. Net 30, Due on receipt")
+					<div class="md:col-span-2">
+						<label class="block text-body font-medium text-text">Address (optional)</label>
+						<textarea
+							name="address"
+							rows="3"
+							placeholder="Street, city, province, postal code…"
+							class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+						>{ vm.Address }</textarea>
+						<p class="mt-1 text-small text-text-muted2">Shown for your records; not required to save a customer.</p>
+					</div>
 				</div>
 				<div class="mt-6 flex items-center justify-end">
 					<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
@@ -49,12 +60,28 @@ templ bodyCustomers(vm CustomersVM) {
 					<thead class="text-small uppercase tracking-wider text-text-muted">
 						<tr class="border-b border-border">
 							<th class="py-3 pr-4">Name</th>
+							<th class="py-3 pr-4">Address</th>
+							<th class="py-3 pr-0">Payment term</th>
 						</tr>
 					</thead>
 					<tbody class="text-text">
 						for _, c := range vm.Customers {
 							<tr class="border-b border-border-subtle">
 								<td class="py-3 pr-4 font-medium">{ c.Name }</td>
+								<td class="max-w-xs py-3 pr-4 text-small text-text-muted2">
+									if c.Address != "" {
+										<span class="line-clamp-2 whitespace-pre-wrap" title={ c.Address }>{ c.Address }</span>
+									} else {
+										<span class="text-text-muted3">—</span>
+									}
+								</td>
+								<td class="py-3 pr-0 text-small text-text-muted2">
+									if c.PaymentTerm != "" {
+										{ c.PaymentTerm }
+									} else {
+										<span class="text-text-muted3">—</span>
+									}
+								</td>
 							</tr>
 						}
 					</tbody>

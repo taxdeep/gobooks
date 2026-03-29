@@ -3,81 +3,100 @@ package admintmpl
 
 import "gobooks/internal/models"
 
-// AdminUserRow 是用户列表中的单行数据。
+// AdminUserRow is one row in the business user list.
 type AdminUserRow struct {
 	User         models.User
 	CompanyCount int
 }
 
-// AdminUsersVM 是用户管理页的视图模型。
+// AdminUsersVM is the users page view model.
 type AdminUsersVM struct {
-	AdminEmail string
-	Users      []AdminUserRow
-	Flash      string
+	AdminEmail      string
+	MaintenanceMode bool
+	Users           []AdminUserRow
+	Flash           string
 }
 
 templ AdminUsers(vm AdminUsersVM) {
-	@adminLayout("Users", vm.AdminEmail, bodyAdminUsers(vm))
+	@adminLayout("Users", vm.AdminEmail, "users", vm.MaintenanceMode, bodyAdminUsers(vm))
 }
 
 templ bodyAdminUsers(vm AdminUsersVM) {
-	@adminPageHeader("Users", "All business user accounts.")
+	@adminPageHeader("Users", "Business accounts (not SysAdmin). Use row actions to deactivate, reactivate, or set a new password.")
 	@adminFlashBanner(vm.Flash)
 
-	<div class="rounded-lg border border-border bg-surface overflow-hidden">
+	<div class="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
+		<div class="flex flex-col gap-3 border-b border-border bg-background/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+			<div>
+				<h2 class="text-section font-semibold text-text">User directory</h2>
+				<p class="mt-0.5 text-xs text-text-muted2">{ adminInt(len(vm.Users)) } accounts · Roles are per company (manage in the business app, not here).</p>
+			</div>
+			<div class="flex flex-wrap items-center gap-2">
+				<span class="inline-flex items-center rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-text-muted2" title="No global role field in API">
+					Change role → company settings
+				</span>
+				<a href="/admin/audit-logs" class={ adminClassSecondaryButton() }>View audit log</a>
+			</div>
+		</div>
 		<div class="overflow-x-auto">
-			<table class="w-full text-left text-body">
-				<thead class="text-small uppercase tracking-wider text-text-muted border-b border-border bg-background">
+			<table class="w-full min-w-[720px] text-left text-body">
+				<thead class="border-b border-border bg-background text-xs font-semibold uppercase tracking-wide text-text-muted">
 					<tr>
-						<th class="py-3 pl-4 pr-4">Email</th>
-						<th class="py-3 pr-4">Display Name</th>
-						<th class="py-3 pr-4">Companies</th>
-						<th class="py-3 pr-4">Created</th>
-						<th class="py-3 pr-4">Status</th>
-						<th class="py-3 pr-4">Actions</th>
+						<th class="py-2.5 pl-4 pr-4">Email</th>
+						<th class="py-2.5 pr-4">Name</th>
+						<th class="py-2.5 pr-4">Companies</th>
+						<th class="py-2.5 pr-4">Role</th>
+						<th class="py-2.5 pr-4">Created</th>
+						<th class="py-2.5 pr-4">Status</th>
+						<th class="py-2.5 pr-4 text-right">Actions</th>
 					</tr>
 				</thead>
 				<tbody class="text-text">
 					if len(vm.Users) == 0 {
 						<tr>
-							<td colspan="6" class="py-6 pl-4 text-text-muted2">No users found.</td>
+							<td colspan="7" class="px-4 py-8 text-center text-small text-text-muted2">
+								<p class="font-medium text-text">No users</p>
+								<p class="mt-1">Accounts are created through the business application.</p>
+							</td>
 						</tr>
 					}
 					for _, row := range vm.Users {
 						<tr class={ adminUserRowClass(row.User) }>
-							<td class="py-3 pl-4 pr-4 font-mono text-small">{ row.User.Email }</td>
-							<td class="py-3 pr-4">{ row.User.DisplayName }</td>
-							<td class="py-3 pr-4 text-small">{ adminInt(row.CompanyCount) }</td>
-							<td class="py-3 pr-4 text-small text-text-muted2">{ row.User.CreatedAt.Format("2006-01-02") }</td>
-							<td class="py-3 pr-4">
+							<td class="py-2.5 pl-4 pr-4 font-mono text-small">{ row.User.Email }</td>
+							<td class="py-2.5 pr-4">{ row.User.DisplayName }</td>
+							<td class="py-2.5 pr-4 text-small tabular-nums">{ adminInt(row.CompanyCount) }</td>
+							<td class="py-2.5 pr-4 text-small text-text-muted2">—</td>
+							<td class="py-2.5 pr-4 whitespace-nowrap text-small text-text-muted2">{ row.User.CreatedAt.Format("2006-01-02") }</td>
+							<td class="py-2.5 pr-4">
 								if row.User.IsActive {
-									<span class="rounded-full bg-success-soft px-2 py-0.5 text-small font-medium text-success">Active</span>
+									<span class={ adminClassBadgeActive() }>Active</span>
 								} else {
-									<span class="rounded-full bg-danger-soft px-2 py-0.5 text-small font-medium text-danger-hover">Inactive</span>
+									<span class={ adminClassBadgeInactive() }>Inactive</span>
 								}
 							</td>
-							<td class="py-3 pr-4 whitespace-nowrap">
-								<div class="flex items-center gap-3">
+							<td class="py-2.5 pr-4 text-right">
+								<div class="flex flex-wrap items-center justify-end gap-2">
 									if row.User.IsActive {
 										<form method="post" action={ "/admin/users/" + row.User.ID.String() + "/deactivate" } class="inline" onsubmit="return confirm('Deactivate this user? All sessions will be revoked immediately.');">
-											<button type="submit" class="text-small font-medium text-warning hover:text-warning-hover">Deactivate</button>
+											<button type="submit" class={ adminClassActionCaution() }>Deactivate</button>
 										</form>
 									} else {
-										<form method="post" action={ "/admin/users/" + row.User.ID.String() + "/reactivate" } class="inline">
-											<button type="submit" class="text-small font-medium text-success hover:text-success-hover">Reactivate</button>
+										<form method="post" action={ "/admin/users/" + row.User.ID.String() + "/reactivate" } class="inline" onsubmit="return confirm('Reactivate this user?');">
+											<button type="submit" class={ adminClassActionPositive() }>Reactivate</button>
 										</form>
 									}
-									<!-- 密码重置表单（内联展开） -->
-									<details class="inline">
-										<summary class="text-small font-medium text-primary hover:text-primary-hover cursor-pointer list-none">Reset password</summary>
-										<form method="post" action={ "/admin/users/" + row.User.ID.String() + "/reset-password" } class="mt-2 flex items-center gap-2">
+									<details class="inline-block text-left">
+										<summary class={ adminClassPrimaryButtonSmall() + " cursor-pointer list-none [&::-webkit-details-marker]:hidden" }>
+											Reset password
+										</summary>
+										<form method="post" action={ "/admin/users/" + row.User.ID.String() + "/reset-password" } class="mt-2 flex flex-wrap items-center justify-end gap-2">
 											<input
 												type="password"
 												name="new_password"
 												placeholder="New password (min 8)"
-												class="rounded-md border border-border-input px-2 py-1 text-small outline-none focus:ring-2 focus:ring-primary-focus"
+												class="min-w-[10rem] flex-1 rounded-md border border-border-input bg-background px-2 py-1.5 text-small outline-none focus:ring-2 focus:ring-primary-focus"
 											/>
-											<button type="submit" class="rounded-md bg-primary px-3 py-1 text-small font-medium text-white hover:bg-primary-hover">Set</button>
+											<button type="submit" class={ adminClassSecondaryButton() }>Save new password</button>
 										</form>
 									</details>
 								</div>
@@ -92,7 +111,7 @@ templ bodyAdminUsers(vm AdminUsersVM) {
 
 func adminUserRowClass(u models.User) string {
 	if !u.IsActive {
-		return "border-b border-border-subtle bg-background opacity-70"
+		return adminClassTableRowInactive()
 	}
-	return "border-b border-border-subtle"
+	return adminClassTableRow()
 }

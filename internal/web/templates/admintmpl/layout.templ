@@ -1,18 +1,21 @@
-// 遵循产品需求 v1.0
-// Package admintmpl 包含 SysAdmin 界面的 templ 模板。
-// 该包使用完全独立的 HTML 布局，与业务端 layout.templ 不共享任何组件。
+// Package admintmpl contains SysAdmin HTML templates.
+// Shell layout aligns with main GoBooks (surface header, bordered sidebar) while staying clearly “system mode”.
 package admintmpl
 
-// adminLayout 是 SysAdmin 的 HTML 外壳。
-// 使用红色顶栏作为视觉警示，明确与业务界面区分。
-templ adminLayout(title string, adminEmail string, content templ.Component) {
+// adminLayout is the authenticated SysAdmin chrome: top bar + sidebar + main.
+// activeNav: dashboard | companies | users | audit | runtime | system | sysadmins | account
+templ adminLayout(title string, adminEmail string, activeNav string, maintenanceMode bool, content templ.Component) {
 	<!doctype html>
 	<html lang="en">
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<title>{ title } — GoBooks SysAdmin</title>
+			<title>{ title } — GoBooks System</title>
 			<link rel="stylesheet" href="/static/app.css?v=2"/>
+			<style>
+				[x-cloak] { display: none !important; }
+			</style>
+			<script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 			<script>
 				(function () {
 					function readCookie(name) {
@@ -49,40 +52,139 @@ templ adminLayout(title string, adminEmail string, content templ.Component) {
 			</script>
 		</head>
 		<body class="bg-background text-text">
-			<!-- 管理员顶栏：使用危险红色背景，视觉上与业务界面明确区分 -->
-			<header class="bg-danger text-white">
-				<div class="flex items-center justify-between px-6 py-3">
-					<div class="flex items-center gap-6">
-						<span class="font-semibold tracking-wide text-body">⚙ GoBooks SysAdmin</span>
-						<nav class="hidden md:flex items-center gap-4 text-small">
-							<a href="/admin/dashboard" class="hover:underline opacity-90">Dashboard</a>
-							<a href="/admin/companies" class="hover:underline opacity-90">Companies</a>
-							<a href="/admin/users" class="hover:underline opacity-90">Users</a>
-							<a href="/admin/audit-logs" class="hover:underline opacity-90">Audit Logs</a>
-							<a href="/admin/runtime-logs" class="hover:underline opacity-90">Runtime Logs</a>
-							<a href="/admin/sysadmins" class="hover:underline opacity-90">SysAdmins</a>
-							<a href="/admin/system" class="hover:underline opacity-90">System</a>
-						</nav>
-					</div>
-					<div class="flex items-center gap-4 text-small">
-						<a href="/admin/account" class="opacity-75 hover:opacity-100 hover:underline">{ adminEmail }</a>
-						<form method="post" action="/admin/logout" class="inline">
-							<button type="submit" class="rounded border border-white/40 px-3 py-1 text-small hover:bg-danger-hover transition-colors">
-								Sign out
+			<div class="min-h-screen" x-data="{ sidebarOpen: false }">
+				<header class="sticky top-0 z-50 h-14 shrink-0 border-b border-border bg-surface">
+					<div class="flex h-full items-center justify-between gap-3 px-4 lg:px-6">
+						<div class="flex min-w-0 items-center gap-3">
+							<button
+								type="button"
+								class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border-input bg-surface text-text-muted3 hover:bg-background hover:text-text md:hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+								@click="sidebarOpen = true"
+								aria-label="Open navigation menu"
+							>
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+								</svg>
 							</button>
-						</form>
+							<a href="/admin/dashboard" class="flex min-w-0 items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus rounded-md">
+								<span class="truncate text-title font-semibold text-text">GoBooks</span>
+								<span class="shrink-0 rounded-md border border-border bg-background px-2 py-0.5 text-xs font-medium text-text-muted3">System</span>
+							</a>
+						</div>
+						<div class="flex shrink-0 items-center gap-2 sm:gap-3">
+							if maintenanceMode {
+								<span class="hidden items-center rounded-full border border-warning-border bg-warning-soft px-2.5 py-0.5 text-xs font-medium text-warning sm:inline-flex" title="Business app is in maintenance mode">
+									Maintenance on
+								</span>
+							}
+							<a
+								href="/admin/account"
+								class="hidden max-w-[10rem] truncate text-small text-text-muted3 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus rounded sm:inline-block sm:max-w-[14rem]"
+								title={ adminEmail }
+							>
+								{ adminEmail }
+							</a>
+							<form method="post" action="/admin/logout" class="inline">
+								<button
+									type="submit"
+									class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-small font-medium text-text-muted3 hover:bg-background hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+								>
+									Sign out
+								</button>
+							</form>
+						</div>
 					</div>
+				</header>
+
+				<div
+					x-cloak
+					x-show="sidebarOpen"
+					x-transition.opacity
+					class="fixed inset-0 z-40 bg-black/40 md:hidden"
+					@click="sidebarOpen = false"
+					aria-hidden="true"
+				></div>
+				<aside
+					x-cloak
+					x-show="sidebarOpen"
+					x-transition:enter="transition transform duration-200 ease-out"
+					x-transition:enter-start="-translate-x-full"
+					x-transition:enter-end="translate-x-0"
+					x-transition:leave="transition transform duration-150 ease-in"
+					x-transition:leave-start="translate-x-0"
+					x-transition:leave-end="-translate-x-full"
+					class="fixed bottom-0 left-0 top-14 z-50 w-[220px] overflow-y-auto border-r border-border bg-surface md:hidden"
+					role="dialog"
+					aria-label="Navigation"
+				>
+					@adminSidebarBody(activeNav)
+				</aside>
+
+				<div class="flex min-h-[calc(100vh-3.5rem)]">
+					<aside class="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-[220px] shrink-0 overflow-y-auto border-r border-border bg-surface md:flex md:flex-col" aria-label="System navigation">
+						@adminSidebarBody(activeNav)
+					</aside>
+					<main class="min-w-0 flex-1 bg-background p-4 sm:p-5 lg:p-6">
+						<div class="mx-auto max-w-7xl">
+							@content
+						</div>
+					</main>
 				</div>
-			</header>
-			<!-- 主内容区 -->
-			<main class="p-6 max-w-7xl mx-auto">
-				@content
-			</main>
+			</div>
 		</body>
 	</html>
 }
 
-// adminFlashBanner 渲染 flash 消息条（成功 / 警告 / 错误）。
+templ adminNavItemWithIcon(href string, label string, navKey string, activeNav string, icon templ.Component) {
+	if navKey == activeNav {
+		<a
+			href={ href }
+			class="flex items-center gap-3 rounded-md border-l-2 border-primary bg-primary/5 py-2 pl-2 pr-2 text-body font-semibold text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+		>
+			<span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary">
+				@icon
+			</span>
+			<span class="min-w-0 flex-1 truncate">{ label }</span>
+		</a>
+	} else {
+		<a
+			href={ href }
+			class="group flex items-center gap-3 rounded-md border-l-2 border-transparent py-2 pl-2 pr-2 text-body font-medium text-text-muted3 hover:bg-background hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+		>
+			<span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-background text-text-muted3 transition-colors group-hover:bg-background group-hover:text-primary">
+				@icon
+			</span>
+			<span class="min-w-0 flex-1 truncate">{ label }</span>
+		</a>
+	}
+}
+
+templ adminSidebarBody(activeNav string) {
+	<div class="flex min-h-0 flex-1 flex-col p-3">
+		<nav
+			class="space-y-1"
+			aria-label="System console"
+			@click="if ($event.target instanceof HTMLAnchorElement) sidebarOpen = false"
+		>
+			<p class="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-text-muted">Console</p>
+			@adminNavItemWithIcon("/admin/dashboard", "Dashboard", "dashboard", activeNav, adminIconNavDashboard())
+			@adminNavItemWithIcon("/admin/companies", "Companies", "companies", activeNav, adminIconNavBuilding())
+			@adminNavItemWithIcon("/admin/users", "Users", "users", activeNav, adminIconNavUsers())
+			@adminNavItemWithIcon("/admin/audit-logs", "Audit logs", "audit", activeNav, adminIconNavClipboard())
+			@adminNavItemWithIcon("/admin/runtime-logs", "Runtime logs", "runtime", activeNav, adminIconNavBolt())
+			@adminNavItemWithIcon("/admin/system", "System control", "system", activeNav, adminIconNavCog())
+			@adminNavItemWithIcon("/admin/sysadmins", "SysAdmin accounts", "sysadmins", activeNav, adminIconNavShield())
+		</nav>
+		<div class="mt-6 border-t border-border pt-4">
+			<p class="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-text-muted">Account</p>
+			<div class="space-y-1">
+				@adminNavItemWithIcon("/admin/account", "My account", "account", activeNav, adminIconNavUserCircle())
+			</div>
+		</div>
+	</div>
+}
+
+// adminFlashBanner renders flash messages (success / warning / error).
 templ adminFlashBanner(flash string) {
 	if flash == "deactivated" {
 		<div class="mb-4 rounded-md border border-warning-border bg-warning-soft px-4 py-3 text-body text-warning">
@@ -97,7 +199,7 @@ templ adminFlashBanner(flash string) {
 			Password has been reset. All existing sessions for this user have been revoked.
 		</div>
 	} else if flash == "password_too_short" {
-		<div class="mb-4 rounded-md border border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover">
+		<div class="mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover">
 			Password must be at least 8 characters.
 		</div>
 	} else if flash == "maintenance_on" {
@@ -125,11 +227,11 @@ templ adminFlashBanner(flash string) {
 			User has been reactivated.
 		</div>
 	} else if flash == "cannot_self_deactivate" {
-		<div class="mb-4 rounded-md border border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover">
+		<div class="mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover">
 			You cannot deactivate your own account.
 		</div>
 	} else if flash == "last_admin" {
-		<div class="mb-4 rounded-md border border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover">
+		<div class="mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover">
 			Cannot deactivate the last active SysAdmin account.
 		</div>
 	} else if flash == "use_account_page" {
@@ -140,15 +242,27 @@ templ adminFlashBanner(flash string) {
 		<div class="mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success">
 			Password changed successfully. All previous SysAdmin sessions have been revoked.
 		</div>
+	} else if flash == "invalid_id" {
+		<div class="mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover">
+			The selected record could not be found or is invalid.
+		</div>
+	} else if flash == "sysadmin_deactivated" {
+		<div class="mb-4 rounded-md border border-warning-border bg-warning-soft px-4 py-3 text-body text-warning">
+			SysAdmin account has been deactivated. All sessions for that account have been revoked.
+		</div>
+	} else if flash == "sysadmin_reactivated" {
+		<div class="mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success">
+			SysAdmin account has been reactivated.
+		</div>
 	}
 }
 
-// adminPageHeader is a standard h1 + subtitle block for admin pages.
+// adminPageHeader is a strong page title + subtitle (backoffice-style hierarchy).
 templ adminPageHeader(title string, subtitle string) {
-	<div class="mb-6">
-		<h1 class="text-title font-semibold text-text">{ title }</h1>
+	<div class="mb-5 border-b border-border pb-4 sm:mb-6 sm:pb-5">
+		<h1 class="text-2xl font-semibold tracking-tight text-text sm:text-3xl">{ title }</h1>
 		if subtitle != "" {
-			<p class="mt-1 text-small text-text-muted2">{ subtitle }</p>
+			<p class="mt-2 max-w-3xl text-small leading-relaxed text-text-muted2 sm:text-body">{ subtitle }</p>
 		}
 	</div>
 }

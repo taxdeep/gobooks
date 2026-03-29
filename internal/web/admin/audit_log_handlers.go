@@ -62,18 +62,19 @@ func (s *Server) handleAdminAuditLog(c *fiber.Ctx) error {
 	}
 
 	return admintmpl.AdminAuditLog(admintmpl.AdminAuditLogVM{
-		AdminEmail:   AdminUserFromCtx(c).Email,
-		Items:        rows,
-		Actions:      actions,
-		FilterQ:      q,
-		FilterAction: filterAction,
-		FilterFrom:   filterFrom,
-		FilterTo:     filterTo,
-		Page:         page,
-		TotalCount:   int(total),
-		HasPrev:      page > 1,
-		HasNext:      page < totalPages,
-		PrevPage:     page - 1,
-		NextPage:     page + 1,
+		AdminEmail:      AdminUserFromCtx(c).Email,
+		MaintenanceMode: IsMaintenanceMode(),
+		Items:           rows,
+		Actions:         actions,
+		FilterQ:         q,
+		FilterAction:    filterAction,
+		FilterFrom:      filterFrom,
+		FilterTo:        filterTo,
+		Page:            page,
+		TotalCount:      int(total),
+		HasPrev:         page > 1,
+		HasNext:         page < totalPages,
+		PrevPage:        page - 1,
+		NextPage:        page + 1,
 	}).Render(c.Context(), c)
 }
