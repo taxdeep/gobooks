@@ -12,11 +12,10 @@ You must obtain a commercial license.
 
 ## Contact
 
-Please contact the maintainer via GitHub:
+**TAXDEEP CORP.**  
+Email: [info@taxdeep.com](mailto:info@taxdeep.com)
 
-https://github.com/imlei/gobooks
-
-(Open an issue or use contact details listed on the maintainer profile.)
+Source repository: https://github.com/imlei/gobooks
 
 ## Notes
 

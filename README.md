@@ -7,7 +7,7 @@
 
 ## ✨ Overview
 
-Gobooks is a next-generation accounting platform built with a strong foundation in **accounting correctness**, **clean structure**, and **automation-ready architecture**.
+Gobooks is an accounting platform built with a strong foundation in **accounting correctness**, **clean structure**, and **automation-ready architecture**.
 
 Unlike traditional tools that prioritize flexibility at the cost of consistency, Gobooks enforces **strict accounting rules** while providing intelligent assistance through **rule-based and AI-powered recommendations**.
 
@@ -181,12 +181,12 @@ This means:
 ### Commercial Use
 
 If you intend to use Gobooks in a commercial SaaS product
-without complying with AGPL requirements, please contact us
-to obtain a commercial license.
+without complying with AGPL requirements, contact **TAXDEEP CORP.**
+at [info@taxdeep.com](mailto:info@taxdeep.com) to obtain a commercial license.
 
 ### Trademark Notice
 
-"Gobooks" is a protected name and may not be used in derivative
+**GoBooks** is a trademark of **TAXDEEP CORP.** and may not be used in derivative
 products without permission.
 
 ## Quick Start (Recommended): Docker
