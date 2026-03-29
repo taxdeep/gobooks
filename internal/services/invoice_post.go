@@ -121,7 +121,7 @@ func PostInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 		je := models.JournalEntry{
 			CompanyID: companyID,
 			EntryDate: inv.InvoiceDate,
-			JournalNo: "INV-" + inv.InvoiceNumber,
+			JournalNo: inv.InvoiceNumber,
 		}
 		if err := tx.Create(&je).Error; err != nil {
 			return fmt.Errorf("create journal entry: %w", err)

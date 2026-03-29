@@ -104,12 +104,10 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 						}
 					</p>
 				</div>
-				if vm.JournalNo != "" {
-					<div>
-						<p class="text-small font-medium text-text-muted uppercase tracking-wider">Journal Entry</p>
-						<p class="mt-1 text-body text-text font-mono">{ vm.JournalNo }</p>
-					</div>
-				}
+				<div>
+					<p class="text-small font-medium text-text-muted uppercase tracking-wider">Invoice Number</p>
+					<p class="mt-1 text-body text-text font-mono">{ vm.Invoice.InvoiceNumber }</p>
+				</div>
 				if vm.Invoice.Memo != "" {
 					<div class="col-span-2 sm:col-span-3 lg:col-span-4">
 						<p class="text-small font-medium text-text-muted uppercase tracking-wider">Memo</p>

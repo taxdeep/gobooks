@@ -132,7 +132,7 @@ func PostBill(db *gorm.DB, companyID, billID uint, actor string, userID *uuid.UU
 		je := models.JournalEntry{
 			CompanyID: companyID,
 			EntryDate: bill.BillDate,
-			JournalNo: "BILL-" + bill.BillNumber,
+			JournalNo: bill.BillNumber,
 		}
 		if err := tx.Create(&je).Error; err != nil {
 			return fmt.Errorf("create journal entry: %w", err)
