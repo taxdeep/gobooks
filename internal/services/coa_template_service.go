@@ -2,12 +2,17 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 
 	"gobooks/internal/models"
 
 	"gorm.io/gorm"
 )
+
+// ErrAccountsInUse is returned by ResetCompanyCOA when the company has journal
+// lines that reference existing accounts, making a hard reset unsafe.
+var ErrAccountsInUse = errors.New("company accounts are referenced by journal entries; reset is not safe")
 
 // defaultTemplateAccounts defines the comprehensive default Chart of Accounts
 // used when creating a new company. All codes are 4-digit base codes
@@ -181,4 +186,127 @@ func CreateDefaultAccountsForCompany(tx *gorm.DB, companyID uint, codeLength int
 	}
 
 	return nil
+}
+
+// SyncDefaultAccountsForCompany reconciles a company's Chart of Accounts against
+// the default template. It is safe to call on companies that already have
+// transactions — it never deletes accounts.
+//
+// For each template account (identified by its 4-digit base code expanded to
+// codeLength):
+//   - Missing code → INSERT as is_system_default = true.
+//   - Existing code + is_system_default = true → UPDATE Name, RootAccountType,
+//     DetailAccountType to match the template (name/type are display-only, no FK
+//     dependencies).
+//   - Existing code + is_system_default = false (user-created) → skip entirely.
+//
+// Returns (added, updated, error).
+func SyncDefaultAccountsForCompany(db *gorm.DB, companyID uint, codeLength int) (added int, updated int, err error) {
+	if codeLength < models.AccountCodeLengthMin || codeLength > models.AccountCodeLengthMax {
+		return 0, 0, fmt.Errorf("invalid account code length: %d", codeLength)
+	}
+
+	var tmpl models.COATemplate
+	if err := db.Where("is_default = ?", true).First(&tmpl).Error; err != nil {
+		return 0, 0, fmt.Errorf("SyncDefaultAccountsForCompany: no default template: %w", err)
+	}
+
+	var templateAccounts []models.COATemplateAccount
+	if err := db.Where("template_id = ?", tmpl.ID).Order("sort_order asc").Find(&templateAccounts).Error; err != nil {
+		return 0, 0, fmt.Errorf("SyncDefaultAccountsForCompany: load template accounts: %w", err)
+	}
+
+	// Load all existing accounts for this company as a map[code]Account.
+	var existing []models.Account
+	if err := db.Where("company_id = ?", companyID).Find(&existing).Error; err != nil {
+		return 0, 0, fmt.Errorf("SyncDefaultAccountsForCompany: load existing accounts: %w", err)
+	}
+	existingByCode := make(map[string]*models.Account, len(existing))
+	for i := range existing {
+		existingByCode[existing[i].Code] = &existing[i]
+	}
+
+	for _, t := range templateAccounts {
+		code, err := models.ExpandAccountCodeToLength(t.AccountCode, codeLength)
+		if err != nil {
+			return added, updated, fmt.Errorf("SyncDefaultAccountsForCompany: expand %s: %w", t.AccountCode, err)
+		}
+		if err := models.ValidateAccountCodeAndClassification(code, codeLength, t.RootAccountType); err != nil {
+			return added, updated, fmt.Errorf("SyncDefaultAccountsForCompany: validate %s: %w", t.AccountCode, err)
+		}
+		if err := models.ValidateRootDetail(t.RootAccountType, t.DetailAccountType); err != nil {
+			return added, updated, fmt.Errorf("SyncDefaultAccountsForCompany: classify %s: %w", t.AccountCode, err)
+		}
+
+		if acc, found := existingByCode[code]; found {
+			// Only update accounts we originally generated from a template.
+			if !acc.IsSystemDefault {
+				continue
+			}
+			// Update only if something actually changed.
+			if acc.Name == t.Name && acc.RootAccountType == t.RootAccountType && acc.DetailAccountType == t.DetailAccountType {
+				continue
+			}
+			if err := db.Model(acc).Updates(map[string]any{
+				"name":                t.Name,
+				"root_account_type":   t.RootAccountType,
+				"detail_account_type": t.DetailAccountType,
+			}).Error; err != nil {
+				return added, updated, fmt.Errorf("SyncDefaultAccountsForCompany: update %s: %w", code, err)
+			}
+			updated++
+		} else {
+			// Insert missing account.
+			newAcc := models.Account{
+				CompanyID:         companyID,
+				Code:              code,
+				Name:              t.Name,
+				RootAccountType:   t.RootAccountType,
+				DetailAccountType: t.DetailAccountType,
+				IsActive:          true,
+				IsSystemDefault:   true,
+			}
+			if err := db.Create(&newAcc).Error; err != nil {
+				return added, updated, fmt.Errorf("SyncDefaultAccountsForCompany: insert %s: %w", code, err)
+			}
+			existingByCode[code] = &newAcc
+			added++
+		}
+	}
+
+	return added, updated, nil
+}
+
+// ResetCompanyCOA performs a hard reset of a company's Chart of Accounts:
+// it deletes ALL existing accounts and re-imports from the default template.
+//
+// Safety check: returns ErrAccountsInUse if any journal line references an
+// account belonging to this company. In that case use SyncDefaultAccountsForCompany
+// instead, which never deletes data.
+//
+// Must be called inside a transaction for atomicity.
+func ResetCompanyCOA(tx *gorm.DB, companyID uint, codeLength int) error {
+	if codeLength < models.AccountCodeLengthMin || codeLength > models.AccountCodeLengthMax {
+		return fmt.Errorf("invalid account code length: %d", codeLength)
+	}
+
+	// Safety: reject if any journal line is tied to an account in this company.
+	var refCount int64
+	if err := tx.Table("journal_lines").
+		Joins("JOIN accounts ON accounts.id = journal_lines.account_id").
+		Where("accounts.company_id = ?", companyID).
+		Count(&refCount).Error; err != nil {
+		return fmt.Errorf("ResetCompanyCOA: check references: %w", err)
+	}
+	if refCount > 0 {
+		return ErrAccountsInUse
+	}
+
+	// Delete all existing accounts for this company.
+	if err := tx.Where("company_id = ?", companyID).Delete(&models.Account{}).Error; err != nil {
+		return fmt.Errorf("ResetCompanyCOA: delete accounts: %w", err)
+	}
+
+	// Re-import from the default template.
+	return CreateDefaultAccountsForCompany(tx, companyID, codeLength)
 }
