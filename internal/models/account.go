@@ -115,7 +115,10 @@ type Account struct {
 	// FieldRecommendationSourcesJSON is optional client-reported analytics (see account_recommendation_sources.go).
 	// Not used for validation. Null for legacy rows.
 	FieldRecommendationSourcesJSON *string `gorm:"column:field_recommendation_sources;type:text"`
-	CreatedAt                      time.Time
+	// IsSystemDefault is true when this account was generated from the default COA template.
+	// Useful for preventing accidental deletion of critical accounts and enabling future reset/re-sync.
+	IsSystemDefault bool      `gorm:"not null;default:false"`
+	CreatedAt       time.Time
 }
 
 // ReportGroup returns the financial reporting bucket for this account.

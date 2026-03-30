@@ -24,6 +24,11 @@ func Migrate(db *gorm.DB) error {
 	if err := migrateAccountsRootDetail(db); err != nil {
 		return err
 	}
+	// Historical databases may contain stale optional foreign keys that predate
+	// current constraints. Null them before AutoMigrate adds FK constraints.
+	if err := clearOptionalForeignKeyOrphans(db); err != nil {
+		return err
+	}
 	if err := db.AutoMigrate(
 		&models.Company{},
 		&models.User{},
@@ -67,6 +72,11 @@ func Migrate(db *gorm.DB) error {
 		&models.SecurityEvent{},
 		// Posting Engine Phase 2: accounting fact layer (projection of posted journal lines)
 		&models.LedgerEntry{},
+		// Phase 2: user profile verification challenges (email / password change)
+		&models.UserVerificationChallenge{},
+		// COA Template system: default Chart of Accounts templates
+		&models.COATemplate{},
+		&models.COATemplateAccount{},
 	); err != nil {
 		return err
 	}
@@ -74,6 +84,93 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 	return ensureDocumentNumberIndexes(db)
+}
+
+// clearOptionalForeignKeyOrphans removes stale nullable references left behind by
+// older schemas or manual deletes. Each target column is nullable by model design,
+// so normalising bad references back to NULL is safe and preserves business data.
+func clearOptionalForeignKeyOrphans(db *gorm.DB) error {
+	statements := []string{
+		`
+UPDATE product_services ps
+SET default_tax_code_id = NULL
+WHERE default_tax_code_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM tax_codes tc WHERE tc.id = ps.default_tax_code_id
+  );
+`,
+		`
+UPDATE invoice_lines il
+SET product_service_id = NULL
+WHERE product_service_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM product_services ps WHERE ps.id = il.product_service_id
+  );
+`,
+		`
+UPDATE invoice_lines il
+SET tax_code_id = NULL
+WHERE tax_code_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM tax_codes tc WHERE tc.id = il.tax_code_id
+  );
+`,
+		`
+UPDATE bill_lines bl
+SET product_service_id = NULL
+WHERE product_service_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM product_services ps WHERE ps.id = bl.product_service_id
+  );
+`,
+		`
+UPDATE bill_lines bl
+SET tax_code_id = NULL
+WHERE tax_code_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM tax_codes tc WHERE tc.id = bl.tax_code_id
+  );
+`,
+		`
+UPDATE bill_lines bl
+SET expense_account_id = NULL
+WHERE expense_account_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM accounts a WHERE a.id = bl.expense_account_id
+  );
+`,
+		`
+UPDATE tax_codes tc
+SET purchase_recoverable_account_id = NULL
+WHERE purchase_recoverable_account_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM accounts a WHERE a.id = tc.purchase_recoverable_account_id
+  );
+`,
+		`
+UPDATE invoices i
+SET journal_entry_id = NULL
+WHERE journal_entry_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM journal_entries je WHERE je.id = i.journal_entry_id
+  );
+`,
+		`
+UPDATE bills b
+SET journal_entry_id = NULL
+WHERE journal_entry_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM journal_entries je WHERE je.id = b.journal_entry_id
+  );
+`,
+	}
+
+	for _, stmt := range statements {
+		if err := db.Exec(stmt).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ensureCompanyAccountCodeDefaults backfills account_code_length and locks length for companies that already have accounts.

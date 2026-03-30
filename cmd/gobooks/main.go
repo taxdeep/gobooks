@@ -44,6 +44,11 @@ func main() {
 		log.Fatalf("db migrate failed: %v", err)
 	}
 
+	// Seed the default Chart of Accounts template (idempotent; no-op if already present).
+	if err := services.SeedDefaultCOATemplate(gormDB); err != nil {
+		log.Fatalf("coa template seed failed: %v", err)
+	}
+
 	// Start daily cleanup goroutine for system_logs (retain 30 days).
 	go func() {
 		// Run once immediately on startup to catch any accumulated old rows.
