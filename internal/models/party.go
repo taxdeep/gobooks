@@ -27,8 +27,9 @@ type Customer struct {
 	ID          uint   `gorm:"primaryKey"`
 	CompanyID   uint   `gorm:"not null;index"`
 	Name        string `gorm:"not null"`
-	Address     string `gorm:"type:text"` // optional mailing / billing address
-	PaymentTerm string `gorm:"type:text"` // optional, e.g. Net 30, Due on receipt
+	Email       string `gorm:"type:text;not null;default:''"` // optional customer email for invoicing
+	Address     string `gorm:"type:text"`                     // optional mailing / billing address
+	PaymentTerm string `gorm:"type:text"`                     // optional, e.g. Net 30, Due on receipt
 	CreatedAt   time.Time
 }
 

@@ -41,8 +41,8 @@ import (
 )
 
 // ErrInvoiceNotVoidable is returned when voiding is attempted on an invoice
-// that is not in the "sent" (posted) status.
-var ErrInvoiceNotVoidable = errors.New("only posted (sent) invoices can be voided")
+// that has not been posted or is already voided.
+var ErrInvoiceNotVoidable = errors.New("only posted invoices can be voided (must be issued or sent)")
 
 // VoidInvoice reverses the accounting for a posted invoice and marks it voided.
 // Only invoices with status = "sent" are voidable.
@@ -58,7 +58,8 @@ func VoidInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 	}
 
 	// ── 2. Pre-flight checks ──────────────────────────────────────────────────
-	if inv.Status != models.InvoiceStatusSent {
+	// Voidable if posted (issued, sent, partially_paid, overdue) — not draft, not already voided
+	if inv.Status == models.InvoiceStatusDraft || inv.Status == models.InvoiceStatusVoided {
 		return ErrInvoiceNotVoidable
 	}
 	if inv.JournalEntryID == nil || inv.JournalEntry == nil {
@@ -79,7 +80,7 @@ func VoidInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 		).First(&locked).Error; err != nil {
 			return fmt.Errorf("lock invoice: %w", err)
 		}
-		if locked.Status != models.InvoiceStatusSent {
+		if locked.Status == models.InvoiceStatusDraft || locked.Status == models.InvoiceStatusVoided {
 			return ErrInvoiceNotVoidable
 		}
 

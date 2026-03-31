@@ -3,6 +3,7 @@ package services
 
 import (
 	"crypto/tls"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net"
@@ -13,6 +14,10 @@ import (
 
 	"gorm.io/gorm"
 )
+
+func base64StdEncoding(data []byte) string {
+	return base64.StdEncoding.EncodeToString(data)
+}
 
 // ── Real SMTP sender ──────────────────────────────────────────────────────────
 
@@ -46,6 +51,44 @@ func SendEmail(cfg EmailConfig, toAddr, subject, body string) error {
 	}
 }
 
+// EmailAttachment represents a file to attach to an email.
+type EmailAttachment struct {
+	Filename    string // e.g. "Invoice-INV001.pdf"
+	ContentType string // e.g. "application/pdf"
+	Data        []byte
+}
+
+// SendEmailWithAttachment sends an email with optional file attachment.
+// If attachment is nil, sends plain text only.
+func SendEmailWithAttachment(cfg EmailConfig, toAddr, subject, body string, attachment *EmailAttachment) error {
+	if err := ValidateEmailConfig(cfg); err != nil {
+		return err
+	}
+	if strings.TrimSpace(toAddr) == "" {
+		return errors.New("recipient address is required")
+	}
+
+	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+	from := cfg.FromEmail
+	if cfg.FromName != "" {
+		from = fmt.Sprintf("%s <%s>", cfg.FromName, cfg.FromEmail)
+	}
+
+	var msg []byte
+	if attachment != nil && len(attachment.Data) > 0 {
+		msg = buildMIMEMessage(from, toAddr, subject, body, attachment)
+	} else {
+		msg = buildRawMessage(from, toAddr, subject, body)
+	}
+
+	switch cfg.Encryption {
+	case models.SMTPEncryptionSSLTLS:
+		return sendViaSSL(addr, cfg, toAddr, msg)
+	default:
+		return sendViaSTARTTLS(addr, cfg, toAddr, msg, cfg.Encryption == models.SMTPEncryptionSTARTTLS)
+	}
+}
+
 func buildRawMessage(from, to, subject, body string) []byte {
 	var sb strings.Builder
 	sb.WriteString("From: " + from + "\r\n")
@@ -56,6 +99,62 @@ func buildRawMessage(from, to, subject, body string) []byte {
 	sb.WriteString("\r\n")
 	sb.WriteString(body)
 	return []byte(sb.String())
+}
+
+func buildMIMEMessage(from, to, subject, body string, att *EmailAttachment) []byte {
+	boundary := "==GoBooks_MIME_Boundary=="
+
+	var sb strings.Builder
+	sb.WriteString("From: " + from + "\r\n")
+	sb.WriteString("To: " + to + "\r\n")
+	sb.WriteString("Subject: " + subject + "\r\n")
+	sb.WriteString("MIME-Version: 1.0\r\n")
+	sb.WriteString("Content-Type: multipart/mixed; boundary=\"" + boundary + "\"\r\n")
+	sb.WriteString("\r\n")
+
+	// Text body part
+	sb.WriteString("--" + boundary + "\r\n")
+	sb.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
+	sb.WriteString("Content-Transfer-Encoding: 7bit\r\n")
+	sb.WriteString("\r\n")
+	sb.WriteString(body)
+	sb.WriteString("\r\n")
+
+	// Attachment part
+	sb.WriteString("--" + boundary + "\r\n")
+	ct := att.ContentType
+	if ct == "" {
+		ct = "application/octet-stream"
+	}
+	sb.WriteString("Content-Type: " + ct + "\r\n")
+	sb.WriteString("Content-Transfer-Encoding: base64\r\n")
+	sb.WriteString("Content-Disposition: attachment; filename=\"" + att.Filename + "\"\r\n")
+	sb.WriteString("\r\n")
+
+	// Base64 encode attachment with line breaks every 76 chars
+	encoded := base64Encode(att.Data)
+	sb.WriteString(encoded)
+	sb.WriteString("\r\n")
+
+	// End boundary
+	sb.WriteString("--" + boundary + "--\r\n")
+
+	return []byte(sb.String())
+}
+
+func base64Encode(data []byte) string {
+	encoded := base64StdEncoding(data)
+	// Insert line breaks every 76 chars per RFC 2045
+	var result strings.Builder
+	for i := 0; i < len(encoded); i += 76 {
+		end := i + 76
+		if end > len(encoded) {
+			end = len(encoded)
+		}
+		result.WriteString(encoded[i:end])
+		result.WriteString("\r\n")
+	}
+	return result.String()
 }
 
 func smtpAuth(cfg EmailConfig) smtp.Auth {

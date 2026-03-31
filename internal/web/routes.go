@@ -95,15 +95,37 @@ func (s *Server) registerRoutes(app *fiber.App) {
 
 	// ── 发票 ─────────────────────────────────────────────────────────────────────
 	// 创建 / 编辑需要 ar_access（bookkeeper 及以上）
-	// 过账 / 冲销需要 approve_transactions（accountant 及以上）
+	// 过账 / 冲销 / 发行需要 approve_transactions（accountant 及以上）
 	app.Get("/invoices", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoices)
 	app.Post("/invoices", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleInvoiceCreate)
 	app.Get("/invoices/new", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoiceNew)
 	app.Get("/invoices/:id", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoiceDetail)
 	app.Get("/invoices/:id/edit", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoiceEdit)
 	app.Post("/invoices/save-draft", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleInvoiceSaveDraft)
+	
+	// Invoice preview & PDF
+	app.Get("/invoices/:id/preview", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoicePreview)
+	app.Get("/invoices/:id/pdf", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoicePDF)
+
+	// Invoice lifecycle management (issue → send → mark paid / void)
+	app.Post("/invoices/:id/issue", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceApprove), s.handleInvoiceIssue)
+	app.Post("/invoices/:id/send", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceSend)
+	app.Post("/invoices/:id/send-email", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceSendEmail)
+	app.Get("/invoices/:id/email-history", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleGetInvoiceEmailHistory)
+	app.Post("/invoices/:id/mark-paid", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceMarkPaid)
 	app.Post("/invoices/:id/post", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceApprove), s.handleInvoicePost)
 	app.Post("/invoices/:id/void", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceApprove), s.handleInvoiceVoid)
+	app.Post("/invoices/:id/delete", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceDelete), s.handleInvoiceDelete)
+	
+	// Invoice templates (settings)
+	app.Get("/settings/invoice-templates", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoiceTemplatesList)
+	app.Get("/settings/invoice-templates/:id", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoiceTemplateGet)
+	app.Post("/settings/invoice-templates", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleInvoiceTemplateCreate)
+	app.Post("/settings/invoice-templates/:id", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleInvoiceTemplateUpdate)
+	app.Post("/settings/invoice-templates/:id/delete", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleInvoiceTemplateDelete)
+	
+	// API endpoints for templates
+	app.Get("/api/invoice-templates/default", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleGetDefaultInvoiceTemplate)
 
 	// ── 账单 ─────────────────────────────────────────────────────────────────────
 	// 查看列表对所有成员开放；创建 / 编辑需要 ap_access（ap 及以上）
@@ -120,6 +142,10 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Get("/reports/income-statement", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleIncomeStatement)
 	app.Get("/reports/balance-sheet", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleBalanceSheet)
 	app.Get("/reports/journal-entries", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleJournalEntryReport)
+
+	// ── 票据模板管理 ──────────────────────────────────────────────────────────────
+	// 模板管理界面
+	app.Get("/settings/invoice-templates/manage", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsView), s.handleInvoiceTemplatesSettings)
 
 	// ── 产品与服务目录 ────────────────────────────────────────────────────────────
 	// 属于公司主数据，变更需要 manage_settings（owner / admin）

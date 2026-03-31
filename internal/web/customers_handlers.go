@@ -44,12 +44,14 @@ func (s *Server) handleCustomerCreate(c *fiber.Ctx) error {
 	}
 
 	name := strings.TrimSpace(c.FormValue("name"))
+	email := strings.TrimSpace(c.FormValue("email"))
 	address := strings.TrimSpace(c.FormValue("address"))
 	paymentTerm := strings.TrimSpace(c.FormValue("payment_term"))
 
 	vm := pages.CustomersVM{
 		HasCompany:  true,
 		Name:        name,
+		Email:       email,
 		Address:     address,
 		PaymentTerm: paymentTerm,
 	}
@@ -84,6 +86,7 @@ func (s *Server) handleCustomerCreate(c *fiber.Ctx) error {
 	customer := models.Customer{
 		CompanyID:   companyID,
 		Name:        name,
+		Email:       email,
 		Address:     address,
 		PaymentTerm: paymentTerm,
 	}

@@ -51,10 +51,17 @@ func (s *Server) handleInvoiceDetail(c *fiber.Ctx) error {
 		return c.Redirect("/invoices", fiber.StatusSeeOther)
 	}
 
+	// Check SMTP readiness for Send Email button
+	_, smtpReady, _ := services.EffectiveSMTPForCompany(s.DB, companyID)
+
 	vm := pages.InvoiceDetailVM{
 		HasCompany: true,
 		Invoice:    inv,
+		SMTPReady:  smtpReady,
 		JustVoided: c.Query("voided") == "1",
+		JustIssued: c.Query("issued") == "1",
+		JustSent:   c.Query("sent") == "1",
+		JustPaid:   c.Query("paid") == "1",
 		VoidError:  c.Query("voiderror"),
 	}
 	if inv.JournalEntry != nil {
@@ -387,6 +394,14 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 		actor = "user"
 	}
 
+	// ── Load customer for snapshots ──────────────────────────────────────────
+	var customer models.Customer
+	if err := s.DB.Where("id = ? AND company_id = ?", uint(custID), companyID).
+		First(&customer).Error; err != nil {
+		vm.FormError = "Customer not found."
+		return pages.InvoiceEditor(vm).Render(c.Context(), c)
+	}
+
 	err := s.DB.Transaction(func(tx *gorm.DB) error {
 		var inv models.Invoice
 
@@ -406,6 +421,10 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 			inv.Subtotal = subtotal
 			inv.TaxTotal = taxTotal
 			inv.Amount = grandTotal
+			inv.BalanceDue = grandTotal
+			inv.CustomerNameSnapshot = customer.Name
+			inv.CustomerEmailSnapshot = customer.Email
+			inv.CustomerAddressSnapshot = customer.Address
 			if err := tx.Save(&inv).Error; err != nil {
 				return err
 			}
@@ -415,17 +434,21 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 			}
 		} else {
 			inv = models.Invoice{
-				CompanyID:     companyID,
-				InvoiceNumber: invoiceNo,
-				CustomerID:    uint(custID),
-				InvoiceDate:   invoiceDate,
-				Terms:         terms,
-				DueDate:       dueDate,
-				Status:        models.InvoiceStatusDraft,
-				Memo:          memo,
-				Subtotal:      subtotal,
-				TaxTotal:      taxTotal,
-				Amount:        grandTotal,
+				CompanyID:               companyID,
+				InvoiceNumber:           invoiceNo,
+				CustomerID:              uint(custID),
+				InvoiceDate:             invoiceDate,
+				Terms:                   terms,
+				DueDate:                 dueDate,
+				Status:                  models.InvoiceStatusDraft,
+				Memo:                    memo,
+				Subtotal:                subtotal,
+				TaxTotal:                taxTotal,
+				Amount:                  grandTotal,
+				BalanceDue:              grandTotal,
+				CustomerNameSnapshot:    customer.Name,
+				CustomerEmailSnapshot:   customer.Email,
+				CustomerAddressSnapshot: customer.Address,
 			}
 			if err := tx.Create(&inv).Error; err != nil {
 				return err

@@ -30,9 +30,12 @@ type InvoicesVM struct {
 	Saved bool
 	// Posted is set after a successful post (?posted=1).
 	Posted bool
+	// Deleted is set after a draft delete redirect (?deleted=1).
+	Deleted bool
 
 	FilterQ          string
 	FilterCustomerID string
+	FilterStatus     string
 	FilterFrom       string
 	FilterTo         string
 }

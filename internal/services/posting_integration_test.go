@@ -204,11 +204,11 @@ func TestPostInvoice_CreatesJEAndLedger(t *testing.T) {
 		t.Fatalf("PostInvoice: %v", err)
 	}
 
-	// Invoice must be 'sent'.
+	// Invoice must be 'issued' (posted).
 	var inv models.Invoice
 	db.First(&inv, invID)
-	if inv.Status != models.InvoiceStatusSent {
-		t.Errorf("invoice status = %q, want 'sent'", inv.Status)
+	if inv.Status != models.InvoiceStatusIssued {
+		t.Errorf("invoice status = %q, want 'issued'", inv.Status)
 	}
 	if inv.JournalEntryID == nil {
 		t.Fatal("invoice.journal_entry_id is nil after posting")

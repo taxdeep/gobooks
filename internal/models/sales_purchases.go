@@ -11,21 +11,36 @@ import (
 // ── Invoice status ──────────────────────────────────────────────────────────
 
 // InvoiceStatus tracks the lifecycle of an invoice.
+// Full status machine: draft → issued → sent → (partially_paid/overdue) → paid | voided
+//
+// draft: Initial state, not yet posted to accounting.
+// issued: Status changed but not yet marked as sent by user; JE created if auto-post enabled.
+// sent: Invoice sent to customer (email logged); still awaiting payment.
+// paid: Payment received in full; invoice archived.
+// overdue: Payment deadline passed; awaiting payment (optional state for reporting).
+// partially_paid: Partial payment received; balance due remains.
+// voided: Invoice cancelled; reversal JE created; no recovery possible.
 type InvoiceStatus string
 
 const (
-	InvoiceStatusDraft  InvoiceStatus = "draft"
-	InvoiceStatusSent   InvoiceStatus = "sent"
-	InvoiceStatusPaid   InvoiceStatus = "paid"
-	InvoiceStatusVoided InvoiceStatus = "voided"
+	InvoiceStatusDraft         InvoiceStatus = "draft"
+	InvoiceStatusIssued        InvoiceStatus = "issued"
+	InvoiceStatusSent          InvoiceStatus = "sent"
+	InvoiceStatusPaid          InvoiceStatus = "paid"
+	InvoiceStatusPartiallyPaid InvoiceStatus = "partially_paid"
+	InvoiceStatusOverdue       InvoiceStatus = "overdue"
+	InvoiceStatusVoided        InvoiceStatus = "voided"
 )
 
 // AllInvoiceStatuses returns statuses in display order.
 func AllInvoiceStatuses() []InvoiceStatus {
 	return []InvoiceStatus{
 		InvoiceStatusDraft,
+		InvoiceStatusIssued,
 		InvoiceStatusSent,
+		InvoiceStatusPartiallyPaid,
 		InvoiceStatusPaid,
+		InvoiceStatusOverdue,
 		InvoiceStatusVoided,
 	}
 }
@@ -35,10 +50,16 @@ func InvoiceStatusLabel(s InvoiceStatus) string {
 	switch s {
 	case InvoiceStatusDraft:
 		return "Draft"
+	case InvoiceStatusIssued:
+		return "Issued"
 	case InvoiceStatusSent:
 		return "Sent"
 	case InvoiceStatusPaid:
 		return "Paid"
+	case InvoiceStatusPartiallyPaid:
+		return "Partially Paid"
+	case InvoiceStatusOverdue:
+		return "Overdue"
 	case InvoiceStatusVoided:
 		return "Voided"
 	default:
@@ -49,7 +70,7 @@ func InvoiceStatusLabel(s InvoiceStatus) string {
 // ParseInvoiceStatus parses a raw string, returning an error if unrecognised.
 func ParseInvoiceStatus(s string) (InvoiceStatus, error) {
 	switch InvoiceStatus(s) {
-	case InvoiceStatusDraft, InvoiceStatusSent, InvoiceStatusPaid, InvoiceStatusVoided:
+	case InvoiceStatusDraft, InvoiceStatusIssued, InvoiceStatusSent, InvoiceStatusPaid, InvoiceStatusPartiallyPaid, InvoiceStatusOverdue, InvoiceStatusVoided:
 		return InvoiceStatus(s), nil
 	default:
 		return "", fmt.Errorf("unknown invoice status: %q", s)
@@ -134,9 +155,16 @@ func ComputeDueDate(invoiceDate time.Time, terms InvoiceTerms) *time.Time {
 // For invoices created before line-item support, Amount holds the lump-sum total;
 // Subtotal and TaxTotal default to 0 and Lines will be empty.
 //
-// Status lifecycle: draft → sent → paid (or voided at any pre-paid stage).
-// A JournalEntry is generated on posting (status draft→sent or explicit post action).
-// JournalEntryID is set once and never changed; voiding creates a reversal JE.
+// Status lifecycle: draft → issued → sent → (partially_paid/overdue) → paid | voided.
+// A JournalEntry is generated on posting (when status transitions from draft → issued).
+// JournalEntryID is set once and never changed; voiding creates a reversal JE (no deletion).
+//
+// Snapshots (CustomerName*, PrincipalAccount*): preserve customer and account state
+// at posting time for immutable audit trail; never updated after initial posting.
+//
+// BalanceDue is calculated field (Amount - payments_recorded); not directly assigned.
+// TemplateID optionally links to an invoice template for rendering configuration.
+// IssuedAt/SentAt/VoidedAt track state transition timestamps for reporting and compliance.
 type Invoice struct {
 	ID        uint `gorm:"primaryKey"`
 	CompanyID uint `gorm:"not null;index"`
@@ -167,6 +195,29 @@ type Invoice struct {
 	// JournalEntryID links the posted accounting entry (nil = not yet posted).
 	JournalEntryID *uint         `gorm:"index"`
 	JournalEntry   *JournalEntry `gorm:"foreignKey:JournalEntryID"`
+
+	// TemplateID optionally links to an invoice template for rendering.
+	TemplateID *uint             `gorm:"index"`
+	Template   *InvoiceTemplate   `gorm:"foreignKey:TemplateID"`
+
+	// State tracking timestamps (set by service layer on status transitions)
+	IssuedAt *time.Time `gorm:"index"` // set when status changes to issued/sent
+	SentAt   *time.Time                // set when email is sent
+	VoidedAt *time.Time                // set when status changes to voided
+
+	// BalanceDue = Amount - (sum of payments recorded)
+	// Calculated field; not directly assigned by create/update handlers.
+	BalanceDue decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0;index"`
+
+	// Snapshots: preserve customer state at posting time (immutable)
+	CustomerNameSnapshot    string `gorm:"not null;default:''"`
+	CustomerEmailSnapshot   string `gorm:"not null;default:''"`
+	CustomerAddressSnapshot string `gorm:"not null;default:''"`
+
+	// Snapshots: preserve revenue account details at posting time (for audit trail)
+	PrincipalAccountIDSnapshot   *uint  `gorm:"index"`
+	PrincipalAccountNameSnapshot string `gorm:"not null;default:''"`
+	PrincipalAccountCodeSnapshot string `gorm:"not null;default:''"`
 
 	Lines []InvoiceLine `gorm:"foreignKey:InvoiceID"`
 

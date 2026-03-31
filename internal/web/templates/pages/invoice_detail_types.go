@@ -19,7 +19,14 @@ type InvoiceDetailVM struct {
 	// Empty when the invoice has not been posted.
 	JournalNo string
 
+	// SMTPReady indicates whether the company has a verified SMTP config.
+	// Controls whether the "Send Email" button is enabled or disabled.
+	SMTPReady bool
+
 	// Banner flags set via query string on redirect.
 	JustVoided bool   // ?voided=1
+	JustIssued bool   // ?issued=1
+	JustSent   bool   // ?sent=1
+	JustPaid   bool   // ?paid=1
 	VoidError  string // ?voiderror=...
 }

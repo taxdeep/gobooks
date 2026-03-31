@@ -30,9 +30,11 @@ templ bodyInvoices(vm InvoicesVM) {
 			</div>
 		</div>
 
-		if vm.Created || vm.Saved || vm.Posted {
+		if vm.Created || vm.Saved || vm.Posted || vm.Deleted {
 			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">
-				if vm.Posted {
+				if vm.Deleted {
+					Draft invoice deleted.
+				} else if vm.Posted {
 					Invoice posted. A journal entry has been generated.
 				} else if vm.Saved {
 					Invoice saved as draft.
@@ -56,6 +58,15 @@ templ bodyInvoices(vm InvoicesVM) {
 						<option value="">-- All --</option>
 						for _, c := range vm.Customers {
 							<option value={ Uitoa(c.ID) } selected?={ Uitoa(c.ID) == vm.FilterCustomerID }>{ c.Name }</option>
+						}
+					</select>
+				</div>
+				<div>
+					<label class="block text-body font-medium text-text">Status</label>
+					<select name="status" class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus">
+						<option value="">-- All --</option>
+						for _, s := range models.AllInvoiceStatuses() {
+							<option value={ string(s) } selected?={ string(s) == vm.FilterStatus }>{ models.InvoiceStatusLabel(s) }</option>
 						}
 					</select>
 				</div>
@@ -108,29 +119,29 @@ templ bodyInvoices(vm InvoicesVM) {
 								</td>
 								<td class="py-3 pr-4 text-right tabular-nums">{ Money(inv.Amount) }</td>
 								<td class="py-3 pr-0 text-right whitespace-nowrap">
+									<a
+										href={ "/invoices/" + Uitoa(inv.ID) }
+										class="text-small font-medium text-primary hover:text-primary-hover"
+									>
+										View
+									</a>
 									if inv.Status == models.InvoiceStatusDraft {
+										<span class="inline-block px-1 text-text-muted3">|</span>
 										<a
 											href={ "/invoices/" + Uitoa(inv.ID) + "/edit" }
 											class="text-small font-medium text-primary hover:text-primary-hover"
 										>
 											Edit
 										</a>
-										<span class="inline-block px-2 text-text-muted3" aria-hidden="true">|</span>
-										<form
-											method="post"
-											action={ "/invoices/" + Uitoa(inv.ID) + "/post" }
-											class="inline"
-											onsubmit="return confirm('Post this invoice? A journal entry will be generated and the invoice will be marked Sent. This cannot be undone.');"
+									}
+									if inv.Status != models.InvoiceStatusDraft {
+										<span class="inline-block px-1 text-text-muted3">|</span>
+										<a
+											href={ "/invoices/" + Uitoa(inv.ID) + "/pdf" }
+											class="text-small font-medium text-text-muted2 hover:text-text"
 										>
-											<button
-												type="submit"
-												class="text-small font-medium text-success-hover hover:underline"
-											>
-												Post
-											</button>
-										</form>
-									} else {
-										<span class="text-small text-text-muted">—</span>
+											PDF
+										</a>
 									}
 								</td>
 							</tr>
@@ -144,16 +155,23 @@ templ bodyInvoices(vm InvoicesVM) {
 
 // invoiceStatusBadgeClass maps invoice status to a small inline badge style.
 func invoiceStatusBadgeClass(s models.InvoiceStatus) string {
+	base := "inline-block rounded px-2 py-0.5 text-small font-medium "
 	switch s {
 	case models.InvoiceStatusDraft:
-		return "inline-block rounded px-2 py-0.5 text-small font-medium bg-background text-text-muted border border-border"
+		return base + "bg-background text-text-muted border border-border"
+	case models.InvoiceStatusIssued:
+		return base + "bg-primary-soft text-primary border border-primary-soft"
 	case models.InvoiceStatusSent:
-		return "inline-block rounded px-2 py-0.5 text-small font-medium bg-primary-soft text-primary border border-primary-soft"
+		return base + "bg-primary-soft text-primary border border-primary-soft"
+	case models.InvoiceStatusPartiallyPaid:
+		return base + "bg-warning-soft text-warning border border-warning-soft"
 	case models.InvoiceStatusPaid:
-		return "inline-block rounded px-2 py-0.5 text-small font-medium bg-success-soft text-success-hover border border-success-border"
+		return base + "bg-success-soft text-success-hover border border-success-border"
+	case models.InvoiceStatusOverdue:
+		return base + "bg-danger-soft text-danger border border-danger-soft"
 	case models.InvoiceStatusVoided:
-		return "inline-block rounded px-2 py-0.5 text-small font-medium bg-background text-text-muted2 border border-border line-through"
+		return base + "bg-background text-text-muted2 border border-border line-through"
 	default:
-		return "inline-block rounded px-2 py-0.5 text-small font-medium bg-background text-text-muted border border-border"
+		return base + "bg-background text-text-muted border border-border"
 	}
 }

@@ -2,8 +2,6 @@
 package web
 
 import (
-	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -32,6 +30,7 @@ func (s *Server) handleInvoices(c *fiber.Ctx) error {
 
 	filterQ := strings.TrimSpace(c.Query("q"))
 	filterCustomerID := strings.TrimSpace(c.Query("customer_id"))
+	filterStatus := strings.TrimSpace(c.Query("status"))
 	filterFrom := strings.TrimSpace(c.Query("from"))
 	filterTo := strings.TrimSpace(c.Query("to"))
 
@@ -43,6 +42,9 @@ func (s *Server) handleInvoices(c *fiber.Ctx) error {
 		if id, err := services.ParseUint(filterCustomerID); err == nil && id > 0 {
 			qry = qry.Where("customer_id = ?", uint(id))
 		}
+	}
+	if filterStatus != "" {
+		qry = qry.Where("status = ?", filterStatus)
 	}
 	if filterFrom != "" {
 		if d, err := time.Parse("2006-01-02", filterFrom); err == nil {
@@ -77,8 +79,10 @@ func (s *Server) handleInvoices(c *fiber.Ctx) error {
 		Created:          c.Query("created") == "1",
 		Saved:            c.Query("saved") == "1",
 		Posted:           c.Query("posted") == "1",
+		Deleted:          c.Query("deleted") == "1",
 		FilterQ:          filterQ,
 		FilterCustomerID: filterCustomerID,
+		FilterStatus:     filterStatus,
 		FilterFrom:       filterFrom,
 		FilterTo:         filterTo,
 	}).Render(c.Context(), c)
@@ -175,13 +179,25 @@ func (s *Server) handleInvoiceCreate(c *fiber.Ctx) error {
 		return pages.Invoices(vm).Render(c.Context(), c)
 	}
 
+	// Load customer for snapshots
+	var customer models.Customer
+	if err := s.DB.Where("id = ? AND company_id = ?", uint(custID), companyID).
+		First(&customer).Error; err != nil {
+		vm.FormError = "Customer not found."
+		return pages.Invoices(vm).Render(c.Context(), c)
+	}
+
 	inv := models.Invoice{
-		CompanyID:     companyID,
-		InvoiceNumber: invoiceNo,
-		CustomerID:    uint(custID),
-		InvoiceDate:   invoiceDate,
-		Amount:        amount,
-		Memo:          memo,
+		CompanyID:               companyID,
+		InvoiceNumber:           invoiceNo,
+		CustomerID:              uint(custID),
+		InvoiceDate:             invoiceDate,
+		Amount:                  amount,
+		BalanceDue:              amount,
+		Memo:                    memo,
+		CustomerNameSnapshot:    customer.Name,
+		CustomerEmailSnapshot:   customer.Email,
+		CustomerAddressSnapshot: customer.Address,
 	}
 
 	cid := companyID
@@ -218,75 +234,8 @@ func (s *Server) handleInvoiceCreate(c *fiber.Ctx) error {
 	return c.Redirect("/invoices?created=1", fiber.StatusSeeOther)
 }
 
-func (s *Server) handleInvoicePost(c *fiber.Ctx) error {
-	user := UserFromCtx(c)
-	if user == nil {
-		return c.Redirect("/login", fiber.StatusSeeOther)
-	}
-	companyID, ok := ActiveCompanyIDFromCtx(c)
-	if !ok {
-		return c.Redirect("/select-company", fiber.StatusSeeOther)
-	}
-
-	idRaw := strings.TrimSpace(c.Params("id"))
-	id64, idErr := strconv.ParseUint(idRaw, 10, 64)
-	if idErr != nil || id64 == 0 {
-		return c.Redirect("/invoices", fiber.StatusSeeOther)
-	}
-
-	uid := user.ID
-	actor := user.Email
-	if actor == "" {
-		actor = "user"
-	}
-
-	if err := services.PostInvoice(s.DB, companyID, uint(id64), actor, &uid); err != nil {
-
-		// Re-render list with the error inline.
-		customers, _ := s.customersForCompany(companyID)
-		invoices, _ := s.invoicesForCompany(companyID)
-		nextNo, _ := services.SuggestNextInvoiceNumber(s.DB, companyID)
-		return pages.Invoices(pages.InvoicesVM{
-			HasCompany:    true,
-			Customers:     customers,
-			Invoices:      invoices,
-			InvoiceNumber: nextNo,
-			InvoiceDate:   time.Now().Format("2006-01-02"),
-			FormError:     "Could not post invoice: " + err.Error(),
-		}).Render(c.Context(), c)
-	}
-
-	return c.Redirect("/invoices?posted=1", fiber.StatusSeeOther)
-}
-
-func (s *Server) handleInvoiceVoid(c *fiber.Ctx) error {
-	user := UserFromCtx(c)
-	if user == nil {
-		return c.Redirect("/login", fiber.StatusSeeOther)
-	}
-	companyID, ok := ActiveCompanyIDFromCtx(c)
-	if !ok {
-		return c.Redirect("/select-company", fiber.StatusSeeOther)
-	}
-
-	idRaw := strings.TrimSpace(c.Params("id"))
-	id64, idErr := strconv.ParseUint(idRaw, 10, 64)
-	if idErr != nil || id64 == 0 {
-		return c.Redirect("/invoices", fiber.StatusSeeOther)
-	}
-
-	uid := user.ID
-	actor := user.Email
-	if actor == "" {
-		actor = "user"
-	}
-
-	if err := services.VoidInvoice(s.DB, companyID, uint(id64), actor, &uid); err != nil {
-		return c.Redirect("/invoices/"+idRaw+"?voiderror="+url.QueryEscape(err.Error()), fiber.StatusSeeOther)
-	}
-
-	return c.Redirect("/invoices/"+idRaw+"?voided=1", fiber.StatusSeeOther)
-}
+// handleInvoicePost and handleInvoiceVoid are defined in invoice_lifecycle_handlers.go
+// (JSON API pattern with proper validation — used by routes.go)
 
 func (s *Server) invoicesForCompany(companyID uint) ([]models.Invoice, error) {
 	var invoices []models.Invoice

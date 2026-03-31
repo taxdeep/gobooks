@@ -76,8 +76,11 @@ func PostInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 	}
 
 	// ── 2. Pre-flight checks ──────────────────────────────────────────────────
-	if inv.Status != models.InvoiceStatusDraft {
+	if inv.Status != models.InvoiceStatusDraft && inv.Status != models.InvoiceStatusIssued {
 		return ErrInvoiceNotDraft
+	}
+	if inv.JournalEntryID != nil {
+		return ErrAlreadyPosted
 	}
 	if len(inv.Lines) == 0 {
 		return errors.New("invoice has no line items")
@@ -159,7 +162,7 @@ func PostInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 		).First(&locked).Error; err != nil {
 			return fmt.Errorf("lock invoice: %w", err)
 		}
-		if locked.Status != models.InvoiceStatusDraft {
+		if locked.Status != models.InvoiceStatusDraft && locked.Status != models.InvoiceStatusIssued {
 			return ErrAlreadyPosted
 		}
 
@@ -209,9 +212,9 @@ func PostInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 			return fmt.Errorf("project to ledger: %w", err)
 		}
 
-		// e. Update invoice: mark sent, link journal entry.
+		// e. Update invoice: mark issued (posted), link journal entry.
 		if err := tx.Model(&inv).Updates(map[string]any{
-			"status":           string(models.InvoiceStatusSent),
+			"status":           string(models.InvoiceStatusIssued),
 			"journal_entry_id": je.ID,
 		}).Error; err != nil {
 			return fmt.Errorf("update invoice status: %w", err)
@@ -229,4 +232,24 @@ func PostInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 			},
 		)
 	})
+}
+
+// PostInvoiceAndReturn is a wrapper around PostInvoice that returns the updated invoice.
+// It's used by HTTP handlers and the invoice lifecycle service where the posted invoice
+// object is needed for the response. actor is set to "system" and userID is nil.
+func PostInvoiceAndReturn(db *gorm.DB, companyID, invoiceID uint) (*models.Invoice, error) {
+	// Call the core PostInvoice function with system actor
+	if err := PostInvoice(db, companyID, invoiceID, "system", nil); err != nil {
+		return nil, err
+	}
+
+	// Load and return the updated invoice
+	var invoice models.Invoice
+	if err := db.
+		Where("id = ? AND company_id = ?", invoiceID, companyID).
+		First(&invoice).Error; err != nil {
+		return nil, fmt.Errorf("load posted invoice: %w", err)
+	}
+
+	return &invoice, nil
 }

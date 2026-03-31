@@ -15,6 +15,7 @@ Designed around a single principle: **correctness before convenience**. The post
 - [Quick Start — Docker](#quick-start--docker)
 - [Local Development](#local-development)
 - [Production Deployment](#production-deployment)
+- [Deploy on Ubuntu 24.04](#deploy-on-ubuntu-2404-bare-metal--vps)
 - [Migration Strategy](#migration-strategy)
 - [Useful Commands](#useful-commands)
 - [Troubleshooting](#troubleshooting)
@@ -88,10 +89,16 @@ A **ledger entry projection layer** (`ledger_entries` table) is maintained along
 ### Invoices (AR) and Bills (AP)
 
 **Invoices:**
-- Draft → Posted → Voided lifecycle
+- Full lifecycle: Draft → Issued → Sent → Paid / Voided
 - Line items with per-line product/service, quantity, price, and tax code
 - Document number sequencing (configurable prefix and format)
-- Post generates a receivables journal entry via the posting engine
+- Issue triggers the posting engine: validation → fragments → aggregation → JE + ledger
+- Customer/account snapshots frozen at issue time for immutable audit trail
+- Template system with Classic and Modern styles, configurable accent color, display toggles
+- HTML preview and PDF export (wkhtmltopdf)
+- Email sending with PDF attachment via company SMTP (SMTP must be configured and verified)
+- Email send logging with full audit trail
+- Draft invoices can be deleted; posted invoices can only be voided (reversal JE created)
 
 **Bills:**
 - Same lifecycle as invoices (draft → posted)
@@ -349,6 +356,358 @@ Always run the migration binary before the application binary:
 ```
 
 With Kubernetes or a process manager, use `gobooks-migrate` as an init container or pre-start hook.
+
+---
+
+## Deploy on Ubuntu 24.04 (Bare Metal / VPS)
+
+A step-by-step guide for deploying GoBooks on a fresh Ubuntu 24.04 LTS server. Covers two paths:
+- **Option A — Docker (recommended):** simplest setup, handles all dependencies
+- **Option B — Native build:** compile from source, run as systemd service
+
+### Prerequisites (both options)
+
+```bash
+# Update system packages
+sudo apt update && sudo apt upgrade -y
+
+# Install basic tools
+sudo apt install -y curl git ufw
+```
+
+**Firewall setup:**
+
+```bash
+sudo ufw allow OpenSSH
+sudo ufw allow 6768/tcp     # GoBooks port (or 80/443 if using reverse proxy)
+sudo ufw enable
+```
+
+---
+
+### Option A — Docker Deployment (Recommended)
+
+**1. Install Docker Engine**
+
+```bash
+# Add Docker's official GPG key and repository
+sudo apt install -y ca-certificates gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+  https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+# Allow your user to run Docker without sudo
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+**2. Clone and configure**
+
+```bash
+cd /opt
+sudo git clone https://github.com/your-org/gobooks.git
+sudo chown -R $USER:$USER /opt/gobooks
+cd /opt/gobooks
+
+cp .env.example .env
+```
+
+Edit `.env` for production:
+
+```bash
+APP_ENV=prod
+APP_ADDR=:6768
+DB_HOST=db
+DB_PORT=5432
+DB_USER=gobooks
+DB_PASSWORD=<strong-random-password>
+DB_NAME=gobooks
+DB_SSLMODE=disable
+AI_SECRET_KEY=<base64-encoded-32-byte-key>   # optional, for AI features
+```
+
+**3. Start the stack**
+
+```bash
+docker compose up -d --build
+```
+
+Docker will:
+1. Start PostgreSQL 16 and wait for health check
+2. Run `gobooks-migrate` (schema + SQL migrations)
+3. Start the GoBooks application
+
+Verify:
+
+```bash
+docker compose ps          # All services should be "running" or "exited (0)"
+docker compose logs app    # Check for startup errors
+curl -s http://localhost:6768 | head -5
+```
+
+**4. Manage the service**
+
+```bash
+docker compose down              # Stop all services
+docker compose up -d             # Start (no rebuild)
+docker compose up -d --build     # Rebuild and start
+docker compose logs -f app       # Follow application logs
+docker compose exec db psql -U gobooks gobooks   # Database shell
+```
+
+**5. Data persistence**
+
+PostgreSQL data is stored in a Docker volume (`gobooks_pgdata`). To back up:
+
+```bash
+docker compose exec db pg_dump -U gobooks gobooks > backup_$(date +%Y%m%d).sql
+```
+
+To restore:
+
+```bash
+cat backup_20260330.sql | docker compose exec -T db psql -U gobooks gobooks
+```
+
+---
+
+### Option B — Native Build Deployment
+
+**1. Install Go 1.23+**
+
+```bash
+GO_VERSION=1.23.6
+curl -fsSL https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz | sudo tar -C /usr/local -xzf -
+echo 'export PATH=$PATH:/usr/local/go/bin' | sudo tee /etc/profile.d/golang.sh
+source /etc/profile.d/golang.sh
+go version   # Should print go1.23.x
+```
+
+**2. Install Node.js 18+ (for Tailwind CSS build)**
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+node -v && npm -v
+```
+
+**3. Install PostgreSQL 16**
+
+```bash
+sudo apt install -y postgresql postgresql-contrib
+
+# Create database and user
+sudo -u postgres psql <<SQL
+CREATE USER gobooks WITH PASSWORD '<strong-random-password>';
+CREATE DATABASE gobooks OWNER gobooks;
+GRANT ALL PRIVILEGES ON DATABASE gobooks TO gobooks;
+SQL
+
+# Verify connection
+psql -h localhost -U gobooks -d gobooks -c "SELECT 1;"
+```
+
+**4. Install wkhtmltopdf (for PDF generation)**
+
+```bash
+sudo apt install -y wkhtmltopdf
+wkhtmltopdf --version   # Should print 0.12.x
+```
+
+**5. Clone and build**
+
+```bash
+cd /opt
+sudo git clone https://github.com/your-org/gobooks.git
+sudo chown -R $USER:$USER /opt/gobooks
+cd /opt/gobooks
+
+# Install frontend dependencies and build CSS
+npm install
+npm run build:css
+
+# Build Go binaries
+CGO_ENABLED=0 go build -o ./bin/gobooks         ./cmd/gobooks
+CGO_ENABLED=0 go build -o ./bin/gobooks-migrate  ./cmd/gobooks-migrate
+```
+
+**6. Configure environment**
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env`:
+
+```bash
+APP_ENV=prod
+APP_ADDR=:6768
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=gobooks
+DB_PASSWORD=<strong-random-password>
+DB_NAME=gobooks
+DB_SSLMODE=disable
+```
+
+**7. Run migrations**
+
+```bash
+source .env && ./bin/gobooks-migrate
+```
+
+**8. Create systemd service**
+
+```bash
+sudo tee /etc/systemd/system/gobooks.service > /dev/null <<EOF
+[Unit]
+Description=GoBooks Accounting System
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/gobooks
+EnvironmentFile=/opt/gobooks/.env
+ExecStartPre=/opt/gobooks/bin/gobooks-migrate
+ExecStart=/opt/gobooks/bin/gobooks
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/gobooks/data
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+Set ownership and create data directory:
+
+```bash
+sudo mkdir -p /opt/gobooks/data
+sudo chown -R www-data:www-data /opt/gobooks
+```
+
+Enable and start:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable gobooks
+sudo systemctl start gobooks
+
+# Check status
+sudo systemctl status gobooks
+sudo journalctl -u gobooks -f   # Follow logs
+```
+
+---
+
+### Reverse Proxy with Nginx (recommended for production)
+
+```bash
+sudo apt install -y nginx
+```
+
+Create site config:
+
+```bash
+sudo tee /etc/nginx/sites-available/gobooks > /dev/null <<'EOF'
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    client_max_body_size 10M;
+
+    location / {
+        proxy_pass http://127.0.0.1:6768;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+EOF
+
+sudo ln -s /etc/nginx/sites-available/gobooks /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+**Add HTTPS with Let's Encrypt:**
+
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d your-domain.com
+```
+
+Certbot will auto-configure Nginx for HTTPS and set up auto-renewal.
+
+---
+
+### Post-Deployment Checklist
+
+| Step | Command / Action |
+|------|-----------------|
+| Open browser | `https://your-domain.com` |
+| Complete setup wizard | Create initial company + admin account |
+| Configure SMTP | Settings > Notifications (required for invoice email) |
+| Upload company logo | Settings > Company Profile |
+| Import chart of accounts | Auto-imported on company creation |
+| Create first customer | Sales > Customers |
+| Create first invoice | Invoices > New Invoice |
+
+### Backup Strategy
+
+**Automated daily backup (cron):**
+
+```bash
+sudo tee /etc/cron.d/gobooks-backup > /dev/null <<EOF
+0 2 * * * postgres pg_dump -U gobooks gobooks | gzip > /var/backups/gobooks/gobooks_\$(date +\%Y\%m\%d).sql.gz
+EOF
+
+sudo mkdir -p /var/backups/gobooks
+sudo chown postgres:postgres /var/backups/gobooks
+```
+
+**Restore from backup:**
+
+```bash
+gunzip -c /var/backups/gobooks/gobooks_20260330.sql.gz | psql -U gobooks gobooks
+```
+
+### Upgrading
+
+```bash
+cd /opt/gobooks
+git pull origin main
+
+# Rebuild (native)
+npm run build:css
+CGO_ENABLED=0 go build -o ./bin/gobooks         ./cmd/gobooks
+CGO_ENABLED=0 go build -o ./bin/gobooks-migrate  ./cmd/gobooks-migrate
+sudo systemctl restart gobooks   # ExecStartPre runs migrations automatically
+
+# Or rebuild (Docker)
+docker compose up -d --build
+```
 
 ---
 

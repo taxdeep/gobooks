@@ -26,6 +26,21 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 				Could not void invoice: { vm.VoidError }
 			</div>
 		}
+		if vm.JustIssued {
+			<div class="mb-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">
+				Invoice issued. A journal entry has been generated.
+			</div>
+		}
+		if vm.JustSent {
+			<div class="mb-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">
+				Invoice email sent to customer.
+			</div>
+		}
+		if vm.JustPaid {
+			<div class="mb-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">
+				Invoice marked as paid.
+			</div>
+		}
 
 		// ── Header bar ───────────────────────────────────────────────────────
 		<div class="flex flex-wrap items-start justify-between gap-4">
@@ -38,7 +53,23 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 				</div>
 				<p class="mt-1 text-text-muted2">{ vm.Invoice.Customer.Name }</p>
 			</div>
-			<div class="flex shrink-0 items-center gap-3">
+			<div class="flex shrink-0 flex-wrap items-center gap-2">
+				// ── Always-visible actions ────────────────────────────────────
+				<a
+					href={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/preview" }
+					target="_blank"
+					class="inline-block rounded-md border border-border px-3 py-2 text-small font-medium text-text hover:bg-background"
+				>
+					Preview
+				</a>
+				<a
+					href={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/pdf" }
+					class="inline-block rounded-md border border-border px-3 py-2 text-small font-medium text-text hover:bg-background"
+				>
+					Download PDF
+				</a>
+
+				// ── Draft actions ─────────────────────────────────────────────
 				if vm.Invoice.Status == models.InvoiceStatusDraft {
 					<a
 						href={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/edit" }
@@ -48,34 +79,111 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 					</a>
 					<form
 						method="post"
-						action={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/post" }
+						action={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/issue" }
 						class="inline"
-						onsubmit="return confirm('Post this invoice? A journal entry will be generated and the invoice will be marked Sent. This cannot be undone.');"
+						onsubmit="return confirm('Issue this invoice? A journal entry will be generated. Amounts and line items will be locked. This cannot be undone.');"
 					>
 						<button
 							type="submit"
 							class="inline-block rounded-md border border-success-border bg-success-soft px-4 py-2 text-body font-semibold text-success-hover hover:bg-success-soft"
 						>
-							Post
+							Issue
+						</button>
+					</form>
+					<form
+						method="post"
+						action={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/delete" }
+						class="inline"
+						onsubmit="return confirm('Delete this draft invoice? This cannot be undone.');"
+					>
+						<button
+							type="submit"
+							class="inline-block rounded-md border border-border-danger px-3 py-2 text-small font-medium text-danger hover:bg-danger-soft"
+						>
+							Delete
 						</button>
 					</form>
 				}
-				if vm.Invoice.Status == models.InvoiceStatusSent {
+
+				// ── Issued actions ────────────────────────────────────────────
+				if vm.Invoice.Status == models.InvoiceStatusIssued {
+					<form
+						method="post"
+						action={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/send" }
+						class="inline"
+						onsubmit="return confirm('Mark this invoice as sent?');"
+					>
+						<button
+							type="submit"
+							class="inline-block rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+						>
+							Mark Sent
+						</button>
+					</form>
+				}
+
+				// ── Issued or Sent actions ────────────────────────────────────
+				if vm.Invoice.Status == models.InvoiceStatusIssued || vm.Invoice.Status == models.InvoiceStatusSent {
+					if vm.SMTPReady {
+						<form
+							method="post"
+							action={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/send-email" }
+							class="inline"
+							onsubmit="return confirm('Send this invoice via email to ' + (this.querySelector('[name=to_email]') ? this.querySelector('[name=to_email]').value : 'customer') + '?');"
+						>
+							<input type="hidden" name="to_email" value={ vm.Invoice.CustomerEmailSnapshot }/>
+							<button
+								type="submit"
+								class="inline-block rounded-md border border-primary bg-primary-soft px-4 py-2 text-body font-semibold text-primary hover:bg-primary-soft"
+							>
+								Send Email
+							</button>
+						</form>
+					} else {
+						<span
+							class="inline-block rounded-md border border-border bg-disabled-bg px-4 py-2 text-body text-disabled-text cursor-not-allowed"
+							title="SMTP not configured or not verified. Configure in Settings > Notifications."
+						>
+							Send Email
+						</span>
+					}
+				}
+
+				// ── Payment actions ───────────────────────────────────────────
+				if vm.Invoice.Status == models.InvoiceStatusIssued || vm.Invoice.Status == models.InvoiceStatusSent || vm.Invoice.Status == models.InvoiceStatusOverdue || vm.Invoice.Status == models.InvoiceStatusPartiallyPaid {
+					<form
+						method="post"
+						action={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/mark-paid" }
+						class="inline"
+						onsubmit="return confirm('Mark this invoice as paid?');"
+					>
+						<button
+							type="submit"
+							class="inline-block rounded-md border border-success-border bg-success-soft px-3 py-2 text-small font-semibold text-success-hover hover:bg-success-soft"
+						>
+							Mark Paid
+						</button>
+					</form>
+				}
+
+				// ── Void action (any posted state except voided/paid) ─────────
+				if vm.Invoice.Status != models.InvoiceStatusDraft && vm.Invoice.Status != models.InvoiceStatusVoided && vm.Invoice.Status != models.InvoiceStatusPaid {
 					<form
 						method="post"
 						action={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/void" }
 						class="inline"
-						onsubmit="return confirm('Void this invoice? A reversal journal entry will be created and the invoice will be permanently marked Voided. This cannot be undone.');"
+						onsubmit="return confirm('Void this invoice? A reversal journal entry will be created. This cannot be undone.');"
 					>
 						<button
 							type="submit"
-							class="inline-block rounded-md border border-border-danger bg-danger-soft px-4 py-2 text-body font-semibold text-danger-hover hover:bg-danger-soft"
+							class="inline-block rounded-md border border-border-danger bg-danger-soft px-3 py-2 text-small font-medium text-danger-hover hover:bg-danger-soft"
 						>
 							Void
 						</button>
 					</form>
 				}
-				<a href="/invoices" class="text-body text-primary hover:text-primary-hover">← Back to Invoices</a>
+
+				<a href="/invoices" class="ml-2 text-body text-primary hover:text-primary-hover">← Back</a>
 			</div>
 		</div>
 
@@ -85,6 +193,9 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 				<div>
 					<p class="text-small font-medium text-text-muted uppercase tracking-wider">Customer</p>
 					<p class="mt-1 text-body text-text font-medium">{ vm.Invoice.Customer.Name }</p>
+					if vm.Invoice.CustomerEmailSnapshot != "" {
+						<p class="text-small text-text-muted2">{ vm.Invoice.CustomerEmailSnapshot }</p>
+					}
 				</div>
 				<div>
 					<p class="text-small font-medium text-text-muted uppercase tracking-wider">Invoice Date</p>
@@ -105,9 +216,21 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 					</p>
 				</div>
 				<div>
-					<p class="text-small font-medium text-text-muted uppercase tracking-wider">Invoice Number</p>
-					<p class="mt-1 text-body text-text font-mono">{ vm.Invoice.InvoiceNumber }</p>
+					<p class="text-small font-medium text-text-muted uppercase tracking-wider">Balance Due</p>
+					<p class="mt-1 text-body text-text font-semibold">{ Money(vm.Invoice.BalanceDue) }</p>
 				</div>
+				if vm.Invoice.JournalEntryID != nil {
+					<div>
+						<p class="text-small font-medium text-text-muted uppercase tracking-wider">Journal Entry</p>
+						<p class="mt-1 text-body text-text font-mono">
+							if vm.JournalNo != "" {
+								{ vm.JournalNo }
+							} else {
+								#{ Uitoa(*vm.Invoice.JournalEntryID) }
+							}
+						</p>
+					</div>
+				}
 				if vm.Invoice.Memo != "" {
 					<div class="col-span-2 sm:col-span-3 lg:col-span-4">
 						<p class="text-small font-medium text-text-muted uppercase tracking-wider">Memo</p>
