@@ -6,18 +6,18 @@ import "gobooks/internal/models"
 type ReceivePaymentVM struct {
 	HasCompany bool
 
-	Customers []models.Customer
-	Accounts  []models.Account
+	Customers    []models.Customer
+	BankAccounts []models.Account // Asset · Bank accounts only
 
-	// OpenInvoicesJSON is a JSON array of open (sent) invoices for Alpine.js filtering.
-	// Each element: {id, customer_id, invoice_number, amount, due_date}
+	// OpenInvoicesJSON is a JSON array of open invoices for Alpine.js table.
+	// Each element: {id, customer_id, invoice_number, invoice_date, original_amount, amount, due_date}
+	// amount = balance due (outstanding)
 	OpenInvoicesJSON string
 
 	// Form values (for re-render)
 	CustomerID    string
 	EntryDate     string
 	BankAccountID string
-	ARAccountID   string
 	InvoiceID     string // optional — links payment to a specific invoice
 	Amount        string
 	Memo          string

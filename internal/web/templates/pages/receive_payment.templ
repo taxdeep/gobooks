@@ -15,8 +15,8 @@ templ ReceivePayment(vm ReceivePaymentVM) {
 templ bodyReceivePayment(vm ReceivePaymentVM) {
 	<div class="max-w-[95%]">
 		<h1 class="text-title font-semibold">Receive Payment</h1>
-		<p class="mt-2 text-text-muted2">
-			Record a customer payment. This will debit your bank account and credit Accounts Receivable.
+		<p class="mt-1 text-text-muted2">
+			Record a customer payment. Debit bank, credit Accounts Receivable.
 		</p>
 
 		if vm.Saved {
@@ -29,6 +29,11 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 				{ vm.FormError }
 			</div>
 		}
+		if vm.ARError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">
+				{ vm.ARError }
+			</div>
+		}
 
 		<div
 			x-data="receivePaymentForm()"
@@ -38,129 +43,214 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 			data-initial-amount={ vm.Amount }
 		>
 			<form method="post" action="/banking/receive-payment" class="mt-6 space-y-6">
+
+				// ── Payment Details ──────────────────────────────────────────
 				<div class="rounded-lg border border-border bg-surface p-6">
-					<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-						// ── Customer ─────────────────────────────────────────────────
+					<h2 class="text-section font-semibold text-text">Payment Details</h2>
+					<div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+
+						// Customer
 						<div>
 							<label class="block text-body font-medium text-text">Customer *</label>
-							<select
-								name="customer_id"
-								x-model="customerId"
-								@change="onCustomerChange()"
-								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
-							>
-								<option value="">-- Select --</option>
-								for _, cust := range vm.Customers {
-									<option value={ Uitoa(cust.ID) } selected?={ Uitoa(cust.ID) == vm.CustomerID }>{ cust.Name }</option>
-								}
-							</select>
 							if vm.CustomerError != "" {
-								<div class="mt-1 text-body text-danger">{ vm.CustomerError }</div>
+								<select
+									name="customer_id"
+									x-model="customerId"
+									@change="onCustomerChange()"
+									class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+								>
+									<option value="">-- Select --</option>
+									for _, cust := range vm.Customers {
+										<option value={ Uitoa(cust.ID) } selected?={ Uitoa(cust.ID) == vm.CustomerID }>{ cust.Name }</option>
+									}
+								</select>
+								<div class="mt-1 text-small text-danger">{ vm.CustomerError }</div>
+							} else {
+								<select
+									name="customer_id"
+									x-model="customerId"
+									@change="onCustomerChange()"
+									class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+								>
+									<option value="">-- Select --</option>
+									for _, cust := range vm.Customers {
+										<option value={ Uitoa(cust.ID) } selected?={ Uitoa(cust.ID) == vm.CustomerID }>{ cust.Name }</option>
+									}
+								</select>
 							}
 						</div>
 
-						// ── Date ─────────────────────────────────────────────────────
+						// Date
 						<div>
 							<label class="block text-body font-medium text-text">Date *</label>
-							<input
-								type="date"
-								name="entry_date"
-								value={ vm.EntryDate }
-								class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
-							/>
 							if vm.DateError != "" {
-								<div class="mt-1 text-body text-danger">{ vm.DateError }</div>
+								<input
+									type="date"
+									name="entry_date"
+									value={ vm.EntryDate }
+									class="mt-2 block w-full rounded-md border border-danger px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+								/>
+								<div class="mt-1 text-small text-danger">{ vm.DateError }</div>
+							} else {
+								<input
+									type="date"
+									name="entry_date"
+									value={ vm.EntryDate }
+									class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+								/>
 							}
 						</div>
 
-						// ── Open Invoice (conditional) ────────────────────────────────
-						<div class="md:col-span-2" x-show="filteredInvoices.length > 0">
-							<label class="block text-body font-medium text-text">Apply to Invoice</label>
-							<p class="mt-0.5 text-small text-text-muted2">Select an open invoice to apply this payment to. The remaining balance will be filled automatically.</p>
-							<p class="mt-0.5 text-small text-text-muted2">Linked invoices currently support full settlement of the remaining balance only. For a partial or unapplied receipt, leave this blank and enter the amount manually.</p>
-							<select
-								name="invoice_id"
-								x-model="invoiceId"
-								@change="onInvoiceChange()"
-								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
-							>
-								<option value="">-- None / manual amount --</option>
-								<template x-for="inv in filteredInvoices" :key="inv.id">
-									<option
-										:value="inv.id"
-										:selected="String(inv.id) === invoiceId"
-										x-text="inv.invoice_number + ' — $' + inv.amount + (inv.due_date ? ' (due ' + inv.due_date + ')' : '')"
-									></option>
-								</template>
-							</select>
-							if vm.InvoiceError != "" {
-								<div class="mt-1 text-body text-danger">{ vm.InvoiceError }</div>
-							}
-						</div>
-
-						// ── Bank account ──────────────────────────────────────────────
+						// Deposit to (Bank) — Asset · Bank accounts only
 						<div>
 							<label class="block text-body font-medium text-text">Deposit to (Bank) *</label>
-							<select
-								name="bank_account_id"
-								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
-							>
-								<option value="">-- Select --</option>
-								for _, a := range vm.Accounts {
-									<option value={ Uitoa(a.ID) } selected?={ Uitoa(a.ID) == vm.BankAccountID }>{ a.Code } - { a.Name }</option>
-								}
-							</select>
 							if vm.BankError != "" {
-								<div class="mt-1 text-body text-danger">{ vm.BankError }</div>
+								<select
+									name="bank_account_id"
+									class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+								>
+									<option value="">-- Select --</option>
+									for _, a := range vm.BankAccounts {
+										<option value={ Uitoa(a.ID) } selected?={ Uitoa(a.ID) == vm.BankAccountID }>{ a.Code } - { a.Name }</option>
+									}
+								</select>
+								<div class="mt-1 text-small text-danger">{ vm.BankError }</div>
+							} else {
+								<select
+									name="bank_account_id"
+									class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+								>
+									<option value="">-- Select --</option>
+									for _, a := range vm.BankAccounts {
+										<option value={ Uitoa(a.ID) } selected?={ Uitoa(a.ID) == vm.BankAccountID }>{ a.Code } - { a.Name }</option>
+									}
+								</select>
 							}
 						</div>
 
-						if vm.ARError != "" {
-							<div class="md:col-span-2 rounded-md border border-border-danger bg-danger-soft p-3 text-body text-danger-hover">
-								{ vm.ARError }
-							</div>
-						}
-
-						// ── Amount ────────────────────────────────────────────────────
+						// Amount
 						<div>
 							<label class="block text-body font-medium text-text">Amount *</label>
-							<input
-								type="text"
-								inputmode="decimal"
-								name="amount"
-								x-model="amount"
-								:readonly="invoiceId !== ''"
-								placeholder="0.00"
-								class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
-								:class="invoiceId !== '' ? 'bg-surface-muted cursor-not-allowed' : ''"
-							/>
-							<p x-show="invoiceId !== ''" class="mt-1 text-small text-text-muted2">Amount is set by the selected invoice.</p>
 							if vm.AmountError != "" {
-								<div class="mt-1 text-body text-danger">{ vm.AmountError }</div>
+								<input
+									type="text"
+									inputmode="decimal"
+									name="amount"
+									x-model="amount"
+									:readonly="invoiceId !== ''"
+									:class="invoiceId !== '' ? 'bg-background cursor-not-allowed' : ''"
+									placeholder="0.00"
+									class="mt-2 block w-full rounded-md border border-danger px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+								/>
+								<div class="mt-1 text-small text-danger">{ vm.AmountError }</div>
+							} else {
+								<input
+									type="text"
+									inputmode="decimal"
+									name="amount"
+									x-model="amount"
+									:readonly="invoiceId !== ''"
+									:class="invoiceId !== '' ? 'bg-background cursor-not-allowed' : ''"
+									placeholder="0.00"
+									class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+								/>
 							}
+							<p x-show="invoiceId !== ''" class="mt-1 text-small text-text-muted2">Set by the selected invoice.</p>
 						</div>
 
-						// ── Memo ─────────────────────────────────────────────────────
+						// Memo
 						<div>
 							<label class="block text-body font-medium text-text">Memo</label>
 							<input
 								type="text"
 								name="memo"
 								value={ vm.Memo }
+								autocomplete="off"
 								class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
 							/>
 						</div>
+
+					</div>
+				</div>
+
+				// ── Open Invoices (shown after customer selected) ────────────
+				<div x-show="customerId !== ''" x-cloak class="rounded-lg border border-border bg-surface p-6">
+					<h2 class="text-section font-semibold text-text">Apply to Invoice</h2>
+					<p class="mt-1 text-small text-text-muted2">Select an open invoice to apply this payment against.</p>
+
+					// hidden invoice_id field — populated by Alpine on row click
+					<input type="hidden" name="invoice_id" x-model="invoiceId"/>
+
+					<div x-show="filteredInvoices.length === 0" class="mt-4 text-body text-text-muted2">
+						No open invoices for this customer.
 					</div>
 
-					<div class="mt-6 flex items-center justify-end">
+					<div x-show="filteredInvoices.length > 0" class="mt-4 overflow-x-auto">
+						<table class="w-full text-left text-body">
+							<thead class="text-small uppercase tracking-wider text-text-muted">
+								<tr class="border-b border-border">
+									<th class="py-3 pr-3 w-8"></th>
+									<th class="py-3 pr-4">Invoice No.</th>
+									<th class="py-3 pr-4">Invoice Date</th>
+									<th class="py-3 pr-4">Due Date</th>
+									<th class="py-3 pr-4 text-right">Original Amount</th>
+									<th class="py-3 text-right">Balance Due</th>
+								</tr>
+							</thead>
+							<tbody>
+								<template x-for="inv in filteredInvoices" :key="inv.id">
+									<tr
+										class="cursor-pointer border-b border-border-subtle hover:bg-background"
+										:class="String(inv.id) === invoiceId ? 'bg-primary-soft/30' : ''"
+										@click="selectInvoice(inv)"
+									>
+										<td class="py-3 pr-3">
+											<span
+												class="inline-flex h-4 w-4 items-center justify-center rounded-full border-2"
+												:class="String(inv.id) === invoiceId ? 'border-primary bg-primary' : 'border-border'"
+											>
+												<span x-show="String(inv.id) === invoiceId" class="h-2 w-2 rounded-full bg-white"></span>
+											</span>
+										</td>
+										<td class="py-3 pr-4 font-medium font-mono" x-text="inv.invoice_number"></td>
+										<td class="py-3 pr-4 text-text-muted2" x-text="inv.invoice_date"></td>
+										<td class="py-3 pr-4 text-text-muted2" x-text="inv.due_date || '—'"></td>
+										<td class="py-3 pr-4 text-right tabular-nums text-text-muted2" x-text="'$' + inv.original_amount"></td>
+										<td class="py-3 text-right tabular-nums font-semibold text-text" x-text="'$' + inv.amount"></td>
+									</tr>
+								</template>
+							</tbody>
+						</table>
+					</div>
+
+					// Deselect link
+					<div x-show="invoiceId !== ''" class="mt-3 flex justify-end">
 						<button
-							type="submit"
-							class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+							type="button"
+							@click="clearInvoice()"
+							class="text-small text-text-muted3 hover:text-text"
 						>
-							Record Payment
+							← Clear selection (manual amount)
 						</button>
 					</div>
 				</div>
+
+				// ── Actions ──────────────────────────────────────────────────
+				<div class="flex flex-wrap items-center justify-end gap-3">
+					<a
+						href="/banking/receive-payment"
+						class="rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text"
+					>
+						Cancel
+					</a>
+					<button
+						type="submit"
+						class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+					>
+						Record Payment
+					</button>
+				</div>
+
 			</form>
 
 			<script>
@@ -173,11 +263,13 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 
 						get filteredInvoices() {
 							if (!this.customerId) return [];
-							return this.allInvoices.filter(inv => String(inv.customer_id) === String(this.customerId));
+							return this.allInvoices.filter(function(inv) {
+								return String(inv.customer_id) === String(this.customerId);
+							}.bind(this));
 						},
 
 						init() {
-							const el = this.$el;
+							var el = this.$el;
 							try { this.allInvoices = JSON.parse(el.getAttribute('data-invoices') || '[]'); } catch(e) { this.allInvoices = []; }
 							this.customerId = el.getAttribute('data-initial-customer') || '';
 							this.invoiceId  = el.getAttribute('data-initial-invoice') || '';
@@ -189,13 +281,14 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 							this.amount = '';
 						},
 
-						onInvoiceChange() {
-							if (!this.invoiceId) {
-								this.amount = '';
-								return;
-							}
-							const inv = this.allInvoices.find(i => String(i.id) === String(this.invoiceId));
-							if (inv) this.amount = inv.amount;
+						selectInvoice(inv) {
+							this.invoiceId = String(inv.id);
+							this.amount = inv.amount;
+						},
+
+						clearInvoice() {
+							this.invoiceId = '';
+							this.amount = '';
 						},
 					};
 				}

@@ -312,12 +312,12 @@ func (s *Server) handleReceivePaymentForm(c *fiber.Ctx) error {
 	var customers []models.Customer
 	_ = s.DB.Where("company_id = ?", companyID).Order("name asc").Find(&customers).Error
 
-	accounts, _ := s.activeAccountsForCompany(companyID)
+	bankAccounts, _ := s.bankAccountsForCompany(companyID)
 
 	vm := pages.ReceivePaymentVM{
 		HasCompany:       true,
 		Customers:        customers,
-		Accounts:         accounts,
+		BankAccounts:     bankAccounts,
 		Saved:            c.Query("saved") == "1",
 		EntryDate:        time.Now().Format("2006-01-02"),
 		OpenInvoicesJSON: buildOpenInvoicesJSON(s, companyID),
@@ -338,7 +338,7 @@ func (s *Server) handleReceivePaymentSubmit(c *fiber.Ctx) error {
 
 	var customers []models.Customer
 	_ = s.DB.Where("company_id = ?", companyID).Order("name asc").Find(&customers).Error
-	accounts, _ := s.activeAccountsForCompany(companyID)
+	bankAccounts, _ := s.bankAccountsForCompany(companyID)
 
 	customerIDRaw := strings.TrimSpace(c.FormValue("customer_id"))
 	entryDateRaw := strings.TrimSpace(c.FormValue("entry_date"))
@@ -350,7 +350,7 @@ func (s *Server) handleReceivePaymentSubmit(c *fiber.Ctx) error {
 	vm := pages.ReceivePaymentVM{
 		HasCompany:       true,
 		Customers:        customers,
-		Accounts:         accounts,
+		BankAccounts:     bankAccounts,
 		OpenInvoicesJSON: buildOpenInvoicesJSON(s, companyID),
 		CustomerID:       customerIDRaw,
 		EntryDate:        entryDateRaw,
@@ -435,16 +435,20 @@ func (s *Server) handleReceivePaymentSubmit(c *fiber.Ctx) error {
 
 // buildOpenInvoicesJSON returns a JSON array of open invoices for the company,
 // used by the Receive Payment Alpine component to filter by customer.
+// Fields: id, customer_id, invoice_number, invoice_date, original_amount, amount (balance due), due_date
 func buildOpenInvoicesJSON(s *Server, companyID uint) string {
 	type invJSON struct {
-		ID            uint   `json:"id"`
-		CustomerID    uint   `json:"customer_id"`
-		InvoiceNumber string `json:"invoice_number"`
-		Amount        string `json:"amount"`
-		DueDate       string `json:"due_date"`
+		ID             uint   `json:"id"`
+		CustomerID     uint   `json:"customer_id"`
+		InvoiceNumber  string `json:"invoice_number"`
+		InvoiceDate    string `json:"invoice_date"`
+		OriginalAmount string `json:"original_amount"`
+		Amount         string `json:"amount"` // balance due
+		DueDate        string `json:"due_date"`
 	}
 	var invoices []models.Invoice
 	openStatuses := []models.InvoiceStatus{
+		models.InvoiceStatusIssued,
 		models.InvoiceStatusSent,
 		models.InvoiceStatusOverdue,
 		models.InvoiceStatusPartiallyPaid,
@@ -464,11 +468,13 @@ func buildOpenInvoicesJSON(s *Server, companyID uint) string {
 			outstanding = inv.Amount
 		}
 		items = append(items, invJSON{
-			ID:            inv.ID,
-			CustomerID:    inv.CustomerID,
-			InvoiceNumber: inv.InvoiceNumber,
-			Amount:        outstanding.StringFixed(2),
-			DueDate:       dueDate,
+			ID:             inv.ID,
+			CustomerID:     inv.CustomerID,
+			InvoiceNumber:  inv.InvoiceNumber,
+			InvoiceDate:    inv.InvoiceDate.Format("2006-01-02"),
+			OriginalAmount: inv.Amount.StringFixed(2),
+			Amount:         outstanding.StringFixed(2),
+			DueDate:        dueDate,
 		})
 	}
 	b, _ := json.Marshal(items)
@@ -888,6 +894,17 @@ func (s *Server) openPostedBillsForCompany(companyID uint) ([]models.Bill, error
 		Order("bill_date asc, id asc").
 		Find(&bills).Error
 	return bills, err
+}
+
+// bankAccountsForCompany returns all active Asset · Bank accounts for a company,
+// used to populate the "Deposit to (Bank)" dropdown on payment forms.
+func (s *Server) bankAccountsForCompany(companyID uint) ([]models.Account, error) {
+	var accounts []models.Account
+	err := s.DB.
+		Where("company_id = ? AND detail_account_type = ? AND is_active = true", companyID, models.DetailBank).
+		Order("code asc").
+		Find(&accounts).Error
+	return accounts, err
 }
 
 // defaultARAccountID returns the ID of the first active Accounts Receivable account
