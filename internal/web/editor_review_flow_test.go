@@ -153,7 +153,7 @@ func TestHandleBillSaveDraftAndPostFlow(t *testing.T) {
 		"memo":                     {"Review mode test"},
 		"line_count":               {"2"},
 		"line_expense_account_id[0]": {fmt.Sprintf("%d", expenseAccountID)},
-		"line_description[0]":      {"Office supplies"},
+		"line_description[0]":      {""},
 		"line_amount[0]":           {"120.00"},
 		"line_tax_code_id[0]":      {""},
 		"line_expense_account_id[1]": {""},
@@ -173,6 +173,17 @@ func TestHandleBillSaveDraftAndPostFlow(t *testing.T) {
 	}
 	if bill.Status != models.BillStatusDraft {
 		t.Fatalf("expected draft bill, got %s", bill.Status)
+	}
+
+	var lines []models.BillLine
+	if err := db.Where("bill_id = ?", bill.ID).Order("sort_order asc").Find(&lines).Error; err != nil {
+		t.Fatalf("load bill lines: %v", err)
+	}
+	if len(lines) != 1 {
+		t.Fatalf("expected 1 saved bill line, got %d", len(lines))
+	}
+	if lines[0].Description == "" {
+		t.Fatal("expected server to default bill line description when category is selected")
 	}
 
 	wantSaveLocation := fmt.Sprintf("/bills/%d/edit?saved=1&locked=1", bill.ID)

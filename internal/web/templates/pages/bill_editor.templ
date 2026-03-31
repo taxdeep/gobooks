@@ -222,6 +222,7 @@ templ bodyBillEditor(vm BillEditorVM) {
 										<select
 											:name="'line_expense_account_id[' + idx + ']'"
 											x-model="line.expense_account_id"
+											@change="onExpenseAccountChange(idx, $event.target.value)"
 											class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus"
 										>
 											<option value="">-- None --</option>
@@ -336,7 +337,7 @@ templ bodyBillEditor(vm BillEditorVM) {
 					</div>
 				</div>
 
-				<script src="/static/bill_editor.js?v=3"></script>
+				<script src="/static/bill_editor.js?v=4"></script>
 			</div>
 
 			</fieldset>

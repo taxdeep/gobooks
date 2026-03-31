@@ -1,5 +1,5 @@
 // bill_editor.js — Alpine component for the bill line-items editor.
-// v=3
+// v=4
 function billEditor() {
   return {
     lines: [],
@@ -47,6 +47,14 @@ function billEditor() {
       if (this.lines.length > 1) {
         this.lines.splice(idx, 1);
         this._recalcAll();
+      }
+    },
+
+    onExpenseAccountChange(idx, accountId) {
+      const line = this.lines[idx];
+      if (!line) return;
+      if (!line.description) {
+        line.description = this._accountName(accountId);
       }
     },
 
@@ -102,6 +110,12 @@ function billEditor() {
       const tc = this.taxCodes.find(t => String(t.id) === String(taxCodeId));
       if (!tc) return 0;
       return parseFloat(tc.rate) || 0;
+    },
+
+    _accountName(accountId) {
+      if (!accountId) return "";
+      const account = this.accounts.find(a => String(a.id) === String(accountId));
+      return account ? (account.name || "") : "";
     },
 
     // ── Tax adjustment API (called from template inputs) ─────────────────────

@@ -303,6 +303,21 @@ func (s *Server) handleBillSaveDraft(c *fiber.Ctx) error {
 		parsedLines = append(parsedLines, pl)
 	}
 
+	accountNameByID := make(map[uint]string, len(vm.Accounts))
+	for _, acc := range vm.Accounts {
+		accountNameByID[acc.ID] = strings.TrimSpace(acc.Name)
+	}
+	for i := range parsedLines {
+		if strings.TrimSpace(parsedLines[i].Description) != "" || parsedLines[i].ExpenseAccountID == nil {
+			continue
+		}
+		if name := accountNameByID[*parsedLines[i].ExpenseAccountID]; name != "" {
+			parsedLines[i].Description = name
+			lineFormRows[i].Description = name
+			lineFormRows[i].Error = ""
+		}
+	}
+
 	vm.Lines = lineFormRows
 	vm.InitialLinesJSON = buildBillInitialLinesJSON(lineFormRows)
 
