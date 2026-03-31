@@ -10,7 +10,6 @@ function invoiceEditor() {
     invoiceDate: "",
     dueDate: "",
     dueDateEditable: false,
-    reviewing: false,
 
     init() {
       const el = this.$el;

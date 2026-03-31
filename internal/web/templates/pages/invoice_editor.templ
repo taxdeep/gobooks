@@ -57,8 +57,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 				<input type="hidden" name="invoice_id" value={ Uitoa(vm.EditingID) }/>
 			}
 
-			// Fieldset disables all visible controls while in review mode
-			<fieldset :disabled="reviewing" class="min-w-0 border-0 p-0 m-0 space-y-6">
+			// Wrapper div — JS adds 'ie-reviewing' class to lock fields
+			<div id="ie-fields">
 
 			// ── Header ──────────────────────────────────────────────────────
 			<div class="rounded-lg border border-border bg-surface p-6">
@@ -355,52 +355,76 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 				<script src="/static/invoice_editor.js?v=3"></script>
 			</div>
 
-			</fieldset>
+			</div>
 
 			// ── Review banner ─────────────────────────────────────────────────
 			<div
-				x-show="reviewing"
-				x-cloak
+				id="ie-review-banner"
+				style="display:none"
 				class="rounded-md border border-border bg-background px-4 py-3 text-body text-text-muted2"
 			>
-				Review your invoice. If everything looks correct, click <strong class="text-text">Submit</strong> to save — or click <strong class="text-text">Cancel</strong> to go back and make changes.
+				Review your invoice. If everything looks correct, click <strong class="text-text">Submit</strong> to save — or click <strong class="text-text">← Edit</strong> to make changes.
 			</div>
 
 			// ── Actions ──────────────────────────────────────────────────────
 			<div class="flex flex-wrap items-center justify-end gap-3">
 				<a
-					x-show="!reviewing"
+					id="ie-cancel-link"
 					href="/invoices"
 					class="rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text"
 				>
 					Cancel
 				</a>
 				<button
-					x-show="reviewing"
-					x-cloak
+					id="ie-edit-btn"
+					style="display:none"
 					type="button"
-					@click="reviewing = false"
+					onclick="ieExitReview()"
 					class="rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text"
 				>
 					← Edit
 				</button>
 				<button
-					x-show="!reviewing"
+					id="ie-save-btn"
 					type="button"
-					@click="reviewing = true"
+					onclick="ieEnterReview()"
 					class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
 				>
 					Save Draft
 				</button>
 				<button
-					x-show="reviewing"
-					x-cloak
+					id="ie-submit-btn"
+					style="display:none"
 					type="submit"
 					class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
 				>
 					Submit
 				</button>
 			</div>
+
+			<script>
+				function ieEnterReview() {
+					// Lock all inputs/selects/textareas inside the fields wrapper
+					document.querySelectorAll('#ie-fields input, #ie-fields select, #ie-fields textarea, #ie-fields button').forEach(function(el) {
+						el.disabled = true;
+					});
+					document.getElementById('ie-review-banner').style.display = '';
+					document.getElementById('ie-cancel-link').style.display = 'none';
+					document.getElementById('ie-edit-btn').style.display = '';
+					document.getElementById('ie-save-btn').style.display = 'none';
+					document.getElementById('ie-submit-btn').style.display = '';
+				}
+				function ieExitReview() {
+					document.querySelectorAll('#ie-fields input, #ie-fields select, #ie-fields textarea, #ie-fields button').forEach(function(el) {
+						el.disabled = false;
+					});
+					document.getElementById('ie-review-banner').style.display = 'none';
+					document.getElementById('ie-cancel-link').style.display = '';
+					document.getElementById('ie-edit-btn').style.display = 'none';
+					document.getElementById('ie-save-btn').style.display = '';
+					document.getElementById('ie-submit-btn').style.display = 'none';
+				}
+			</script>
 		</form>
 	</div>
 }
