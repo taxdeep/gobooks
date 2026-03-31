@@ -182,6 +182,7 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 	dueDateRaw := strings.TrimSpace(c.FormValue("due_date"))
 	memo := strings.TrimSpace(c.FormValue("memo"))
 	lineCountRaw := strings.TrimSpace(c.FormValue("line_count"))
+	taxAdjCountRaw := strings.TrimSpace(c.FormValue("tax_adj_count"))
 
 	isEdit := invoiceIDRaw != "" && invoiceIDRaw != "0"
 	var editingID uint
@@ -326,6 +327,28 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 		}
 	}
 
+	// ── Read tax adjustments (user-edited totals per tax code) ───────────────
+	// tax_adj_count + tax_adj_id[i] + tax_adj_amount[i]
+	taxAdjCount, _ := strconv.Atoi(taxAdjCountRaw)
+	taxAdjMap := map[uint]decimal.Decimal{} // codeID → user-provided total tax
+	for i := 0; i < taxAdjCount; i++ {
+		key := func(f string) string { return fmt.Sprintf("%s[%d]", f, i) }
+		idRaw2 := strings.TrimSpace(c.FormValue(key("tax_adj_id")))
+		amtRaw := strings.TrimSpace(c.FormValue(key("tax_adj_amount")))
+		if idRaw2 == "" || amtRaw == "" {
+			continue
+		}
+		codeID64, err := strconv.ParseUint(idRaw2, 10, 64)
+		if err != nil || codeID64 == 0 {
+			continue
+		}
+		amt, err := decimal.NewFromString(amtRaw)
+		if err != nil || amt.IsNegative() {
+			continue
+		}
+		taxAdjMap[uint(codeID64)] = amt.RoundBank(2)
+	}
+
 	type computedLine struct {
 		parsedInvoiceLine
 		LineNet    decimal.Decimal
@@ -335,7 +358,13 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 	}
 	var computed []computedLine
 	subtotal := decimal.Zero
-	taxTotal := decimal.Zero
+
+	// First pass: compute line nets and unadjusted taxes; track per-code calculated totals.
+	type perCodeData struct {
+		calcTotal decimal.Decimal
+		indices   []int
+	}
+	codeData := map[uint]*perCodeData{}
 
 	for _, pl := range parsedLines {
 		lineNet := pl.Qty.Mul(pl.UnitPrice).RoundBank(2)
@@ -347,16 +376,65 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 				lineTax = services.SumTaxResults(taxResults)
 			}
 		}
-		lineTotal := lineNet.Add(lineTax)
 		subtotal = subtotal.Add(lineNet)
-		taxTotal = taxTotal.Add(lineTax)
+		idx := len(computed)
 		computed = append(computed, computedLine{
 			parsedInvoiceLine: pl,
 			LineNet:           lineNet,
 			LineTax:           lineTax,
-			LineTotal:         lineTotal,
+			LineTotal:         lineNet.Add(lineTax),
 			TaxResults:        taxResults,
 		})
+		if pl.TaxCodeID != nil {
+			cd := codeData[*pl.TaxCodeID]
+			if cd == nil {
+				cd = &perCodeData{}
+				codeData[*pl.TaxCodeID] = cd
+			}
+			cd.calcTotal = cd.calcTotal.Add(lineTax)
+			cd.indices = append(cd.indices, idx)
+		}
+	}
+
+	// Second pass: if the user adjusted a tax code total, redistribute proportionally.
+	taxTotal := decimal.Zero
+	for codeID, cd := range codeData {
+		adj, hasAdj := taxAdjMap[codeID]
+		if !hasAdj || adj.Equal(cd.calcTotal) {
+			// No override — use calculated values.
+			taxTotal = taxTotal.Add(cd.calcTotal)
+			continue
+		}
+		// Redistribute override amount across lines using this code.
+		if cd.calcTotal.IsZero() {
+			// Split evenly when no base to proportion against.
+			each := adj.Div(decimal.NewFromInt(int64(len(cd.indices)))).RoundBank(2)
+			remainder := adj
+			for i, li := range cd.indices {
+				t := each
+				if i == len(cd.indices)-1 {
+					t = remainder // absorb rounding
+				}
+				computed[li].LineTax = t
+				computed[li].LineTotal = computed[li].LineNet.Add(t)
+				remainder = remainder.Sub(t)
+			}
+		} else {
+			// Proportional scaling.
+			remaining := adj
+			for i, li := range cd.indices {
+				var t decimal.Decimal
+				if i == len(cd.indices)-1 {
+					t = remaining
+				} else {
+					t = computed[li].LineTax.Mul(adj).Div(cd.calcTotal).RoundBank(2)
+				}
+				computed[li].LineTax = t
+				computed[li].LineTotal = computed[li].LineNet.Add(t)
+				remaining = remaining.Sub(t)
+			}
+		}
+		taxTotal = taxTotal.Add(adj)
 	}
 	grandTotal := subtotal.Add(taxTotal)
 
@@ -580,6 +658,7 @@ type taxCodeJSONItem struct {
 	ID   uint   `json:"id"`
 	Code string `json:"code"`
 	Name string `json:"name"`
+	Rate string `json:"rate"` // stored fraction, e.g. "0.050000" for 5%
 }
 
 func buildProductsJSON(products []models.ProductService) string {
@@ -599,7 +678,12 @@ func buildProductsJSON(products []models.ProductService) string {
 func buildTaxCodesJSON(codes []models.TaxCode) string {
 	items := make([]taxCodeJSONItem, 0, len(codes))
 	for _, tc := range codes {
-		items = append(items, taxCodeJSONItem{ID: tc.ID, Code: tc.Code, Name: tc.Name})
+		items = append(items, taxCodeJSONItem{
+			ID:   tc.ID,
+			Code: tc.Code,
+			Name: tc.Name,
+			Rate: tc.Rate.String(), // fraction: "0.05" for 5%
+		})
 	}
 	b, _ := json.Marshal(items)
 	return string(b)

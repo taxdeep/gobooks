@@ -267,6 +267,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 										<select
 											:name="'line_tax_code_id[' + idx + ']'"
 											x-model="line.tax_code_id"
+											@change="onTaxCodeChange(idx)"
 											class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus"
 										>
 											<option value="">-- None --</option>
@@ -304,23 +305,51 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 
 				// ── Totals ───────────────────────────────────────────────────
 				<div class="mt-4 flex justify-end">
-					<dl class="w-56 space-y-1 text-body">
-						<div class="flex justify-between">
-							<dt class="text-text-muted">Pre-tax subtotal</dt>
-							<dd class="tabular-nums text-text" x-text="subtotal()"></dd>
+					<div class="w-72 space-y-1 text-body">
+						// Pre-tax subtotal
+						<div class="flex items-center justify-between">
+							<span class="text-text-muted">Pre-tax subtotal</span>
+							<span class="tabular-nums text-text" x-text="subtotal()"></span>
 						</div>
-						<div class="flex justify-between">
-							<dt class="text-text-muted">Tax</dt>
-							<dd class="tabular-nums text-text-muted2 text-small">calculated on save</dd>
+
+						// Per-tax-code breakdown (editable)
+						<template x-for="tc in taxBreakdown()" :key="tc.id">
+							<div class="flex items-center justify-between gap-2">
+								<span class="text-small text-text-muted truncate" x-text="tc.code + ' @ ' + (tc.rate * 100).toFixed(2).replace(/\.?0+$/, '') + '%'"></span>
+								<input
+									type="number"
+									min="0"
+									step="0.01"
+									:value="taxAdjValue(tc.id)"
+									@input="onTaxAdjInput(tc.id, $event.target.value)"
+									@blur="if (!$event.target.value.trim()) { $event.target.value = taxAdjValue(tc.id) }"
+									class="w-24 rounded-md border border-border-input px-2 py-0.5 text-right text-body tabular-nums outline-none focus:ring-2 focus:ring-primary-focus"
+								/>
+							</div>
+						</template>
+
+						// Hidden inputs submitted with the form
+						<template x-if="taxBreakdown().length > 0">
+							<span>
+								<input type="hidden" name="tax_adj_count" :value="taxBreakdown().length"/>
+								<template x-for="(tc, i) in taxBreakdown()" :key="tc.id">
+									<span>
+										<input type="hidden" :name="'tax_adj_id[' + i + ']'" :value="tc.id"/>
+										<input type="hidden" :name="'tax_adj_amount[' + i + ']'" :value="taxAdjValue(tc.id)"/>
+									</span>
+								</template>
+							</span>
+						</template>
+
+						// Grand total
+						<div class="flex items-center justify-between border-t border-border pt-2 font-semibold">
+							<span>Total</span>
+							<span class="tabular-nums" x-text="grandTotal()"></span>
 						</div>
-						<div class="flex justify-between border-t border-border pt-1 font-semibold">
-							<dt>Pre-tax total</dt>
-							<dd class="tabular-nums" x-text="subtotal()"></dd>
-						</div>
-					</dl>
+					</div>
 				</div>
 
-				<script src="/static/invoice_editor.js?v=1"></script>
+				<script src="/static/invoice_editor.js?v=2"></script>
 			</div>
 
 			// ── Actions ──────────────────────────────────────────────────────
