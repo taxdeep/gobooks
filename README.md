@@ -507,12 +507,23 @@ The install script will:
 8. Configure Nginx on port 80
 9. Create a daily PostgreSQL backup cron job in `/var/backups/gobooks`
 
-For upgrades after that:
+For upgrades after that, use a freshly pulled source tree. Do not run upgrades from `/opt/gobooks` in place: `upgrade.sh` rebuilds whatever source tree you point it at, and it does not run `git pull` by itself.
 
 ```bash
-cd /opt/gobooks
-sudo git pull origin main
-sudo bash ./upgrade.sh
+cd /tmp
+rm -rf gobooks-latest
+git clone https://github.com/imlei/gobooks.git gobooks-latest
+cd /tmp/gobooks-latest
+git checkout main
+git pull origin main
+sudo bash ./upgrade.sh /tmp/gobooks-latest
+```
+
+During the upgrade, confirm the script prints both of these lines and that `Upgrade src` matches the version you expect:
+
+```text
+Installed src: ...
+Upgrade src:   ...
 ```
 
 **Manual native build (advanced):**
@@ -732,15 +743,20 @@ gunzip -c /var/backups/gobooks/gobooks_20260330.sql.gz | sudo -u postgres psql g
 ### Upgrading
 
 ```bash
-cd /opt/gobooks
-sudo git pull origin main
+# Native deployment: upgrade from a fresh source tree, not from /opt/gobooks
+cd /tmp
+rm -rf gobooks-latest
+git clone https://github.com/imlei/gobooks.git gobooks-latest
+cd /tmp/gobooks-latest
+git checkout main
+git pull origin main
+sudo bash ./upgrade.sh /tmp/gobooks-latest
 
-# Upgrade in place (native)
-sudo bash ./upgrade.sh
-
-# Or rebuild (Docker)
+# Docker deployment: rebuild from the latest checked-out repo
 docker compose up -d --build
 ```
+
+`upgrade.sh` now prints `Installed src` and `Upgrade src` near the top. If `Upgrade src` is not the release you expect, stop there and refresh the source tree before continuing.
 
 ---
 
