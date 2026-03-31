@@ -38,7 +38,7 @@ func (s *Server) handleBankReconcileForm(c *fiber.Ctx) error {
 		return c.Redirect("/select-company", fiber.StatusSeeOther)
 	}
 
-	accounts, err := s.activeAccountsForCompany(companyID)
+	accounts, err := s.bankAccountsForCompany(companyID)
 	if err != nil {
 		return pages.BankReconcile(pages.BankReconcileVM{
 			HasCompany: true,
