@@ -4,8 +4,8 @@
 # ─────────────────────────────────────────────────────────────────────────────
 #
 # Usage:
-#   sudo bash upgrade.sh                  # upgrade from current directory
-#   sudo bash upgrade.sh /path/to/source  # upgrade from specified source
+#   sudo bash upgrade.sh                  # upgrade from the source beside this script (no git pull)
+#   sudo bash upgrade.sh /path/to/source  # upgrade from a freshly pulled/cloned source tree
 #
 # What this script does:
 #   1. Verifies the existing installation is intact
@@ -67,6 +67,26 @@ if [[ ! -f "${SOURCE_DIR}/go.mod" ]]; then
     err "No go.mod found in ${SOURCE_DIR}."
     err "Usage: sudo bash upgrade.sh [/path/to/gobooks-source]"
     exit 1
+fi
+
+read_source_version() {
+    local version_file="$1"
+    if [[ ! -f "$version_file" ]]; then
+        echo "unknown"
+        return 0
+    fi
+    grep -oP 'Version = "\K[^"]+' "$version_file" | head -n1 || echo "unknown"
+}
+
+SOURCE_VERSION="$(read_source_version "${SOURCE_DIR}/internal/version/version.go")"
+INSTALLED_SOURCE_VERSION="$(read_source_version "${INSTALL_DIR}/internal/version/version.go")"
+
+if [[ "${SOURCE_DIR}" == "${INSTALL_DIR}" && ! -d "${SOURCE_DIR}/.git" ]]; then
+    warn "Using ${INSTALL_DIR} as the upgrade source."
+    warn "This directory is typically a deployed source snapshot, not a live git checkout."
+    warn "upgrade.sh does not download updates from GitHub by itself."
+    warn "If you expected a newer version, clone or pull the latest repo elsewhere and run:"
+    warn "  sudo bash upgrade.sh /path/to/latest-gobooks-source"
 fi
 
 if ! command -v rsync &>/dev/null; then
@@ -154,6 +174,8 @@ echo -e "${CYAN}── GoBooks Upgrade ──${NC}"
 echo ""
 echo -e "  Install dir:  ${INSTALL_DIR}"
 echo -e "  Source dir:    ${SOURCE_DIR}"
+echo -e "  Installed src: ${INSTALLED_SOURCE_VERSION}"
+echo -e "  Upgrade src:   ${SOURCE_VERSION}"
 echo -e "  Service user:  ${SERVICE_USER}"
 echo ""
 
