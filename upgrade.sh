@@ -214,11 +214,11 @@ log "Building Go binaries..."
 mkdir -p bin
 
 log "Installing templ code generator..."
-GOBIN="$(pwd)/bin" go install github.com/a-h/templ/cmd/templ@v0.3.1001
+GOBIN="$(pwd)/bin" GOFLAGS="-buildvcs=false" go install github.com/a-h/templ/cmd/templ@v0.3.1001
 export PATH="$(pwd)/bin:$PATH"
 
 log "Generating templ files..."
-templ generate
+templ generate -build-vcs-version=false 2>/dev/null || templ generate
 
 NEW_APP_BIN="${INSTALL_DIR}/bin/gobooks.new"
 NEW_MIGRATE_BIN="${INSTALL_DIR}/bin/gobooks-migrate.new"

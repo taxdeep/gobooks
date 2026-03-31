@@ -253,11 +253,11 @@ export PATH=$PATH:/usr/local/go/bin
 mkdir -p bin
 
 log "Installing templ code generator..."
-GOBIN="$(pwd)/bin" go install github.com/a-h/templ/cmd/templ@v0.3.1001
+GOBIN="$(pwd)/bin" GOFLAGS="-buildvcs=false" go install github.com/a-h/templ/cmd/templ@v0.3.1001
 export PATH="$(pwd)/bin:$PATH"
 
 log "Generating templ files..."
-templ generate
+templ generate -build-vcs-version=false 2>/dev/null || templ generate
 
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/gobooks         ./cmd/gobooks
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/gobooks-migrate  ./cmd/gobooks-migrate
