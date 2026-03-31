@@ -102,12 +102,17 @@ func TestHandleInvoiceSaveDraftRedirectsToLockedEdit(t *testing.T) {
 		"terms":                {string(models.InvoiceTermsNet30)},
 		"due_date":             {"2026-04-30"},
 		"memo":                 {"Review mode test"},
-		"line_count":           {"1"},
+		"line_count":           {"2"},
 		"line_description[0]":  {"Draft invoice line"},
 		"line_qty[0]":          {"1"},
 		"line_unit_price[0]":   {"120.00"},
 		"line_tax_code_id[0]":  {""},
 		"line_product_service_id[0]": {""},
+		"line_description[1]":        {""},
+		"line_qty[1]":                {"1"},
+		"line_unit_price[1]":         {"0.00"},
+		"line_tax_code_id[1]":        {""},
+		"line_product_service_id[1]": {""},
 	}
 
 	resp := performFormRequest(t, app, http.MethodPost, "/invoices/save-draft", form, "")
@@ -146,11 +151,15 @@ func TestHandleBillSaveDraftAndPostFlow(t *testing.T) {
 		"terms":                    {string(models.InvoiceTermsNet30)},
 		"due_date":                 {"2026-04-30"},
 		"memo":                     {"Review mode test"},
-		"line_count":               {"1"},
+		"line_count":               {"2"},
 		"line_expense_account_id[0]": {fmt.Sprintf("%d", expenseAccountID)},
 		"line_description[0]":      {"Office supplies"},
 		"line_amount[0]":           {"120.00"},
 		"line_tax_code_id[0]":      {""},
+		"line_expense_account_id[1]": {""},
+		"line_description[1]":        {""},
+		"line_amount[1]":             {"0.00"},
+		"line_tax_code_id[1]":        {""},
 	}
 
 	saveResp := performFormRequest(t, app, http.MethodPost, "/bills/save-draft", form, "")

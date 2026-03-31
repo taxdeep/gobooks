@@ -259,6 +259,10 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 		psIDRaw := strings.TrimSpace(c.FormValue(key("line_product_service_id")))
 		tcIDRaw := strings.TrimSpace(c.FormValue(key("line_tax_code_id")))
 
+		if isInvoicePlaceholderLine(desc, qtyRaw, priceRaw, psIDRaw, tcIDRaw) {
+			continue
+		}
+
 		row := pages.InvoiceLineFormRow{
 			ProductServiceID: psIDRaw,
 			Description:      desc,
@@ -305,6 +309,9 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 	}
 	if len(parsedLines) == 0 {
 		vm.LinesError = "At least one line item is required."
+	}
+	if hasLineErr && vm.LinesError == "" {
+		vm.LinesError = "Complete or remove any incomplete line items before saving."
 	}
 
 	if vm.InvoiceNumberError != "" || vm.CustomerError != "" || vm.DateError != "" ||
@@ -727,4 +734,26 @@ func buildInitialLinesJSON(rows []pages.InvoiceLineFormRow) string {
 	}
 	b, _ := json.Marshal(items)
 	return string(b)
+}
+
+func isInvoicePlaceholderLine(desc, qtyRaw, priceRaw, productServiceIDRaw, taxCodeIDRaw string) bool {
+	if desc != "" || productServiceIDRaw != "" || taxCodeIDRaw != "" {
+		return false
+	}
+
+	qtyBlankOrDefault := qtyRaw == ""
+	if !qtyBlankOrDefault {
+		if qty, err := decimal.NewFromString(qtyRaw); err == nil {
+			qtyBlankOrDefault = qty.Equal(decimal.NewFromInt(1))
+		}
+	}
+
+	priceBlankOrZero := priceRaw == ""
+	if !priceBlankOrZero {
+		if price, err := decimal.NewFromString(priceRaw); err == nil {
+			priceBlankOrZero = price.IsZero()
+		}
+	}
+
+	return qtyBlankOrDefault && priceBlankOrZero
 }

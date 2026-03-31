@@ -51,7 +51,7 @@ templ Layout(title string, sidebar ui.SidebarVM, content templ.Component) {
 						input.value = token;
 					});
 
-					document.body.addEventListener("htmx:configRequest", function (event) {
+					document.addEventListener("htmx:configRequest", function (event) {
 						const token = csrfToken();
 						if (token) {
 							event.detail.headers["X-CSRF-Token"] = token;

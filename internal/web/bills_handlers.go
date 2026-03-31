@@ -271,6 +271,10 @@ func (s *Server) handleBillSaveDraft(c *fiber.Ctx) error {
 		amtRaw := strings.TrimSpace(c.FormValue(key("line_amount")))
 		tcIDRaw := strings.TrimSpace(c.FormValue(key("line_tax_code_id")))
 
+		if isBillPlaceholderLine(desc, amtRaw, accIDRaw, tcIDRaw) {
+			continue
+		}
+
 		row := pages.BillLineFormRow{
 			ExpenseAccountID: accIDRaw,
 			Description:      desc,
@@ -312,6 +316,9 @@ func (s *Server) handleBillSaveDraft(c *fiber.Ctx) error {
 	}
 	if len(parsedLines) == 0 {
 		vm.LinesError = "At least one line item is required."
+	}
+	if hasLineErr && vm.LinesError == "" {
+		vm.LinesError = "Complete or remove any incomplete line items before saving."
 	}
 
 	if vm.BillNumberError != "" || vm.VendorError != "" || vm.DateError != "" ||
@@ -687,4 +694,20 @@ func parseBillID(c *fiber.Ctx) (uint, error) {
 		return 0, err
 	}
 	return uint(id64), nil
+}
+
+func isBillPlaceholderLine(desc, amountRaw, expenseAccountIDRaw, taxCodeIDRaw string) bool {
+	if desc != "" || expenseAccountIDRaw != "" || taxCodeIDRaw != "" {
+		return false
+	}
+
+	if amountRaw == "" {
+		return true
+	}
+
+	amt, err := decimal.NewFromString(amountRaw)
+	if err != nil {
+		return false
+	}
+	return amt.IsZero()
 }
