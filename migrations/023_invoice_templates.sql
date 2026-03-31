@@ -20,11 +20,14 @@ CREATE TABLE IF NOT EXISTS invoices_templates (
     created_at      TIMESTAMPTZ     NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ     NOT NULL DEFAULT now(),
     
-    -- Enforce: only one default template per company
-    CONSTRAINT uk_invoices_templates_company_default 
-        UNIQUE (company_id, is_default) 
-        WHERE is_default = true
+    -- Audit and versioning handled above
+    CONSTRAINT uq_invoices_templates_company_name UNIQUE (company_id, name)
 );
+
+-- Enforce: only one default template per company (partial unique index)
+CREATE UNIQUE INDEX IF NOT EXISTS uk_invoices_templates_company_default
+    ON invoices_templates(company_id)
+    WHERE is_default = true;
 
 -- Indexes for filtering and joins
 CREATE INDEX IF NOT EXISTS idx_invoices_templates_company   ON invoices_templates(company_id);
