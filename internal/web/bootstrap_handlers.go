@@ -19,6 +19,11 @@ import (
 )
 
 func (s *Server) handleBootstrapForm(c *fiber.Ctx) error {
+	// Prevent browser from caching the form — pressing Back after successful
+	// bootstrap will re-request this page, which then redirects to "/" instead
+	// of showing the cached form with sensitive data still visible.
+	c.Set("Cache-Control", "no-store")
+
 	userCount, companyCount, err := countUsersAndCompanies(s.DB)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "database error")
