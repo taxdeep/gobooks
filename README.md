@@ -486,9 +486,9 @@ cat backup_20260330.sql | docker compose exec -T db psql -U gobooks gobooks
 
 ```bash
 cd /opt
-sudo git clone https://github.com/your-org/gobooks.git
+sudo git clone https://github.com/imlei/gobooks.git
 cd /opt/gobooks
-
+chmod +x install.sh
 # Interactive install
 sudo bash ./install.sh
 

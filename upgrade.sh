@@ -212,6 +212,14 @@ npm run build:css
 
 log "Building Go binaries..."
 mkdir -p bin
+
+log "Installing templ code generator..."
+GOBIN="$(pwd)/bin" go install github.com/a-h/templ/cmd/templ@v0.3.1001
+export PATH="$(pwd)/bin:$PATH"
+
+log "Generating templ files..."
+templ generate
+
 NEW_APP_BIN="${INSTALL_DIR}/bin/gobooks.new"
 NEW_MIGRATE_BIN="${INSTALL_DIR}/bin/gobooks-migrate.new"
 rm -f "$NEW_APP_BIN" "$NEW_MIGRATE_BIN"
