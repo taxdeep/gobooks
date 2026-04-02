@@ -151,13 +151,12 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Post("/bills/:id/post", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionBillUpdate), s.handleBillPost)
 
 	// ── 报表（需 view_reports 权限；AP 角色无权访问）─────────────────────────────
-	app.Get("/reports", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), func(c *fiber.Ctx) error {
-		return c.Redirect("/reports/trial-balance", fiber.StatusSeeOther)
-	})
+	app.Get("/reports", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleReportsHub)
 	app.Get("/reports/trial-balance", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleTrialBalance)
 	app.Get("/reports/income-statement", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleIncomeStatement)
 	app.Get("/reports/balance-sheet", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleBalanceSheet)
 	app.Get("/reports/journal-entries", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleJournalEntryReport)
+	app.Get("/reports/sales-tax", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleSalesTaxReport)
 
 	// ── 票据模板管理 ──────────────────────────────────────────────────────────────
 	// 模板管理界面

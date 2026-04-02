@@ -1,5 +1,5 @@
 // bill_editor.js — Alpine component for the bill line-items editor.
-// v=5
+// v=7
 function billEditor() {
   return {
     lines: [],
@@ -65,7 +65,16 @@ function billEditor() {
     },
 
     calcLine(idx) {
+      const line = this.lines[idx];
+      line.amount = this._sanitizeDecimalInput(line.amount, 2);
       this._clearLineError(idx);
+      this._recalcLine(idx);
+      this._recalcAll();
+    },
+
+    onAmountBlur(idx) {
+      const line = this.lines[idx];
+      line.amount = this._format2dp(line.amount);
       this._recalcLine(idx);
       this._recalcAll();
     },
@@ -120,6 +129,25 @@ function billEditor() {
       if (!accountId) return "";
       const account = this.accounts.find(a => String(a.id) === String(accountId));
       return account ? (account.name || "") : "";
+    },
+
+    // Strip non-numeric chars; keep at most one '.'; truncate to maxDp decimal places.
+    _sanitizeDecimalInput(val, maxDp) {
+      let s = String(val).replace(/[^0-9.]/g, '');
+      const firstDot = s.indexOf('.');
+      if (firstDot !== -1) {
+        s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, '');
+        if (s.length - firstDot - 1 > maxDp) {
+          s = s.slice(0, firstDot + maxDp + 1);
+        }
+      }
+      return s;
+    },
+
+    // Format to exactly 2 decimal places on blur; negative → 0.
+    _format2dp(val) {
+      const n = parseFloat(val);
+      return (isNaN(n) || n < 0) ? '0.00' : n.toFixed(2);
     },
 
     _clearLineError(idx) {

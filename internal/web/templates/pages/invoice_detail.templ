@@ -36,6 +36,11 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 				Invoice email sent to customer.
 			</div>
 		}
+		if vm.EmailError != "" {
+			<div class="mb-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">
+				Could not send email: { vm.EmailError }
+			</div>
+		}
 		if vm.JustPaid {
 			<div class="mb-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">
 				Invoice marked as paid.
@@ -129,7 +134,7 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 							method="post"
 							action={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/send-email" }
 							class="inline"
-							onsubmit="return confirm('Send this invoice via email to ' + (this.querySelector('[name=to_email]') ? this.querySelector('[name=to_email]').value : 'customer') + '?');"
+							onsubmit="return invoiceSendEmailConfirm(this);"
 						>
 							<input type="hidden" name="to_email" value={ vm.Invoice.CustomerEmailSnapshot }/>
 							<button
@@ -139,6 +144,24 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 								Send Email
 							</button>
 						</form>
+						<script>
+							function invoiceSendEmailConfirm(form) {
+								var input = form.querySelector('[name=to_email]');
+								var email = input ? input.value.trim() : '';
+								if (!email) {
+									var entered = window.prompt('No email on file for this customer.\nEnter recipient email address:');
+									if (!entered || !entered.trim()) return false;
+									entered = entered.trim();
+									if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(entered)) {
+										alert('Please enter a valid email address.');
+										return false;
+									}
+									input.value = entered;
+									email = entered;
+								}
+								return confirm('Send this invoice via email to ' + email + '?');
+							}
+						</script>
 					} else {
 						<span
 							class="inline-block rounded-md border border-border bg-disabled-bg px-4 py-2 text-body text-disabled-text cursor-not-allowed"

@@ -1,5 +1,5 @@
 // invoice_editor.js — Alpine component for the invoice line-items editor.
-// v=4
+// v=6
 function invoiceEditor() {
   return {
     lines: [],
@@ -72,7 +72,24 @@ function invoiceEditor() {
     },
 
     calcLine(idx) {
+      const line = this.lines[idx];
+      line.qty        = this._sanitizeDecimalInput(line.qty, 2);
+      line.unit_price = this._sanitizeDecimalInput(line.unit_price, 2);
       this._clearLineError(idx);
+      this._recalcLine(idx);
+      this._recalcAll();
+    },
+
+    onQtyBlur(idx) {
+      const line = this.lines[idx];
+      line.qty = this._format2dp(line.qty);
+      this._recalcLine(idx);
+      this._recalcAll();
+    },
+
+    onPriceBlur(idx) {
+      const line = this.lines[idx];
+      line.unit_price = this._format2dp(line.unit_price);
       this._recalcLine(idx);
       this._recalcAll();
     },
@@ -120,6 +137,25 @@ function invoiceEditor() {
         };
       }
       this.taxAdj = next;
+    },
+
+    // Strip non-numeric chars; keep at most one '.'; truncate to maxDp decimal places.
+    _sanitizeDecimalInput(val, maxDp) {
+      let s = String(val).replace(/[^0-9.]/g, '');
+      const firstDot = s.indexOf('.');
+      if (firstDot !== -1) {
+        s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, '');
+        if (s.length - firstDot - 1 > maxDp) {
+          s = s.slice(0, firstDot + maxDp + 1);
+        }
+      }
+      return s;
+    },
+
+    // Format to exactly 2 decimal places on blur; negative → 0.
+    _format2dp(val) {
+      const n = parseFloat(val);
+      return (isNaN(n) || n < 0) ? '0.00' : n.toFixed(2);
     },
 
     _clearLineError(idx) {

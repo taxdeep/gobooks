@@ -321,6 +321,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 											:name="'line_qty[' + idx + ']'"
 											x-model="line.qty"
 											@input="calcLine(idx)"
+											@blur="onQtyBlur(idx)"
 											inputmode="decimal"
 											class="block w-full rounded-md border border-border-input px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus"
 										/>
@@ -332,6 +333,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 											:name="'line_unit_price[' + idx + ']'"
 											x-model="line.unit_price"
 											@input="calcLine(idx)"
+											@blur="onPriceBlur(idx)"
 											inputmode="decimal"
 											class="block w-full rounded-md border border-border-input px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus"
 										/>
@@ -423,7 +425,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 					</div>
 				</div>
 
-				<script src="/static/invoice_editor.js?v=5"></script>
+				<script src="/static/invoice_editor.js?v=6"></script>
 			</div>
 
 			</fieldset>

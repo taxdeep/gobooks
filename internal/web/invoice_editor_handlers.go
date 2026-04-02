@@ -63,6 +63,7 @@ func (s *Server) handleInvoiceDetail(c *fiber.Ctx) error {
 		JustSent:   c.Query("sent") == "1",
 		JustPaid:   c.Query("paid") == "1",
 		VoidError:  c.Query("voiderror"),
+		EmailError: c.Query("emailerror"),
 	}
 	if inv.JournalEntry != nil {
 		vm.JournalNo = inv.JournalEntry.JournalNo

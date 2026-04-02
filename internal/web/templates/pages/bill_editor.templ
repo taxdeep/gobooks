@@ -320,6 +320,7 @@ templ bodyBillEditor(vm BillEditorVM) {
 											:name="'line_amount[' + idx + ']'"
 											x-model="line.amount"
 											@input="calcLine(idx)"
+											@blur="onAmountBlur(idx)"
 											inputmode="decimal"
 											placeholder="0.00"
 											class="block w-full rounded-md border border-border-input px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus"
@@ -408,7 +409,7 @@ templ bodyBillEditor(vm BillEditorVM) {
 					</div>
 				</div>
 
-				<script src="/static/bill_editor.js?v=6"></script>
+				<script src="/static/bill_editor.js?v=7"></script>
 			</div>
 
 			</fieldset>
