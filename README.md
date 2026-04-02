@@ -173,7 +173,7 @@ Every critical action (post, void, reverse, reconcile, accept suggestion, etc.) 
 
 ### SysAdmin Console
 
-A separate login at `/sysadmin` with its own session — no company business data is accessible from the SysAdmin layer.
+A separate login at `/admin/login` with its own session — no company business data is accessible from the SysAdmin layer.
 
 Capabilities:
 - Company and user management
@@ -291,7 +291,7 @@ Docker automatically:
 
 Open: [http://localhost:6768](http://localhost:6768)
 
-On first run the Setup page appears to create the initial company and admin account.
+On first run the Setup page appears to create the initial company and owner account.
 
 ---
 
@@ -372,7 +372,7 @@ A step-by-step guide for deploying GoBooks on a fresh Ubuntu 24.04 LTS server. C
 sudo apt update && sudo apt upgrade -y
 
 # Install basic tools
-sudo apt install -y curl git ufw
+sudo apt install -y curl git ufw rsync
 ```
 
 **Firewall setup:**
@@ -482,6 +482,52 @@ cat backup_20260330.sql | docker compose exec -T db psql -U gobooks gobooks
 
 ### Option B — Native Build Deployment
 
+**Fast path for a fresh VPS (recommended):**
+
+```bash
+cd /opt
+sudo git clone https://github.com/imlei/gobooks.git
+cd /opt/gobooks
+chmod +x install.sh
+# Interactive install
+sudo bash ./install.sh
+
+# Or fully automatic passwords/secrets
+sudo bash ./install.sh --defaults
+```
+
+The install script will:
+1. Install Go, Node.js 20, PostgreSQL, Nginx, wkhtmltopdf, `rsync`, and other system dependencies
+2. Create the `gobooks` system user
+3. Create the PostgreSQL role and database
+4. Build the Go binaries and Tailwind CSS bundle
+5. Write `/opt/gobooks/.env`
+6. Run database migrations
+7. Install the `gobooks` systemd service
+8. Configure Nginx on port 80
+9. Create a daily PostgreSQL backup cron job in `/var/backups/gobooks`
+
+For upgrades after that, use a freshly pulled source tree. Do not run upgrades from `/opt/gobooks` in place: `upgrade.sh` rebuilds whatever source tree you point it at, and it does not run `git pull` by itself.
+
+```bash
+cd /tmp
+rm -rf gobooks-latest
+git clone https://github.com/imlei/gobooks.git gobooks-latest
+cd /tmp/gobooks-latest
+git checkout main
+git pull origin main
+sudo bash ./upgrade.sh /tmp/gobooks-latest
+```
+
+During the upgrade, confirm the script prints both of these lines and that `Upgrade src` matches the version you expect:
+
+```text
+Installed src: ...
+Upgrade src:   ...
+```
+
+**Manual native build (advanced):**
+
 **1. Install Go 1.23+**
 
 ```bash
@@ -492,7 +538,7 @@ source /etc/profile.d/golang.sh
 go version   # Should print go1.23.x
 ```
 
-**2. Install Node.js 18+ (for Tailwind CSS build)**
+**2. Install Node.js 20+ (for Tailwind CSS build)**
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
@@ -562,7 +608,7 @@ DB_SSLMODE=disable
 **7. Run migrations**
 
 ```bash
-source .env && ./bin/gobooks-migrate
+./bin/gobooks-migrate
 ```
 
 **8. Create systemd service**
@@ -576,8 +622,8 @@ Requires=postgresql.service
 
 [Service]
 Type=simple
-User=www-data
-Group=www-data
+User=gobooks
+Group=gobooks
 WorkingDirectory=/opt/gobooks
 EnvironmentFile=/opt/gobooks/.env
 ExecStartPre=/opt/gobooks/bin/gobooks-migrate
@@ -603,7 +649,8 @@ Set ownership and create data directory:
 
 ```bash
 sudo mkdir -p /opt/gobooks/data
-sudo chown -R www-data:www-data /opt/gobooks
+sudo id gobooks >/dev/null 2>&1 || sudo useradd --system --no-create-home --shell /usr/sbin/nologin gobooks
+sudo chown -R gobooks:gobooks /opt/gobooks
 ```
 
 Enable and start:
@@ -667,7 +714,7 @@ Certbot will auto-configure Nginx for HTTPS and set up auto-renewal.
 | Step | Command / Action |
 |------|-----------------|
 | Open browser | `https://your-domain.com` |
-| Complete setup wizard | Create initial company + admin account |
+| Complete setup wizard | Create initial company + owner account |
 | Configure SMTP | Settings > Notifications (required for invoice email) |
 | Upload company logo | Settings > Company Profile |
 | Import chart of accounts | Auto-imported on company creation |
@@ -680,7 +727,7 @@ Certbot will auto-configure Nginx for HTTPS and set up auto-renewal.
 
 ```bash
 sudo tee /etc/cron.d/gobooks-backup > /dev/null <<EOF
-0 2 * * * postgres pg_dump -U gobooks gobooks | gzip > /var/backups/gobooks/gobooks_\$(date +\%Y\%m\%d).sql.gz
+0 2 * * * postgres pg_dump gobooks | gzip > /var/backups/gobooks/gobooks_\$(date +\%Y\%m\%d).sql.gz
 EOF
 
 sudo mkdir -p /var/backups/gobooks
@@ -690,24 +737,26 @@ sudo chown postgres:postgres /var/backups/gobooks
 **Restore from backup:**
 
 ```bash
-gunzip -c /var/backups/gobooks/gobooks_20260330.sql.gz | psql -U gobooks gobooks
+gunzip -c /var/backups/gobooks/gobooks_20260330.sql.gz | sudo -u postgres psql gobooks
 ```
 
 ### Upgrading
 
 ```bash
-cd /opt/gobooks
+# Native deployment: upgrade from a fresh source tree, not from /opt/gobooks
+cd /tmp
+rm -rf gobooks-latest
+git clone https://github.com/imlei/gobooks.git gobooks-latest
+cd /tmp/gobooks-latest
+git checkout main
 git pull origin main
+sudo bash ./upgrade.sh /tmp/gobooks-latest
 
-# Rebuild (native)
-npm run build:css
-CGO_ENABLED=0 go build -o ./bin/gobooks         ./cmd/gobooks
-CGO_ENABLED=0 go build -o ./bin/gobooks-migrate  ./cmd/gobooks-migrate
-sudo systemctl restart gobooks   # ExecStartPre runs migrations automatically
-
-# Or rebuild (Docker)
+# Docker deployment: rebuild from the latest checked-out repo
 docker compose up -d --build
 ```
+
+`upgrade.sh` now prints `Installed src` and `Upgrade src` near the top. If `Upgrade src` is not the release you expect, stop there and refresh the source tree before continuing.
 
 ---
 

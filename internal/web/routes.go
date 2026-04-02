@@ -15,8 +15,8 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	// ── 首次启动向导 ─────────────────────────────────────────────────────────────
 	app.Get("/setup/bootstrap", s.handleBootstrapForm)
 	app.Post("/setup/bootstrap", s.handleBootstrapSubmit)
-	app.Get("/setup", s.handleSetupForm)
-	app.Post("/setup", s.LoadSession(), s.handleSetupSubmit)
+	app.Get("/setup", s.LoadSession(), s.RequireAuth(), s.handleSetupForm)
+	app.Post("/setup", s.LoadSession(), s.RequireAuth(), s.handleSetupSubmit)
 
 	// ── 认证（邮箱 + 密码）───────────────────────────────────────────────────────
 	app.Get("/login", s.handleLoginForm)
@@ -41,8 +41,21 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Post("/settings/company/sales-tax/deactivate", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleTaxCodeDeactivate)
 	app.Get("/settings/company/numbering", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleNumberingSettingsGet)
 	app.Post("/settings/company/numbering", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleNumberingSettingsPost)
+	app.Get("/settings/company/payment-terms", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handlePaymentTermsGet)
+	app.Post("/settings/company/payment-terms", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentTermCreate)
+	app.Post("/settings/company/payment-terms/update", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentTermUpdate)
+	app.Post("/settings/company/payment-terms/set-default", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentTermSetDefault)
+	app.Post("/settings/company/payment-terms/toggle", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentTermToggle)
+	app.Post("/settings/company/payment-terms/delete", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentTermDelete)
 	app.Get("/settings/company", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCompanyHub)
 	app.Post("/settings/company", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanyProfileSubmit)
+	// ── 设置：多币种 ─────────────────────────────────────────────────────────
+	app.Get("/settings/company/currency", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCompanyCurrencyGet)
+	app.Post("/settings/company/currency/enable", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanyCurrencyEnableMulti)
+	app.Post("/settings/company/currency/add", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanyCurrencyAdd)
+	app.Get("/settings/company/exchange-rates", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleExchangeRatesGet)
+	app.Post("/settings/company/exchange-rates", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleExchangeRatesAdd)
+	app.Post("/settings/company/exchange-rates/delete", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleExchangeRatesDelete)
 
 	// ── 设置：通知（SMTP / SMS）────────────────────────────────────────────────
 	app.Get("/settings/company/notifications", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCompanyNotificationsGet)
@@ -88,7 +101,7 @@ func (s *Server) registerRoutes(app *fiber.App) {
 
 	// ── 日记账 ──────────────────────────────────────────────────────────────────
 	// 新建 / 冲销属于 AR 操作，bookkeeper 及以上可执行（ar_access）
-	app.Get("/journal-entry", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleJournalEntryForm)
+	app.Get("/journal-entry", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleJournalEntryForm)
 	app.Post("/journal-entry", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleJournalEntryPost)
 	app.Get("/journal-entry/list", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleJournalEntryList)
 	app.Post("/journal-entry/:id/reverse", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleJournalEntryReverse)
@@ -98,11 +111,11 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	// 过账 / 冲销 / 发行需要 approve_transactions（accountant 及以上）
 	app.Get("/invoices", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoices)
 	app.Post("/invoices", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleInvoiceCreate)
-	app.Get("/invoices/new", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoiceNew)
+	app.Get("/invoices/new", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleInvoiceNew)
 	app.Get("/invoices/:id", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoiceDetail)
-	app.Get("/invoices/:id/edit", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoiceEdit)
+	app.Get("/invoices/:id/edit", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceEdit)
 	app.Post("/invoices/save-draft", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleInvoiceSaveDraft)
-	
+
 	// Invoice preview & PDF
 	app.Get("/invoices/:id/preview", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoicePreview)
 	app.Get("/invoices/:id/pdf", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoicePDF)
@@ -113,35 +126,37 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Post("/invoices/:id/send-email", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceSendEmail)
 	app.Get("/invoices/:id/email-history", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleGetInvoiceEmailHistory)
 	app.Post("/invoices/:id/mark-paid", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceMarkPaid)
+	app.Get("/invoices/:id/receive-payment", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceReceivePaymentForm)
+	app.Post("/invoices/:id/receive-payment", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceReceivePaymentSubmit)
 	app.Post("/invoices/:id/post", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceApprove), s.handleInvoicePost)
 	app.Post("/invoices/:id/void", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceApprove), s.handleInvoiceVoid)
 	app.Post("/invoices/:id/delete", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceDelete), s.handleInvoiceDelete)
-	
+
 	// Invoice templates (settings)
 	app.Get("/settings/invoice-templates", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoiceTemplatesList)
 	app.Get("/settings/invoice-templates/:id", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoiceTemplateGet)
 	app.Post("/settings/invoice-templates", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleInvoiceTemplateCreate)
 	app.Post("/settings/invoice-templates/:id", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleInvoiceTemplateUpdate)
 	app.Post("/settings/invoice-templates/:id/delete", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleInvoiceTemplateDelete)
-	
+
 	// API endpoints for templates
 	app.Get("/api/invoice-templates/default", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleGetDefaultInvoiceTemplate)
 
 	// ── 账单 ─────────────────────────────────────────────────────────────────────
 	// 查看列表对所有成员开放；创建 / 编辑需要 ap_access（ap 及以上）
 	app.Get("/bills", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleBills)
-	app.Get("/bills/new", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleBillNew)
-	app.Get("/bills/:id/edit", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleBillEdit)
+	app.Get("/bills/new", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionBillCreate), s.handleBillNew)
+	app.Get("/bills/:id/edit", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionBillUpdate), s.handleBillEdit)
 	app.Post("/bills/save-draft", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionBillCreate), s.handleBillSaveDraft)
+	app.Post("/bills/:id/post", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionBillUpdate), s.handleBillPost)
 
 	// ── 报表（需 view_reports 权限；AP 角色无权访问）─────────────────────────────
-	app.Get("/reports", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), func(c *fiber.Ctx) error {
-		return c.Redirect("/reports/trial-balance", fiber.StatusSeeOther)
-	})
+	app.Get("/reports", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleReportsHub)
 	app.Get("/reports/trial-balance", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleTrialBalance)
 	app.Get("/reports/income-statement", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleIncomeStatement)
 	app.Get("/reports/balance-sheet", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleBalanceSheet)
 	app.Get("/reports/journal-entries", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleJournalEntryReport)
+	app.Get("/reports/sales-tax", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleSalesTaxReport)
 
 	// ── 票据模板管理 ──────────────────────────────────────────────────────────────
 	// 模板管理界面
@@ -158,7 +173,9 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	// ── 往来单位（客户 / 供应商）────────────────────────────────────────────────
 	// 联系人数据对所有运营角色开放（不在现有 action 定义范围内，仅需成员资格）
 	app.Get("/customers", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCustomers)
+	app.Get("/customers/new", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerNew)
 	app.Post("/customers", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerCreate)
+	app.Post("/customers/update", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerUpdate)
 	app.Get("/vendors", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleVendors)
 	app.Post("/vendors", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionBillCreate), s.handleVendorCreate)
 
@@ -176,15 +193,15 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	// ── 银行操作 ─────────────────────────────────────────────────────────────────
 	// 银行对账 / 收款归入 AR 操作（ar_access，bookkeeper 及以上）
 	// 付款归入 AP 操作（ap_access，ap 及以上）
-	app.Get("/banking/reconcile", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleBankReconcileForm)
+	app.Get("/banking/reconcile", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleBankReconcileForm)
 	app.Post("/banking/reconcile", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleBankReconcileSubmit)
 	app.Post("/banking/reconcile/void", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleVoidReconciliation)
 	// Auto-match engine: suggest → accept/reject (membership only; no accounting changes)
-	app.Post("/banking/reconcile/auto-match", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleAutoMatch)
-	app.Post("/banking/reconcile/suggest/accept", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleAcceptSuggestion)
-	app.Post("/banking/reconcile/suggest/reject", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleRejectSuggestion)
-	app.Get("/banking/receive-payment", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleReceivePaymentForm)
+	app.Post("/banking/reconcile/auto-match", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleAutoMatch)
+	app.Post("/banking/reconcile/suggest/accept", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleAcceptSuggestion)
+	app.Post("/banking/reconcile/suggest/reject", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleRejectSuggestion)
+	app.Get("/banking/receive-payment", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleReceivePaymentForm)
 	app.Post("/banking/receive-payment", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleReceivePaymentSubmit)
-	app.Get("/banking/pay-bills", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handlePayBillsForm)
+	app.Get("/banking/pay-bills", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionBillPay), s.handlePayBillsForm)
 	app.Post("/banking/pay-bills", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionBillPay), s.handlePayBillsSubmit)
 }

@@ -1,7 +1,6 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/models"
 import "gobooks/internal/web/templates/layout"
 import "gobooks/internal/web/templates/ui"
 
@@ -44,10 +43,23 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 			method="post"
 			action="/invoices/save-draft"
 			class="mt-6 space-y-6"
+			x-data="invoiceEditor()"
+			x-init="init()"
+			data-products={ vm.ProductsJSON }
+			data-tax-codes={ vm.TaxCodesJSON }
+			data-initial-lines={ vm.InitialLinesJSON }
+			data-payment-terms={ vm.PaymentTermsJSON }
+			data-contact-terms={ vm.CustomersTermsJSON }
+			data-initial-terms={ vm.TermCode }
+			data-initial-date={ vm.InvoiceDate }
+			data-initial-due-date={ vm.DueDate }
 		>
 			if vm.IsEdit {
 				<input type="hidden" name="invoice_id" value={ Uitoa(vm.EditingID) }/>
 			}
+
+			// Wrapper div — JS adds 'ie-reviewing' class to lock fields
+			<fieldset id="ie-fields" disabled?={ vm.ReviewLocked }>
 
 			// ── Header ──────────────────────────────────────────────────────
 			<div class="rounded-lg border border-border bg-surface p-6">
@@ -84,6 +96,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 						if vm.CustomerError != "" {
 							<select
 								name="customer_id"
+								@change="onContactChange($event.target.value)"
 								class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
 							>
 								<option value="">-- Select --</option>
@@ -95,6 +108,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 						} else {
 							<select
 								name="customer_id"
+								@change="onContactChange($event.target.value)"
 								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
 							>
 								<option value="">-- Select --</option>
@@ -139,8 +153,9 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 							@change="onTermsChange($event.target.value)"
 							class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
 						>
-							for _, t := range models.AllInvoiceTerms() {
-								<option value={ string(t) } selected?={ string(t) == vm.Terms }>{ models.InvoiceTermsLabel(t) }</option>
+							<option value="">-- Select --</option>
+							for _, pt := range vm.PaymentTerms {
+								<option value={ pt.Code } selected?={ pt.Code == vm.TermCode }>{ pt.DropdownLabel() }</option>
 							}
 						</select>
 					</div>
@@ -173,20 +188,69 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 							class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
 						/>
 					</div>
+
+					if vm.MultiCurrencyEnabled {
+						// Currency
+						<div>
+							<label class="block text-body font-medium text-text">Currency</label>
+							if vm.CurrencyError != "" {
+								<select
+									name="currency_code"
+									class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+								>
+									<option value="">{ vm.BaseCurrencyCode } (base)</option>
+									for _, cc := range vm.CompanyCurrencies {
+										<option value={ cc.CurrencyCode } selected?={ cc.CurrencyCode == vm.CurrencyCode }>{ cc.CurrencyCode }</option>
+									}
+								</select>
+								<div class="mt-1 text-body text-danger">{ vm.CurrencyError }</div>
+							} else {
+								<select
+									name="currency_code"
+									class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+								>
+									<option value="">{ vm.BaseCurrencyCode } (base)</option>
+									for _, cc := range vm.CompanyCurrencies {
+										<option value={ cc.CurrencyCode } selected?={ cc.CurrencyCode == vm.CurrencyCode }>{ cc.CurrencyCode }</option>
+									}
+								</select>
+							}
+						</div>
+
+						// Exchange Rate
+						<div>
+							<label class="block text-body font-medium text-text">Exchange Rate</label>
+							if vm.ExchangeRateError != "" {
+								<input
+									type="text"
+									name="exchange_rate"
+									value={ vm.ExchangeRate }
+									placeholder="e.g. 1.3500 (leave blank to auto-lookup)"
+									autocomplete="off"
+									inputmode="decimal"
+									class="mt-2 block w-full rounded-md border border-danger px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+								/>
+								<div class="mt-1 text-body text-danger">{ vm.ExchangeRateError }</div>
+							} else {
+								<input
+									type="text"
+									name="exchange_rate"
+									value={ vm.ExchangeRate }
+									placeholder="e.g. 1.3500 (leave blank to auto-lookup)"
+									autocomplete="off"
+									inputmode="decimal"
+									class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+								/>
+							}
+							<p class="mt-1 text-small text-text-muted2">Base units per 1 foreign unit. Leave blank to auto-lookup from exchange rates.</p>
+						</div>
+					}
 				</div>
 			</div>
 
 			// ── Line Items (Alpine-driven) ────────────────────────────────────
 			<div
 				class="rounded-lg border border-border bg-surface p-6"
-				x-data="invoiceEditor()"
-				x-init="init()"
-				data-products={ vm.ProductsJSON }
-				data-tax-codes={ vm.TaxCodesJSON }
-				data-initial-lines={ vm.InitialLinesJSON }
-				data-initial-terms={ vm.Terms }
-				data-initial-date={ vm.InvoiceDate }
-				data-initial-due-date={ vm.DueDate }
 			>
 				<div class="flex items-center justify-between">
 					<h2 class="text-section font-semibold text-text">Line Items</h2>
@@ -237,8 +301,18 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 											x-model="line.description"
 											placeholder="Description"
 											autocomplete="off"
-											class="block w-full rounded-md border border-border-input px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+											@input="calcLine(idx)"
+											class="block w-full rounded-md px-2 py-1.5 text-body outline-none"
+											:class="line.error
+												? 'border border-danger focus:ring-2 focus:ring-danger-focus'
+												: 'border border-border-input focus:ring-2 focus:ring-primary-focus'"
 										/>
+										<p
+											x-cloak
+											x-show="line.error"
+											x-text="line.error"
+											class="mt-1 text-small text-danger"
+										></p>
 									</td>
 									// Qty
 									<td class="py-2 pr-3">
@@ -247,6 +321,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 											:name="'line_qty[' + idx + ']'"
 											x-model="line.qty"
 											@input="calcLine(idx)"
+											@blur="onQtyBlur(idx)"
 											inputmode="decimal"
 											class="block w-full rounded-md border border-border-input px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus"
 										/>
@@ -258,6 +333,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 											:name="'line_unit_price[' + idx + ']'"
 											x-model="line.unit_price"
 											@input="calcLine(idx)"
+											@blur="onPriceBlur(idx)"
 											inputmode="decimal"
 											class="block w-full rounded-md border border-border-input px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus"
 										/>
@@ -267,6 +343,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 										<select
 											:name="'line_tax_code_id[' + idx + ']'"
 											x-model="line.tax_code_id"
+											@change="onTaxCodeChange(idx)"
 											class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus"
 										>
 											<option value="">-- None --</option>
@@ -304,35 +381,121 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 
 				// ── Totals ───────────────────────────────────────────────────
 				<div class="mt-4 flex justify-end">
-					<dl class="w-56 space-y-1 text-body">
-						<div class="flex justify-between">
-							<dt class="text-text-muted">Subtotal</dt>
-							<dd class="tabular-nums text-text" x-text="subtotal()"></dd>
+					<div class="w-72 space-y-1 text-body">
+						// Pre-tax subtotal
+						<div class="flex items-center justify-between">
+							<span class="text-text-muted">Pre-tax subtotal</span>
+							<span class="tabular-nums text-text" x-text="subtotal()"></span>
 						</div>
-						<div class="flex justify-between">
-							<dt class="text-text-muted">Tax</dt>
-							<dd class="tabular-nums text-text-muted2 text-small">calculated on save</dd>
+
+						// Per-tax-code breakdown (editable)
+						<template x-for="tc in taxBreakdown()" :key="tc.id">
+							<div class="flex items-center justify-between gap-2">
+								<span class="text-small text-text-muted truncate" x-text="tc.code + ' @ ' + (tc.rate * 100).toFixed(2).replace(/\.?0+$/, '') + '%'"></span>
+								<input
+									type="number"
+									min="0"
+									step="0.01"
+									:value="taxAdjValue(tc.id)"
+									@input="onTaxAdjInput(tc.id, $event.target.value)"
+									@blur="if (!$event.target.value.trim()) { $event.target.value = taxAdjValue(tc.id) }"
+									class="w-24 rounded-md border border-border-input px-2 py-0.5 text-right text-body tabular-nums outline-none focus:ring-2 focus:ring-primary-focus"
+								/>
+							</div>
+						</template>
+
+						// Hidden inputs submitted with the form
+						<template x-if="taxBreakdown().length > 0">
+							<span>
+								<input type="hidden" name="tax_adj_count" :value="taxBreakdown().length"/>
+								<template x-for="(tc, i) in taxBreakdown()" :key="tc.id">
+									<span>
+										<input type="hidden" :name="'tax_adj_id[' + i + ']'" :value="tc.id"/>
+										<input type="hidden" :name="'tax_adj_amount[' + i + ']'" :value="taxAdjValue(tc.id)"/>
+									</span>
+								</template>
+							</span>
+						</template>
+
+						// Grand total
+						<div class="flex items-center justify-between border-t border-border pt-2 font-semibold">
+							<span>Total</span>
+							<span class="tabular-nums" x-text="grandTotal()"></span>
 						</div>
-						<div class="flex justify-between border-t border-border pt-1 font-semibold">
-							<dt>Total</dt>
-							<dd class="tabular-nums" x-text="subtotal()"></dd>
-						</div>
-					</dl>
+					</div>
 				</div>
 
-				<script src="/static/invoice_editor.js?v=1"></script>
+				<script src="/static/invoice_editor.js?v=6"></script>
+			</div>
+
+			</fieldset>
+
+			// ── Review banner ─────────────────────────────────────────────────
+			<div
+				id="ie-review-banner"
+				style={ editorDisplay(vm.ReviewLocked) }
+				class="rounded-md border border-border bg-background px-4 py-3 text-body text-text-muted2"
+			>
+				if vm.Saved {
+					<span class="font-semibold text-text">Draft saved.</span>
+					<span> </span>
+				}
+				Review your invoice. If everything looks correct, click <strong class="text-text">Submit</strong> to save — or click <strong class="text-text">← Edit</strong> to make changes.
 			</div>
 
 			// ── Actions ──────────────────────────────────────────────────────
 			<div class="flex flex-wrap items-center justify-end gap-3">
 				<a
+					id="ie-cancel-link"
 					href="/invoices"
+					style={ editorDisplay(!vm.ReviewLocked) }
 					class="rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text"
 				>
 					Cancel
 				</a>
-				@ui.ButtonPrimary("Save Draft", "submit", false)
+				<button
+					id="ie-edit-btn"
+					style={ editorDisplay(vm.ReviewLocked) }
+					type="button"
+					onclick="ieExitReview()"
+					class="rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text"
+				>
+					← Edit
+				</button>
+				<button
+					id="ie-save-btn"
+					style={ editorDisplay(!vm.ReviewLocked) }
+					type="submit"
+					class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+				>
+					Save Draft
+				</button>
+				if vm.SubmitPath != "" {
+					<button
+						id="ie-submit-btn"
+						style={ editorDisplay(vm.ReviewLocked) }
+						type="submit"
+						formmethod="post"
+						formaction={ vm.SubmitPath }
+						class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+					>
+						Submit
+					</button>
+				}
 			</div>
+
+			<script>
+				function ieExitReview() {
+					var fieldset = document.getElementById('ie-fields');
+					var submitBtn = document.getElementById('ie-submit-btn');
+					if (fieldset) fieldset.disabled = false;
+					document.getElementById('ie-review-banner').style.display = 'none';
+					document.getElementById('ie-cancel-link').style.display = '';
+					document.getElementById('ie-edit-btn').style.display = 'none';
+					document.getElementById('ie-save-btn').style.display = '';
+					if (submitBtn) submitBtn.style.display = 'none';
+				}
+			</script>
 		</form>
 	</div>
 }

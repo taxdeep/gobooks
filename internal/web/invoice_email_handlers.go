@@ -2,11 +2,15 @@
 package web
 
 import (
+	"fmt"
 	"log/slog"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"gobooks/internal/models"
 	"gobooks/internal/services"
 )
 
@@ -36,54 +40,64 @@ func (s *Server) handleInvoiceSendEmail(c *fiber.Ctx) error {
 		})
 	}
 
-	// Query parameters
-	toEmail := c.Query("to_email", "")
-	templateType := c.Query("template_type", "invoice")
-	ccEmails := c.Query("cc_emails", "")
+	// Form values (POST body — not query string).
+	toEmail := strings.TrimSpace(c.FormValue("to_email"))
+	templateType := strings.TrimSpace(c.FormValue("template_type"))
+	if templateType == "" {
+		templateType = "invoice"
+	}
+	ccEmails := strings.TrimSpace(c.FormValue("cc_emails"))
+
+	// If no email supplied via form, fall back to the customer's current email.
+	if toEmail == "" {
+		var inv models.Invoice
+		if err := s.DB.Select("id", "customer_id", "customer_email_snapshot").
+			Where("id = ? AND company_id = ?", uint(invoiceID), companyID).
+			First(&inv).Error; err == nil {
+			toEmail = inv.CustomerEmailSnapshot
+			if toEmail == "" {
+				// Last resort: look up customer's current email.
+				var customer models.Customer
+				if err2 := s.DB.Select("email").First(&customer, inv.CustomerID).Error; err2 == nil {
+					toEmail = strings.TrimSpace(customer.Email)
+				}
+			}
+		}
+	}
+
+	detailURL := fmt.Sprintf("/invoices/%d", invoiceID)
+	redirectErr := func(msg string) error {
+		return c.Redirect(detailURL+"?emailerror="+url.QueryEscape(msg), fiber.StatusSeeOther)
+	}
 
 	var userIDPtr *uint
 	user := UserFromCtx(c)
 	if user != nil {
-		uid := uint(0) // placeholder — services layer uses uint, not uuid
+		uid := uint(0)
 		userIDPtr = &uid
 	}
 
-	// Build request
 	req := services.SendInvoiceEmailRequest{
 		CompanyID:         companyID,
 		InvoiceID:         uint(invoiceID),
 		ToEmail:           toEmail,
 		CCEmails:          ccEmails,
 		TemplateType:      templateType,
-		Subject:           "", // Use default
+		Subject:           "",
 		TriggeredByUserID: userIDPtr,
 	}
 
-	// Send email
-	emailLog, err := services.SendInvoiceByEmail(s.DB, req)
+	_, err = services.SendInvoiceByEmail(s.DB, req)
 	if err != nil {
 		slog.Error("send invoice email failed",
 			"company_id", companyID,
 			"invoice_id", invoiceID,
 			"error", err.Error(),
 		)
-		statusCode := fiber.StatusInternalServerError
-		if err.Error() == "invoice not found" {
-			statusCode = fiber.StatusNotFound
-		}
-		return c.Status(statusCode).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return redirectErr(err.Error())
 	}
 
-	return c.JSON(fiber.Map{
-		"status":        "sent",
-		"email_log_id":  emailLog.ID,
-		"to_email":      emailLog.ToEmail,
-		"cc_emails":     emailLog.CCEmails,
-		"template_type": emailLog.TemplateType,
-		"sent_at":       emailLog.SentAt,
-	})
+	return c.Redirect(detailURL+"?sent=1", fiber.StatusSeeOther)
 }
 
 // handleGetInvoiceEmailHistory - GET /invoices/:id/email-history

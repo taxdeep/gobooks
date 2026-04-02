@@ -19,6 +19,33 @@ templ AdminLogin(vm AdminLoginVM) {
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<title>System sign in — GoBooks</title>
 			<link rel="stylesheet" href="/static/app.css?v=3"/>
+			<script>
+				(function () {
+					function readCookie(name) {
+						const prefix = name + "=";
+						const parts = document.cookie ? document.cookie.split("; ") : [];
+						for (const part of parts) {
+							if (part.indexOf(prefix) === 0) return decodeURIComponent(part.substring(prefix.length));
+						}
+						return "";
+					}
+					document.addEventListener("submit", function (event) {
+						const form = event.target;
+						if (!(form instanceof HTMLFormElement)) return;
+						if ((form.method || "get").toLowerCase() === "get") return;
+						const token = readCookie("gobooks_csrf");
+						if (!token) return;
+						let input = form.querySelector('input[name="_csrf"]');
+						if (!input) {
+							input = document.createElement("input");
+							input.type = "hidden";
+							input.name = "_csrf";
+							form.appendChild(input);
+						}
+						input.value = token;
+					});
+				})();
+			</script>
 		</head>
 		<body class="bg-background text-text">
 			<div class="min-h-screen flex items-center justify-center px-4 py-10">

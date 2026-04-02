@@ -26,10 +26,14 @@ func (s *Server) handleVendors(c *fiber.Ctx) error {
 		}).Render(c.Context(), c)
 	}
 
+	var paymentTerms []models.PaymentTerm
+	_ = s.DB.Where("company_id = ? AND is_active = true", companyID).Order("sort_order asc, code asc").Find(&paymentTerms)
+
 	return pages.Vendors(pages.VendorsVM{
-		HasCompany: true,
-		Vendors:    vendors,
-		Created:    c.Query("created") == "1",
+		HasCompany:   true,
+		Vendors:      vendors,
+		Created:      c.Query("created") == "1",
+		PaymentTerms: paymentTerms,
 	}).Render(c.Context(), c)
 }
 
@@ -48,11 +52,12 @@ func (s *Server) handleVendorCreate(c *fiber.Ctx) error {
 	paymentTerm := strings.TrimSpace(c.FormValue("payment_term"))
 
 	vm := pages.VendorsVM{
-		HasCompany:  true,
-		Name:        name,
-		Address:     address,
-		PaymentTerm: paymentTerm,
+		HasCompany:             true,
+		Name:                   name,
+		Address:                address,
+		DefaultPaymentTermCode: paymentTerm,
 	}
+	_ = s.DB.Where("company_id = ? AND is_active = true", companyID).Order("sort_order asc, code asc").Find(&vm.PaymentTerms)
 
 	if name == "" {
 		vm.NameError = "Name is required."
@@ -82,10 +87,10 @@ func (s *Server) handleVendorCreate(c *fiber.Ctx) error {
 	}
 
 	vendor := models.Vendor{
-		CompanyID:   companyID,
-		Name:        name,
-		Address:     address,
-		PaymentTerm: paymentTerm,
+		CompanyID:              companyID,
+		Name:                   name,
+		Address:                address,
+		DefaultPaymentTermCode: paymentTerm,
 	}
 	if err := s.DB.Create(&vendor).Error; err != nil {
 		vm.FormError = "Could not create vendor. Please try again."

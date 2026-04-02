@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"strconv"
 	"strings"
 	"time"
 
@@ -112,15 +113,50 @@ func (s *Server) handleAdminLoginPost(c *fiber.Ctx) error {
 	}
 
 	// ── 普通登录路径 ──────────────────────────────────────────────────────
+	blocked, err := services.CheckLoginThrottle(s.DB, nil, nil, c.IP())
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "database error")
+	}
+	if blocked.Blocked {
+		services.RecordBlockedLogin(s.DB, nil, nil, c.IP(), c.Get("User-Agent"))
+		vm.FormError = "Too many sign-in attempts. Try again in a few minutes."
+		return admintmpl.AdminLogin(vm).Render(c.Context(), c)
+	}
+
 	user, err := userRepo.FindByEmail(email)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "database error")
 	}
+	userID := ""
+	if user != nil {
+		userID = strconv.FormatUint(uint64(user.ID), 10)
+		blocked, err = services.CheckLoginThrottle(s.DB, nil, &userID, c.IP())
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "database error")
+		}
+		if blocked.Blocked {
+			services.RecordBlockedLogin(s.DB, nil, &userID, c.IP(), c.Get("User-Agent"))
+			vm.FormError = "Too many sign-in attempts. Try again in a few minutes."
+			return admintmpl.AdminLogin(vm).Render(c.Context(), c)
+		}
+	}
 	if user == nil || !user.IsActive {
+		services.EvaluateLoginSecurity(s.DB, services.LoginSecurityContext{
+			IPAddress: c.IP(),
+			UserAgent: c.Get("User-Agent"),
+			Success:   false,
+		})
 		vm.FormError = "Invalid email or password."
 		return admintmpl.AdminLogin(vm).Render(c.Context(), c)
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		services.EvaluateLoginSecurity(s.DB, services.LoginSecurityContext{
+			UserID:    userID,
+			UserEmail: user.Email,
+			IPAddress: c.IP(),
+			UserAgent: c.Get("User-Agent"),
+			Success:   false,
+		})
 		vm.FormError = "Invalid email or password."
 		return admintmpl.AdminLogin(vm).Render(c.Context(), c)
 	}
@@ -142,6 +178,13 @@ func (s *Server) createAdminSessionAndRedirect(c *fiber.Ctx, user *models.Sysadm
 	if err := sessRepo.Create(sess); err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "could not create session")
 	}
+	services.EvaluateLoginSecurity(s.DB, services.LoginSecurityContext{
+		UserID:    strconv.FormatUint(uint64(user.ID), 10),
+		UserEmail: user.Email,
+		IPAddress: c.IP(),
+		UserAgent: c.Get("User-Agent"),
+		Success:   true,
+	})
 	setAdminCookie(c, s.Cfg, cookieVal)
 	return c.Redirect("/admin/dashboard", fiber.StatusSeeOther)
 }

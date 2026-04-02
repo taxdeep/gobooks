@@ -51,7 +51,7 @@ func IssueInvoice(db *gorm.DB, companyID, invoiceID uint) (*models.Invoice, erro
 	// 5. Refresh customer snapshots from current customer data
 	invoice.CustomerNameSnapshot = invoice.Customer.Name
 	invoice.CustomerEmailSnapshot = invoice.Customer.Email
-	invoice.CustomerAddressSnapshot = invoice.Customer.Address
+	invoice.CustomerAddressSnapshot = invoice.Customer.FormattedAddress()
 
 	// 6. Capture principal (revenue) account snapshot from first line with a product
 	for _, line := range invoice.Lines {

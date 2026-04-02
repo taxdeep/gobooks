@@ -8,6 +8,16 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+// Legacy mapping: old hard-coded term codes → new payment_terms codes.
+// Used only by the migration backfill; not referenced at runtime.
+var LegacyTermCodeMap = map[string]string{
+	"due_on_receipt": "DOC",
+	"net_15":         "N15",
+	"net_30":         "N30",
+	"net_60":         "N60",
+	"custom":         "N30",
+}
+
 // ── Invoice status ──────────────────────────────────────────────────────────
 
 // InvoiceStatus tracks the lifecycle of an invoice.
@@ -78,74 +88,11 @@ func ParseInvoiceStatus(s string) (InvoiceStatus, error) {
 }
 
 // ── Invoice terms ───────────────────────────────────────────────────────────
-
-// InvoiceTerms controls when payment is due.
-type InvoiceTerms string
-
-const (
-	InvoiceTermsNet30         InvoiceTerms = "net_30"
-	InvoiceTermsNet15         InvoiceTerms = "net_15"
-	InvoiceTermsNet60         InvoiceTerms = "net_60"
-	InvoiceTermsDueOnReceipt  InvoiceTerms = "due_on_receipt"
-	InvoiceTermsCustom        InvoiceTerms = "custom"
-)
-
-// AllInvoiceTerms returns terms in display order.
-func AllInvoiceTerms() []InvoiceTerms {
-	return []InvoiceTerms{
-		InvoiceTermsNet30,
-		InvoiceTermsNet15,
-		InvoiceTermsNet60,
-		InvoiceTermsDueOnReceipt,
-		InvoiceTermsCustom,
-	}
-}
-
-// InvoiceTermsLabel returns a human-readable label.
-func InvoiceTermsLabel(t InvoiceTerms) string {
-	switch t {
-	case InvoiceTermsNet30:
-		return "Net 30"
-	case InvoiceTermsNet15:
-		return "Net 15"
-	case InvoiceTermsNet60:
-		return "Net 60"
-	case InvoiceTermsDueOnReceipt:
-		return "Due on Receipt"
-	case InvoiceTermsCustom:
-		return "Custom"
-	default:
-		return string(t)
-	}
-}
-
-// InvoiceTermsDays returns the number of days to add to invoice_date to compute
-// due_date for standard terms. Returns 0 for due_on_receipt and -1 for custom.
-func InvoiceTermsDays(t InvoiceTerms) int {
-	switch t {
-	case InvoiceTermsNet15:
-		return 15
-	case InvoiceTermsNet30:
-		return 30
-	case InvoiceTermsNet60:
-		return 60
-	case InvoiceTermsDueOnReceipt:
-		return 0
-	default: // custom
-		return -1
-	}
-}
-
-// ComputeDueDate returns invoice_date + terms days for standard terms.
-// Returns nil for custom terms (caller must supply their own due_date).
-func ComputeDueDate(invoiceDate time.Time, terms InvoiceTerms) *time.Time {
-	days := InvoiceTermsDays(terms)
-	if days < 0 {
-		return nil
-	}
-	d := invoiceDate.AddDate(0, 0, days)
-	return &d
-}
+// Removed: InvoiceTerms enum, AllInvoiceTerms, InvoiceTermsLabel, InvoiceTermsDays,
+// and the old ComputeDueDate(date, InvoiceTerms) function.
+// Payment terms are now managed as company-level master data in the
+// PaymentTerm model (internal/models/payment_term.go).
+// Due date computation: use ComputeDueDate(base, netDays int) from payment_term.go.
 
 // ── Invoice + InvoiceLine models ────────────────────────────────────────────
 
@@ -175,10 +122,15 @@ type Invoice struct {
 
 	InvoiceDate time.Time `gorm:"not null"`
 
-	// Terms controls the standard due-date calculation.
-	Terms InvoiceTerms `gorm:"type:text;not null;default:'net_30'"`
-	// DueDate is computed from Terms+InvoiceDate (or set explicitly for custom terms).
-	DueDate *time.Time
+	// PaymentTermSnapshot embeds the payment term code and a full snapshot of
+	// the term's fields at the time the invoice was saved. The snapshot is
+	// immutable after initial write so that historical invoices are never
+	// affected by later edits to the payment_terms master record.
+	PaymentTermSnapshot
+
+	// DueDate is computed from InvoiceDate + NetDaysSnapshot and stored
+	// explicitly so it survives any future changes to the payment terms table.
+	DueDate *time.Time `gorm:"index"`
 
 	// Status is the invoice lifecycle state.
 	Status InvoiceStatus `gorm:"type:text;not null;default:'draft'"`
@@ -190,6 +142,19 @@ type Invoice struct {
 	// TaxTotal is the cached sum of all InvoiceLine.LineTax values.
 	TaxTotal decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
 
+	// Phase 3 multi-currency: document currency and exchange rate snapshot.
+	// CurrencyCode is blank when the invoice uses the company base currency.
+	// ExchangeRate is "how many base units per 1 document-currency unit".
+	// Draft foreign-currency documents store 0 to mean "auto-lookup on posting";
+	// base-currency invoices store 1.
+	CurrencyCode string          `gorm:"type:varchar(3);not null;default:''"`
+	ExchangeRate decimal.Decimal `gorm:"type:numeric(20,8);not null;default:1"`
+	// AmountBase / SubtotalBase / TaxTotalBase hold the base-currency equivalents,
+	// snapshotted at posting time. Equal to Amount / Subtotal / TaxTotal for base-currency invoices.
+	AmountBase   decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
+	SubtotalBase decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
+	TaxTotalBase decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
+
 	Memo string `gorm:"not null;default:''"`
 
 	// JournalEntryID links the posted accounting entry (nil = not yet posted).
@@ -197,17 +162,22 @@ type Invoice struct {
 	JournalEntry   *JournalEntry `gorm:"foreignKey:JournalEntryID"`
 
 	// TemplateID optionally links to an invoice template for rendering.
-	TemplateID *uint             `gorm:"index"`
-	Template   *InvoiceTemplate   `gorm:"foreignKey:TemplateID"`
+	TemplateID *uint            `gorm:"index"`
+	Template   *InvoiceTemplate `gorm:"foreignKey:TemplateID"`
 
 	// State tracking timestamps (set by service layer on status transitions)
 	IssuedAt *time.Time `gorm:"index"` // set when status changes to issued/sent
-	SentAt   *time.Time                // set when email is sent
-	VoidedAt *time.Time                // set when status changes to voided
+	SentAt   *time.Time // set when email is sent
+	VoidedAt *time.Time // set when status changes to voided
 
 	// BalanceDue = Amount - (sum of payments recorded)
 	// Calculated field; not directly assigned by create/update handlers.
 	BalanceDue decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0;index"`
+
+	// BalanceDueBase is the base-currency carrying value remaining on the AR side.
+	// Initialized to AmountBase at posting; decremented by ARAPBaseReleased on each
+	// settlement allocation. Mirrors BalanceDue for base-currency invoices.
+	BalanceDueBase decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
 
 	// Snapshots: preserve customer state at posting time (immutable)
 	CustomerNameSnapshot    string `gorm:"not null;default:''"`
@@ -271,10 +241,11 @@ type InvoiceLine struct {
 type BillStatus string
 
 const (
-	BillStatusDraft  BillStatus = "draft"
-	BillStatusPosted BillStatus = "posted" // JE generated, AP liability recorded
-	BillStatusPaid   BillStatus = "paid"
-	BillStatusVoided BillStatus = "voided"
+	BillStatusDraft         BillStatus = "draft"
+	BillStatusPosted        BillStatus = "posted" // JE generated, AP liability recorded
+	BillStatusPartiallyPaid BillStatus = "partially_paid"
+	BillStatusPaid          BillStatus = "paid"
+	BillStatusVoided        BillStatus = "voided"
 )
 
 // ── Bill model ───────────────────────────────────────────────────────────────
@@ -300,9 +271,11 @@ type Bill struct {
 	BillDate time.Time  `gorm:"not null"`
 	Status   BillStatus `gorm:"type:text;not null;default:'draft'"`
 
-	// Terms and DueDate mirror the invoice payment-terms pattern.
-	Terms   InvoiceTerms `gorm:"type:text;not null;default:'net_30'"`
-	DueDate *time.Time   `gorm:"index"`
+	// PaymentTermSnapshot embeds the term code + snapshot (same pattern as Invoice).
+	PaymentTermSnapshot
+
+	// DueDate is computed from BillDate + NetDaysSnapshot.
+	DueDate *time.Time `gorm:"index"`
 
 	// Amount is the cached grand total (Subtotal + TaxTotal).
 	Amount decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
@@ -310,6 +283,26 @@ type Bill struct {
 	Subtotal decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
 	// TaxTotal is the cached sum of all BillLine.LineTax values.
 	TaxTotal decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
+	// BalanceDue = Amount - (sum of payments recorded); updated on each payment.
+	BalanceDue decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0;index"`
+
+	// BalanceDueBase is the base-currency carrying value remaining on the AP side.
+	// Initialized to AmountBase at posting; decremented by ARAPBaseReleased on each
+	// settlement allocation. Mirrors BalanceDue for base-currency bills.
+	BalanceDueBase decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
+
+	// Phase 3 multi-currency: document currency and exchange rate snapshot.
+	// CurrencyCode is blank when the bill uses the company base currency.
+	// ExchangeRate is "how many base units per 1 document-currency unit".
+	// Draft foreign-currency documents store 0 to mean "auto-lookup on posting";
+	// base-currency bills store 1.
+	CurrencyCode string          `gorm:"type:varchar(3);not null;default:''"`
+	ExchangeRate decimal.Decimal `gorm:"type:numeric(20,8);not null;default:1"`
+	// AmountBase / SubtotalBase / TaxTotalBase hold the base-currency equivalents,
+	// snapshotted at posting time. Equal to Amount / Subtotal / TaxTotal for base-currency bills.
+	AmountBase   decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
+	SubtotalBase decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
+	TaxTotalBase decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
 
 	Memo string `gorm:"not null;default:''"`
 

@@ -49,7 +49,7 @@ func csrfSkipped(c *fiber.Ctx) bool {
 	}
 
 	switch c.Path() {
-	case "/login", "/setup", "/setup/bootstrap", "/admin/login":
+	case "/setup", "/setup/bootstrap":
 		return true
 	default:
 		return false

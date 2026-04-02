@@ -54,26 +54,16 @@ func validateSetupCompanyForm(values pages.SetupFormValues) pages.SetupFormError
 		errs.Industry = "Industry is required."
 	}
 
-	var incorporatedDateTime time.Time
 	if values.IncorporatedDate == "" {
 		errs.IncorporatedDate = "Incorporated Date is required."
-	} else if d, err := time.Parse("2006-01-02", values.IncorporatedDate); err != nil {
+	} else if _, err := time.Parse("2006-01-02", values.IncorporatedDate); err != nil {
 		errs.IncorporatedDate = "Incorporated Date must be a valid date."
-	} else {
-		incorporatedDateTime = d
 	}
 
-	var fiscalYearEndTime time.Time
 	if values.FiscalYearEnd == "" {
 		errs.FiscalYearEnd = "Fiscal Year End is required."
-	} else if d, err := time.Parse("2006-01-02", values.FiscalYearEnd); err != nil {
-		errs.FiscalYearEnd = "Fiscal Year End must be a valid date."
-	} else {
-		fiscalYearEndTime = d
-	}
-
-	if errs.IncorporatedDate == "" && errs.FiscalYearEnd == "" && !within53Weeks(incorporatedDateTime, fiscalYearEndTime) {
-		errs.FiscalYearEnd = "Fiscal Year End and Incorporated Date must be within 53 weeks."
+	} else if _, err := time.Parse("01-02", values.FiscalYearEnd); err != nil {
+		errs.FiscalYearEnd = "Fiscal Year End must be a valid month and day."
 	}
 
 	if msg := validateAccountCodeLengthField(values.AccountCodeLength); msg != "" {

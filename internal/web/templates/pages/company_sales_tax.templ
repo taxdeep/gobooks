@@ -246,8 +246,11 @@ templ stFormFields(vm SalesTaxVM) {
 				type="text"
 				name="name"
 				value={ vm.Name }
-				placeholder="e.g. GST 5%, ON HST 13%, Exempt"
+				placeholder="e.g. GST 5%, HST 13%"
 				autocomplete="off"
+				pattern="[A-Za-z0-9% ]+"
+				title="Letters, numbers, spaces and % only"
+				@input="$event.target.value = $event.target.value.replace(/[^A-Za-z0-9% ]/g, '')"
 				class={ stInputClass(vm.NameError != "") }
 			/>
 			if vm.NameError != "" {
@@ -260,11 +263,13 @@ templ stFormFields(vm SalesTaxVM) {
 			<label class="block text-body font-medium text-text">Rate (%) *</label>
 			<div class="relative mt-2">
 				<input
-					type="text"
+					type="number"
 					name="rate"
 					value={ vm.Rate }
 					placeholder="5.00"
-					inputmode="decimal"
+					min="0"
+					max="100"
+					step="0.01"
 					autocomplete="off"
 					class={ stInputClassRaw(vm.RateError != "") + " pr-8" }
 				/>
@@ -356,7 +361,7 @@ templ stFormFields(vm SalesTaxVM) {
 				<p class="mt-1 text-body text-danger">{ vm.PurchaseRecoverableAccountIDError }</p>
 			} else {
 				<p class="mt-1 text-small text-text-muted2">
-					Asset account debited for recoverable ITC on purchases (e.g. Input Tax Credits Receivable).
+					Liability account for recoverable ITC on purchases (e.g. GST/HST Payable). Can be the same as the sales tax account.
 				</p>
 			}
 		</div>

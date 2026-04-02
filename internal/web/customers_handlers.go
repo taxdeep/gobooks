@@ -2,6 +2,8 @@
 package web
 
 import (
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -11,26 +13,59 @@ import (
 	"gobooks/internal/web/templates/pages"
 )
 
+var rePostalCode = regexp.MustCompile(`^[A-Za-z0-9 \-]*$`)
+
 func (s *Server) handleCustomers(c *fiber.Ctx) error {
 	companyID, ok := ActiveCompanyIDFromCtx(c)
 	if !ok {
 		return c.Redirect("/select-company", fiber.StatusSeeOther)
 	}
 
-	var customers []models.Customer
-	if err := s.DB.Where("company_id = ?", companyID).Order("name asc").Find(&customers).Error; err != nil {
-		return pages.Customers(pages.CustomersVM{
-			HasCompany: true,
-			FormError:  "Could not load customers.",
-			Customers:  []models.Customer{},
-		}).Render(c.Context(), c)
+	vm := pages.CustomersVM{
+		HasCompany: true,
+		Created:    c.Query("created") == "1",
+		Updated:    c.Query("updated") == "1",
+	}
+	_ = s.DB.Where("company_id = ? AND is_active = true", companyID).Order("sort_order asc, code asc").Find(&vm.PaymentTerms)
+
+	// Load customer list.
+	if err := s.DB.Where("company_id = ?", companyID).Order("name asc").Find(&vm.Customers).Error; err != nil {
+		vm.FormError = "Could not load customers."
+		vm.Customers = []models.Customer{}
+		return pages.Customers(vm).Render(c.Context(), c)
 	}
 
-	return pages.Customers(pages.CustomersVM{
-		HasCompany: true,
-		Customers:  customers,
-		Created:    c.Query("created") == "1",
-	}).Render(c.Context(), c)
+	// Handle ?edit=ID — open drawer pre-populated with the customer's data.
+	if editRaw := strings.TrimSpace(c.Query("edit")); editRaw != "" {
+		if id64, err := strconv.ParseUint(editRaw, 10, 64); err == nil && id64 > 0 {
+			var cust models.Customer
+			if err := s.DB.Where("id = ? AND company_id = ?", uint(id64), companyID).First(&cust).Error; err == nil {
+				vm.DrawerOpen = true
+				vm.EditingID = uint(id64)
+				vm.Name = cust.Name
+				vm.Email = cust.Email
+				vm.DefaultPaymentTermCode = cust.DefaultPaymentTermCode
+				vm.AddrStreet1 = cust.AddrStreet1
+				vm.AddrStreet2 = cust.AddrStreet2
+				vm.AddrCity = cust.AddrCity
+				vm.AddrProvince = cust.AddrProvince
+				vm.AddrPostalCode = cust.AddrPostalCode
+				vm.AddrCountry = cust.AddrCountry
+			}
+		}
+	}
+
+	return pages.Customers(vm).Render(c.Context(), c)
+}
+
+func (s *Server) handleCustomerNew(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/select-company", fiber.StatusSeeOther)
+	}
+	vm := pages.CustomerNewVM{HasCompany: true}
+	_ = s.DB.Where("company_id = ? AND is_active = true", companyID).Order("sort_order asc, code asc").Find(&vm.PaymentTerms)
+	return pages.CustomerNew(vm).Render(c.Context(), c)
 }
 
 func (s *Server) handleCustomerCreate(c *fiber.Ctx) error {
@@ -43,56 +78,58 @@ func (s *Server) handleCustomerCreate(c *fiber.Ctx) error {
 		return c.Redirect("/select-company", fiber.StatusSeeOther)
 	}
 
-	name := strings.TrimSpace(c.FormValue("name"))
-	email := strings.TrimSpace(c.FormValue("email"))
-	address := strings.TrimSpace(c.FormValue("address"))
-	paymentTerm := strings.TrimSpace(c.FormValue("payment_term"))
+	name, email, paymentTerm, addrStreet1, addrStreet2, addrCity, addrProvince, addrPostalCode, addrCountry := parseCustomerForm(c)
 
-	vm := pages.CustomersVM{
-		HasCompany:  true,
-		Name:        name,
-		Email:       email,
-		Address:     address,
-		PaymentTerm: paymentTerm,
+	vm := pages.CustomerNewVM{
+		HasCompany:             true,
+		Name:                   name,
+		Email:                  email,
+		DefaultPaymentTermCode: paymentTerm,
+		AddrStreet1:            addrStreet1,
+		AddrStreet2:    addrStreet2,
+		AddrCity:       addrCity,
+		AddrProvince:   addrProvince,
+		AddrPostalCode: addrPostalCode,
+		AddrCountry:    addrCountry,
 	}
+	_ = s.DB.Where("company_id = ? AND is_active = true", companyID).Order("sort_order asc, code asc").Find(&vm.PaymentTerms)
 
-	if name == "" {
-		vm.NameError = "Name is required."
+	if errMsg := validateCustomerFields(name, email, paymentTerm, addrStreet1, addrStreet2, addrCity, addrProvince, addrPostalCode, addrCountry, &vm.NameError); errMsg != "" {
+		vm.FormError = errMsg
+		return pages.CustomerNew(vm).Render(c.Context(), c)
 	}
-
-	customers, listErr := s.customersForCompany(companyID)
-	if listErr != nil {
-		vm.FormError = "Could not load customers."
-	} else {
-		vm.Customers = customers
-	}
-
 	if vm.NameError != "" {
-		return pages.Customers(vm).Render(c.Context(), c)
+		return pages.CustomerNew(vm).Render(c.Context(), c)
 	}
 
+	// Duplicate name check.
 	var count int64
 	if err := s.DB.Model(&models.Customer{}).
 		Where("company_id = ? AND lower(name) = lower(?)", companyID, name).
 		Count(&count).Error; err != nil {
 		vm.FormError = "Could not validate customer name."
-		return pages.Customers(vm).Render(c.Context(), c)
+		return pages.CustomerNew(vm).Render(c.Context(), c)
 	}
 	if count > 0 {
 		vm.NameError = "A customer with this name already exists for this company."
-		return pages.Customers(vm).Render(c.Context(), c)
+		return pages.CustomerNew(vm).Render(c.Context(), c)
 	}
 
 	customer := models.Customer{
-		CompanyID:   companyID,
-		Name:        name,
-		Email:       email,
-		Address:     address,
-		PaymentTerm: paymentTerm,
+		CompanyID:              companyID,
+		Name:                   name,
+		Email:                  email,
+		DefaultPaymentTermCode: paymentTerm,
+		AddrStreet1:            addrStreet1,
+		AddrStreet2:    addrStreet2,
+		AddrCity:       addrCity,
+		AddrProvince:   addrProvince,
+		AddrPostalCode: addrPostalCode,
+		AddrCountry:    addrCountry,
 	}
 	if err := s.DB.Create(&customer).Error; err != nil {
 		vm.FormError = "Could not create customer. Please try again."
-		return pages.Customers(vm).Render(c.Context(), c)
+		return pages.CustomerNew(vm).Render(c.Context(), c)
 	}
 
 	cid := companyID
@@ -113,8 +150,145 @@ func (s *Server) handleCustomerCreate(c *fiber.Ctx) error {
 	return c.Redirect("/customers?created=1", fiber.StatusSeeOther)
 }
 
+func (s *Server) handleCustomerUpdate(c *fiber.Ctx) error {
+	user := UserFromCtx(c)
+	if user == nil {
+		return c.Redirect("/login", fiber.StatusSeeOther)
+	}
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/select-company", fiber.StatusSeeOther)
+	}
+
+	idRaw := strings.TrimSpace(c.FormValue("customer_id"))
+	id64, idErr := strconv.ParseUint(idRaw, 10, 64)
+	if idErr != nil || id64 == 0 {
+		return c.Redirect("/customers", fiber.StatusSeeOther)
+	}
+	customerID := uint(id64)
+
+	var existing models.Customer
+	if err := s.DB.Where("id = ? AND company_id = ?", customerID, companyID).First(&existing).Error; err != nil {
+		return c.Redirect("/customers", fiber.StatusSeeOther)
+	}
+
+	name, email, paymentTerm, addrStreet1, addrStreet2, addrCity, addrProvince, addrPostalCode, addrCountry := parseCustomerForm(c)
+
+	// Build a VM for re-rendering the list page with the drawer open on error.
+	buildErrVM := func(nameErr, formErr string) pages.CustomersVM {
+		vm := pages.CustomersVM{
+			HasCompany:             true,
+			DrawerOpen:             true,
+			EditingID:              customerID,
+			Name:                   name,
+			Email:                  email,
+			DefaultPaymentTermCode: paymentTerm,
+			AddrStreet1:            addrStreet1,
+			AddrStreet2:    addrStreet2,
+			AddrCity:       addrCity,
+			AddrProvince:   addrProvince,
+			AddrPostalCode: addrPostalCode,
+			AddrCountry:    addrCountry,
+			NameError:      nameErr,
+			FormError:      formErr,
+		}
+		_ = s.DB.Where("company_id = ?", companyID).Order("name asc").Find(&vm.Customers)
+		_ = s.DB.Where("company_id = ? AND is_active = true", companyID).Order("sort_order asc, code asc").Find(&vm.PaymentTerms)
+		return vm
+	}
+
+	var nameErr string
+	if formErr := validateCustomerFields(name, email, paymentTerm, addrStreet1, addrStreet2, addrCity, addrProvince, addrPostalCode, addrCountry, &nameErr); formErr != "" {
+		return pages.Customers(buildErrVM(nameErr, formErr)).Render(c.Context(), c)
+	}
+	if nameErr != "" {
+		return pages.Customers(buildErrVM(nameErr, "")).Render(c.Context(), c)
+	}
+
+	// Duplicate name check (exclude self).
+	var count int64
+	if err := s.DB.Model(&models.Customer{}).
+		Where("company_id = ? AND lower(name) = lower(?) AND id <> ?", companyID, name, customerID).
+		Count(&count).Error; err != nil {
+		return pages.Customers(buildErrVM("", "Could not validate customer name.")).Render(c.Context(), c)
+	}
+	if count > 0 {
+		return pages.Customers(buildErrVM("A customer with this name already exists for this company.", "")).Render(c.Context(), c)
+	}
+
+	existing.Name = name
+	existing.Email = email
+	existing.DefaultPaymentTermCode = paymentTerm
+	existing.AddrStreet1 = addrStreet1
+	existing.AddrStreet2 = addrStreet2
+	existing.AddrCity = addrCity
+	existing.AddrProvince = addrProvince
+	existing.AddrPostalCode = addrPostalCode
+	existing.AddrCountry = addrCountry
+
+	if err := s.DB.Save(&existing).Error; err != nil {
+		return pages.Customers(buildErrVM("", "Could not update customer. Please try again.")).Render(c.Context(), c)
+	}
+
+	cid := companyID
+	uid := user.ID
+	actor := user.Email
+	if actor == "" {
+		actor = "user"
+	}
+	services.TryWriteAuditLogWithContext(s.DB, "customer.updated", "customer", existing.ID, actor, map[string]any{
+		"name":       name,
+		"company_id": companyID,
+	}, &cid, &uid)
+
+	return c.Redirect("/customers?updated=1", fiber.StatusSeeOther)
+}
+
 func (s *Server) customersForCompany(companyID uint) ([]models.Customer, error) {
 	var customers []models.Customer
 	err := s.DB.Where("company_id = ?", companyID).Order("name asc").Find(&customers).Error
 	return customers, err
+}
+
+// parseCustomerForm reads and trims all customer form fields from a POST request.
+func parseCustomerForm(c *fiber.Ctx) (name, email, paymentTerm, addrStreet1, addrStreet2, addrCity, addrProvince, addrPostalCode, addrCountry string) {
+	name = strings.TrimSpace(c.FormValue("name"))
+	email = strings.TrimSpace(c.FormValue("email"))
+	paymentTerm = strings.TrimSpace(c.FormValue("payment_term"))
+	addrStreet1 = strings.TrimSpace(c.FormValue("addr_street1"))
+	addrStreet2 = strings.TrimSpace(c.FormValue("addr_street2"))
+	addrCity = strings.TrimSpace(c.FormValue("addr_city"))
+	addrProvince = strings.TrimSpace(c.FormValue("addr_province"))
+	addrPostalCode = strings.TrimSpace(c.FormValue("addr_postal_code"))
+	addrCountry = strings.TrimSpace(c.FormValue("addr_country"))
+	return
+}
+
+// validateCustomerFields validates all customer form fields.
+// Sets *nameErr if the name is invalid; returns a non-empty formErr string for all other errors.
+func validateCustomerFields(name, email, paymentTerm, addrStreet1, addrStreet2, addrCity, addrProvince, addrPostalCode, addrCountry string, nameErr *string) string {
+	if name == "" {
+		*nameErr = "Name is required."
+	} else if len(name) > 200 {
+		*nameErr = "Name must be 200 characters or fewer."
+	}
+	if len(email) > 200 {
+		return "Email must be 200 characters or fewer."
+	}
+	if len(paymentTerm) > 100 {
+		return "Payment term must be 100 characters or fewer."
+	}
+	if len(addrStreet1) > 200 || len(addrStreet2) > 200 {
+		return "Street address must be 200 characters or fewer."
+	}
+	if len(addrCity) > 100 || len(addrProvince) > 100 || len(addrCountry) > 100 {
+		return "City, province, and country must be 100 characters or fewer."
+	}
+	if len(addrPostalCode) > 20 {
+		return "Postal code must be 20 characters or fewer."
+	}
+	if addrPostalCode != "" && !rePostalCode.MatchString(addrPostalCode) {
+		return "Postal code may only contain letters, numbers, spaces, and hyphens."
+	}
+	return ""
 }

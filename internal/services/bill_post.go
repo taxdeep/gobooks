@@ -54,6 +54,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
 	"gobooks/internal/models"
@@ -98,14 +99,53 @@ func PostBill(db *gorm.DB, companyID, billID uint, actor string, userID *uuid.UU
 		}
 	}
 
+	// ── 2b. Load company (needed for base currency code) ─────────────────────
+	var company models.Company
+	if err := db.Select("id", "base_currency_code").First(&company, companyID).Error; err != nil {
+		return fmt.Errorf("load company: %w", err)
+	}
+
+	// ── 2c. Determine exchange rate ───────────────────────────────────────────
+	exchangeRate := decimal.NewFromInt(1)
+	isForeignCurrency := bill.CurrencyCode != "" && bill.CurrencyCode != company.BaseCurrencyCode
+	if isForeignCurrency {
+		if bill.ExchangeRate.GreaterThan(decimal.Zero) && !bill.ExchangeRate.Equal(decimal.NewFromInt(1)) {
+			exchangeRate = bill.ExchangeRate
+		} else {
+			r, err := GetExchangeRate(db, &companyID, bill.CurrencyCode, company.BaseCurrencyCode, bill.BillDate)
+			if err != nil {
+				return fmt.Errorf("exchange rate %s→%s not found for %s: %w",
+					bill.CurrencyCode, company.BaseCurrencyCode, bill.BillDate.Format("2006-01-02"), err)
+			}
+			exchangeRate = r
+		}
+	}
+
 	// ── 3. Resolve AP account ─────────────────────────────────────────────────
+	// For foreign-currency bills, prefer the system-generated AP account for
+	// that currency (system_key = "ap_{code}", created by AddCompanyCurrency).
+	// Fall back to the first active AP account if not found.
 	var apAccount models.Account
-	if err := db.
-		Where("company_id = ? AND detail_account_type = ? AND is_active = true",
-			companyID, string(models.DetailAccountsPayable)).
-		Order("code asc").
-		First(&apAccount).Error; err != nil {
-		return ErrNoAPAccount
+	if isForeignCurrency {
+		sysKey := "ap_" + bill.CurrencyCode
+		err := db.Where("company_id = ? AND system_key = ? AND is_active = true", companyID, sysKey).
+			First(&apAccount).Error
+		if err != nil {
+			if err := db.
+				Where("company_id = ? AND detail_account_type = ? AND is_active = true",
+					companyID, string(models.DetailAccountsPayable)).
+				Order("code asc").First(&apAccount).Error; err != nil {
+				return ErrNoAPAccount
+			}
+		}
+	} else {
+		if err := db.
+			Where("company_id = ? AND detail_account_type = ? AND is_active = true",
+				companyID, string(models.DetailAccountsPayable)).
+			Order("code asc").
+			First(&apAccount).Error; err != nil {
+			return ErrNoAPAccount
+		}
 	}
 
 	// ── 4. Build posting fragments ────────────────────────────────────────────
@@ -125,7 +165,15 @@ func PostBill(db *gorm.DB, companyID, billID uint, actor string, userID *uuid.UU
 		return fmt.Errorf("aggregate journal lines: %w", err)
 	}
 
-	// ── 6. Double-entry balance check ─────────────────────────────────────────
+	// ── 5b. Apply FX scaling (foreign bills only) ────────────────────────────
+	// Capture document-currency AP total before scaling; this is stored in bill.Amount
+	// (preserving the original document-currency total).
+	docCreditSum := sumPostingCredits(jeLines)
+	if isForeignCurrency {
+		jeLines = applyFXScaling(jeLines, exchangeRate, apAccount.ID, false)
+	}
+
+	// ── 6. Double-entry balance check (amounts are now in base currency) ──────
 	debitSum := sumPostingDebits(jeLines)
 	creditSum := sumPostingCredits(jeLines)
 	if !debitSum.Equal(creditSum) {
@@ -192,13 +240,25 @@ func PostBill(db *gorm.DB, companyID, billID uint, actor string, userID *uuid.UU
 			return fmt.Errorf("project to ledger: %w", err)
 		}
 
-		// e. Update bill: mark posted, cache grand total (AP credit = gross payable),
-		//    link journal entry.
-		if err := tx.Model(&bill).Updates(map[string]any{
+		// e. Update bill: mark posted, cache grand total (document-currency), link journal entry,
+		//    and snapshot base-currency equivalents.
+		// Phase 4: also set balance_due = amount (doc currency) and balance_due_base = amountBase
+		// so FX settlement can pro-rate the AP carrying value across partial payments.
+		amountBase := creditSum
+		billUpdates := map[string]any{
 			"status":           string(models.BillStatusPosted),
-			"amount":           creditSum,
+			"amount":           docCreditSum,
 			"journal_entry_id": je.ID,
-		}).Error; err != nil {
+			"amount_base":      amountBase,
+			"subtotal_base":    bill.Subtotal.Mul(exchangeRate).Round(2),
+			"tax_total_base":   bill.TaxTotal.Mul(exchangeRate).Round(2),
+			"balance_due":      docCreditSum,
+			"balance_due_base": amountBase,
+		}
+		if isForeignCurrency {
+			billUpdates["exchange_rate"] = exchangeRate
+		}
+		if err := tx.Model(&bill).Updates(billUpdates).Error; err != nil {
 			return fmt.Errorf("update bill status: %w", err)
 		}
 

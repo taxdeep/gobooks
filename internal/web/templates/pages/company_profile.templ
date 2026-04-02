@@ -124,7 +124,7 @@ templ bodyCompanyProfile(vm CompanySettingsVM) {
 						[]string{"Retail", "Consulting", "Services", "Manufacturing", "Construction", "Other"},
 					)
 					@dateField("Incorporated Date *", "incorporated_date", vm.Values.IncorporatedDate, vm.Errors.IncorporatedDate)
-					@dateField("Fiscal Year End *", "fiscal_year_end", vm.Values.FiscalYearEnd, vm.Errors.FiscalYearEnd)
+					@monthDayField("Fiscal Year End *", "fiscal_year_end", vm.Values.FiscalYearEnd, vm.Errors.FiscalYearEnd)
 					@textField("Business Number *", "business_number", vm.Values.BusinessNumber, vm.Errors.BusinessNumber, "")
 
 					<div class="md:col-span-2">

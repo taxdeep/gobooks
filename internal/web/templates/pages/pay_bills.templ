@@ -3,6 +3,7 @@ package pages
 
 import "gobooks/internal/web/templates/layout"
 import "gobooks/internal/web/templates/ui"
+import "fmt"
 
 templ PayBills(vm PayBillsVM) {
 	@layout.Layout(
@@ -13,15 +14,16 @@ templ PayBills(vm PayBillsVM) {
 }
 
 templ bodyPayBills(vm PayBillsVM) {
-	<div class="max-w-[95%]">
+	<div
+		class="max-w-[95%]"
+		x-data={ payBillsInitData(vm.OpenBills) }
+	>
 		<h1 class="text-title font-semibold">Pay Bills</h1>
-		<p class="mt-2 text-text-muted2">
-			Record a vendor payment. This will debit Accounts Payable and credit your bank account.
-		</p>
+		<p class="mt-1 text-text-muted2">Select bills and enter payment amounts. Partial payments are supported.</p>
 
 		if vm.Saved {
 			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">
-				Payment recorded.
+				Payment recorded successfully.
 			</div>
 		}
 		if vm.FormError != "" {
@@ -31,92 +33,254 @@ templ bodyPayBills(vm PayBillsVM) {
 		}
 
 		<form method="post" action="/banking/pay-bills" class="mt-6 space-y-6">
+
+			// ── Payment Settings ─────────────────────────────────────────────
 			<div class="rounded-lg border border-border bg-surface p-6">
-				<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-					<div>
-						<label class="block text-body font-medium text-text">Vendor *</label>
-						<select name="vendor_id" class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus">
-							<option value="">-- Select --</option>
-							for _, v := range vm.Vendors {
-								<option value={ Uitoa(v.ID) } selected?={ Uitoa(v.ID) == vm.VendorID }>{ v.Name }</option>
-							}
-						</select>
-						if vm.VendorError != "" {
-							<div class="mt-1 text-body text-danger">{ vm.VendorError }</div>
-						}
-					</div>
+				<h2 class="text-section font-semibold text-text">Payment Settings</h2>
+				<div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
 
+					// Payment Date
 					<div>
-						<label class="block text-body font-medium text-text">Date *</label>
-						<input type="date" name="entry_date" value={ vm.EntryDate } class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"/>
+						<label class="block text-body font-medium text-text">Payment Date *</label>
 						if vm.DateError != "" {
-							<div class="mt-1 text-body text-danger">{ vm.DateError }</div>
+							<input
+								type="date"
+								name="entry_date"
+								value={ vm.EntryDate }
+								class="mt-2 block w-full rounded-md border border-danger px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+							/>
+							<div class="mt-1 text-small text-danger">{ vm.DateError }</div>
+						} else {
+							<input
+								type="date"
+								name="entry_date"
+								value={ vm.EntryDate }
+								class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+							/>
 						}
 					</div>
 
+					// Pay From (Bank)
 					<div>
-						<label class="block text-body font-medium text-text">Bill (Optional)</label>
-						<select name="bill_id" class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus">
-							<option value="">-- None --</option>
-							for _, b := range vm.OpenBills {
-								<option value={ Uitoa(b.ID) } selected?={ Uitoa(b.ID) == vm.BillID }>
-									{ b.BillNumber } - { b.Vendor.Name } - ${ b.Amount.StringFixed(2) }
-								</option>
-							}
-						</select>
-						<p class="mt-1 text-small text-text-muted2">Select a posted bill to mark it paid when this payment matches the bill total.</p>
-						if vm.BillError != "" {
-							<div class="mt-1 text-body text-danger">{ vm.BillError }</div>
-						}
-					</div>
-
-					<div>
-						<label class="block text-body font-medium text-text">Pay from (Bank) *</label>
-						<select name="bank_account_id" class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus">
-							<option value="">-- Select --</option>
-							for _, a := range vm.Accounts {
-								<option value={ Uitoa(a.ID) } selected?={ Uitoa(a.ID) == vm.BankAccountID }>{ a.Code } - { a.Name }</option>
-							}
-						</select>
+						<label class="block text-body font-medium text-text">Pay From (Bank) *</label>
 						if vm.BankError != "" {
-							<div class="mt-1 text-body text-danger">{ vm.BankError }</div>
+							<select
+								name="bank_account_id"
+								class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+							>
+								<option value="">-- Select --</option>
+								for _, a := range vm.Accounts {
+									<option value={ Uitoa(a.ID) } selected?={ Uitoa(a.ID) == vm.BankAccountID }>{ a.Code } - { a.Name }</option>
+								}
+							</select>
+							<div class="mt-1 text-small text-danger">{ vm.BankError }</div>
+						} else {
+							<select
+								name="bank_account_id"
+								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+							>
+								<option value="">-- Select --</option>
+								for _, a := range vm.Accounts {
+									<option value={ Uitoa(a.ID) } selected?={ Uitoa(a.ID) == vm.BankAccountID }>{ a.Code } - { a.Name }</option>
+								}
+							</select>
 						}
 					</div>
 
+					// A/P Account
 					<div>
 						<label class="block text-body font-medium text-text">Accounts Payable *</label>
-						<select name="ap_account_id" class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus">
-							<option value="">-- Select --</option>
-							for _, a := range vm.Accounts {
-								<option value={ Uitoa(a.ID) } selected?={ Uitoa(a.ID) == vm.APAccountID }>{ a.Code } - { a.Name }</option>
-							}
-						</select>
 						if vm.APError != "" {
-							<div class="mt-1 text-body text-danger">{ vm.APError }</div>
+							<select
+								name="ap_account_id"
+								class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+							>
+								<option value="">-- Select --</option>
+								for _, a := range vm.Accounts {
+									<option value={ Uitoa(a.ID) } selected?={ Uitoa(a.ID) == vm.APAccountID }>{ a.Code } - { a.Name }</option>
+								}
+							</select>
+							<div class="mt-1 text-small text-danger">{ vm.APError }</div>
+						} else {
+							<select
+								name="ap_account_id"
+								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+							>
+								<option value="">-- Select --</option>
+								for _, a := range vm.Accounts {
+									<option value={ Uitoa(a.ID) } selected?={ Uitoa(a.ID) == vm.APAccountID }>{ a.Code } - { a.Name }</option>
+								}
+							</select>
 						}
 					</div>
 
-					<div>
-						<label class="block text-body font-medium text-text">Amount *</label>
-						<input type="text" inputmode="decimal" name="amount" value={ vm.Amount } placeholder="0.00" class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"/>
-						if vm.AmountError != "" {
-							<div class="mt-1 text-body text-danger">{ vm.AmountError }</div>
-						}
-					</div>
-
+					// Memo
 					<div>
 						<label class="block text-body font-medium text-text">Memo</label>
-						<input type="text" name="memo" value={ vm.Memo }
-							class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"/>
+						<input
+							type="text"
+							name="memo"
+							value={ vm.Memo }
+							placeholder="Optional note"
+							autocomplete="off"
+							class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+						/>
 					</div>
 				</div>
-
-				<div class="mt-6 flex items-center justify-end">
-					<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
-						Record Payment
-					</button>
-				</div>
 			</div>
+
+			// ── Outstanding Bills ────────────────────────────────────────────
+			<div class="rounded-lg border border-border bg-surface p-6">
+				<h2 class="text-section font-semibold text-text">Outstanding Bills</h2>
+				if len(vm.OpenBills) == 0 {
+					<p class="mt-4 text-body text-text-muted2">No outstanding bills to pay.</p>
+				} else {
+					<div class="mt-4 overflow-x-auto">
+						<table class="w-full text-left text-body">
+							<thead class="text-small uppercase tracking-wider text-text-muted">
+								<tr class="border-b border-border">
+									<th class="py-3 pr-3 w-10">
+										<input
+											type="checkbox"
+											class="rounded"
+											@change="toggleAll($event.target.checked)"
+										/>
+									</th>
+									<th class="py-3 pr-4">Bill No.</th>
+									<th class="py-3 pr-4">Date</th>
+									<th class="py-3 pr-4">Vendor</th>
+									<th class="py-3 pr-4">Due Date</th>
+									<th class="py-3 pr-4 text-right">Original Amount</th>
+									<th class="py-3 pr-4 text-right">Balance Due</th>
+									<th class="py-3 pr-0 text-right">Payment</th>
+								</tr>
+							</thead>
+							<tbody class="text-text">
+								for _, b := range vm.OpenBills {
+									<tr
+										class="border-b border-border-subtle"
+										:class={ fmt.Sprintf("rows['%d'] && rows['%d'].checked ? 'bg-primary-soft/30' : ''", b.ID, b.ID) }
+									>
+										<td class="py-3 pr-3">
+											<input
+												type="checkbox"
+												name="bill_selected"
+												value={ Uitoa(b.ID) }
+												class="rounded"
+												x-model={ fmt.Sprintf("rows['%d'].checked", b.ID) }
+												@change={ fmt.Sprintf("onCheck('%d')", b.ID) }
+											/>
+										</td>
+										<td class="py-3 pr-4 font-medium font-mono">{ b.BillNumber }</td>
+										<td class="py-3 pr-4 text-text-muted2">{ b.BillDate.Format("2006-01-02") }</td>
+										<td class="py-3 pr-4">{ b.Vendor.Name }</td>
+										<td class="py-3 pr-4 text-text-muted2">
+											if b.DueDate != nil {
+												{ b.DueDate.Format("2006-01-02") }
+											} else {
+												—
+											}
+										</td>
+										<td class="py-3 pr-4 text-right tabular-nums text-text-muted2">{ Money(b.Amount) }</td>
+										<td class="py-3 pr-4 text-right tabular-nums font-medium">{ Money(billBalanceDue(b)) }</td>
+										<td class="py-3 pr-0 text-right">
+											<input
+												type="text"
+												inputmode="decimal"
+												name={ fmt.Sprintf("pay_amount_%d", b.ID) }
+												x-model={ fmt.Sprintf("rows['%d'].amount", b.ID) }
+												@input={ fmt.Sprintf("onAmountInput('%d')", b.ID) }
+												@focus={ fmt.Sprintf("rows['%d'].checked = true; onCheck('%d')", b.ID, b.ID) }
+												placeholder="0.00"
+												class="w-28 rounded-md border border-border-input bg-surface px-2 py-1 text-right text-body tabular-nums outline-none focus:ring-2 focus:ring-primary-focus"
+											/>
+										</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+
+					// ── Payment total ────────────────────────────────────────
+					<div class="mt-6 flex items-center justify-end gap-8">
+						<div class="text-body text-text-muted2">
+							<span x-text="selectedCount()"></span> bill(s) selected
+						</div>
+						<div class="w-64">
+							<div class="flex justify-between border-t border-border pt-3 text-body font-semibold text-text">
+								<span>Total Payment</span>
+								<span class="tabular-nums" x-text="'$' + totalPayment()"></span>
+							</div>
+						</div>
+					</div>
+				}
+			</div>
+
+			// ── Actions ──────────────────────────────────────────────────────
+			<div class="flex flex-wrap items-center justify-end gap-3">
+				<a
+					href="/banking/pay-bills"
+					class="rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text"
+				>
+					Cancel
+				</a>
+				<button
+					type="submit"
+					class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+					:disabled="selectedCount() === 0"
+					:class="selectedCount() === 0 ? 'opacity-50 cursor-not-allowed' : ''"
+				>
+					Record Payment
+				</button>
+			</div>
+
 		</form>
 	</div>
+
+	<script>
+		function payBillsData(bills) {
+			var rows = {};
+			bills.forEach(function(b) {
+				rows[b.id] = { checked: false, amount: '0.00', max: b.balance };
+			});
+			return {
+				rows: rows,
+				toggleAll: function(checked) {
+					var self = this;
+					Object.keys(self.rows).forEach(function(id) {
+						self.rows[id].checked = checked;
+						if (checked) { self.rows[id].amount = self.rows[id].max; }
+						else { self.rows[id].amount = '0.00'; }
+					});
+				},
+				onCheck: function(id) {
+					var r = this.rows[id];
+					if (r.checked && parseFloat(r.amount) === 0) {
+						r.amount = r.max;
+					}
+					if (!r.checked) { r.amount = '0.00'; }
+				},
+				onAmountInput: function(id) {
+					var r = this.rows[id];
+					r.checked = (parseFloat(r.amount) || 0) > 0;
+				},
+				selectedCount: function() {
+					var self = this;
+					return Object.keys(self.rows).filter(function(id) {
+						return self.rows[id].checked;
+					}).length;
+				},
+				totalPayment: function() {
+					var self = this;
+					var t = 0;
+					Object.keys(self.rows).forEach(function(id) {
+						if (self.rows[id].checked) {
+							t += parseFloat(self.rows[id].amount) || 0;
+						}
+					});
+					return t.toFixed(2);
+				}
+			};
+		}
+	</script>
 }

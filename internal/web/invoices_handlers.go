@@ -197,7 +197,7 @@ func (s *Server) handleInvoiceCreate(c *fiber.Ctx) error {
 		Memo:                    memo,
 		CustomerNameSnapshot:    customer.Name,
 		CustomerEmailSnapshot:   customer.Email,
-		CustomerAddressSnapshot: customer.Address,
+		CustomerAddressSnapshot: customer.FormattedAddress(),
 	}
 
 	cid := companyID

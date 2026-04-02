@@ -75,6 +75,7 @@ func TestValidateTaxCodeFormRejectsCrossCompanyAndWrongTypeAccounts(t *testing.T
 	companyB := seedTaxValidationCompany(t, db, "Beta")
 
 	salesLiabilityA := seedTaxValidationAccount(t, db, companyA, "2100", models.RootLiability, models.DetailSalesTaxPayable)
+	purchaseLiabilityA := seedTaxValidationAccount(t, db, companyA, "2200", models.RootLiability, models.DetailSalesTaxPayable)
 	assetA := seedTaxValidationAccount(t, db, companyA, "1100", models.RootAsset, models.DetailOtherCurrentAsset)
 	liabilityB := seedTaxValidationAccount(t, db, companyB, "2100", models.RootLiability, models.DetailSalesTaxPayable)
 	revenueA := seedTaxValidationAccount(t, db, companyA, "4000", models.RootRevenue, models.DetailServiceRevenue)
@@ -106,10 +107,21 @@ func TestValidateTaxCodeFormRejectsCrossCompanyAndWrongTypeAccounts(t *testing.T
 		t.Fatal("expected purchase account error")
 	}
 
+	// Asset account must be rejected for purchase recoverable (requires liability).
 	vm = pages.SalesTaxVM{}
 	_, _, _, valid = validateTaxCodeForm(db, companyA, &vm, "GST", "5", "none", "", fmt.Sprint(salesLiabilityA), fmt.Sprint(assetA))
+	if valid {
+		t.Fatal("expected asset account to be rejected for purchase recoverable")
+	}
+	if vm.PurchaseRecoverableAccountIDError == "" {
+		t.Fatal("expected purchase account type error")
+	}
+
+	// Liability account must pass.
+	vm = pages.SalesTaxVM{}
+	_, _, _, valid = validateTaxCodeForm(db, companyA, &vm, "GST", "5", "none", "", fmt.Sprint(salesLiabilityA), fmt.Sprint(purchaseLiabilityA))
 	if !valid {
-		t.Fatalf("expected valid accounts to pass, got sales=%q purchase=%q", vm.SalesTaxAccountIDError, vm.PurchaseRecoverableAccountIDError)
+		t.Fatalf("expected valid liability accounts to pass, got sales=%q purchase=%q", vm.SalesTaxAccountIDError, vm.PurchaseRecoverableAccountIDError)
 	}
 }
 
@@ -117,10 +129,10 @@ func TestValidateTaxCodeFormParsesRateAndIDs(t *testing.T) {
 	db := testTaxCodeValidationDB(t)
 	companyID := seedTaxValidationCompany(t, db, "Acme")
 	salesLiability := seedTaxValidationAccount(t, db, companyID, "2100", models.RootLiability, models.DetailSalesTaxPayable)
-	purchaseAsset := seedTaxValidationAccount(t, db, companyID, "1100", models.RootAsset, models.DetailOtherCurrentAsset)
+	purchaseLiability := seedTaxValidationAccount(t, db, companyID, "2200", models.RootLiability, models.DetailSalesTaxPayable)
 
 	vm := pages.SalesTaxVM{}
-	rate, salesAcctID, purchaseAcctID, valid := validateTaxCodeForm(db, companyID, &vm, "GST", "5", "partial", "50", fmt.Sprint(salesLiability), fmt.Sprint(purchaseAsset))
+	rate, salesAcctID, purchaseAcctID, valid := validateTaxCodeForm(db, companyID, &vm, "GST", "5", "partial", "50", fmt.Sprint(salesLiability), fmt.Sprint(purchaseLiability))
 	if !valid {
 		t.Fatalf("expected valid form, got %+v", vm)
 	}
@@ -130,7 +142,7 @@ func TestValidateTaxCodeFormParsesRateAndIDs(t *testing.T) {
 	if salesAcctID != salesLiability {
 		t.Fatalf("unexpected sales account id: %d", salesAcctID)
 	}
-	if purchaseAcctID == nil || *purchaseAcctID != purchaseAsset {
+	if purchaseAcctID == nil || *purchaseAcctID != purchaseLiability {
 		t.Fatalf("unexpected purchase account id: %v", purchaseAcctID)
 	}
 }

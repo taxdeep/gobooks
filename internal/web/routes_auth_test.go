@@ -1,9 +1,11 @@
 package web
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 
 	"gobooks/internal/config"
 	"gobooks/internal/models"
+	"gobooks/internal/services"
 )
 
 func testRouteDB(t *testing.T) *gorm.DB {
@@ -29,6 +32,10 @@ func testRouteDB(t *testing.T) *gorm.DB {
 		&models.Company{},
 		&models.Session{},
 		&models.CompanyMembership{},
+		&models.Account{},
+		&models.AuditLog{},
+		&models.COATemplate{},
+		&models.COATemplateAccount{},
 		&models.SystemSetting{},
 	); err != nil {
 		t.Fatal(err)
@@ -136,6 +143,32 @@ func performRequest(t *testing.T, app *fiber.App, path string, rawToken string) 
 	return resp
 }
 
+func performFormRequest(t *testing.T, app *fiber.App, method string, path string, form url.Values, rawToken string) *http.Response {
+	t.Helper()
+
+	var body []byte
+	if form != nil {
+		body = []byte(form.Encode())
+	}
+	req := httptest.NewRequest(method, path, bytes.NewReader(body))
+	if form != nil {
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	}
+	if rawToken != "" {
+		req.AddCookie(&http.Cookie{
+			Name:  SessionCookieName,
+			Value: rawToken,
+			Path:  "/",
+		})
+	}
+
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp
+}
+
 func TestProtectedRoutesRedirectToLoginWhenUnauthenticated(t *testing.T) {
 	db := testRouteDB(t)
 	seedCompany(t, db, "Acme")
@@ -199,5 +232,76 @@ func TestProtectedRoutesRedirectToSelectCompanyWhenSessionActiveCompanyIsStale(t
 	}
 	if got := resp.Header.Get("Location"); got != "/select-company" {
 		t.Fatalf("expected redirect to /select-company, got %q", got)
+	}
+}
+
+func TestLegacySetupPostRedirectsToLoginWhenUnauthenticated(t *testing.T) {
+	db := testRouteDB(t)
+	_, _ = seedUserSession(t, db, nil)
+	app := testRouteApp(t, db)
+
+	resp := performFormRequest(t, app, http.MethodPost, "/setup", nil, "")
+
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("expected %d, got %d", http.StatusSeeOther, resp.StatusCode)
+	}
+	if got := resp.Header.Get("Location"); got != "/login" {
+		t.Fatalf("expected redirect to /login, got %q", got)
+	}
+}
+
+func TestLegacySetupCreatesOwnerMembershipAndActivatesSessionCompany(t *testing.T) {
+	db := testRouteDB(t)
+	if err := services.SeedDefaultCOATemplate(db); err != nil {
+		t.Fatal(err)
+	}
+	user, rawToken := seedUserSession(t, db, nil)
+	app := testRouteApp(t, db)
+
+	form := url.Values{}
+	form.Set("company_name", "Acme Setup Co")
+	form.Set("entity_type", string(models.EntityTypeIncorporated))
+	form.Set("address_line", "123 Main")
+	form.Set("city", "Vancouver")
+	form.Set("province", "BC")
+	form.Set("postal_code", "V6B1A1")
+	form.Set("country", "CA")
+	form.Set("business_number", "123456789")
+	form.Set("industry", string(models.IndustryRetail))
+	form.Set("incorporated_date", "2024-01-01")
+	form.Set("fiscal_year_end", "12-31")
+	form.Set("account_code_length", "4")
+
+	resp := performFormRequest(t, app, http.MethodPost, "/setup", form, rawToken)
+
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("expected %d, got %d", http.StatusSeeOther, resp.StatusCode)
+	}
+	if got := resp.Header.Get("Location"); got != "/" {
+		t.Fatalf("expected redirect to /, got %q", got)
+	}
+
+	var company models.Company
+	if err := db.Where("name = ?", "Acme Setup Co").First(&company).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	var membership models.CompanyMembership
+	if err := db.Where("user_id = ? AND company_id = ?", user.ID, company.ID).First(&membership).Error; err != nil {
+		t.Fatal(err)
+	}
+	if membership.Role != models.CompanyRoleOwner {
+		t.Fatalf("expected owner membership, got %s", membership.Role)
+	}
+	if !membership.IsActive {
+		t.Fatal("expected membership to be active")
+	}
+
+	var session models.Session
+	if err := db.Where("user_id = ?", user.ID).First(&session).Error; err != nil {
+		t.Fatal(err)
+	}
+	if session.ActiveCompanyID == nil || *session.ActiveCompanyID != company.ID {
+		t.Fatalf("expected active_company_id=%d, got %+v", company.ID, session.ActiveCompanyID)
 	}
 }

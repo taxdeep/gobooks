@@ -49,6 +49,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
 	"gobooks/internal/models"
@@ -106,14 +107,55 @@ func PostInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 		}
 	}
 
+	// ── 2b. Load company (needed for base currency code) ─────────────────────
+	var company models.Company
+	if err := db.Select("id", "base_currency_code").First(&company, companyID).Error; err != nil {
+		return fmt.Errorf("load company: %w", err)
+	}
+
+	// ── 2c. Determine exchange rate ───────────────────────────────────────────
+	// isForeignCurrency is true when the invoice has an explicit currency code
+	// that differs from the company base currency.
+	exchangeRate := decimal.NewFromInt(1)
+	isForeignCurrency := inv.CurrencyCode != "" && inv.CurrencyCode != company.BaseCurrencyCode
+	if isForeignCurrency {
+		if inv.ExchangeRate.GreaterThan(decimal.Zero) && !inv.ExchangeRate.Equal(decimal.NewFromInt(1)) {
+			exchangeRate = inv.ExchangeRate
+		} else {
+			r, err := GetExchangeRate(db, &companyID, inv.CurrencyCode, company.BaseCurrencyCode, inv.InvoiceDate)
+			if err != nil {
+				return fmt.Errorf("exchange rate %s→%s not found for %s: %w",
+					inv.CurrencyCode, company.BaseCurrencyCode, inv.InvoiceDate.Format("2006-01-02"), err)
+			}
+			exchangeRate = r
+		}
+	}
+
 	// ── 3. Resolve AR account ─────────────────────────────────────────────────
+	// For foreign-currency invoices, prefer the system-generated AR account for
+	// that currency (system_key = "ar_{code}", created by AddCompanyCurrency).
+	// Fall back to the first active AR account if not found.
 	var arAccount models.Account
-	if err := db.
-		Where("company_id = ? AND detail_account_type = ? AND is_active = true",
-			companyID, string(models.DetailAccountsReceivable)).
-		Order("code asc").
-		First(&arAccount).Error; err != nil {
-		return ErrNoARAccount
+	if isForeignCurrency {
+		sysKey := "ar_" + inv.CurrencyCode
+		err := db.Where("company_id = ? AND system_key = ? AND is_active = true", companyID, sysKey).
+			First(&arAccount).Error
+		if err != nil {
+			if err := db.
+				Where("company_id = ? AND detail_account_type = ? AND is_active = true",
+					companyID, string(models.DetailAccountsReceivable)).
+				Order("code asc").First(&arAccount).Error; err != nil {
+				return ErrNoARAccount
+			}
+		}
+	} else {
+		if err := db.
+			Where("company_id = ? AND detail_account_type = ? AND is_active = true",
+				companyID, string(models.DetailAccountsReceivable)).
+			Order("code asc").
+			First(&arAccount).Error; err != nil {
+			return ErrNoARAccount
+		}
 	}
 
 	// ── 4. Build posting fragments ────────────────────────────────────────────
@@ -131,6 +173,13 @@ func PostInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 	if err != nil {
 		return fmt.Errorf("aggregate journal lines: %w", err)
 	}
+	// ── 5b. Apply FX scaling (foreign-currency invoices only) ────────────────
+	// Scale all non-AR lines to base currency. The AR anchor absorbs rounding so
+	// that ΣDebit == ΣCredit after conversion.
+	if isForeignCurrency {
+		jeLines = applyFXScaling(jeLines, exchangeRate, arAccount.ID, true)
+	}
+
 	companyCheckLines := make([]models.JournalLine, 0, len(jeLines))
 	for _, jl := range jeLines {
 		companyCheckLines = append(companyCheckLines, models.JournalLine{AccountID: jl.AccountID})
@@ -142,10 +191,10 @@ func PostInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 	// ── 6. Double-entry balance check ─────────────────────────────────────────
 	creditSum := sumPostingCredits(jeLines)
 	debitSum := sumPostingDebits(jeLines)
-	if !creditSum.Equal(inv.Amount) || !debitSum.Equal(inv.Amount) {
+	if !debitSum.Equal(creditSum) {
 		return fmt.Errorf(
-			"journal entry imbalance: AR debit %s, credit sum %s, debit sum %s — check line totals",
-			inv.Amount.StringFixed(2), creditSum.StringFixed(2), debitSum.StringFixed(2),
+			"journal entry imbalance: debit sum %s ≠ credit sum %s — check line totals",
+			debitSum.StringFixed(2), creditSum.StringFixed(2),
 		)
 	}
 
@@ -212,11 +261,23 @@ func PostInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 			return fmt.Errorf("project to ledger: %w", err)
 		}
 
-		// e. Update invoice: mark issued (posted), link journal entry.
-		if err := tx.Model(&inv).Updates(map[string]any{
+		// e. Update invoice: mark issued (posted), link journal entry, snapshot base amounts.
+		// Phase 4: also set balance_due = Amount and balance_due_base = amountBase so
+		// FX settlement can pro-rate the carrying value correctly across partial payments.
+		amountBase := debitSum
+		invUpdates := map[string]any{
 			"status":           string(models.InvoiceStatusIssued),
 			"journal_entry_id": je.ID,
-		}).Error; err != nil {
+			"amount_base":      amountBase,
+			"subtotal_base":    inv.Subtotal.Mul(exchangeRate).Round(2),
+			"tax_total_base":   inv.TaxTotal.Mul(exchangeRate).Round(2),
+			"balance_due":      inv.Amount,
+			"balance_due_base": amountBase,
+		}
+		if isForeignCurrency {
+			invUpdates["exchange_rate"] = exchangeRate
+		}
+		if err := tx.Model(&inv).Updates(invUpdates).Error; err != nil {
 			return fmt.Errorf("update invoice status: %w", err)
 		}
 

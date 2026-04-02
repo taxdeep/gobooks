@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"gobooks/internal/logging"
@@ -118,6 +119,16 @@ func (s *Server) handleSetupForm(c *fiber.Ctx) error {
 		},
 		Errors: pages.SetupFormErrors{},
 	}).Render(c.Context(), c)
+}
+
+func (s *Server) handleReportsHub(c *fiber.Ctx) error {
+	_, hasCompany := ActiveCompanyIDFromCtx(c)
+	return pages.ReportsHub(hasCompany).Render(c.Context(), c)
+}
+
+func (s *Server) handleSalesTaxReport(c *fiber.Ctx) error {
+	_, hasCompany := ActiveCompanyIDFromCtx(c)
+	return pages.ReportsHub(hasCompany).Render(c.Context(), c)
 }
 
 func (s *Server) handleTrialBalance(c *fiber.Ctx) error {
@@ -334,6 +345,12 @@ func within53Weeks(a, b time.Time) bool {
 }
 
 func (s *Server) handleSetupSubmit(c *fiber.Ctx) error {
+	user := UserFromCtx(c)
+	sess := SessionFromCtx(c)
+	if user == nil || sess == nil {
+		return c.Redirect("/login", fiber.StatusSeeOther)
+	}
+
 	// Read form fields.
 	name := strings.TrimSpace(c.FormValue("company_name"))
 	entityTypeRaw := strings.TrimSpace(c.FormValue("entity_type"))
@@ -408,10 +425,24 @@ func (s *Server) handleSetupSubmit(c *fiber.Ctx) error {
 		}
 		setupCompanyID = company.ID
 
+		membership := models.CompanyMembership{
+			ID:        uuid.New(),
+			UserID:    user.ID,
+			CompanyID: company.ID,
+			Role:      models.CompanyRoleOwner,
+			IsActive:  true,
+		}
+		if err := tx.Create(&membership).Error; err != nil {
+			return err
+		}
+
 		if err := services.CreateDefaultAccountsForCompany(tx, company.ID, codeLen); err != nil {
 			return err
 		}
 		if err := tx.Model(&models.Company{}).Where("id = ?", company.ID).Update("account_code_length_locked", true).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&models.Session{}).Where("id = ?", sess.ID).Update("active_company_id", company.ID).Error; err != nil {
 			return err
 		}
 		return nil
@@ -425,23 +456,20 @@ func (s *Server) handleSetupSubmit(c *fiber.Ctx) error {
 			},
 		}).Render(c.Context(), c)
 	}
+	sess.ActiveCompanyID = &setupCompanyID
 	details := map[string]any{
 		"company_name":  name,
 		"entity_type":   entityTypeRaw,
 		"business_type": string(businessType),
 		"company_id":    setupCompanyID,
 	}
-	if user := UserFromCtx(c); user != nil {
-		cid := setupCompanyID
-		uid := user.ID
-		actor := user.Email
-		if actor == "" {
-			actor = "user"
-		}
-		services.TryWriteAuditLogWithContext(s.DB, "setup.completed", "company", setupCompanyID, actor, details, &cid, &uid)
-	} else {
-		services.TryWriteAuditLog(s.DB, "setup.completed", "company", setupCompanyID, "system", details)
+	cid := setupCompanyID
+	uid := user.ID
+	actor := user.Email
+	if actor == "" {
+		actor = "user"
 	}
+	services.TryWriteAuditLogWithContext(s.DB, "setup.completed", "company", setupCompanyID, actor, details, &cid, &uid)
 
 	// Setup done. Redirect to dashboard (guard middleware will allow now).
 	// Support both normal form submit and potential HTMX submit.

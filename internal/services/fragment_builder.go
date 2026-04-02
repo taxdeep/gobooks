@@ -195,3 +195,42 @@ func BuildBillFragments(bill models.Bill, apAccountID uint) ([]PostingFragment, 
 
 	return frags, nil
 }
+
+// applyFXScaling converts fragment amounts from document currency to base currency.
+// exchangeRate is "how many base units per 1 document-currency unit" (e.g. 1.37 for USD→CAD).
+// The anchor line (AR for invoices, AP for bills) absorbs any rounding residual so that
+// ΣDebit == ΣCredit after scaling.
+//
+// anchorIsDebit == true  → anchor line is on the debit side (invoice AR)
+// anchorIsDebit == false → anchor line is on the credit side (bill AP)
+//
+// Returns frags unmodified when exchangeRate == 1 (base-currency document).
+func applyFXScaling(frags []PostingFragment, exchangeRate decimal.Decimal, anchorAccountID uint, anchorIsDebit bool) []PostingFragment {
+	if exchangeRate.Equal(decimal.NewFromInt(1)) {
+		return frags
+	}
+	otherSum := decimal.Zero
+	for i := range frags {
+		if frags[i].AccountID == anchorAccountID {
+			continue
+		}
+		frags[i].Debit = frags[i].Debit.Mul(exchangeRate).Round(2)
+		frags[i].Credit = frags[i].Credit.Mul(exchangeRate).Round(2)
+		if anchorIsDebit {
+			otherSum = otherSum.Add(frags[i].Credit)
+		} else {
+			otherSum = otherSum.Add(frags[i].Debit)
+		}
+	}
+	for i := range frags {
+		if frags[i].AccountID == anchorAccountID {
+			if anchorIsDebit {
+				frags[i].Debit = otherSum
+			} else {
+				frags[i].Credit = otherSum
+			}
+			break
+		}
+	}
+	return frags
+}

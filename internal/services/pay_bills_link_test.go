@@ -27,6 +27,7 @@ func testPayBillsDB(t *testing.T) *gorm.DB {
 		&models.Bill{},
 		&models.JournalEntry{},
 		&models.JournalLine{},
+		&models.SettlementAllocation{},
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -102,12 +103,10 @@ func TestRecordPayBillsMarksLinkedBillPaid(t *testing.T) {
 
 	jeID, err := RecordPayBills(db, PayBillsInput{
 		CompanyID:     companyID,
-		VendorID:      vendor.ID,
 		EntryDate:     time.Date(2026, 3, 29, 0, 0, 0, 0, time.UTC),
 		BankAccountID: bankID,
 		APAccountID:   apID,
-		BillID:        &bill.ID,
-		Amount:        decimal.RequireFromString("100.00"),
+		Bills:         []BillPayment{{BillID: bill.ID, Amount: decimal.RequireFromString("100.00")}},
 		Memo:          "Payment",
 	})
 	if err != nil {

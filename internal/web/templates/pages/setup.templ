@@ -85,6 +85,43 @@ templ dateField(label string, name string, value string, err string) {
 	@ui.InputField(label, name, value, "", "date", err)
 }
 
+templ monthDayField(label string, name string, value string, err string) {
+	<div>
+		<label class="block text-body font-medium text-text">{ label }</label>
+		<div class="mt-2 grid grid-cols-[1fr_5.5rem] gap-2">
+			<select
+				name={ name + "_month" }
+				class="block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+			>
+				<option value="">Month</option>
+				for _, mv := range [][2]string{
+					{"01", "January"}, {"02", "February"}, {"03", "March"}, {"04", "April"},
+					{"05", "May"}, {"06", "June"}, {"07", "July"}, {"08", "August"},
+					{"09", "September"}, {"10", "October"}, {"11", "November"}, {"12", "December"},
+				} {
+					<option value={ mv[0] } selected?={ mv[0] == FiscalYearEndMonth(value) }>{ mv[1] }</option>
+				}
+			</select>
+			<select
+				name={ name + "_day" }
+				class="block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+			>
+				<option value="">Day</option>
+				for _, dv := range []string{
+					"01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
+					"11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+					"21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31",
+				} {
+					<option value={ dv } selected?={ dv == FiscalYearEndDay(value) }>{ dv }</option>
+				}
+			</select>
+		</div>
+		if err != "" {
+			<div class="mt-1 text-body text-danger">{ err }</div>
+		}
+	</div>
+}
+
 templ selectField(label string, name string, value string, err string, options []string) {
 	<div>
 		<label class="block text-body font-medium text-text">{ label }</label>

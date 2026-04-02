@@ -96,6 +96,7 @@ func TestRecordReceivePaymentShowsActionableMessageForPartialLinkedInvoice(t *te
 		Amount:        decimal.RequireFromString("100.00"),
 		Subtotal:      decimal.RequireFromString("100.00"),
 		TaxTotal:      decimal.Zero,
+		BalanceDue:    decimal.RequireFromString("100.00"),
 	}
 	if err := db.Create(&invoice).Error; err != nil {
 		t.Fatal(err)
@@ -115,5 +116,61 @@ func TestRecordReceivePaymentShowsActionableMessageForPartialLinkedInvoice(t *te
 	}
 	if !strings.Contains(err.Error(), "leave the invoice blank") {
 		t.Fatalf("expected actionable message, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "remaining balance due (100.00)") {
+		t.Fatalf("expected remaining balance in message, got %v", err)
+	}
+}
+
+func TestRecordReceivePaymentAllowsFullSettlementForOverdueInvoiceBalance(t *testing.T) {
+	db := testReceivePaymentDB(t)
+	companyID := seedReceivePaymentCompany(t, db, "Acme")
+	customer := models.Customer{CompanyID: companyID, Name: "Customer A"}
+	if err := db.Create(&customer).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	bankID := seedReceivePaymentAccount(t, db, companyID, "1000", models.RootAsset, models.DetailBank)
+	arID := seedReceivePaymentAccount(t, db, companyID, "1100", models.RootAsset, models.DetailAccountsReceivable)
+	invoice := models.Invoice{
+		CompanyID:     companyID,
+		InvoiceNumber: "IN002",
+		CustomerID:    customer.ID,
+		InvoiceDate:   time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+		Status:        models.InvoiceStatusOverdue,
+		Amount:        decimal.RequireFromString("100.00"),
+		Subtotal:      decimal.RequireFromString("100.00"),
+		TaxTotal:      decimal.Zero,
+		BalanceDue:    decimal.RequireFromString("25.00"),
+	}
+	if err := db.Create(&invoice).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	jeID, err := RecordReceivePayment(db, ReceivePaymentInput{
+		CompanyID:     companyID,
+		CustomerID:    customer.ID,
+		EntryDate:     time.Date(2026, 3, 30, 0, 0, 0, 0, time.UTC),
+		BankAccountID: bankID,
+		ARAccountID:   arID,
+		InvoiceID:     &invoice.ID,
+		Amount:        decimal.RequireFromString("25.00"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if jeID == 0 {
+		t.Fatal("expected journal entry id")
+	}
+
+	var updated models.Invoice
+	if err := db.First(&updated, invoice.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if updated.Status != models.InvoiceStatusPaid {
+		t.Fatalf("expected invoice to be paid, got %s", updated.Status)
+	}
+	if !updated.BalanceDue.IsZero() {
+		t.Fatalf("expected balance due to be zero, got %s", updated.BalanceDue)
 	}
 }

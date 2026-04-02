@@ -60,3 +60,41 @@ type SalesTaxVM struct {
 	LiabilityAccounts []models.Account // for Sales Tax Account (GST/HST Payable, etc.)
 	AssetAccounts     []models.Account // for Purchase Recoverable Account (ITC Receivable, etc.)
 }
+
+// PaymentTermsVM is the view-model for Settings > Company > Payment Terms.
+type PaymentTermsVM struct {
+	HasCompany bool
+	Breadcrumb []SettingsBreadcrumbPart
+
+	// Table data — all terms for this company (active and inactive).
+	Items []models.PaymentTerm
+
+	// Drawer state.
+	DrawerOpen bool
+	DrawerMode string // "create" or "edit"
+	EditingID  uint
+
+	// Form fields (strings so POST round-trips preserve user input on validation errors).
+	Code         string // immutable after creation; shown read-only in edit drawer
+	Description  string
+	NetDays      string
+	DiscountPct  string // percentage string e.g. "2.00"
+	DiscountDays string
+	SortOrder    string
+	IsDefault    bool
+
+	// Field-level validation errors.
+	CodeError         string
+	DescriptionError  string
+	NetDaysError      string
+	DiscountPctError  string
+	DiscountDaysError string
+	FormError         string
+
+	// Success banners.
+	Created    bool
+	Updated    bool
+	Deleted    bool
+	DefaultSet bool
+	Toggled    bool
+}

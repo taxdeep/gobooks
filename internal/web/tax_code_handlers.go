@@ -2,6 +2,7 @@
 package web
 
 import (
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -283,7 +284,7 @@ func (s *Server) loadSalesTaxDropdowns(companyID uint, vm *pages.SalesTaxVM) err
 		return err
 	}
 	if err := s.DB.
-		Where("company_id = ? AND is_active = true AND root_account_type = 'asset'", companyID).
+		Where("company_id = ? AND is_active = true AND root_account_type = 'liability'", companyID).
 		Order("code asc").
 		Find(&vm.AssetAccounts).Error; err != nil {
 		return err
@@ -322,21 +323,27 @@ func validateTaxCodeForm(
 ) (rate decimal.Decimal, salesAcctID uint, purchaseAcctID *uint, valid bool) {
 	valid = true
 
+	var taxNameRe = regexp.MustCompile(`^[A-Za-z0-9%\s]+$`)
 	if name == "" {
 		vm.NameError = "Name is required."
 		valid = false
+	} else if !taxNameRe.MatchString(name) {
+		vm.NameError = "Name may only contain letters, numbers, spaces, and '%'."
+		valid = false
 	}
 
-	// Rate: accept percentage string (e.g. "5" or "5.00"), convert to fraction.
+	// Rate: accept percentage string (e.g. "5" or "5.00"), round to 2dp, convert to fraction.
 	if rateRaw == "" {
 		vm.RateError = "Rate is required."
 		valid = false
 	} else {
 		rPct, err := decimal.NewFromString(rateRaw)
 		if err != nil || rPct.IsNegative() || rPct.GreaterThan(decimal.NewFromInt(100)) {
-			vm.RateError = "Enter a valid rate between 0 and 100."
+			vm.RateError = "Enter a valid number between 0 and 100."
 			valid = false
 		} else {
+			rPct = rPct.Round(2)
+			vm.Rate = rPct.StringFixed(2) // echo back formatted value
 			rate = rPct.Div(decimal.NewFromInt(100))
 		}
 	}
@@ -415,12 +422,12 @@ func validateTaxCodeAccounts(db *gorm.DB, companyID uint, vm *pages.SalesTaxVM, 
 
 	var purchaseAcct models.Account
 	if err := db.Where("id = ? AND company_id = ? AND is_active = true", *purchaseAcctID, companyID).First(&purchaseAcct).Error; err != nil {
-		vm.PurchaseRecoverableAccountIDError = "Purchase recoverable account must be an active asset account in this company."
+		vm.PurchaseRecoverableAccountIDError = "Purchase recoverable account must be an active liability account in this company."
 		*valid = false
 		return
 	}
-	if purchaseAcct.RootAccountType != models.RootAsset {
-		vm.PurchaseRecoverableAccountIDError = "Purchase recoverable account must be an asset account."
+	if purchaseAcct.RootAccountType != models.RootLiability {
+		vm.PurchaseRecoverableAccountIDError = "Purchase recoverable account must be a liability account."
 		*valid = false
 	}
 }

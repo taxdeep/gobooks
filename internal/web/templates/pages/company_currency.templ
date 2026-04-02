@@ -1,0 +1,169 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+// CompanyCurrencyVM is the view-model for the company currency settings page.
+type CompanyCurrencyVM struct {
+	HasCompany           bool
+	Breadcrumb           []SettingsBreadcrumbPart
+	BaseCurrencyCode     string
+	MultiCurrencyEnabled bool
+	// Currencies lists the company's enabled foreign currencies.
+	Currencies []models.CompanyCurrency
+	// AllCurrencies is the global currency list used to populate the add-currency dropdown.
+	AllCurrencies []models.Currency
+	// AddCode is the code entered in the add-currency form (preserved on error).
+	AddCode  string
+	AddError string
+	// FormError is a general error (e.g., EnableMultiCurrency failure).
+	FormError string
+	Enabled   bool // just successfully enabled multi-currency
+	Added     bool // just successfully added a currency
+}
+
+templ CompanyCurrency(vm CompanyCurrencyVM) {
+	@layout.Layout(
+		"GoBooks - Currency",
+		ui.SidebarVM{Active: "Company Currency", HasCompany: vm.HasCompany},
+		bodyCompanyCurrency(vm),
+	)
+}
+
+templ bodyCompanyCurrency(vm CompanyCurrencyVM) {
+	<div class="max-w-[95%]">
+		@SettingsBreadcrumb(vm.Breadcrumb)
+		<div class="flex flex-wrap items-start justify-between gap-4">
+			<div class="min-w-0 flex-1">
+				<h1 class="text-title font-semibold">Currency</h1>
+				<p class="mt-2 text-text-muted2">
+					Configure your base currency, enable multi-currency support, and manage foreign currencies used on invoices and bills.
+				</p>
+			</div>
+		</div>
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">
+				{ vm.FormError }
+			</div>
+		}
+		if vm.Enabled {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">
+				Multi-currency enabled.
+			</div>
+		}
+		if vm.Added {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">
+				Currency added.
+			</div>
+		}
+		// ── Base currency (read-only; change via company profile) ──────────────
+		<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+			<h2 class="text-section font-semibold text-text">Base Currency</h2>
+			<p class="mt-1 text-body text-text-muted2">Your home currency. Set from Company Profile → Fiscal Year settings.</p>
+			<div class="mt-4">
+				<span class="inline-block rounded-md bg-background px-4 py-2 text-body font-semibold text-text">
+					{ vm.BaseCurrencyCode }
+				</span>
+			</div>
+		</div>
+		// ── Multi-currency toggle ──────────────────────────────────────────────
+		<div class="mt-4 rounded-lg border border-border bg-surface p-6">
+			<h2 class="text-section font-semibold text-text">Multi-Currency</h2>
+			if vm.MultiCurrencyEnabled {
+				<p class="mt-1 text-body text-text-muted2">Multi-currency is enabled. You can create invoices and bills in foreign currencies.</p>
+				<div class="mt-3">
+					<span class="inline-block rounded-full bg-success-soft px-3 py-1 text-small font-medium text-success-hover">Enabled</span>
+				</div>
+			} else {
+				<p class="mt-1 text-body text-text-muted2">Enable multi-currency to record transactions in foreign currencies. This creates currency-specific AR and AP accounts automatically.</p>
+				<form method="post" action="/settings/company/currency/enable" class="mt-4">
+					<button
+						type="submit"
+						class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+					>
+						Enable Multi-Currency
+					</button>
+				</form>
+			}
+		</div>
+		// ── Foreign currencies list + add form (only when multi-currency enabled) ──
+		if vm.MultiCurrencyEnabled {
+			<div class="mt-4 rounded-lg border border-border bg-surface p-6">
+				<div class="flex flex-wrap items-start justify-between gap-4">
+					<h2 class="text-section font-semibold text-text">Foreign Currencies</h2>
+				</div>
+				// Table of enabled currencies.
+				<div class="mt-4 overflow-x-auto">
+					<table class="w-full text-left text-body">
+						<thead class="text-small uppercase tracking-wider text-text-muted">
+							<tr class="border-b border-border">
+								<th class="py-3 pr-4">Code</th>
+								<th class="py-3 pr-4">Name</th>
+								<th class="py-3 pr-0">AR Account / AP Account (auto-created)</th>
+							</tr>
+						</thead>
+						<tbody class="text-text">
+							if len(vm.Currencies) == 0 {
+								<tr>
+									<td colspan="3" class="py-6 text-text-muted2">
+										No foreign currencies added yet. Use the form below to add one.
+									</td>
+								</tr>
+							}
+							for _, cc := range vm.Currencies {
+								if cc.CurrencyCode != vm.BaseCurrencyCode {
+									<tr class="border-b border-border last:border-0">
+										<td class="py-3 pr-4 font-medium">{ cc.CurrencyCode }</td>
+										<td class="py-3 pr-4 text-text-muted2">{ cc.CurrencyCode }</td>
+										<td class="py-3 pr-0 text-text-muted2">ar_{ cc.CurrencyCode } / ap_{ cc.CurrencyCode }</td>
+									</tr>
+								}
+							}
+						</tbody>
+					</table>
+				</div>
+				// Add currency form.
+				<div class="mt-6 border-t border-border pt-6">
+					<h3 class="text-body font-semibold text-text">Add Currency</h3>
+					<form method="post" action="/settings/company/currency/add" class="mt-4">
+						<div class="flex flex-wrap items-end gap-4">
+							<div>
+								<label class="block text-body font-medium text-text">ISO 4217 Code</label>
+								if vm.AddError != "" {
+									<input
+										type="text"
+										name="currency_code"
+										value={ vm.AddCode }
+										placeholder="e.g. USD"
+										maxlength="3"
+										class="mt-2 w-32 rounded-md border border-danger px-3 py-2 text-body uppercase outline-none focus:ring-2 focus:ring-danger-focus"
+									/>
+									<div class="mt-1 text-body text-danger">{ vm.AddError }</div>
+								} else {
+									<input
+										type="text"
+										name="currency_code"
+										value={ vm.AddCode }
+										placeholder="e.g. USD"
+										maxlength="3"
+										class="mt-2 w-32 rounded-md border border-border-input px-3 py-2 text-body uppercase outline-none focus:ring-2 focus:ring-primary-focus"
+									/>
+								}
+							</div>
+							<button
+								type="submit"
+								class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+							>
+								Add
+							</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		}
+	</div>
+}

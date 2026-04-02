@@ -31,7 +31,6 @@ templ bodyBootstrap(vm BootstrapViewModel) {
 		<form method="post" action="/setup/bootstrap" class="mt-6 space-y-6">
 			<div class="rounded-lg border border-border bg-surface p-6">
 				<h2 class="text-body font-semibold text-text">Owner account</h2>
-				<p class="mt-1 text-small text-text-muted2">Sign-in for other users is not implemented yet.</p>
 				<div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
 					@bootstrapTextField("Email *", "email", vm.Values.Email, vm.Errors.Email, "you@example.com")
 					@bootstrapTextField("Display name", "display_name", vm.Values.DisplayName, vm.Errors.DisplayName, "Your name")
@@ -61,19 +60,17 @@ templ bodyBootstrap(vm BootstrapViewModel) {
 						[]string{"Retail", "Consulting", "Services", "Manufacturing", "Construction", "Other"},
 					)
 					@bootstrapDateField("Incorporated Date *", "incorporated_date", vm.Values.IncorporatedDate, vm.Errors.IncorporatedDate)
-					@bootstrapDateField("Fiscal Year End *", "fiscal_year_end", vm.Values.FiscalYearEnd, vm.Errors.FiscalYearEnd)
+					@monthDayField("Fiscal Year End *", "fiscal_year_end", vm.Values.FiscalYearEnd, vm.Errors.FiscalYearEnd)
 					@bootstrapTextField("Business Number *", "business_number", vm.Values.BusinessNumber, vm.Errors.BusinessNumber, "")
 
-					@bootstrapSelectField(
+					@bootstrapSelectFieldWithHint(
 						"Account code length *",
 						"account_code_length",
 						vm.Values.AccountCodeLength,
 						vm.Errors.AccountCodeLength,
 						[]string{"4", "5", "6", "7", "8", "9", "10", "11", "12"},
+						"Codes are zero-padded to this length (e.g. 1000 → 10000 for 5 digits). Cannot be changed after setup.",
 					)
-					<div class="md:col-span-2 text-small text-text-muted2">
-						Default chart of accounts codes are padded with zeros on the right to this length (e.g. 1000 → 10000 for 5 digits). This cannot be changed after setup.
-					</div>
 
 					<div class="md:col-span-2">
 						@bootstrapTextField("Address Line *", "address_line", vm.Values.AddressLine, vm.Errors.AddressLine, "Street and number")
@@ -119,5 +116,24 @@ templ bootstrapSelectField(label string, name string, value string, err string, 
 		if err != "" {
 			<div class="mt-1 text-body text-danger">{ err }</div>
 		}
+	</div>
+}
+
+templ bootstrapSelectFieldWithHint(label string, name string, value string, err string, options []string, hint string) {
+	<div>
+		<label class="block text-body font-medium text-text">{ label }</label>
+		<select
+			name={ name }
+			class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+		>
+			<option value="">-- Select --</option>
+			for _, opt := range options {
+				<option value={ opt } selected?={ opt == value }>{ opt }</option>
+			}
+		</select>
+		if err != "" {
+			<div class="mt-1 text-body text-danger">{ err }</div>
+		}
+		<p class="mt-1 text-small text-text-muted2">{ hint }</p>
 	</div>
 }

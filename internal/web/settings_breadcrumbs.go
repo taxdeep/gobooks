@@ -64,3 +64,28 @@ func breadcrumbSettingsCompanySecurity() []pages.SettingsBreadcrumbPart {
 		{Label: "Security", Href: ""},
 	}
 }
+
+func breadcrumbSettingsCompanyPaymentTerms() []pages.SettingsBreadcrumbPart {
+	return []pages.SettingsBreadcrumbPart{
+		{Label: "Settings", Href: "/settings/company"},
+		{Label: "Company", Href: "/settings/company"},
+		{Label: "Payment Terms", Href: ""},
+	}
+}
+
+func breadcrumbSettingsCompanyCurrency() []pages.SettingsBreadcrumbPart {
+	return []pages.SettingsBreadcrumbPart{
+		{Label: "Settings", Href: "/settings/company"},
+		{Label: "Company", Href: "/settings/company"},
+		{Label: "Currency", Href: ""},
+	}
+}
+
+func breadcrumbSettingsExchangeRates() []pages.SettingsBreadcrumbPart {
+	return []pages.SettingsBreadcrumbPart{
+		{Label: "Settings", Href: "/settings/company"},
+		{Label: "Company", Href: "/settings/company"},
+		{Label: "Currency", Href: "/settings/company/currency"},
+		{Label: "Exchange Rates", Href: ""},
+	}
+}

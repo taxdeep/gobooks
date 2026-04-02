@@ -1,0 +1,53 @@
+name: Auto-bump version timestamp
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  bump-version:
+    # Skip if the push was already from this workflow to avoid infinite loops.
+    if: "!startsWith(github.event.head_commit.message, 'chore(version):')"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Calculate version stamp
+        id: ver
+        run: |
+          # Timestamp portion: yymmddhh (UTC)
+          STAMP=$(date -u +%y%m%d%H)
+          # Extract only the semantic x.x.x prefix (strip any previous timestamp suffix)
+          SEMVER=$(grep -oP 'const Version = "\K[0-9]+\.[0-9]+\.[0-9]+' internal/version/version.go | head -1)
+          NEW_VERSION="${SEMVER}.${STAMP}"
+          echo "version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Write version.go
+        run: |
+          cat > internal/version/version.go <<'GOEOF'
+          // Package version holds the application release string.
+          package version
+
+          // Version is the semantic version of the GoBooks binary.
+          const Version = "${{ steps.ver.outputs.version }}"
+          GOEOF
+          # Remove leading whitespace that heredoc may introduce
+          sed -i 's/^[[:space:]]*//' internal/version/version.go
+
+      - name: Commit and push
+        run: |
+          git config user.name  "GoBooks CI"
+          git config user.email "ci@gobooks.local"
+          git add internal/version/version.go
+          # Only commit if there is an actual change
+          if git diff --staged --quiet; then
+            echo "version.go unchanged, skipping commit"
+          else
+            git commit -m "chore(version): bump to ${{ steps.ver.outputs.version }}"
+            git push
+          fi

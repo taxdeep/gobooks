@@ -56,8 +56,10 @@ if ! grep -qi "ubuntu" /etc/os-release 2>/dev/null; then
     warn "This script is designed for Ubuntu 24.04. Proceeding anyway..."
 fi
 
-if [[ -d "$INSTALL_DIR/bin/gobooks" ]]; then
-    warn "$INSTALL_DIR already exists. Use upgrade.sh instead, or remove it first."
+if [[ -f "$INSTALL_DIR/.env" ]] || [[ -f "$INSTALL_DIR/bin/gobooks" ]]; then
+    err "Existing installation detected at ${INSTALL_DIR}."
+    err "Run upgrade.sh for upgrades, or remove ${INSTALL_DIR} before a fresh install."
+    exit 1
 fi
 
 # ── Parse arguments ──────────────────────────────────────────────────────────
@@ -104,7 +106,7 @@ apt-get upgrade -y -qq
 
 log "Installing base dependencies..."
 apt-get install -y -qq \
-    curl git build-essential ufw \
+    curl git build-essential ufw openssl rsync \
     ca-certificates gnupg lsb-release \
     wkhtmltopdf \
     nginx certbot python3-certbot-nginx
@@ -155,13 +157,31 @@ fi
 
 # ── 3. Install Node.js ───────────────────────────────────────────────────────
 
-if command -v node &>/dev/null; then
-    log "Node.js $(node -v) already installed."
-else
+node_version_ok() {
+    if ! command -v node &>/dev/null; then
+        return 1
+    fi
+    local major
+    major=$(node -v | sed -E 's/^v([0-9]+).*/\1/')
+    [[ -n "$major" && "$major" -ge "$NODE_MAJOR" ]]
+}
+
+install_node() {
     log "Installing Node.js ${NODE_MAJOR}.x..."
     curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash -
     apt-get install -y -qq nodejs
     log "Node.js $(node -v) installed."
+}
+
+if node_version_ok; then
+    log "Node.js $(node -v) already installed (>= ${NODE_MAJOR})."
+else
+    if command -v node &>/dev/null; then
+        warn "Installed Node.js $(node -v) is below minimum ${NODE_MAJOR}. Upgrading..."
+    else
+        log "Node.js not found. Installing..."
+    fi
+    install_node
 fi
 
 # ── 4. Install and configure PostgreSQL ──────────────────────────────────────
@@ -223,7 +243,7 @@ if [[ ! -f "go.mod" ]]; then
 fi
 
 log "Installing Node.js dependencies..."
-npm install --silent 2>/dev/null
+npm ci --silent 2>/dev/null || npm install --silent
 
 log "Building Tailwind CSS..."
 npm run build:css
@@ -231,6 +251,14 @@ npm run build:css
 log "Building Go binaries..."
 export PATH=$PATH:/usr/local/go/bin
 mkdir -p bin
+
+log "Installing templ code generator..."
+GOBIN="$(pwd)/bin" GOFLAGS="-buildvcs=false" go install github.com/a-h/templ/cmd/templ@v0.3.1001
+export PATH="$(pwd)/bin:$PATH"
+
+log "Generating templ files..."
+templ generate -build-vcs-version=false 2>/dev/null || templ generate
+
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/gobooks         ./cmd/gobooks
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/gobooks-migrate  ./cmd/gobooks-migrate
 
@@ -270,7 +298,8 @@ log "Migrations complete."
 # ── 9. Set ownership ─────────────────────────────────────────────────────────
 
 chown -R "$SERVICE_USER":"$SERVICE_USER" "$INSTALL_DIR"
-chown -R "$SERVICE_USER":"$SERVICE_USER" "$BACKUP_DIR"
+chown -R postgres:postgres "$BACKUP_DIR"
+chmod 750 "$BACKUP_DIR"
 
 # ── 10. Install systemd service ──────────────────────────────────────────────
 
@@ -346,7 +375,7 @@ log "Nginx configured (port 80 → GoBooks)."
 log "Setting up daily backup cron..."
 cat > /etc/cron.d/gobooks-backup <<CRONEOF
 # GoBooks daily database backup at 02:00 AM, keep 30 days
-0 2 * * * postgres pg_dump -U ${DB_USER} ${DB_NAME} | gzip > ${BACKUP_DIR}/gobooks_\$(date +\%Y\%m\%d).sql.gz 2>/dev/null
+0 2 * * * postgres pg_dump ${DB_NAME} | gzip > ${BACKUP_DIR}/gobooks_\$(date +\%Y\%m\%d).sql.gz 2>/dev/null
 0 3 * * * root find ${BACKUP_DIR} -name "gobooks_*.sql.gz" -mtime +30 -delete 2>/dev/null
 CRONEOF
 

@@ -53,7 +53,9 @@ DECLARE
 BEGIN
   SELECT id INTO cid FROM companies ORDER BY id ASC LIMIT 1;
   IF cid IS NULL THEN
-    RAISE EXCEPTION 'No row in companies: cannot backfill company_id';
+    -- Fresh install: companies is empty, AutoMigrate already created tables
+    -- with company_id; nothing to backfill. Skip safely.
+    RETURN;
   END IF;
 
   UPDATE accounts SET company_id = cid WHERE company_id IS NULL;
@@ -108,6 +110,11 @@ DO $$
 DECLARE
   n BIGINT;
 BEGIN
+  -- Skip validation on fresh installs (no companies = no business rows to check).
+  IF NOT EXISTS (SELECT 1 FROM companies LIMIT 1) THEN
+    RETURN;
+  END IF;
+
   SELECT count(*) INTO n FROM accounts WHERE company_id IS NULL;
   IF n > 0 THEN RAISE EXCEPTION 'accounts still has % NULL company_id', n; END IF;
   SELECT count(*) INTO n FROM customers WHERE company_id IS NULL;

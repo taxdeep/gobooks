@@ -86,7 +86,12 @@ func (s *Server) handleCompanyProfileSubmit(c *fiber.Ctx) error {
 	businessNumber := strings.TrimSpace(c.FormValue("business_number"))
 	industry := strings.TrimSpace(c.FormValue("industry"))
 	incorporatedDate := strings.TrimSpace(c.FormValue("incorporated_date"))
-	fiscalYearEnd := strings.TrimSpace(c.FormValue("fiscal_year_end"))
+	fiscalMonth := strings.TrimSpace(c.FormValue("fiscal_year_end_month"))
+	fiscalDay := strings.TrimSpace(c.FormValue("fiscal_year_end_day"))
+	fiscalYearEnd := ""
+	if fiscalMonth != "" && fiscalDay != "" {
+		fiscalYearEnd = fiscalMonth + "-" + fiscalDay
+	}
 
 	values := pages.SetupFormValues{
 		CompanyName:      name,

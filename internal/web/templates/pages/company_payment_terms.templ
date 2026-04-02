@@ -1,0 +1,428 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"fmt"
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+templ CompanyPaymentTerms(vm PaymentTermsVM) {
+	@layout.Layout(
+		"GoBooks - Payment Terms",
+		ui.SidebarVM{Active: "Company Payment Terms", HasCompany: vm.HasCompany},
+		bodyCompanyPaymentTerms(vm),
+	)
+}
+
+templ bodyCompanyPaymentTerms(vm PaymentTermsVM) {
+	<div
+		class="max-w-[95%]"
+		x-data={ ptInitialDrawer(vm) }
+		x-init="if (drawerOpen) { $nextTick(() => { const el = $refs.ptDrawer?.querySelector('input:not([readonly]),select,textarea'); if (el) el.focus(); }); }"
+		@keydown.escape.window="if (drawerOpen) drawerOpen = false"
+	>
+		@SettingsBreadcrumb(vm.Breadcrumb)
+
+		<div class="flex flex-wrap items-start justify-between gap-4">
+			<div class="min-w-0 flex-1">
+				<h1 class="text-title font-semibold">Payment Terms</h1>
+				<p class="mt-2 text-text-muted2">
+					Define the payment terms applied to invoices and bills.
+					Each term specifies the number of days until payment is due and an optional early-payment discount.
+				</p>
+			</div>
+			<div class="shrink-0">
+				<a
+					href="/settings/company/payment-terms?new=1"
+					class="inline-block rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+				>
+					New Payment Term
+				</a>
+			</div>
+		</div>
+
+		if vm.Created {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">
+				Payment term created.
+			</div>
+		}
+		if vm.Updated {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">
+				Payment term updated.
+			</div>
+		}
+		if vm.Deleted {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">
+				Payment term deleted.
+			</div>
+		}
+		if vm.DefaultSet {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">
+				Default payment term updated.
+			</div>
+		}
+		if vm.Toggled {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">
+				Payment term status updated.
+			</div>
+		}
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">
+				{ vm.FormError }
+			</div>
+		}
+
+		<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+			<h2 class="text-section font-semibold text-text">All Payment Terms</h2>
+			<div class="mt-4 overflow-x-auto">
+				<table class="w-full text-left text-body">
+					<thead class="text-small uppercase tracking-wider text-text-muted">
+						<tr class="border-b border-border">
+							<th class="py-3 pr-4">Code</th>
+							<th class="py-3 pr-4">Description</th>
+							<th class="py-3 pr-4">Net Days</th>
+							<th class="py-3 pr-4">Discount</th>
+							<th class="py-3 pr-4">Default</th>
+							<th class="py-3 pr-4">Status</th>
+							<th class="py-3 pr-0 text-right">Actions</th>
+						</tr>
+					</thead>
+					<tbody class="text-text">
+						if len(vm.Items) == 0 {
+							<tr>
+								<td colspan="7" class="py-6 text-text-muted2">
+									No payment terms yet. Click "New Payment Term" to add one.
+								</td>
+							</tr>
+						}
+						for _, pt := range vm.Items {
+							<tr class={ ptRowClass(pt) }>
+								<td class="py-3 pr-4 font-medium font-mono">{ pt.Code }</td>
+								<td class="py-3 pr-4">
+									{ pt.Description }
+									if !pt.IsActive {
+										<span class="ml-2 text-small text-text-muted">(Inactive)</span>
+									}
+								</td>
+								<td class="py-3 pr-4 tabular-nums">
+									if pt.NetDays == 0 {
+										<span class="text-text-muted2">Due on receipt</span>
+									} else {
+										{ fmt.Sprintf("%d", pt.NetDays) }
+									}
+								</td>
+								<td class="py-3 pr-4 tabular-nums">
+									{ ptDiscountDisplay(pt) }
+								</td>
+								<td class="py-3 pr-4">
+									if pt.IsDefault {
+										<span class="inline-flex items-center rounded-full bg-primary px-2 py-0.5 text-small font-medium text-onPrimary">Default</span>
+									} else {
+										<span class="text-text-muted3">—</span>
+									}
+								</td>
+								<td class="py-3 pr-4">
+									if pt.IsActive {
+										<span class="inline-flex items-center rounded-full bg-success-soft px-2 py-0.5 text-small font-medium text-success">Active</span>
+									} else {
+										<span class="inline-flex items-center rounded-full bg-background px-2 py-0.5 text-small font-medium text-text-muted2">Inactive</span>
+									}
+								</td>
+								<td class="py-3 pr-0 text-right whitespace-nowrap">
+									// Edit
+									<a
+										href={ "/settings/company/payment-terms?edit=" + Uitoa(pt.ID) }
+										class="text-small font-medium text-primary hover:text-primary-hover"
+									>
+										Edit
+									</a>
+									// Set Default
+									if !pt.IsDefault && pt.IsActive {
+										<span class="inline-block px-2 text-text-muted3" aria-hidden="true">|</span>
+										<form method="post" action="/settings/company/payment-terms/set-default" class="inline">
+											<input type="hidden" name="payment_term_id" value={ Uitoa(pt.ID) }/>
+											<button type="submit" class="text-small font-medium text-text-muted3 hover:text-text">
+												Set Default
+											</button>
+										</form>
+									}
+									// Toggle active
+									<span class="inline-block px-2 text-text-muted3" aria-hidden="true">|</span>
+									<form method="post" action="/settings/company/payment-terms/toggle" class="inline">
+										<input type="hidden" name="payment_term_id" value={ Uitoa(pt.ID) }/>
+										<button type="submit" class="text-small font-medium text-text-muted3 hover:text-text">
+											if pt.IsActive {
+												Deactivate
+											} else {
+												Activate
+											}
+										</button>
+									</form>
+									// Delete
+									if !pt.IsDefault {
+										<span class="inline-block px-2 text-text-muted3" aria-hidden="true">|</span>
+										<form
+											method="post"
+											action="/settings/company/payment-terms/delete"
+											class="inline"
+											onsubmit="return confirm('Delete this payment term? This cannot be undone.')"
+										>
+											<input type="hidden" name="payment_term_id" value={ Uitoa(pt.ID) }/>
+											<button type="submit" class="text-small font-medium text-danger-hover hover:text-danger">
+												Delete
+											</button>
+										</form>
+									}
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		</div>
+
+		@ui.RightDrawerBackdrop()
+		if vm.DrawerMode == "edit" {
+			@ui.RightDrawerPanel("ptDrawer", "pt-drawer-title", "Edit Payment Term", "Update description, net days, and discount.", ptEditDrawerForm(vm))
+		} else {
+			@ui.RightDrawerPanel("ptDrawer", "pt-drawer-title", "New Payment Term", "Define a code, payment window, and optional early-payment discount.", ptCreateDrawerForm(vm))
+		}
+	</div>
+}
+
+templ ptCreateDrawerForm(vm PaymentTermsVM) {
+	<form method="post" action="/settings/company/payment-terms" class="flex min-h-0 flex-1 flex-col">
+		@ptFormFields(vm, false)
+		<div class="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-border p-4">
+			<a
+				href="/settings/company/payment-terms"
+				class="rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text"
+			>
+				Cancel
+			</a>
+			@ui.ButtonPrimary("Create", "submit", false)
+		</div>
+	</form>
+}
+
+templ ptEditDrawerForm(vm PaymentTermsVM) {
+	<form method="post" action="/settings/company/payment-terms/update" class="flex min-h-0 flex-1 flex-col">
+		<input type="hidden" name="payment_term_id" value={ Uitoa(vm.EditingID) }/>
+		@ptFormFields(vm, true)
+		<div class="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-border p-4">
+			<a
+				href="/settings/company/payment-terms"
+				class="rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text"
+			>
+				Cancel
+			</a>
+			@ui.ButtonPrimary("Save changes", "submit", false)
+		</div>
+	</form>
+}
+
+templ ptFormFields(vm PaymentTermsVM, isEdit bool) {
+	<div
+		class="min-h-0 flex-1 space-y-5 overflow-y-auto p-4"
+		x-data={ ptDiscountData(vm) }
+	>
+		// Code
+		<div>
+			<label class="block text-body font-medium text-text">Code *</label>
+			if isEdit {
+				<input
+					type="text"
+					value={ vm.Code }
+					readonly
+					class="mt-2 block w-full cursor-not-allowed rounded-md border border-border-input bg-background px-3 py-2 text-body text-text-muted2 outline-none"
+				/>
+				<p class="mt-1 text-small text-text-muted2">Code cannot be changed after creation.</p>
+			} else {
+				<input
+					type="text"
+					name="code"
+					value={ vm.Code }
+					placeholder="e.g. N30, DOC, N102%"
+					maxlength="30"
+					autocomplete="off"
+					class={ ptInputClass(vm.CodeError != "") }
+				/>
+				if vm.CodeError != "" {
+					<p class="mt-1 text-body text-danger">{ vm.CodeError }</p>
+				} else {
+					<p class="mt-1 text-small text-text-muted2">Short unique identifier, e.g. N30, DOC, N102%.</p>
+				}
+			}
+		</div>
+
+		// Description
+		<div>
+			<label class="block text-body font-medium text-text">Description *</label>
+			<input
+				type="text"
+				name="description"
+				value={ vm.Description }
+				placeholder="e.g. Net 30"
+				maxlength="200"
+				autocomplete="off"
+				class={ ptInputClass(vm.DescriptionError != "") }
+			/>
+			if vm.DescriptionError != "" {
+				<p class="mt-1 text-body text-danger">{ vm.DescriptionError }</p>
+			}
+		</div>
+
+		// Net Days
+		<div>
+			<label class="block text-body font-medium text-text">Net days *</label>
+			<input
+				type="number"
+				name="net_days"
+				value={ vm.NetDays }
+				min="0"
+				max="3650"
+				step="1"
+				placeholder="30"
+				autocomplete="off"
+				class={ ptInputClass(vm.NetDaysError != "") }
+			/>
+			if vm.NetDaysError != "" {
+				<p class="mt-1 text-body text-danger">{ vm.NetDaysError }</p>
+			} else {
+				<p class="mt-1 text-small text-text-muted2">Days until full payment is due. Enter 0 for due on receipt.</p>
+			}
+		</div>
+
+		// Discount %
+		<div>
+			<label class="block text-body font-medium text-text">Early-payment discount % <span class="font-normal text-text-muted2">(optional)</span></label>
+			<div class="relative mt-2">
+				<input
+					type="number"
+					name="discount_pct"
+					value={ vm.DiscountPct }
+					x-model="discountPct"
+					@input="discountPct = $event.target.value"
+					min="0"
+					max="100"
+					step="0.01"
+					placeholder="0"
+					autocomplete="off"
+					class={ ptInputClassRaw(vm.DiscountPctError != "") + " pr-8" }
+				/>
+				<span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-body text-text-muted2">%</span>
+			</div>
+			if vm.DiscountPctError != "" {
+				<p class="mt-1 text-body text-danger">{ vm.DiscountPctError }</p>
+			} else {
+				<p class="mt-1 text-small text-text-muted2">Percentage discount if paid within the discount period. Leave blank or 0 for no discount.</p>
+			}
+		</div>
+
+		// Discount Days (shown only when discount % > 0)
+		<div x-show="parseFloat(discountPct) > 0" x-cloak>
+			<label class="block text-body font-medium text-text">Discount period (days) *</label>
+			<input
+				type="number"
+				name="discount_days"
+				value={ vm.DiscountDays }
+				min="1"
+				max="3650"
+				step="1"
+				placeholder="10"
+				autocomplete="off"
+				class={ ptInputClass(vm.DiscountDaysError != "") }
+			/>
+			if vm.DiscountDaysError != "" {
+				<p class="mt-1 text-body text-danger">{ vm.DiscountDaysError }</p>
+			} else {
+				<p class="mt-1 text-small text-text-muted2">Number of days within which the discount applies. Must be ≤ net days.</p>
+			}
+		</div>
+
+		// Sort Order
+		<div>
+			<label class="block text-body font-medium text-text">Sort order</label>
+			<input
+				type="number"
+				name="sort_order"
+				value={ vm.SortOrder }
+				min="0"
+				step="1"
+				placeholder="0"
+				autocomplete="off"
+				class={ ptInputClass(false) }
+			/>
+			<p class="mt-1 text-small text-text-muted2">Lower numbers appear first in dropdowns.</p>
+		</div>
+
+		// Set as default (create only)
+		if !isEdit {
+			<div class="flex items-center gap-3">
+				<input
+					type="checkbox"
+					name="is_default"
+					value="1"
+					id="pt-is-default"
+					checked?={ vm.IsDefault }
+					class="h-4 w-4 rounded border-border-input text-primary focus:ring-primary-focus"
+				/>
+				<label for="pt-is-default" class="text-body font-medium text-text">Set as company default</label>
+			</div>
+		}
+	</div>
+}
+
+// ── Helper functions ──────────────────────────────────────────────────────────
+
+func ptInitialDrawer(vm PaymentTermsVM) string {
+	open := "false"
+	if vm.DrawerOpen {
+		open = "true"
+	}
+	return fmt.Sprintf(`{ drawerOpen: %s }`, open)
+}
+
+func ptDiscountData(vm PaymentTermsVM) string {
+	pct := vm.DiscountPct
+	if pct == "" {
+		pct = "0"
+	}
+	return fmt.Sprintf(`{ discountPct: %q }`, pct)
+}
+
+func ptRowClass(pt models.PaymentTerm) string {
+	if !pt.IsActive {
+		return "border-b border-border-subtle bg-background text-text-muted2"
+	}
+	return "border-b border-border-subtle"
+}
+
+func ptDiscountDisplay(pt models.PaymentTerm) string {
+	if pt.DiscountPct.IsZero() {
+		return "—"
+	}
+	pct := pt.DiscountPct.StringFixed(2)
+	// Trim trailing zeros.
+	for len(pct) > 0 && pct[len(pct)-1] == '0' {
+		pct = pct[:len(pct)-1]
+	}
+	if len(pct) > 0 && pct[len(pct)-1] == '.' {
+		pct = pct[:len(pct)-1]
+	}
+	return fmt.Sprintf("%s%% / %d days", pct, pt.DiscountDays)
+}
+
+func ptInputClass(hasErr bool) string {
+	return "mt-2 " + ptInputClassRaw(hasErr)
+}
+
+func ptInputClassRaw(hasErr bool) string {
+	base := "block w-full rounded-md border px-3 py-2 text-body outline-none focus:ring-2 "
+	if hasErr {
+		return base + "border-danger focus:ring-danger-focus"
+	}
+	return base + "border-border-input focus:ring-primary-focus"
+}

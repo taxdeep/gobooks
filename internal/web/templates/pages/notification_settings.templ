@@ -218,7 +218,7 @@ templ bodyCompanyNotificationSettings(vm CompanyNotificationSettingsVM) {
 		<!-- ── Channel status + test actions ───────────────────────────────── -->
 		<div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
 			<!-- Email status + test -->
-			<div class="rounded-lg border border-border bg-surface p-5">
+			<div id="email-test-card" class="rounded-lg border border-border bg-surface p-5">
 				<div class="flex items-center justify-between">
 					<h2 class="text-section font-semibold text-text">Email / SMTP</h2>
 					@notifReadinessBadge(vm.EmailStatus)
@@ -228,15 +228,41 @@ templ bodyCompanyNotificationSettings(vm CompanyNotificationSettingsVM) {
 					Save your settings first.
 				</p>
 				@notifChannelStatus(vm.EmailStatus)
-				<form method="post" action="/settings/company/notifications/test-email" class="mt-4">
+				if vm.TestEmailResult == "ok" {
+					<div class="mt-3 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success-hover">
+						{ vm.TestEmailMsg }
+					</div>
+				} else if vm.TestEmailResult == "err" {
+					<div class="mt-3 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover">
+						{ vm.TestEmailMsg }
+					</div>
+				}
+				<form
+					method="post"
+					action="/settings/company/notifications/test-email"
+					class="mt-4"
+					x-data="{ loading: false }"
+					@submit="loading = true"
+				>
 					<fieldset disabled?={ vm.ReadOnly || !vm.SystemAllowsOverride } class="border-0 p-0 m-0">
-						@ui.ButtonSecondary("Send Test Email", "submit", vm.ReadOnly || !vm.SystemAllowsOverride)
+						<button
+							type="submit"
+							disabled?={ vm.ReadOnly || !vm.SystemAllowsOverride }
+							:disabled="loading"
+							class="inline-flex items-center gap-2 rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text disabled:bg-disabled-bg disabled:text-disabled-text disabled:cursor-not-allowed"
+						>
+							<svg x-show="loading" x-cloak class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+							</svg>
+							<span x-text="loading ? 'Sending…' : 'Send Test Email'">Send Test Email</span>
+						</button>
 					</fieldset>
 				</form>
 			</div>
 
 			<!-- SMS status + test -->
-			<div class="rounded-lg border border-border bg-surface p-5">
+			<div id="sms-test-card" class="rounded-lg border border-border bg-surface p-5">
 				<div class="flex items-center justify-between">
 					<h2 class="text-section font-semibold text-text">SMS</h2>
 					@notifReadinessBadge(vm.SMSStatus)
@@ -250,9 +276,35 @@ templ bodyCompanyNotificationSettings(vm CompanyNotificationSettingsVM) {
 					&quot;Verified&quot; means configuration fields are present, not that delivery works.
 				</p>
 				@notifChannelStatus(vm.SMSStatus)
-				<form method="post" action="/settings/company/notifications/test-sms" class="mt-4">
+				if vm.TestSMSResult == "ok" {
+					<div class="mt-3 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success-hover">
+						{ vm.TestSMSMsg }
+					</div>
+				} else if vm.TestSMSResult == "err" {
+					<div class="mt-3 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover">
+						{ vm.TestSMSMsg }
+					</div>
+				}
+				<form
+					method="post"
+					action="/settings/company/notifications/test-sms"
+					class="mt-4"
+					x-data="{ loading: false }"
+					@submit="loading = true"
+				>
 					<fieldset disabled?={ vm.ReadOnly || !vm.SystemAllowsOverride } class="border-0 p-0 m-0">
-						@ui.ButtonSecondary("Validate SMS Config", "submit", vm.ReadOnly || !vm.SystemAllowsOverride)
+						<button
+							type="submit"
+							disabled?={ vm.ReadOnly || !vm.SystemAllowsOverride }
+							:disabled="loading"
+							class="inline-flex items-center gap-2 rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text disabled:bg-disabled-bg disabled:text-disabled-text disabled:cursor-not-allowed"
+						>
+							<svg x-show="loading" x-cloak class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+							</svg>
+							<span x-text="loading ? 'Validating…' : 'Validate SMS Config'">Validate SMS Config</span>
+						</button>
 					</fieldset>
 				</form>
 			</div>

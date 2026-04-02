@@ -127,6 +127,14 @@ type Company struct {
 	// Existing members receive a 403 on login until reactivated.
 	IsActive bool `gorm:"not null;default:true"`
 
+	// Multi-currency support (Phase 1).
+	// BaseCurrencyCode is the ISO 4217 code of the company's home currency (e.g. "CAD").
+	// All reports and base-amount columns are denominated in this currency.
+	BaseCurrencyCode string `gorm:"type:text;not null;default:'CAD'"`
+	// MultiCurrencyEnabled gates all foreign-currency UI and posting logic.
+	// false = base-currency-only mode (safe default for existing companies).
+	MultiCurrencyEnabled bool `gorm:"not null;default:false"`
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

@@ -2,40 +2,87 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
-	"gobooks/internal/models"
-
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
+
+	"gobooks/internal/models"
 )
 
-// ReceivePaymentInput is the minimal data needed to record a customer payment.
+// ── Input types ───────────────────────────────────────────────────────────────
+
+// InvoiceAllocation pairs an invoice with the document-currency amount being
+// settled by this payment.
+//
+// ARAccountID overrides the top-level ReceivePaymentInput.ARAccountID for this
+// specific invoice. Pass 0 to use the top-level default.
+type InvoiceAllocation struct {
+	InvoiceID   uint
+	Amount      decimal.Decimal // document-currency amount to apply
+	ARAccountID uint            // 0 = use ReceivePaymentInput.ARAccountID
+}
+
+// ReceivePaymentInput is the data needed to record a customer receipt.
+//
+// Two settlement modes:
+//
+//  1. Allocations (Phase 4): set Allocations with per-invoice amounts.
+//     Supports partial settlement and automatic FX gain/loss posting for
+//     foreign-currency invoices. Amount field is ignored in this mode.
+//
+//  2. Legacy (pre-Phase-4): set InvoiceID + Amount for a single full-settlement
+//     link, or leave InvoiceID nil for an unlinked receipt. Only full settlement
+//     is supported in this mode (partial returns an error).
 type ReceivePaymentInput struct {
 	CompanyID  uint
 	CustomerID uint
 	EntryDate  time.Time
 
 	BankAccountID uint
-	ARAccountID   uint
+	// ARAccountID is the default AR account to credit.
+	// Can be overridden per-allocation via InvoiceAllocation.ARAccountID.
+	ARAccountID uint
 
-	// InvoiceID optionally links this payment to a specific posted invoice.
-	// When set, the invoice's Amount must match the payment Amount,
-	// and the invoice will be marked as paid within the same transaction.
+	// Allocations enables Phase-4 partial / FX settlement against one or more
+	// invoices. When non-empty, InvoiceID and Amount are ignored.
+	Allocations []InvoiceAllocation
+
+	// InvoiceID (legacy): single full-settlement link.
+	// Ignored when Allocations is non-empty.
 	InvoiceID *uint
 
+	// Amount: base-currency amount for unlinked/legacy receipts.
+	// Ignored when Allocations is non-empty.
 	Amount decimal.Decimal
-	Memo   string
+
+	Memo string
 }
 
-// RecordReceivePayment posts a 2-line journal entry:
-// - Debit  Bank (asset)         Amount
-// - Credit Accounts Receivable  Amount
+// RecordReceivePayment posts a journal entry for a customer receipt and
+// optionally settles one or more invoices.
 //
-// This keeps the accounting logic simple and consistent:
-// receiving money increases bank and reduces A/R.
-// Returns the new journal entry id.
+// Phase 4 path (Allocations non-empty):
+//
+//	For each allocation:
+//	  - Invoice must be posted (sent/overdue/partially_paid).
+//	  - Partial settlement is allowed.
+//	  - If the invoice is in a foreign currency, the settlement rate is looked up
+//	    and a realized FX gain/loss line is auto-posted.
+//
+//	Journal entry structure (per allocation):
+//	  DR Bank (base)              bankBaseAmount
+//	  CR AR / AR-Foreign (base)   arapBaseReleased
+//	  CR/DR FX Gain/Loss (base)   realizedFXGainLoss  ← only when invoice is foreign
+//
+//	The bank line is a single aggregated debit at the top.
+//
+// Legacy path (Allocations empty, InvoiceID set): full settlement only.
+// Unlinked path (Allocations empty, InvoiceID nil): simple 2-line JE.
+//
+// Returns the new journal entry ID.
 func RecordReceivePayment(tx *gorm.DB, in ReceivePaymentInput) (uint, error) {
 	if in.CompanyID == 0 {
 		return 0, fmt.Errorf("company is required")
@@ -43,17 +90,246 @@ func RecordReceivePayment(tx *gorm.DB, in ReceivePaymentInput) (uint, error) {
 	if in.CustomerID == 0 || in.BankAccountID == 0 || in.ARAccountID == 0 {
 		return 0, fmt.Errorf("missing required ids")
 	}
+
+	// Route to Phase-4 allocation path when Allocations are present.
+	if len(in.Allocations) > 0 {
+		return recordReceivePaymentAllocations(tx, in)
+	}
+
+	// Legacy / unlinked path — behaviour identical to pre-Phase-4.
+	return recordReceivePaymentLegacy(tx, in)
+}
+
+// ── Phase-4 allocation path ───────────────────────────────────────────────────
+
+func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint, error) {
+	// Validate bank and AR accounts.
+	var bank models.Account
+	if err := tx.Where("id = ? AND company_id = ?", in.BankAccountID, in.CompanyID).First(&bank).Error; err != nil {
+		return 0, fmt.Errorf("bank account not found")
+	}
+	if bank.ReportGroup() != models.AccountReportGroupAsset {
+		return 0, fmt.Errorf("bank account must be an asset")
+	}
+
+	// Load company for base currency code.
+	var company models.Company
+	if err := tx.Select("id", "base_currency_code").First(&company, in.CompanyID).Error; err != nil {
+		return 0, fmt.Errorf("load company: %w", err)
+	}
+	baseCurrency := company.BaseCurrencyCode
+
+	// ── Validate each allocation and compute settlement amounts ───────────────
+	type invoiceRecord struct {
+		inv     models.Invoice
+		arAccID uint
+		result  fxSettleResult
+	}
+	records := make([]invoiceRecord, 0, len(in.Allocations))
+	totalBankBase := decimal.Zero
+	hasFX := false
+
+	for i, alloc := range in.Allocations {
+		if alloc.Amount.LessThanOrEqual(decimal.Zero) {
+			return 0, fmt.Errorf("allocation %d: amount must be > 0", i+1)
+		}
+
+		var inv models.Invoice
+		if err := tx.Where("id = ? AND company_id = ?", alloc.InvoiceID, in.CompanyID).First(&inv).Error; err != nil {
+			return 0, fmt.Errorf("allocation %d: invoice not found", i+1)
+		}
+		if inv.CustomerID != in.CustomerID {
+			return 0, fmt.Errorf("allocation %d: invoice does not belong to the selected customer", i+1)
+		}
+		switch inv.Status {
+		case models.InvoiceStatusSent, models.InvoiceStatusOverdue, models.InvoiceStatusPartiallyPaid, models.InvoiceStatusIssued:
+		default:
+			return 0, fmt.Errorf("allocation %d: invoice is not open for payment (status: %s)", i+1, inv.Status)
+		}
+
+		isForeign := inv.CurrencyCode != "" && inv.CurrencyCode != baseCurrency
+		effBalance, effBalanceBase := effectiveBalances(
+			inv.BalanceDue, inv.BalanceDueBase, inv.Amount, inv.AmountBase, isForeign,
+		)
+		if alloc.Amount.GreaterThan(effBalance) {
+			return 0, fmt.Errorf("allocation %d: payment %s exceeds balance %s for invoice %s",
+				i+1, alloc.Amount.StringFixed(2), effBalance.StringFixed(2), inv.InvoiceNumber)
+		}
+
+		settlementRate := decimal.NewFromInt(1)
+		if isForeign {
+			r, err := GetExchangeRate(tx, &in.CompanyID, inv.CurrencyCode, baseCurrency, in.EntryDate)
+			if err != nil {
+				return 0, fmt.Errorf("allocation %d: exchange rate %s→%s not found for %s: %w",
+					i+1, inv.CurrencyCode, baseCurrency, in.EntryDate.Format("2006-01-02"), err)
+			}
+			settlementRate = r
+			hasFX = true
+		}
+
+		result := computeAllocationAmounts(alloc.Amount, effBalance, effBalanceBase, settlementRate)
+		totalBankBase = totalBankBase.Add(result.bankBaseAmount)
+
+		arAccID := alloc.ARAccountID
+		if arAccID == 0 {
+			arAccID = in.ARAccountID
+		}
+
+		records = append(records, invoiceRecord{inv: inv, arAccID: arAccID, result: result})
+	}
+
+	if totalBankBase.LessThanOrEqual(decimal.Zero) {
+		return 0, fmt.Errorf("total bank amount must be > 0")
+	}
+
+	// Ensure FX gain/loss account exists (only if any allocation has FX).
+	var fxAccountID uint
+	if hasFX {
+		id, err := EnsureFXGainLossAccount(tx, in.CompanyID)
+		if err != nil {
+			return 0, err
+		}
+		fxAccountID = id
+	}
+
+	// ── Build journal fragments ───────────────────────────────────────────────
+	frags := make([]PostingFragment, 0, 1+len(records)*3)
+
+	// Aggregated bank debit (one line for the whole receipt).
+	frags = append(frags, PostingFragment{
+		AccountID: in.BankAccountID,
+		Debit:     totalBankBase,
+		Credit:    decimal.Zero,
+		Memo:      in.Memo,
+	})
+
+	totalFXGainLoss := decimal.Zero
+	for _, rec := range records {
+		// AR credit at carrying value.
+		frags = append(frags, PostingFragment{
+			AccountID: rec.arAccID,
+			Debit:     decimal.Zero,
+			Credit:    rec.result.arapBaseReleased,
+			Memo:      "Invoice " + rec.inv.InvoiceNumber,
+		})
+		totalFXGainLoss = totalFXGainLoss.Add(rec.result.realizedFXGainLoss)
+	}
+
+	// Single aggregated FX line (collapses gains and losses from all allocations).
+	if hasFX && !totalFXGainLoss.IsZero() {
+		if totalFXGainLoss.IsPositive() {
+			// Net gain → credit FX account.
+			frags = append(frags, PostingFragment{
+				AccountID: fxAccountID,
+				Debit:     decimal.Zero,
+				Credit:    totalFXGainLoss,
+				Memo:      "Realized FX gain/loss",
+			})
+		} else {
+			// Net loss → debit FX account.
+			frags = append(frags, PostingFragment{
+				AccountID: fxAccountID,
+				Debit:     totalFXGainLoss.Neg(),
+				Credit:    decimal.Zero,
+				Memo:      "Realized FX gain/loss",
+			})
+		}
+	}
+
+	// Aggregate AR lines across invoices sharing the same AR account.
+	jeLines, err := AggregateJournalLines(frags)
+	if err != nil {
+		return 0, fmt.Errorf("aggregate journal lines: %w", err)
+	}
+
+	// ── Create journal entry header ───────────────────────────────────────────
+	var cust models.Customer
+	if err := tx.Where("id = ? AND company_id = ?", in.CustomerID, in.CompanyID).First(&cust).Error; err != nil {
+		return 0, err
+	}
+	je := models.JournalEntry{
+		CompanyID:  in.CompanyID,
+		EntryDate:  in.EntryDate,
+		JournalNo:  fmt.Sprintf("Receive Payment - %s", cust.Name),
+		SourceType: models.LedgerSourcePayment,
+	}
+	if err := tx.Create(&je).Error; err != nil {
+		return 0, err
+	}
+
+	// ── Insert journal lines ──────────────────────────────────────────────────
+	for _, frag := range jeLines {
+		line := models.JournalLine{
+			CompanyID:      in.CompanyID,
+			JournalEntryID: je.ID,
+			AccountID:      frag.AccountID,
+			Debit:          frag.Debit,
+			Credit:         frag.Credit,
+			Memo:           frag.Memo,
+			PartyType:      models.PartyTypeCustomer,
+			PartyID:        in.CustomerID,
+		}
+		if err := tx.Create(&line).Error; err != nil {
+			return 0, fmt.Errorf("create journal line: %w", err)
+		}
+	}
+
+	// ── Create settlement allocations + update invoices ───────────────────────
+	for _, rec := range records {
+		alloc := models.SettlementAllocation{
+			CompanyID:          in.CompanyID,
+			JournalEntryID:     je.ID,
+			DocumentType:       models.SettlementDocInvoice,
+			DocumentID:         rec.inv.ID,
+			AmountApplied:      rec.result.amountApplied,
+			ARAPBaseReleased:   rec.result.arapBaseReleased,
+			BankBaseAmount:     rec.result.bankBaseAmount,
+			RealizedFXGainLoss: rec.result.realizedFXGainLoss,
+			SettlementRate:     rec.result.settlementRate,
+		}
+		if err := tx.Create(&alloc).Error; err != nil {
+			return 0, fmt.Errorf("create settlement allocation: %w", err)
+		}
+
+		isForeign := rec.inv.CurrencyCode != "" && rec.inv.CurrencyCode != company.BaseCurrencyCode
+		effBalance, effBalanceBase := effectiveBalances(
+			rec.inv.BalanceDue, rec.inv.BalanceDueBase, rec.inv.Amount, rec.inv.AmountBase, isForeign,
+		)
+		newBalance := effBalance.Sub(rec.result.amountApplied)
+		newBalanceBase := effBalanceBase.Sub(rec.result.arapBaseReleased)
+
+		var newStatus models.InvoiceStatus
+		if newBalance.LessThanOrEqual(decimal.Zero) {
+			newStatus = models.InvoiceStatusPaid
+			newBalance = decimal.Zero
+			newBalanceBase = decimal.Zero
+		} else {
+			newStatus = models.InvoiceStatusPartiallyPaid
+		}
+		if err := tx.Model(&rec.inv).Updates(map[string]any{
+			"status":           newStatus,
+			"balance_due":      newBalance,
+			"balance_due_base": newBalanceBase,
+		}).Error; err != nil {
+			return 0, fmt.Errorf("update invoice %s: %w", rec.inv.InvoiceNumber, err)
+		}
+	}
+
+	return je.ID, nil
+}
+
+// ── Legacy path (pre-Phase-4 behaviour, unchanged) ────────────────────────────
+
+func recordReceivePaymentLegacy(tx *gorm.DB, in ReceivePaymentInput) (uint, error) {
 	if in.Amount.LessThanOrEqual(decimal.Zero) {
 		return 0, fmt.Errorf("amount must be > 0")
 	}
 
-	// Load customer for the journal line reference text (tenant-scoped).
 	var cust models.Customer
 	if err := tx.Where("id = ? AND company_id = ?", in.CustomerID, in.CompanyID).First(&cust).Error; err != nil {
 		return 0, err
 	}
 
-	// Basic account validation: both accounts must exist and be assets for MVP.
 	var bank models.Account
 	if err := tx.Where("id = ? AND company_id = ?", in.BankAccountID, in.CompanyID).First(&bank).Error; err != nil {
 		return 0, err
@@ -106,12 +382,11 @@ func RecordReceivePayment(tx *gorm.DB, in ReceivePaymentInput) (uint, error) {
 			PartyID:        in.CustomerID,
 		},
 	}
-
 	if err := tx.Create(&lines).Error; err != nil {
 		return 0, err
 	}
 
-	// If linked to an invoice, validate amount and mark it paid.
+	// Legacy invoice full-settlement check (preserved from pre-Phase-4).
 	if in.InvoiceID != nil && *in.InvoiceID != 0 {
 		var inv models.Invoice
 		if err := tx.Where("id = ? AND company_id = ?", *in.InvoiceID, in.CompanyID).First(&inv).Error; err != nil {
@@ -120,17 +395,24 @@ func RecordReceivePayment(tx *gorm.DB, in ReceivePaymentInput) (uint, error) {
 		if inv.CustomerID != in.CustomerID {
 			return 0, fmt.Errorf("invoice does not belong to the selected customer")
 		}
-		if inv.Status != models.InvoiceStatusSent {
+		switch inv.Status {
+		case models.InvoiceStatusSent, models.InvoiceStatusOverdue, models.InvoiceStatusPartiallyPaid:
+		default:
 			return 0, fmt.Errorf("invoice is not open for payment (status: %s)", inv.Status)
 		}
-		if !inv.Amount.Equal(in.Amount) {
+		outstanding := inv.BalanceDue
+		if outstanding.LessThanOrEqual(decimal.Zero) {
+			outstanding = inv.Amount
+		}
+		if !outstanding.Equal(in.Amount) {
 			return 0, fmt.Errorf(
-				"linked invoice payments currently support full settlement only: payment amount (%s) must equal invoice total (%s); leave the invoice blank to record a partial or unapplied receipt",
-				in.Amount.StringFixed(2), inv.Amount.StringFixed(2),
+				"linked invoice payments currently support full settlement only: payment amount (%s) must equal the remaining balance due (%s); leave the invoice blank to record a partial or unapplied receipt",
+				in.Amount.StringFixed(2), outstanding.StringFixed(2),
 			)
 		}
 		if err := tx.Model(&inv).Updates(map[string]any{
-			"status": models.InvoiceStatusPaid,
+			"status":      models.InvoiceStatusPaid,
+			"balance_due": decimal.Zero,
 		}).Error; err != nil {
 			return 0, err
 		}
@@ -138,3 +420,6 @@ func RecordReceivePayment(tx *gorm.DB, in ReceivePaymentInput) (uint, error) {
 
 	return je.ID, nil
 }
+
+// errors referenced from other packages — kept for backward compat
+var _ = errors.New

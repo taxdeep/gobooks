@@ -32,6 +32,9 @@ templ bodyBills(vm BillsVM) {
 		if vm.Saved {
 			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Bill saved as draft.</div>
 		}
+		if vm.Posted {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Bill submitted successfully.</div>
+		}
 		if vm.FormError != "" {
 			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">{ vm.FormError }</div>
 		}

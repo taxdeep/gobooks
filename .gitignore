@@ -1,51 +1,119 @@
 # 遵循project_guide.md
 
-# Binaries
+# =========================================================
+# Gobooks .gitignore
+# =========================================================
+
+# -------------------------
+# Must follow repository guide
+# -------------------------
+project_guide.md
+
+# -------------------------
+# Build outputs / binaries
+# -------------------------
 bin/
 dist/
-
-# Env files
-.env
-
-# Local SQLite artifacts (app uses PostgreSQL)
-data/*.db
-
-# Node
-node_modules/
-
-# Tailwind output (we generate this)
-internal/web/static/app.css
-
-# Templ generated files
-*_templ.go
-
-# OS / editor
-.DS_Store
-.vscode/
-
-# Claude Code session data
-.claude/
-
-# Go build cache
-.gocache/
-
-# Legacy Python / PyInstaller (not part of GoBooks web app)
-app/
 build/
-AccountingApp.spec
 *.exe
-**/__pycache__/
-*.pyc
+*.dll
+*.so
+*.dylib
 
-# Editor / merge backup artifacts (e.g. foo.go.8270674866629597342)
-**/*.go.[0-9]*
-*~
-schema_out.txt
+# -------------------------
+# Environment / secrets
+# -------------------------
+.env
+.env.*
+!.env.example
 
-# Runtime log files (local process manager output)
+# -------------------------
+# Runtime data / local DB
+# Gobooks uses PostgreSQL; ignore local SQLite artifacts only
+# -------------------------
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# -------------------------
+# Logs
+# -------------------------
 *.log
 gobooks-runtime*.err
 gobooks-runtime*.out
 gobooks-service*.err
 gobooks-service*.out
 
+# -------------------------
+# Node / frontend
+# -------------------------
+node_modules/
+.next/
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Generated CSS output
+internal/web/static/app.css
+
+# -------------------------
+# Go build / test / cache
+# -------------------------
+.gocache/
+.gomodcache/
+.coverprofile
+coverage.out
+*.test
+
+# Go module / tool cache artifacts
+pkg/
+*.zip
+*.ziphash
+**/gomodcache/
+list
+
+# -------------------------
+# Templ
+# IMPORTANT:
+# Keep generated *_templ.go committed unless your team
+# intentionally regenerates them in every environment.
+# So by default, DO NOT ignore *_templ.go.
+# -------------------------
+
+# If you really want to ignore generated templ files,
+# uncomment the next line:
+# *_templ.go
+
+# -------------------------
+# Python legacy artifacts
+# -------------------------
+app/
+AccountingApp.spec
+**/__pycache__/
+*.pyc
+
+# -------------------------
+# Claude / AI tooling
+# -------------------------
+.claude/
+
+# -------------------------
+# IDE / OS files
+# -------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# -------------------------
+# Temp / backup / merge artifacts
+# -------------------------
+**/*.go.[0-9]*
+*~
+schema_out.txt
+*.tmp
+*.bak
+*.swp
+*.swo

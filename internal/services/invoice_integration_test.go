@@ -81,9 +81,9 @@ func seedAccountForInvoice(t *testing.T, db *gorm.DB, companyID uint, code, name
 func seedCustomerForInvoice(t *testing.T, db *gorm.DB, companyID uint) uint {
 	t.Helper()
 	c := models.Customer{
-		CompanyID: companyID,
-		Name:      "Test Customer",
-		Address:   "123 Main St",
+		CompanyID:   companyID,
+		Name:        "Test Customer",
+		AddrStreet1: "123 Main St",
 	}
 	if err := db.Create(&c).Error; err != nil {
 		t.Fatal(err)

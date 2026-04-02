@@ -117,8 +117,24 @@ type Account struct {
 	FieldRecommendationSourcesJSON *string `gorm:"column:field_recommendation_sources;type:text"`
 	// IsSystemDefault is true when this account was generated from the default COA template.
 	// Useful for preventing accidental deletion of critical accounts and enabling future reset/re-sync.
-	IsSystemDefault bool      `gorm:"not null;default:false"`
-	CreatedAt       time.Time
+	IsSystemDefault bool `gorm:"not null;default:false"`
+
+	// Multi-currency support (Phase 1).
+	// CurrencyMode is "base_only" (default) or "fixed_foreign".
+	// fixed_foreign means the account is denominated in a specific foreign currency;
+	// both foreign amounts and base-equivalent amounts must be recorded on every JE line.
+	CurrencyMode CurrencyMode `gorm:"type:text;not null;default:'base_only'"`
+	// CurrencyCode is set only when CurrencyMode = "fixed_foreign".
+	// It holds the ISO 4217 code of the account's denomination currency.
+	CurrencyCode *string `gorm:"type:varchar(3)"`
+	// IsSystemGenerated marks accounts auto-created by the system (e.g. FX gain/loss accounts).
+	// System-generated accounts cannot be deleted through the normal UI.
+	IsSystemGenerated bool `gorm:"not null;default:false"`
+	// SystemKey is a stable, human-readable identifier for system-generated accounts
+	// (e.g. "fx_realized_gain", "fx_unrealized_gain"). NULL for user-created accounts.
+	SystemKey *string `gorm:"type:text"`
+
+	CreatedAt time.Time
 }
 
 // ReportGroup returns the financial reporting bucket for this account.

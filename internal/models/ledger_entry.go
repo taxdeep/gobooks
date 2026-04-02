@@ -31,6 +31,8 @@ const (
 	LedgerSourceReversal       LedgerSourceType = "reversal"
 	LedgerSourceManual         LedgerSourceType = "manual"
 	LedgerSourceOpeningBalance LedgerSourceType = "opening_balance"
+	// LedgerSourceRevaluation is used by period-end unrealized-FX revaluation JEs.
+	LedgerSourceRevaluation LedgerSourceType = "revaluation"
 )
 
 // LedgerEntry is one row in the accounting fact layer.

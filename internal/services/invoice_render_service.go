@@ -469,7 +469,7 @@ func BuildInvoiceRenderData(db *gorm.DB, companyID uint, invoice *models.Invoice
 		Subtotal:        invoice.Subtotal,
 		TaxTotal:        invoice.TaxTotal,
 		Amount:          invoice.Amount,
-		Terms:           models.InvoiceTermsLabel(invoice.Terms),
+		Terms:           invoice.TermDescription,
 		Memo:            invoice.Memo,
 		Status:          string(invoice.Status),
 		LogoImageBase64: logoBase64,

@@ -3,6 +3,7 @@ package services
 
 import (
 	"errors"
+	"time"
 
 	"gobooks/internal/models"
 
@@ -123,6 +124,7 @@ func LogSecurityEvent(db *gorm.DB, companyID *uint, userID *string, eventType, i
 		IPAddress:    ipAddress,
 		UserAgent:    userAgent,
 		MetadataJSON: metadataJSON,
+		CreatedAt:    time.Now().UTC(),
 	}
 	return db.Create(&ev).Error
 }

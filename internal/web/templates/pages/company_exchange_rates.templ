@@ -1,0 +1,182 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+// CompanyExchangeRatesVM is the view-model for the exchange rates maintenance page.
+type CompanyExchangeRatesVM struct {
+	HasCompany       bool
+	Breadcrumb       []SettingsBreadcrumbPart
+	BaseCurrencyCode string
+	// Rates is the list of company-specific exchange rates.
+	Rates []models.ExchangeRate
+	// CompanyCurrencies is used to populate the base/target dropdowns.
+	CompanyCurrencies []models.CompanyCurrency
+	// Add-form values (preserved on error).
+	AddBase   string
+	AddTarget string
+	AddRate   string
+	AddDate   string
+	// Feedback.
+	FormError string
+	Added     bool
+	Deleted   bool
+}
+
+templ CompanyExchangeRates(vm CompanyExchangeRatesVM) {
+	@layout.Layout(
+		"GoBooks - Exchange Rates",
+		ui.SidebarVM{Active: "Company Currency", HasCompany: vm.HasCompany},
+		bodyCompanyExchangeRates(vm),
+	)
+}
+
+templ bodyCompanyExchangeRates(vm CompanyExchangeRatesVM) {
+	<div class="max-w-[95%]">
+		@SettingsBreadcrumb(vm.Breadcrumb)
+		<div class="flex flex-wrap items-start justify-between gap-4">
+			<div class="min-w-0 flex-1">
+				<h1 class="text-title font-semibold">Exchange Rates</h1>
+				<p class="mt-2 text-text-muted2">
+					Company-specific exchange rates used when posting foreign-currency invoices and bills.
+					Rates are looked up by date — the most recent rate on or before the document date is used.
+				</p>
+			</div>
+			<div class="shrink-0">
+				<a
+					href="/settings/company/currency"
+					class="text-body text-primary hover:underline"
+				>
+					← Currency Settings
+				</a>
+			</div>
+		</div>
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">
+				{ vm.FormError }
+			</div>
+		}
+		if vm.Added {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">
+				Exchange rate saved.
+			</div>
+		}
+		if vm.Deleted {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">
+				Exchange rate deleted.
+			</div>
+		}
+		// ── Rates table ────────────────────────────────────────────────────────
+		<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+			<h2 class="text-section font-semibold text-text">Saved Rates</h2>
+			<div class="mt-4 overflow-x-auto">
+				<table class="w-full text-left text-body">
+					<thead class="text-small uppercase tracking-wider text-text-muted">
+						<tr class="border-b border-border">
+							<th class="py-3 pr-4">Base</th>
+							<th class="py-3 pr-4">Target</th>
+							<th class="py-3 pr-4">Rate</th>
+							<th class="py-3 pr-4">Effective Date</th>
+							<th class="py-3 pr-4">Type</th>
+							<th class="py-3 pr-0 text-right">Action</th>
+						</tr>
+					</thead>
+					<tbody class="text-text">
+						if len(vm.Rates) == 0 {
+							<tr>
+								<td colspan="6" class="py-6 text-text-muted2">
+									No exchange rates yet. Use the form below to add one.
+								</td>
+							</tr>
+						}
+						for _, r := range vm.Rates {
+							<tr class="border-b border-border last:border-0">
+								<td class="py-3 pr-4 font-medium">{ r.BaseCurrencyCode }</td>
+								<td class="py-3 pr-4">{ r.TargetCurrencyCode }</td>
+								<td class="py-3 pr-4">{ r.Rate.StringFixed(6) }</td>
+								<td class="py-3 pr-4">{ r.EffectiveDate.Format("2006-01-02") }</td>
+								<td class="py-3 pr-4 text-text-muted2">{ r.RateType }</td>
+								<td class="py-3 pr-0 text-right">
+									<form method="post" action="/settings/company/exchange-rates/delete" class="inline">
+										<input type="hidden" name="id" value={ Uitoa(r.ID) }/>
+										<button
+											type="submit"
+											class="text-body text-danger hover:underline"
+											onclick="return confirm('Delete this exchange rate?')"
+										>
+											Delete
+										</button>
+									</form>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		</div>
+		// ── Add rate form ──────────────────────────────────────────────────────
+		<div class="mt-4 rounded-lg border border-border bg-surface p-6">
+			<h2 class="text-section font-semibold text-text">Add / Update Rate</h2>
+			<p class="mt-1 text-body text-text-muted2">
+				If a rate for the same base, target, type, and date already exists it will be updated.
+			</p>
+			<form method="post" action="/settings/company/exchange-rates" class="mt-4">
+				<div class="grid grid-cols-1 gap-4 md:grid-cols-5">
+					<div>
+						<label class="block text-body font-medium text-text">Base *</label>
+						<input
+							type="text"
+							name="base"
+							value={ vm.AddBase }
+							placeholder="CAD"
+							maxlength="3"
+							class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body uppercase outline-none focus:ring-2 focus:ring-primary-focus"
+						/>
+					</div>
+					<div>
+						<label class="block text-body font-medium text-text">Target *</label>
+						<input
+							type="text"
+							name="target"
+							value={ vm.AddTarget }
+							placeholder="USD"
+							maxlength="3"
+							class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body uppercase outline-none focus:ring-2 focus:ring-primary-focus"
+						/>
+					</div>
+					<div>
+						<label class="block text-body font-medium text-text">Rate (base per 1 target) *</label>
+						<input
+							type="text"
+							name="rate"
+							value={ vm.AddRate }
+							placeholder="e.g. 1.3700"
+							class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+						/>
+					</div>
+					<div>
+						<label class="block text-body font-medium text-text">Effective Date *</label>
+						<input
+							type="date"
+							name="effective_date"
+							value={ vm.AddDate }
+							class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+						/>
+					</div>
+					<div class="flex items-end">
+						<button
+							type="submit"
+							class="w-full rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+						>
+							Save Rate
+						</button>
+					</div>
+				</div>
+			</form>
+		</div>
+	</div>
+}

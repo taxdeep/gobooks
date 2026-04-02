@@ -33,7 +33,18 @@ templ bodyVendors(vm VendorsVM) {
 				<h2 class="text-section font-semibold text-text">Add Vendor</h2>
 				<div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
 					@textField("Name *", "name", vm.Name, vm.NameError, "e.g. Office Supplies Inc.")
-					@textField("Payment term (optional)", "payment_term", vm.PaymentTerm, "", "e.g. Net 30, Due on receipt")
+					<div>
+						<label class="block text-body font-medium text-text">Payment term <span class="font-normal text-text-muted2">(optional)</span></label>
+						<select
+							name="payment_term"
+							class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+						>
+							<option value="">— Use company default —</option>
+							for _, pt := range vm.PaymentTerms {
+								<option value={ pt.Code } selected?={ pt.Code == vm.DefaultPaymentTermCode }>{ pt.DropdownLabel() }</option>
+							}
+						</select>
+					</div>
 					<div class="md:col-span-2">
 						<label class="block text-body font-medium text-text">Address (optional)</label>
 						<textarea
@@ -76,8 +87,8 @@ templ bodyVendors(vm VendorsVM) {
 									}
 								</td>
 								<td class="py-3 pr-0 text-small text-text-muted2">
-									if v.PaymentTerm != "" {
-										{ v.PaymentTerm }
+									if v.DefaultPaymentTermCode != "" {
+										{ v.DefaultPaymentTermCode }
 									} else {
 										<span class="text-text-muted3">—</span>
 									}
