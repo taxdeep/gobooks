@@ -35,6 +35,8 @@ const (
 	LedgerSourceRevaluation LedgerSourceType = "revaluation"
 	// LedgerSourceSettlement is used by channel settlement fee/refund posting.
 	LedgerSourceSettlement LedgerSourceType = "settlement"
+	// LedgerSourcePaymentGateway is used by payment transaction posting.
+	LedgerSourcePaymentGateway LedgerSourceType = "payment_gateway"
 )
 
 // LedgerEntry is one row in the accounting fact layer.

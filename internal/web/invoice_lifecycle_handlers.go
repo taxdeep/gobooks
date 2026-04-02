@@ -172,6 +172,35 @@ func (s *Server) handleInvoiceDelete(c *fiber.Ctx) error {
 	return redirectTo(c, "/invoices?deleted=1")
 }
 
+// handleInvoiceRequestPayment creates a payment request linked to an invoice.
+// POST /invoices/:id/request-payment
+func (s *Server) handleInvoiceRequestPayment(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return redirectErr(c, "/invoices", "company context required")
+	}
+	invoiceID, err := parseInvoiceID(c)
+	if err != nil {
+		return redirectErr(c, "/invoices", "invalid invoice ID")
+	}
+	gwIDRaw := strings.TrimSpace(c.FormValue("gateway_account_id"))
+	gwID, _ := strconv.ParseUint(gwIDRaw, 10, 64)
+	if gwID == 0 {
+		return redirectErr(c, fmt.Sprintf("/invoices/%d", invoiceID), "gateway account required")
+	}
+
+	_, err = services.CreatePaymentRequestForInvoice(s.DB, services.InvoicePaymentRequestInput{
+		CompanyID:        companyID,
+		InvoiceID:        invoiceID,
+		GatewayAccountID: uint(gwID),
+	})
+	if err != nil {
+		return redirectErr(c, fmt.Sprintf("/invoices/%d", invoiceID), err.Error())
+	}
+
+	return redirectTo(c, fmt.Sprintf("/invoices/%d?paymentcreated=1", invoiceID))
+}
+
 // handleInvoiceReceivePaymentForm renders the Receive Payment form pre-filled
 // for a specific invoice.
 // GET /invoices/:id/receive-payment

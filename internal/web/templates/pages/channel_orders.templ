@@ -21,7 +21,10 @@ templ bodyChannelOrders(vm ChannelOrdersVM) {
 				<h1 class="text-title font-semibold">Channel Orders</h1>
 				<p class="mt-2 text-text-muted2">Imported orders from external channels. Orders are staged here before conversion to invoices.</p>
 			</div>
-			<a href="/settings/channels" class="text-body text-primary hover:text-primary-hover">← Channels</a>
+			<div class="flex items-center gap-3">
+				<a href="/export/channel-orders.csv" class="rounded-md border border-border px-3 py-1.5 text-small font-medium text-text hover:bg-background">Export CSV</a>
+				<a href="/settings/channels" class="text-body text-primary hover:text-primary-hover">← Channels</a>
+			</div>
 		</div>
 
 		if vm.Created {

@@ -68,7 +68,7 @@ templ bodyBillEditor(vm BillEditorVM) {
 
 					// Bill Number
 					<div>
-						<label class="block text-body font-medium text-text">Bill Number *</label>
+						<label class="block text-body font-medium text-text">Bill Number <span class="font-normal text-text-muted2">(optional)</span></label>
 						if vm.BillNumberError != "" {
 							<input
 								type="text"

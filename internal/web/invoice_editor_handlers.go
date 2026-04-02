@@ -54,16 +54,25 @@ func (s *Server) handleInvoiceDetail(c *fiber.Ctx) error {
 	// Check SMTP readiness for Send Email button
 	_, smtpReady, _ := services.EffectiveSMTPForCompany(s.DB, companyID)
 
+	// Load payment requests for this invoice.
+	paymentReqs, _ := services.ListPaymentRequestsForInvoice(s.DB, companyID, inv.ID)
+
+	// Load gateway accounts for "Request Payment" form.
+	gatewayAccts, _ := services.ListGatewayAccounts(s.DB, companyID)
+
 	vm := pages.InvoiceDetailVM{
-		HasCompany: true,
-		Invoice:    inv,
-		SMTPReady:  smtpReady,
-		JustVoided: c.Query("voided") == "1",
-		JustIssued: c.Query("issued") == "1",
-		JustSent:   c.Query("sent") == "1",
-		JustPaid:   c.Query("paid") == "1",
-		VoidError:  c.Query("voiderror"),
-		EmailError: c.Query("emailerror"),
+		HasCompany:         true,
+		Invoice:            inv,
+		SMTPReady:          smtpReady,
+		JustVoided:         c.Query("voided") == "1",
+		JustIssued:         c.Query("issued") == "1",
+		JustSent:           c.Query("sent") == "1",
+		JustPaid:           c.Query("paid") == "1",
+		VoidError:          c.Query("voiderror"),
+		EmailError:         c.Query("emailerror"),
+		PaymentRequests:    paymentReqs,
+		GatewayAccounts:    gatewayAccts,
+		JustPaymentCreated: c.Query("paymentcreated") == "1",
 	}
 	if inv.JournalEntry != nil {
 		vm.JournalNo = inv.JournalEntry.JournalNo

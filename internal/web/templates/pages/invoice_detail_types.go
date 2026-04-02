@@ -30,4 +30,9 @@ type InvoiceDetailVM struct {
 	JustPaid   bool   // ?paid=1
 	VoidError   string // ?voiderror=...
 	EmailError  string // ?emailerror=...
+
+	// Payment requests
+	PaymentRequests    []models.PaymentRequest
+	GatewayAccounts    []models.PaymentGatewayAccount
+	JustPaymentCreated bool // ?paymentcreated=1
 }

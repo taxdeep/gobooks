@@ -22,7 +22,13 @@ templ bodyClearingReport(vm ClearingReportVM) {
 					Track the flow of funds through channel clearing accounts. A zero balance means all sales have been settled and paid out.
 				</p>
 			</div>
-			<a href="/settings/channels" class="text-body text-primary hover:text-primary-hover">← Channels</a>
+			<div class="flex items-center gap-3">
+				<a href="/export/clearing-summary.csv" class="rounded-md border border-border px-3 py-1.5 text-small font-medium text-text hover:bg-background">Export Summary CSV</a>
+				if vm.SelectedChannelID > 0 {
+					<a href={ "/export/clearing-movements.csv?channel=" + Uitoa(vm.SelectedChannelID) } class="rounded-md border border-border px-3 py-1.5 text-small font-medium text-text hover:bg-background">Export Movements CSV</a>
+				}
+				<a href="/settings/channels" class="text-body text-primary hover:text-primary-hover">← Channels</a>
+			</div>
 		</div>
 
 		// Summary cards

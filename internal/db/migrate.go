@@ -138,6 +138,11 @@ func Migrate(db *gorm.DB) error {
 		&models.ChannelSettlement{},
 		&models.ChannelSettlementLine{},
 		&models.ChannelAccountingMapping{},
+		// Payment Gateway foundation
+		&models.PaymentGatewayAccount{},
+		&models.PaymentAccountingMapping{},
+		&models.PaymentRequest{},
+		&models.PaymentTransaction{},
 	); err != nil {
 		return err
 	}

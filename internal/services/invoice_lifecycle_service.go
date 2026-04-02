@@ -286,7 +286,7 @@ func isValidInvoiceTransition(from, to models.InvoiceStatus) bool {
 	case models.InvoiceStatusDraft:
 		return to == models.InvoiceStatusIssued
 	case models.InvoiceStatusIssued:
-		return to == models.InvoiceStatusSent || to == models.InvoiceStatusPaid
+		return to == models.InvoiceStatusSent || to == models.InvoiceStatusPaid || to == models.InvoiceStatusPartiallyPaid
 	case models.InvoiceStatusSent:
 		return to == models.InvoiceStatusPartiallyPaid ||
 			to == models.InvoiceStatusPaid ||

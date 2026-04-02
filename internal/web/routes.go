@@ -87,6 +87,20 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Post("/settings/channels/settlements/:id/reverse-fee", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleSettlementReverseFee)
 	app.Post("/settings/channels/settlements/:id/reverse-payout", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleSettlementReversePayout)
 
+	// ── 设置：支付网关 ──────────────────────────────────────────────────────────
+	app.Get("/settings/payment-gateways", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handlePaymentGateways)
+	app.Post("/settings/payment-gateways", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentGatewayCreate)
+	app.Get("/settings/payment-gateways/mappings", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handlePaymentMappings)
+	app.Post("/settings/payment-gateways/mappings", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentMappingSave)
+	app.Get("/settings/payment-gateways/requests", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handlePaymentRequests)
+	app.Post("/settings/payment-gateways/requests", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentRequestCreate)
+	app.Get("/settings/payment-gateways/transactions", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handlePaymentTransactions)
+	app.Post("/settings/payment-gateways/transactions", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentTransactionCreate)
+	app.Post("/settings/payment-gateways/transactions/:id/post", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handlePaymentTransactionPost)
+	app.Post("/settings/payment-gateways/transactions/:id/apply", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handlePaymentTransactionApply)
+	app.Post("/settings/payment-gateways/transactions/:id/apply-refund", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handlePaymentTransactionApplyRefund)
+	app.Post("/settings/payment-gateways/transactions/:id/unapply", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handlePaymentTransactionUnapply)
+
 	// 向后兼容：旧编号 URL（POST 转发；GET 重定向到新路径）
 	app.Post("/settings/numbering", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleNumberingSettingsPost)
 	app.Get("/settings/numbering", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), func(c *fiber.Ctx) error {
@@ -146,6 +160,7 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Post("/invoices/:id/send-email", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceSendEmail)
 	app.Get("/invoices/:id/email-history", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleGetInvoiceEmailHistory)
 	app.Post("/invoices/:id/mark-paid", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceMarkPaid)
+	app.Post("/invoices/:id/request-payment", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceRequestPayment)
 	app.Get("/invoices/:id/receive-payment", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceReceivePaymentForm)
 	app.Post("/invoices/:id/receive-payment", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceReceivePaymentSubmit)
 	app.Post("/invoices/:id/post", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceApprove), s.handleInvoicePost)
@@ -178,6 +193,14 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Get("/reports/journal-entries", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleJournalEntryReport)
 	app.Get("/reports/sales-tax", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleSalesTaxReport)
 	app.Get("/reports/clearing", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleClearingReport)
+
+	// ── CSV Exports ──────────────────────────────────────────────────────────
+	app.Get("/export/clearing-summary.csv", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleExportClearingSummary)
+	app.Get("/export/clearing-movements.csv", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleExportClearingMovements)
+	app.Get("/export/settlements.csv", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleExportSettlementsList)
+	app.Get("/export/settlements/:id/lines.csv", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleExportSettlementLines)
+	app.Get("/export/channel-orders.csv", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleExportChannelOrders)
+	app.Get("/export/channel-orders/:id/lines.csv", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleExportChannelOrderLines)
 
 	// ── 票据模板管理 ──────────────────────────────────────────────────────────────
 	// 模板管理界面
