@@ -303,8 +303,10 @@ func isValidInvoiceTransition(from, to models.InvoiceStatus) bool {
 	return false
 }
 
-// RecalculateInvoiceBalance recalculates balance_due from amount and payment records.
-// For MVP, balance_due = amount (no payment tracking yet).
+// RecalculateInvoiceBalance resets balance_due to the invoice amount.
+// SAFE ONLY for draft/issued invoices with no applied payment transactions.
+// Returns an error if any payment transaction has been applied to this invoice,
+// to prevent accidentally clearing the balance on a partially-paid invoice.
 func RecalculateInvoiceBalance(db *gorm.DB, companyID, invoiceID uint) (*models.Invoice, error) {
 	var invoice models.Invoice
 	if err := db.Where("id = ? AND company_id = ?", invoiceID, companyID).First(&invoice).Error; err != nil {
@@ -312,6 +314,19 @@ func RecalculateInvoiceBalance(db *gorm.DB, companyID, invoiceID uint) (*models.
 			return nil, fmt.Errorf("invoice %d not found in company %d", invoiceID, companyID)
 		}
 		return nil, fmt.Errorf("invoice lookup failed: %w", err)
+	}
+
+	// Block recalculation if any payment transaction has been applied.
+	// Applied transactions have already reduced BalanceDue correctly;
+	// resetting to Amount would discard that and produce a wrong balance.
+	var appliedCount int64
+	if err := db.Model(&models.PaymentTransaction{}).
+		Where("applied_invoice_id = ? AND company_id = ?", invoiceID, companyID).
+		Count(&appliedCount).Error; err != nil {
+		return nil, fmt.Errorf("check applied payment transactions: %w", err)
+	}
+	if appliedCount > 0 {
+		return nil, fmt.Errorf("cannot reset balance_due: invoice has %d applied payment transaction(s) — unapply them first", appliedCount)
 	}
 
 	invoice.BalanceDue = invoice.Amount

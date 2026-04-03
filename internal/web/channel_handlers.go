@@ -66,7 +66,13 @@ func (s *Server) handleChannelAccountCreate(c *fiber.Ctx) error {
 		acct.ExternalAccountRef = &extRef
 	}
 
-	services.CreateChannelAccount(s.DB, &acct)
+	if err := services.CreateChannelAccount(s.DB, &acct); err != nil {
+		accounts, _ := services.ListChannelAccounts(s.DB, companyID)
+		return pages.ChannelAccounts(pages.ChannelAccountsVM{
+			HasCompany: true, Accounts: accounts,
+			FormError: "Could not create channel account. Please try again.",
+		}).Render(c.Context(), c)
+	}
 	return c.Redirect("/settings/channels?created=1", fiber.StatusSeeOther)
 }
 
@@ -79,7 +85,9 @@ func (s *Server) handleChannelAccountDelete(c *fiber.Ctx) error {
 	idRaw := strings.TrimSpace(c.FormValue("account_id"))
 	id64, _ := strconv.ParseUint(idRaw, 10, 64)
 	if id64 > 0 {
-		services.DeleteChannelAccount(s.DB, companyID, uint(id64))
+		if err := services.DeleteChannelAccount(s.DB, companyID, uint(id64)); err != nil {
+			return c.Redirect("/settings/channels?deleteerror=1", fiber.StatusSeeOther)
+		}
 	}
 	return c.Redirect("/settings/channels?deleted=1", fiber.StatusSeeOther)
 }

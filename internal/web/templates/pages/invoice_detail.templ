@@ -341,8 +341,9 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 		</div>
 
 		// ── Payment Requests section ─────────────────────────────────────────
-		// Shown for non-draft/non-voided invoices. Create form only for payable statuses.
-		if vm.Invoice.Status != models.InvoiceStatusDraft && vm.Invoice.Status != models.InvoiceStatusVoided {
+		// Shown for non-draft/non-voided, non-channel-origin invoices.
+		// Channel-origin invoices collect via settlement, not gateway.
+		if vm.Invoice.Status != models.InvoiceStatusDraft && vm.Invoice.Status != models.InvoiceStatusVoided && !vm.IsChannelOrigin {
 			<div class="mt-6 rounded-lg border border-border bg-surface p-6">
 				<h2 class="text-section font-semibold text-text">Payment Requests</h2>
 				<p class="mt-2 text-small text-text-muted2">

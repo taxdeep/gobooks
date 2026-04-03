@@ -28,6 +28,8 @@ func testReceivePaymentDB(t *testing.T) *gorm.DB {
 		&models.Invoice{},
 		&models.JournalEntry{},
 		&models.JournalLine{},
+		&models.LedgerEntry{},
+		&models.SettlementAllocation{},
 	); err != nil {
 		t.Fatal(err)
 	}

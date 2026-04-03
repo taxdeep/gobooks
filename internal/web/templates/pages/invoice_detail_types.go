@@ -35,4 +35,8 @@ type InvoiceDetailVM struct {
 	PaymentRequests    []models.PaymentRequest
 	GatewayAccounts    []models.PaymentGatewayAccount
 	JustPaymentCreated bool // ?paymentcreated=1
+
+	// IsChannelOrigin is true when this invoice was created from a channel order.
+	// Payment gateway request buttons are hidden for channel-origin invoices.
+	IsChannelOrigin bool
 }

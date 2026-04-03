@@ -251,6 +251,7 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 		CompanyID:  in.CompanyID,
 		EntryDate:  in.EntryDate,
 		JournalNo:  fmt.Sprintf("Receive Payment - %s", cust.Name),
+		Status:     models.JournalEntryStatusPosted,
 		SourceType: models.LedgerSourcePayment,
 	}
 	if err := tx.Create(&je).Error; err != nil {
@@ -258,6 +259,7 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 	}
 
 	// ── Insert journal lines ──────────────────────────────────────────────────
+	createdLines := make([]models.JournalLine, 0, len(jeLines))
 	for _, frag := range jeLines {
 		line := models.JournalLine{
 			CompanyID:      in.CompanyID,
@@ -272,6 +274,14 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 		if err := tx.Create(&line).Error; err != nil {
 			return 0, fmt.Errorf("create journal line: %w", err)
 		}
+		createdLines = append(createdLines, line)
+	}
+	if err := ProjectToLedger(tx, in.CompanyID, LedgerPostInput{
+		JournalEntry: je,
+		Lines:        createdLines,
+		SourceType:   models.LedgerSourcePayment,
+	}); err != nil {
+		return 0, fmt.Errorf("project payment to ledger: %w", err)
 	}
 
 	// ── Create settlement allocations + update invoices ───────────────────────
@@ -352,9 +362,11 @@ func recordReceivePaymentLegacy(tx *gorm.DB, in ReceivePaymentInput) (uint, erro
 	desc := fmt.Sprintf("Receive Payment - %s", cust.Name)
 
 	je := models.JournalEntry{
-		CompanyID: companyID,
-		EntryDate: in.EntryDate,
-		JournalNo: desc,
+		CompanyID:  companyID,
+		EntryDate:  in.EntryDate,
+		JournalNo:  desc,
+		Status:     models.JournalEntryStatusPosted,
+		SourceType: models.LedgerSourcePayment,
 	}
 	if err := tx.Create(&je).Error; err != nil {
 		return 0, err
@@ -384,6 +396,13 @@ func recordReceivePaymentLegacy(tx *gorm.DB, in ReceivePaymentInput) (uint, erro
 	}
 	if err := tx.Create(&lines).Error; err != nil {
 		return 0, err
+	}
+	if err := ProjectToLedger(tx, companyID, LedgerPostInput{
+		JournalEntry: je,
+		Lines:        lines,
+		SourceType:   models.LedgerSourcePayment,
+	}); err != nil {
+		return 0, fmt.Errorf("project payment to ledger: %w", err)
 	}
 
 	// Legacy invoice full-settlement check (preserved from pre-Phase-4).

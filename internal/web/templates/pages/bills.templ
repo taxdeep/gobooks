@@ -35,6 +35,9 @@ templ bodyBills(vm BillsVM) {
 		if vm.Posted {
 			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Bill submitted successfully.</div>
 		}
+		if vm.Voided {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Bill voided and accounting reversed.</div>
+		}
 		if vm.FormError != "" {
 			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">{ vm.FormError }</div>
 		}
@@ -70,7 +73,8 @@ templ bodyBills(vm BillsVM) {
 							<th class="py-3 pr-4">Vendor</th>
 							<th class="py-3 pr-4">Date</th>
 							<th class="py-3 pr-4">Status</th>
-							<th class="py-3 pr-0 text-right">Amount</th>
+							<th class="py-3 pr-4 text-right">Amount</th>
+							<th class="py-3 pr-0 text-right">Actions</th>
 						</tr>
 					</thead>
 					<tbody class="text-text">
@@ -92,11 +96,21 @@ templ bodyBills(vm BillsVM) {
 										<span class="rounded-full bg-primary/10 px-2 py-0.5 text-small font-medium text-primary">Posted</span>
 									} else if b.Status == "paid" {
 										<span class="rounded-full bg-success-soft px-2 py-0.5 text-small font-medium text-success-hover">Paid</span>
+									} else if b.Status == "voided" {
+										<span class="rounded-full bg-danger-soft px-2 py-0.5 text-small font-medium text-danger">Voided</span>
 									} else {
 										<span class="rounded-full bg-danger-soft px-2 py-0.5 text-small font-medium text-danger">{ string(b.Status) }</span>
 									}
 								</td>
-								<td class="py-3 pr-0 text-right">{ Money(b.Amount) }</td>
+								<td class="py-3 pr-4 text-right">{ Money(b.Amount) }</td>
+								<td class="py-3 pr-0 text-right">
+									if b.Status == "posted" || b.Status == "partially_paid" {
+										<form method="post" action={ templ.SafeURL("/bills/" + Uitoa(b.ID) + "/void") } class="inline"
+											onsubmit="return confirm('Void this bill? This will reverse all accounting entries.');">
+											<button type="submit" class="rounded border border-border-danger px-2 py-0.5 text-small font-medium text-danger hover:bg-danger-soft">Void</button>
+										</form>
+									}
+								</td>
 							</tr>
 						}
 					</tbody>

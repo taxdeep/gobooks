@@ -210,12 +210,14 @@ func RecordPayBills(tx *gorm.DB, in PayBillsInput) (uint, error) {
 		CompanyID:  in.CompanyID,
 		EntryDate:  in.EntryDate,
 		JournalNo:  "Pay Bills",
+		Status:     models.JournalEntryStatusPosted,
 		SourceType: models.LedgerSourcePayment,
 	}
 	if err := tx.Create(&je).Error; err != nil {
 		return 0, err
 	}
 
+	createdLines := make([]models.JournalLine, 0, len(jeLines))
 	for _, frag := range jeLines {
 		line := models.JournalLine{
 			CompanyID:      in.CompanyID,
@@ -228,6 +230,14 @@ func RecordPayBills(tx *gorm.DB, in PayBillsInput) (uint, error) {
 		if err := tx.Create(&line).Error; err != nil {
 			return 0, fmt.Errorf("create journal line: %w", err)
 		}
+		createdLines = append(createdLines, line)
+	}
+	if err := ProjectToLedger(tx, in.CompanyID, LedgerPostInput{
+		JournalEntry: je,
+		Lines:        createdLines,
+		SourceType:   models.LedgerSourcePayment,
+	}); err != nil {
+		return 0, fmt.Errorf("project payment to ledger: %w", err)
 	}
 
 	// ── Create settlement allocations + update bills ──────────────────────────

@@ -37,9 +37,11 @@ import (
 )
 
 var (
-	ErrActivePaymentRequestExists = errors.New("an active payment request already exists for this invoice and gateway")
-	ErrDuplicateExternalTxnRef    = errors.New("a transaction with this external reference already exists for this gateway")
-	ErrInvoiceNotPayable          = errors.New("invoice is not in a payable state (must be issued, sent, overdue, or partially paid)")
+	ErrActivePaymentRequestExists  = errors.New("an active payment request already exists for this invoice and gateway")
+	ErrDuplicateExternalTxnRef     = errors.New("a transaction with this external reference already exists for this gateway")
+	ErrInvoiceNotPayable           = errors.New("invoice is not in a payable state (must be issued, sent, overdue, or partially paid)")
+	ErrChannelInvoiceGatewayBlock  = errors.New("channel-origin invoices cannot use the payment gateway — collect via channel settlement instead")
+	ErrFXInvoiceGatewayBlock       = errors.New("foreign-currency invoices cannot use the payment gateway in this version")
 )
 
 // activePaymentRequestStatuses defines statuses that count as "in-flight"
@@ -91,19 +93,33 @@ func CreatePaymentRequestForInvoice(db *gorm.DB, input InvoicePaymentRequestInpu
 		return nil, fmt.Errorf("invoice not found")
 	}
 
-	// 2. Validate invoice is in a payable state.
+	// 2. Block channel-origin invoices — must collect via channel settlement.
+	if inv.ChannelOrderID != nil {
+		return nil, ErrChannelInvoiceGatewayBlock
+	}
+
+	// 3. Block FX invoices — gateway only supports base currency.
+	var company models.Company
+	if err := db.Where("id = ?", input.CompanyID).First(&company).Error; err != nil {
+		return nil, fmt.Errorf("company not found")
+	}
+	if inv.CurrencyCode != "" && company.BaseCurrencyCode != "" && inv.CurrencyCode != company.BaseCurrencyCode {
+		return nil, ErrFXInvoiceGatewayBlock
+	}
+
+	// 4. Validate invoice is in a payable state.
 	if !IsInvoicePayable(inv.Status) {
 		return nil, ErrInvoiceNotPayable
 	}
 
-	// 3. Validate gateway account belongs to company.
+	// 5. Validate gateway account belongs to company.
 	var gw models.PaymentGatewayAccount
 	if err := db.Where("id = ? AND company_id = ? AND is_active = true", input.GatewayAccountID, input.CompanyID).
 		First(&gw).Error; err != nil {
 		return nil, fmt.Errorf("gateway account not found or inactive")
 	}
 
-	// 4. Duplicate guard: block if an active request exists for same invoice+gateway.
+	// 6. Duplicate guard: block if an active request exists for same invoice+gateway.
 	var activeCount int64
 	db.Model(&models.PaymentRequest{}).
 		Where("company_id = ? AND invoice_id = ? AND gateway_account_id = ? AND status IN ?",
@@ -113,7 +129,7 @@ func CreatePaymentRequestForInvoice(db *gorm.DB, input InvoicePaymentRequestInpu
 		return nil, ErrActivePaymentRequestExists
 	}
 
-	// 5. Derive defaults from invoice.
+	// 7. Derive defaults from invoice.
 	amount := input.Amount
 	if amount.IsZero() {
 		if inv.BalanceDue.IsPositive() {
@@ -131,7 +147,7 @@ func CreatePaymentRequestForInvoice(db *gorm.DB, input InvoicePaymentRequestInpu
 		description = "Payment for Invoice " + inv.InvoiceNumber
 	}
 
-	// 6. Create payment request. Status = created (user explicitly requested).
+	// 8. Create payment request. Status = created (user explicitly requested).
 	req := models.PaymentRequest{
 		CompanyID:        input.CompanyID,
 		GatewayAccountID: input.GatewayAccountID,

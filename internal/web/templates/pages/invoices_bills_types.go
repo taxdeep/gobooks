@@ -52,6 +52,8 @@ type BillsVM struct {
 	Saved bool
 	// Posted is set after a successful submit/post redirect (?posted=1).
 	Posted bool
+	// Voided is set after a successful void redirect (?voided=1).
+	Voided bool
 
 	FilterQ        string
 	FilterVendorID string

@@ -27,6 +27,7 @@ func testPayBillsDB(t *testing.T) *gorm.DB {
 		&models.Bill{},
 		&models.JournalEntry{},
 		&models.JournalLine{},
+		&models.LedgerEntry{},
 		&models.SettlementAllocation{},
 	); err != nil {
 		t.Fatal(err)

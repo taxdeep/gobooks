@@ -38,18 +38,27 @@ SELECT
   a.name AS name,
   a.root_account_type AS root,
   a.detail_account_type AS detail,
-  COALESCE(SUM(jl.debit), 0)  AS debit,
-  COALESCE(SUM(jl.credit), 0) AS credit
+  COALESCE(bal.debit, 0)  AS debit,
+  COALESCE(bal.credit, 0) AS credit
 FROM accounts a
-LEFT JOIN journal_lines jl ON jl.account_id = a.id
-LEFT JOIN journal_entries je ON je.id = jl.journal_entry_id
-  AND je.entry_date >= ? AND je.entry_date < ?
+LEFT JOIN (
+  SELECT jl.account_id,
+    SUM(jl.debit)  AS debit,
+    SUM(jl.credit) AS credit
+  FROM journal_lines jl
+  INNER JOIN journal_entries je ON je.id = jl.journal_entry_id
+  WHERE je.entry_date >= ? AND je.entry_date < ?
+    AND je.company_id = ?
+    AND je.status = 'posted'
+  GROUP BY jl.account_id
+) bal ON bal.account_id = a.id
 WHERE a.company_id = ?
 GROUP BY a.code, a.name, a.root_account_type, a.detail_account_type
 ORDER BY a.code ASC
 `,
 		fromDate,
 		toDate.AddDate(0, 0, 1),
+		companyID,
 		companyID,
 	).Scan(&sums).Error
 	if err != nil {
@@ -121,18 +130,27 @@ SELECT
   a.code AS code,
   a.name AS name,
   a.root_account_type AS root,
-  COALESCE(SUM(jl.debit), 0)  AS debit,
-  COALESCE(SUM(jl.credit), 0) AS credit
+  COALESCE(bal.debit, 0)  AS debit,
+  COALESCE(bal.credit, 0) AS credit
 FROM accounts a
-LEFT JOIN journal_lines jl ON jl.account_id = a.id
-LEFT JOIN journal_entries je ON je.id = jl.journal_entry_id
-  AND je.entry_date >= ? AND je.entry_date < ?
+LEFT JOIN (
+  SELECT jl.account_id,
+    SUM(jl.debit)  AS debit,
+    SUM(jl.credit) AS credit
+  FROM journal_lines jl
+  INNER JOIN journal_entries je ON je.id = jl.journal_entry_id
+  WHERE je.entry_date >= ? AND je.entry_date < ?
+    AND je.company_id = ?
+    AND je.status = 'posted'
+  GROUP BY jl.account_id
+) bal ON bal.account_id = a.id
 WHERE a.company_id = ? AND a.root_account_type IN ('revenue', 'cost_of_sales', 'expense')
 GROUP BY a.code, a.name, a.root_account_type
 ORDER BY a.code ASC
 `,
 		fromDate,
 		toDate.AddDate(0, 0, 1),
+		companyID,
 		companyID,
 	).Scan(&sums).Error
 	if err != nil {
@@ -206,17 +224,26 @@ SELECT
   a.code AS code,
   a.name AS name,
   a.root_account_type AS root,
-  COALESCE(SUM(jl.debit), 0)  AS debit,
-  COALESCE(SUM(jl.credit), 0) AS credit
+  COALESCE(bal.debit, 0)  AS debit,
+  COALESCE(bal.credit, 0) AS credit
 FROM accounts a
-LEFT JOIN journal_lines jl ON jl.account_id = a.id
-LEFT JOIN journal_entries je ON je.id = jl.journal_entry_id
-  AND je.entry_date < ?
+LEFT JOIN (
+  SELECT jl.account_id,
+    SUM(jl.debit)  AS debit,
+    SUM(jl.credit) AS credit
+  FROM journal_lines jl
+  INNER JOIN journal_entries je ON je.id = jl.journal_entry_id
+  WHERE je.entry_date < ?
+    AND je.company_id = ?
+    AND je.status = 'posted'
+  GROUP BY jl.account_id
+) bal ON bal.account_id = a.id
 WHERE a.company_id = ? AND a.root_account_type IN ('asset', 'liability', 'equity')
 GROUP BY a.code, a.name, a.root_account_type
 ORDER BY a.code ASC
 `,
 		asOf.AddDate(0, 0, 1),
+		companyID,
 		companyID,
 	).Scan(&sums).Error
 	if err != nil {

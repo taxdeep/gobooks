@@ -41,11 +41,13 @@ func (s *Server) handlePaymentGatewayCreate(c *fiber.Ctx) error {
 	if providerType == "" || displayName == "" {
 		return c.Redirect("/settings/payment-gateways", fiber.StatusSeeOther)
 	}
-	services.CreateGatewayAccount(s.DB, &models.PaymentGatewayAccount{
+	if err := services.CreateGatewayAccount(s.DB, &models.PaymentGatewayAccount{
 		CompanyID: companyID, ProviderType: models.PaymentProviderType(providerType),
 		DisplayName: displayName, ExternalAccountRef: extRef,
 		AuthStatus: "pending", WebhookStatus: "not_configured", IsActive: true,
-	})
+	}); err != nil {
+		return c.Redirect("/settings/payment-gateways?createerror=1", fiber.StatusSeeOther)
+	}
 	return c.Redirect("/settings/payment-gateways?created=1", fiber.StatusSeeOther)
 }
 
@@ -90,7 +92,9 @@ func (s *Server) handlePaymentMappingSave(c *fiber.Ctx) error {
 		RefundAccountID:     parseOptionalUint(c.FormValue("refund_account_id")),
 		PayoutBankAccountID: parseOptionalUint(c.FormValue("payout_bank_account_id")),
 	}
-	services.SavePaymentAccountingMapping(s.DB, &m)
+	if err := services.SavePaymentAccountingMapping(s.DB, &m); err != nil {
+		return c.Redirect("/settings/payment-gateways/mappings?saveerror=1", fiber.StatusSeeOther)
+	}
 	return c.Redirect("/settings/payment-gateways/mappings?saved=1", fiber.StatusSeeOther)
 }
 
@@ -124,11 +128,13 @@ func (s *Server) handlePaymentRequestCreate(c *fiber.Ctx) error {
 	if status == "" {
 		status = string(models.PaymentRequestDraft)
 	}
-	services.CreatePaymentRequest(s.DB, &models.PaymentRequest{
+	if err := services.CreatePaymentRequest(s.DB, &models.PaymentRequest{
 		CompanyID: companyID, GatewayAccountID: uint(gwID),
 		Amount: amt, CurrencyCode: currency, Status: models.PaymentRequestStatus(status),
 		Description: desc,
-	})
+	}); err != nil {
+		return c.Redirect("/settings/payment-gateways/requests?createerror=1", fiber.StatusSeeOther)
+	}
 	return c.Redirect("/settings/payment-gateways/requests?created=1", fiber.StatusSeeOther)
 }
 

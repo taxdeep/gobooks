@@ -84,8 +84,9 @@ templ sidebarShell(vm SidebarVM) {
 					</button>
 					<div class="sidebar-section-panel mt-1 space-y-0.5" data-sidebar-panel>
 						@navItem("/banking/reconcile", "Reconciliation", "reconcile", vm.Active == "Bank Reconcile")
-						@navItem("/reports/trial-balance", "Reports", "reports", vm.Active == "Reports")
+						@navItem("/reports", "Reports", "reports", vm.Active == "Reports")
 						@navItem("/accounts", "Chart of Accounts", "accounts", vm.Active == "Accounts")
+						@navItem("/products-services", "Products & Services", "bill", vm.Active == "Products")
 					</div>
 				</div>
 

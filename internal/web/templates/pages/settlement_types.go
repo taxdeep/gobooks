@@ -21,9 +21,10 @@ type SettlementSummary struct {
 // SettlementsVM is the view-model for the settlements list page.
 type SettlementsVM struct {
 	HasCompany  bool
-	Settlements interface{} // []settlementSummary from handler
+	Settlements []SettlementSummary
 	Accounts    []models.SalesChannelAccount
 	Created     bool
+	CreateError bool
 }
 
 // SettlementDetailVM is the view-model for a single settlement detail page.

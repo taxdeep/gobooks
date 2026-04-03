@@ -35,6 +35,9 @@ const (
 	LedgerSourceRevaluation LedgerSourceType = "revaluation"
 	// LedgerSourceSettlement is used by channel settlement fee/refund posting.
 	LedgerSourceSettlement LedgerSourceType = "settlement"
+	// LedgerSourcePayout is used by channel settlement payout recording (Dr Bank, Cr Clearing).
+	// Distinct from LedgerSourceSettlement so clearing reports can separate fees from payouts.
+	LedgerSourcePayout LedgerSourceType = "payout"
 	// LedgerSourcePaymentGateway is used by payment transaction posting.
 	LedgerSourcePaymentGateway LedgerSourceType = "payment_gateway"
 )

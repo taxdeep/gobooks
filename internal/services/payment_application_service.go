@@ -226,9 +226,13 @@ func ApplyPaymentTransactionToInvoice(db *gorm.DB, companyID, txnID uint, actor 
 		}
 
 		// Update invoice.
+		// Gateway payments are base-currency only (FX invoices are blocked at all 3 gateway
+		// layers), so balance_due_base == balance_due for every invoice that reaches this path.
+		// Mirroring the same value keeps both fields in sync without extra DB queries.
 		if err := tx.Model(&inv).Updates(map[string]any{
-			"balance_due": newBalance,
-			"status":      string(newStatus),
+			"balance_due":      newBalance,
+			"balance_due_base": newBalance,
+			"status":           string(newStatus),
 		}).Error; err != nil {
 			return fmt.Errorf("update invoice: %w", err)
 		}
@@ -242,6 +246,16 @@ func ApplyPaymentTransactionToInvoice(db *gorm.DB, companyID, txnID uint, actor 
 				"applied_at":        now,
 			}).Error; err != nil {
 			return fmt.Errorf("mark applied: %w", err)
+		}
+
+		// Sync PaymentRequest status when invoice is fully paid.
+		// The linked request moves to "paid" so its status reflects reality.
+		if newStatus == models.InvoiceStatusPaid && txn.PaymentRequestID != nil {
+			if err := tx.Model(&models.PaymentRequest{}).
+				Where("id = ? AND company_id = ?", *txn.PaymentRequestID, companyID).
+				Update("status", models.PaymentRequestPaid).Error; err != nil {
+				return fmt.Errorf("sync payment request status: %w", err)
+			}
 		}
 
 		// Audit log.
@@ -360,9 +374,12 @@ func ApplyRefundTransactionToInvoice(db *gorm.DB, companyID, txnID uint, actor s
 			newStatus = inv.Status
 		}
 
+		// Mirror balance_due_base = balance_due. Gateway refund only runs for base-currency
+		// invoices (FX is blocked at all 3 gateway layers), so both fields track the same value.
 		if err := tx.Model(&inv).Updates(map[string]any{
-			"balance_due": newBalance,
-			"status":      string(newStatus),
+			"balance_due":      newBalance,
+			"balance_due_base": newBalance,
+			"status":           string(newStatus),
 		}).Error; err != nil {
 			return fmt.Errorf("update invoice: %w", err)
 		}
@@ -476,9 +493,12 @@ func UnapplyPaymentTransaction(db *gorm.DB, companyID, txnID uint, actor string)
 			newStatus = inv.Status
 		}
 
+		// Mirror balance_due_base = balance_due. Gateway unapply only runs for base-currency
+		// invoices (FX is blocked), so both fields must track the same restored value.
 		if err := tx.Model(&inv).Updates(map[string]any{
-			"balance_due": newBalance,
-			"status":      string(newStatus),
+			"balance_due":      newBalance,
+			"balance_due_base": newBalance,
+			"status":           string(newStatus),
 		}).Error; err != nil {
 			return fmt.Errorf("update invoice: %w", err)
 		}

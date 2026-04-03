@@ -100,6 +100,13 @@ func ValidatePaymentTransactionPostable(db *gorm.DB, companyID, txnID uint) erro
 		if req.InvoiceID == nil {
 			return ErrPaymentTxnNoInvoiceLink
 		}
+		// Block channel-origin invoices from gateway posting.
+		var linkedInv models.Invoice
+		if err := db.Where("id = ? AND company_id = ?", *req.InvoiceID, companyID).First(&linkedInv).Error; err == nil {
+			if linkedInv.ChannelOrderID != nil {
+				return ErrChannelInvoiceGatewayBlock
+			}
+		}
 	case models.TxnTypeFee:
 		if mapping.FeeExpenseAccountID == nil {
 			return fmt.Errorf("%w: fee expense account not configured", ErrPaymentTxnNotPostable)

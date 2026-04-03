@@ -78,48 +78,32 @@ func GetClearingSummary(db *gorm.DB, companyID, channelAccountID uint) (*Clearin
 		ClearingAccountName: acct.Name,
 	}
 
-	for _, e := range entries {
-		switch e.SourceType {
-		case models.LedgerSourceInvoice:
-			summary.SalesTotal = summary.SalesTotal.Add(e.DebitAmount)
-		case models.LedgerSourceSettlement:
-			summary.FeesTotal = summary.FeesTotal.Add(e.CreditAmount)
-			summary.PayoutsTotal = summary.PayoutsTotal.Add(e.CreditAmount.Sub(summary.FeesTotal).Add(summary.FeesTotal)) // will fix below
-		case models.LedgerSourceReversal:
-			summary.ReversalsTotal = summary.ReversalsTotal.Add(e.DebitAmount).Sub(e.CreditAmount)
-		}
-	}
-
-	// Simple balance: sum all debits - sum all credits on this account.
+	// Compute category totals and running balance from ledger entries.
+	// LedgerSourceInvoice  → Dr Clearing (sale recognized, increases clearing balance)
+	// LedgerSourceSettlement → Cr Clearing (fees reduce clearing balance)
+	// LedgerSourcePayout   → Cr Clearing (payout reduces clearing balance)
+	// LedgerSourceReversal → either direction depending on what was reversed
 	var totalDebit, totalCredit decimal.Decimal
 	for _, e := range entries {
 		totalDebit = totalDebit.Add(e.DebitAmount)
 		totalCredit = totalCredit.Add(e.CreditAmount)
-	}
-	summary.CurrentBalance = totalDebit.Sub(totalCredit)
 
-	// Recompute proper category totals from the raw entries.
-	summary.SalesTotal = decimal.Zero
-	summary.FeesTotal = decimal.Zero
-	summary.PayoutsTotal = decimal.Zero
-	summary.ReversalsTotal = decimal.Zero
-	for _, e := range entries {
 		switch e.SourceType {
 		case models.LedgerSourceInvoice:
 			summary.SalesTotal = summary.SalesTotal.Add(e.DebitAmount)
 		case models.LedgerSourceSettlement:
-			// Settlement posting credits clearing (fees); payout also credits clearing.
-			// Distinguish by checking JE memo or by debit vs credit.
-			// For simplicity: any credit to clearing from settlement = fees + payout combined.
+			// Settlement fee posting: Cr Clearing. Any debit here is a reversal of a prior credit.
 			summary.FeesTotal = summary.FeesTotal.Add(e.CreditAmount)
-			// Any debit from settlement reversal.
+			summary.ReversalsTotal = summary.ReversalsTotal.Add(e.DebitAmount)
+		case models.LedgerSourcePayout:
+			// Payout recording: Cr Clearing (Dr Bank). Any debit here is a reversal of a prior payout.
+			summary.PayoutsTotal = summary.PayoutsTotal.Add(e.CreditAmount)
 			summary.ReversalsTotal = summary.ReversalsTotal.Add(e.DebitAmount)
 		case models.LedgerSourceReversal:
 			summary.ReversalsTotal = summary.ReversalsTotal.Add(e.DebitAmount).Sub(e.CreditAmount)
-		default:
-			// Other sources affecting clearing (manual JE, etc.)
 		}
 	}
+	summary.CurrentBalance = totalDebit.Sub(totalCredit)
 
 	return summary, nil
 }
@@ -170,7 +154,9 @@ func clearingSourceLabel(st models.LedgerSourceType) string {
 	case models.LedgerSourceInvoice:
 		return "Invoice (Sale)"
 	case models.LedgerSourceSettlement:
-		return "Settlement"
+		return "Settlement Fee"
+	case models.LedgerSourcePayout:
+		return "Payout"
 	case models.LedgerSourceReversal:
 		return "Reversal"
 	case models.LedgerSourcePayment:

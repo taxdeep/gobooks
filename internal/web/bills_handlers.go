@@ -66,12 +66,19 @@ func (s *Server) handleBills(c *fiber.Ctx) error {
 		}).Render(c.Context(), c)
 	}
 
+	formError := ""
+	if c.Query("voiderror") == "1" {
+		formError = "Could not void bill. Check that it is posted and has no other dependencies."
+	}
+
 	return pages.Bills(pages.BillsVM{
 		HasCompany:     true,
 		Vendors:        vendors,
 		Bills:          bills,
 		Posted:         c.Query("posted") == "1",
 		Saved:          c.Query("saved") == "1",
+		Voided:         c.Query("voided") == "1",
+		FormError:      formError,
 		FilterQ:        filterQ,
 		FilterVendorID: filterVendorID,
 		FilterFrom:     filterFrom,
@@ -816,4 +823,37 @@ func isBillPlaceholderLine(desc, amountRaw, expenseAccountIDRaw, taxCodeIDRaw st
 		return false
 	}
 	return amt.IsZero()
+}
+
+// handleBillVoid voids a posted bill and creates a reversal JE.
+// POST /bills/:id/void
+func (s *Server) handleBillVoid(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/select-company", fiber.StatusSeeOther)
+	}
+
+	idRaw := strings.TrimSpace(c.Params("id"))
+	id64, err := strconv.ParseUint(idRaw, 10, 64)
+	if err != nil || id64 == 0 {
+		return c.Redirect("/bills", fiber.StatusSeeOther)
+	}
+	billID := uint(id64)
+
+	user := UserFromCtx(c)
+	var userID *uuid.UUID
+	actor := "system"
+	if user != nil {
+		uid := user.ID
+		userID = &uid
+		if user.Email != "" {
+			actor = user.Email
+		}
+	}
+
+	if err := services.VoidBill(s.DB, companyID, billID, actor, userID); err != nil {
+		return c.Redirect("/bills?voiderror=1", fiber.StatusSeeOther)
+	}
+
+	return c.Redirect("/bills?voided=1", fiber.StatusSeeOther)
 }

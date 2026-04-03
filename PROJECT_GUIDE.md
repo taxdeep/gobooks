@@ -1,238 +1,323 @@
-🧱 Gobooks Project Guide v3（基石版本 · 可执行版）
+Gobooks Project Guide v4（Final · 可执行统一版）
 
-⚠️ 本文件为最高优先级约束
-所有代码生成 / 修改 / AI 执行必须严格遵守
-如有冲突，以本文件为准
+⚠️ 最高优先级约束（Supreme Authority）
+所有代码 / schema / UI / AI 行为必须遵守本文件
+如有冲突：以本文件为准
 
-一、产品定位（不变，但结构化）
-🎯 核心目标
+一、🎯 Product Definition（升级版）
+核心一句话
 
-打造一个：
+Gobooks = 多公司隔离的强规则会计系统 + 控制层 + AI建议层
 
-结构严谨、可审计、可扩展、AI增强的多公司会计系统
+产品本质（升级）
 
-🔒 核心原则（强化）
+Gobooks 是：
+
+一个 多公司（multi-tenant）会计系统
+一个 强约束 accounting engine（不是工具）
+一个 AI 辅助理解系统（不是自动化系统）
+
+二、🔒 Core Principles（最终版）
+不可违反（硬约束）
 Correctness > Flexibility
-Backend Authority > Frontend Assumptions
+Backend Authority > Frontend
 Structure > Convenience
-Auditability > Performance shortcuts
+Auditability > Performance
+Company Isolation > Everything（新增最高原则）
 AI = Suggestion Layer ONLY
-二、系统架构（强化为工程可执行）
-🧩 双层架构
+
+三、🏢 Multi-Company Architecture（🔥正式纳入核心）
+3.1 基本模型
+一个 user → 多个 company
+session 必须包含：
+active_company_id
+3.2 强制规则（必须实现）
+
+所有核心数据表必须：
+
+company_id NOT NULL
+3.3 强制校验（所有写操作）
+assert(document.company_id == session.company_id)
+assert(account.company_id == session.company_id)
+assert(tax.company_id == session.company_id)
+3.4 禁止行为（硬性）
+
+❌ 跨公司 Journal Entry
+❌ 跨公司 Ledger
+❌ 共享 COA / Customer / Vendor
+
+3.5 UI 行为（新增）
+顶部必须有：
+当前公司
+切换公司
+切换公司 = 完整数据上下文切换
+四、🧩 System Architecture（双层）
 1️⃣ Business App
-多公司隔离（company_id 强制）
-Accounting / Sales / Expense / Reporting
-2️⃣ SysAdmin
-系统级管理（独立登录）
-不参与业务数据写入
-🔁 核心引擎：Posting Engine（必须统一）
-Document → Validation → Tax → Posting Fragments → Aggregation → Journal Entry → Ledger Entries
-❗硬性规则
-所有会计数据必须带 company_id
-Journal Entry 必须：
-有 status
-有 source_type + source_id
-不允许跳过 Posting Engine
-三、数据与标识系统
-Entity Number（内部编号）
+多公司业务系统
+所有 accounting / reporting / reconciliation 在这里
+2️⃣ SysAdmin（完全隔离）
+独立登录系统
+不参与业务写入
+可控制：
+company lifecycle
+users
+system mode
+五、🔁 Posting Engine（不可破坏核心）
+标准流程（唯一入口）
+Document
+→ Validation
+→ Tax
+→ Posting Fragments
+→ Aggregation
+→ Journal Entry
+→ Ledger Entries
+强制规则
+❌ 禁止绕过 Posting Engine
+❌ 禁止直接写 Ledger
+✅ 所有 JE 必须来自 source
+Journal Entry 必须字段
+company_id
+status
+source_type
+source_id
+totals
+状态机
+draft → posted → voided / reversed
+六、💾 数据与标识系统（增强）
+Entity Number（系统ID）
 ENYYYY########
 
 规则：
 
 全局唯一
-后端生成
-不可修改
-不可作为业务输入
-Display Number（业务编号）
+immutable
+backend生成
+Display Number（业务）
 可配置
 可重复检测
 不参与 identity
-四、Chart of Accounts（结构核心）
-1️⃣ Account Type
-
-Root：
-
+七、🧾 Chart of Accounts（结构锁死）
+Account Type（不可扩展）
 asset
 liability
 equity
 revenue
 cost_of_sales
 expense
-2️⃣ Code 强约束
-1xxxx → asset
-2xxxx → liability
-3xxxx → equity
-4xxxx → revenue
-5xxxx → cost_of_sales
-6xxxx → expense
-
-❗违反必须 reject
-
-3️⃣ 删除规则
+Code 强规则（必须 enforce）
+Code	Type
+1xxxx	asset
+2xxxx	liability
+3xxxx	equity
+4xxxx	revenue
+5xxxx	cost_of_sales
+6xxxx	expense
+删除规则
 ❌ delete
 ✅ inactive
-4️⃣ COA Template（新增明确）
-系统必须有 default template
-创建 company 自动生成
-标记：
-is_system_default = true
-五、Sales Tax（不变但强调）
-核心原则
-Tax 按 line 计算 → 按 account 聚合
-Sales（固定）
-Revenue → revenue
-Tax → tax payable
-Purchase（分 recoverability）
-recoverable → recoverable tax account
-non-recoverable → 并入 expense
-六、Journal Entry（核心引擎）
-强制规则
-按 account 聚合
-不允许碎片化
-生命周期（强化）
-draft → posted → voided / reversed
-❗禁止
-业务变动但 JE 不变
-JE 独立存在无来源
-七、Sidebar（新增 · 必须统一）
-🎯 业务驱动结构（强制）
+COA Template（新增强化）
+system default template
+company 创建时自动生成
+标记：is_system_default = true
+
+八、💰 Tax Engine（强化一致性）
+原则 Tax = line-level calculation → account-level aggregation
+
+Sales
+revenue → revenue
+tax → tax payable
+Purchase
+类型	行为
+recoverable	tax receivable
+non-recoverable	expense
+
+强制
+如果遇到Tax 独立 posting 会有一个提醒。
+
+九、📘 Journal Entry（最终约束）
+必须
+*按 account 聚合
+*与 source 强关联
+
+禁止
+❌ JE 无 source
+❌ source 改但 JE 不变
+
+十、🧭 Sidebar（UI强约束 · 不可改）
 Core
-Dashboard
-Journal Entry
-Invoices
-Bills
+- Dashboard
+- Journal Entry
+- Invoices
+- Bills
+
 Sales & Get Paid
-Customers
-Receive Payment
+- Customers
+- Receive Payment
+
 Expense & Bills
-Vendors
-Pay Bills
+- Vendors
+- Pay Bills
+
 Accounting
-Chart of Accounts
-Reconciliation
-Reports
+- Chart of Accounts
+- Reconciliation
+- Reports
+
 Settings
-不变
-❗规则
-❌ 不允许 Contacts 分组
-❌ 不允许 Banking 残留
-Reports 只能在 Accounting
-八、Notifications（强化为系统依赖）
-必须存储状态
+禁止
+❌ Contacts 分类
+❌ Banking 模块
+❌ Reports 出现在其他位置
+
+十一、📊 UI / UX Design Principles（Wave参考整合）
+风格
+Clean
+Stable
+Business-first
+核心体验
+左侧导航为核心入口
+Dashboard = 状态总览（非复杂BI）
+Reports = 标准报表入口
+多公司 UX（关键）
+切换公司 → UI不变 / 数据全换
+用户始终知道“当前在哪个公司”
+十二、🔔 Notifications（系统依赖）
+必须字段
 config
 test_status
 last_tested_at
-error
 verification_ready
-核心规则
-SMTP 未 ready → 禁止发送验证码
-config 变更
-修改配置 → test 失效
-九、User Security（不变但强化）
-Profile
-email change → 需验证
-password change → 需验证
-验证码
+强制规则
+SMTP 未验证 → 禁止发送验证码
+config 更新 → 状态失效
+十三、🔐 User Security（强化）
+email change → 验证
+password change → 验证
+
+验证码：
+
 6位
 case-insensitive
-单次使用
-有效期
-十、Reconciliation（🔥核心模块 · 新增正式纳入）
-🎯 定位
+单次有效
+有效期限制
+十四、🧮 Reconciliation（🔥核心控制层）
+定义
+
 Reconciliation = Accounting Control Layer
-核心模型
-reconciliation_session
-statement_lines
-book_candidates
-matches
-exceptions
+
 状态机
 draft → in_progress → completed → reopened → cancelled
-匹配支持（必须）
+匹配能力（必须）
 one-to-one
 one-to-many
 many-to-one
 split
+完成条件
+difference == 0
 UI（强制）
-QuickBooks-style
+QuickBooks 风格
 summary bar
-payment / deposit 分列
-checkbox 控制 match
-完成规则
-difference = 0 才允许 finish
-十一、Void Reconciliation（🔥强规则）
-核心限制
-只允许 void 最后一个 completed reconciliation
-行为
+inflow / outflow 分离
+十五、🔁 Void Reconciliation（严格限制）
+仅允许最后一个 completed
 不删除
-rollback matches
-恢复状态
-audit 必须记录
-字段
+rollback match
+必须字段
 is_voided
 voided_by
 voided_at
 void_reason
-十二、AI Auto Match（🔥新增核心层）
-🎯 定位
-AI = Suggestion Layer（不能改账）
-三层结构
-Rules → Scoring → AI Enhancement
-Suggestion（新增实体）
-reconciliation_match_suggestions
-reconciliation_match_suggestion_lines
-匹配类型
-one_to_one
-one_to_many
-many_to_one
-split
-用户行为
-Accept → 生成 match
-Reject → 不改账
-必须支持
-Explainability（必须解释）
-十三、Reconciliation Memory（新增）
-reconciliation_memory
+十六、🤖 AI Layer（重新定义 · 融合你今天思考）
+本质
 
-用途：
+AI = 外部会计（Advisor），不是执行者
 
-学习历史匹配
-提升 future suggestion
-❗限制
-可解释
-不允许黑盒
-十四、AI 系统通用规则（强化）
 ❌ 禁止
-AI 修改账务数据
-AI 自动完成 reconciliation
-AI 绕过 validation
+AI 改账
+AI 自动 reconciliation
+AI bypass validation
 ✅ 允许
 suggestion
 ranking
 explanation
-十五、审计（Audit）
-必须记录
+当前能力
+JE 异常检测
+tax 合理性提示
+报表解释
+🔥 未来（多公司 AI）
+
+（重要：只在系统稳定后）
+
+intercompany detection
+due to / due from pairing
+mismatch alert
+consolidation assist
+十七、🚧 Intercompany Strategy（明确阶段）
+当前阶段（硬限制）
+
+❌ 不允许 intercompany
+❌ 不允许跨公司 transaction
+
+未来阶段（解锁条件）
+
+仅当满足：
+
+Posting Engine 稳定
+Reconciliation 成熟
+Audit 完整
+
+才允许：
+
+intercompany JE link
+group reporting
+elimination entries
+十八、🧠 AI Auto Match（Reconciliation AI）
+三层结构
+Rules → Scoring → AI Enhancement
+Suggestion 实体（必须）
+reconciliation_match_suggestions
+suggestion_lines
+用户行为
+Accept → match
+Reject → no change
+必须
+explainability
+十九、🧠 Reconciliation Memory
+
+用途：
+
+学习历史
+提升建议质量
+限制
+可解释
+非黑盒
+二十、📜 Audit（全系统）
+
+必须记录：
+
 match / unmatch
 suggestion accept / reject
 reconciliation finish
 reconciliation void
 auto match run
-十六、数据原则（最终约束）
-必须：
-- company_id 隔离
-- entity_number 不可变
-- backend 为唯一规则执行者
-- JE 可追溯
+二十一、📦 Data Principles（最终铁律）
+必须
+company_id 隔离
+entity_number immutable
+backend authority
+JE 可追溯
+禁止
+删除历史
+AI 改账
+绕过 validation
+JE 脱离业务
+🔚 最终总结（终极版）
 
-禁止：
-- 删除历史数据
-- AI 改账
-- suggestion 绕过 validation
-- JE 与业务脱节
-🔚 最终总结（升级版）
-Gobooks =
-强规则会计系统（Posting Engine + COA + JE）
-+ 控制层（Reconciliation + Audit）
-+ 业务层（Sales / Expense）
-+ AI 建议层（Auto Match + Recommendation）
-+ 系统层（SysAdmin + Observability）
+Gobooks 是一个：
+
+✔ 多公司隔离系统
+✔ 强规则会计引擎（Posting + COA + JE）
+✔ 控制层（Reconciliation + Audit）
+✔ 业务层（Sales / Expense）
+✔ AI建议层（非执行）
+✔ 系统层（SysAdmin + Observability）

@@ -39,6 +39,8 @@ func testBundleDB(t *testing.T) *gorm.DB {
 		&models.AuditLog{},
 		&models.InventoryMovement{},
 		&models.InventoryBalance{},
+		&models.PaymentTransaction{},   // required by VoidInvoice payment-transaction guard
+		&models.SettlementAllocation{}, // required by VoidInvoice settlement-allocation guard
 	)
 	return db
 }

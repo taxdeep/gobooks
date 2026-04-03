@@ -71,7 +71,9 @@ func (s *Server) handleAccountingMappingSave(c *fiber.Ctx) error {
 		MarketplaceTaxAccountID:   parseOptionalUint(c.FormValue("marketplace_tax_account_id")),
 	}
 
-	services.SaveAccountingMapping(s.DB, &m)
+	if err := services.SaveAccountingMapping(s.DB, &m); err != nil {
+		return c.Redirect("/settings/channels/accounting?saveerror=1", fiber.StatusSeeOther)
+	}
 	return c.Redirect("/settings/channels/accounting?saved=1", fiber.StatusSeeOther)
 }
 
@@ -87,14 +89,10 @@ func (s *Server) handleSettlements(c *fiber.Ctx) error {
 	accounts, _ := services.ListChannelAccounts(s.DB, companyID)
 
 	// Build summaries with unmapped count.
-	type settlementSummary struct {
-		Settlement    models.ChannelSettlement
-		UnmappedCount int64
-	}
-	var summaries []settlementSummary
+	var summaries []pages.SettlementSummary
 	for _, st := range settlements {
 		unmapped := services.CountUnmappedLines(s.DB, companyID, st.ID)
-		summaries = append(summaries, settlementSummary{Settlement: st, UnmappedCount: unmapped})
+		summaries = append(summaries, pages.SettlementSummary{Settlement: st, UnmappedCount: unmapped})
 	}
 
 	vm := pages.SettlementsVM{
@@ -102,6 +100,7 @@ func (s *Server) handleSettlements(c *fiber.Ctx) error {
 		Settlements: summaries,
 		Accounts:    accounts,
 		Created:     c.Query("created") == "1",
+		CreateError: c.Query("createerror") == "1",
 	}
 	return pages.Settlements(vm).Render(c.Context(), c)
 }
@@ -173,7 +172,9 @@ func (s *Server) handleSettlementCreate(c *fiber.Ctx) error {
 	settlement.FeeAmount = feeTotal
 	settlement.NetAmount = grossTotal.Sub(feeTotal)
 
-	services.CreateSettlementWithLines(s.DB, &settlement, lines)
+	if err := services.CreateSettlementWithLines(s.DB, &settlement, lines); err != nil {
+		return c.Redirect("/settings/channels/settlements?createerror=1", fiber.StatusSeeOther)
+	}
 	return c.Redirect("/settings/channels/settlements?created=1", fiber.StatusSeeOther)
 }
 

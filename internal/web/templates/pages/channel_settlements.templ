@@ -30,6 +30,9 @@ templ bodySettlements(vm SettlementsVM) {
 		if vm.Created {
 			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Settlement imported.</div>
 		}
+		if vm.CreateError {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">Could not import settlement. Please check the form and try again.</div>
+		}
 
 		// Manual entry form
 		<div class="mt-6 rounded-lg border border-border bg-surface p-6" x-data="{ lineCount: 1 }">
@@ -120,9 +123,39 @@ templ bodySettlements(vm SettlementsVM) {
 }
 
 templ settlementRows(vm SettlementsVM) {
-	// vm.Settlements is interface{} — rendered via type assertion in Go.
-	// For simplicity, this placeholder shows the empty state.
-	// The actual rows are rendered by the handler's type.
+	if len(vm.Settlements) == 0 {
+		<tr>
+			<td colspan="7" class="py-8 text-center text-body text-text-muted2">No settlements yet. Import one above.</td>
+		</tr>
+	}
+	for _, s := range vm.Settlements {
+		<tr class="border-b border-border-subtle hover:bg-background">
+			<td class="py-3 pr-4 text-small">{ s.Settlement.ChannelAccount.DisplayName }</td>
+			<td class="py-3 pr-4 font-mono text-small">
+				<a href={ "/settings/channels/settlements/" + Uitoa(s.Settlement.ID) } class="text-primary hover:text-primary-hover">
+					{ s.Settlement.ExternalSettlementID }
+				</a>
+			</td>
+			<td class="py-3 pr-4 text-small">
+				if s.Settlement.SettlementDate != nil {
+					{ s.Settlement.SettlementDate.Format("2006-01-02") }
+				}
+			</td>
+			<td class="py-3 pr-4 text-right tabular-nums text-small">{ s.Settlement.GrossAmount.StringFixed(2) }</td>
+			<td class="py-3 pr-4 text-right tabular-nums text-small text-danger">{ s.Settlement.FeeAmount.StringFixed(2) }</td>
+			<td class="py-3 pr-4 text-right tabular-nums text-small">{ s.Settlement.NetAmount.StringFixed(2) }</td>
+			<td class="py-3 pr-0 text-right">
+				if s.UnmappedCount > 0 {
+					<span class="mr-2 inline-block rounded px-2 py-0.5 text-[10px] font-medium bg-warning-soft text-warning">{ fmt.Sprintf("%d unmapped", s.UnmappedCount) }</span>
+				}
+				if s.Settlement.PostedJournalEntryID != nil {
+					<span class="inline-block rounded px-2 py-0.5 text-[10px] font-medium bg-success-soft text-success-hover">Posted</span>
+				} else {
+					<span class="inline-block rounded px-2 py-0.5 text-[10px] font-medium bg-background text-text-muted border border-border">Draft</span>
+				}
+			</td>
+		</tr>
+	}
 }
 
 templ SettlementDetail(vm SettlementDetailVM) {

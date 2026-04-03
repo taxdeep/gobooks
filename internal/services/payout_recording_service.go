@@ -134,7 +134,7 @@ func RecordPayout(db *gorm.DB, input RecordPayoutInput, actor string) (*RecordPa
 			EntryDate:  entryDate,
 			JournalNo:  "PAYOUT-" + settlement.ExternalSettlementID,
 			Status:     models.JournalEntryStatusPosted,
-			SourceType: models.LedgerSourceSettlement,
+			SourceType: models.LedgerSourcePayout,
 			SourceID:   settlement.ID,
 		}
 		if err := tx.Create(&je).Error; err != nil {
@@ -167,7 +167,7 @@ func RecordPayout(db *gorm.DB, input RecordPayoutInput, actor string) (*RecordPa
 		if err := ProjectToLedger(tx, input.CompanyID, LedgerPostInput{
 			JournalEntry: je,
 			Lines:        []models.JournalLine{bankLine, clearingLine},
-			SourceType:   models.LedgerSourceSettlement,
+			SourceType:   models.LedgerSourcePayout,
 			SourceID:     settlement.ID,
 		}); err != nil {
 			return fmt.Errorf("project to ledger: %w", err)

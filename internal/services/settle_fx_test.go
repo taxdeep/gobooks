@@ -44,6 +44,7 @@ func testSettleDB(t *testing.T) *gorm.DB {
 		&models.Bill{},
 		&models.JournalEntry{},
 		&models.JournalLine{},
+		&models.LedgerEntry{},
 		&models.Currency{},
 		&models.ExchangeRate{},
 		&models.SettlementAllocation{},

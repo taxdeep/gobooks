@@ -73,6 +73,7 @@ func (s *Server) handleInvoiceDetail(c *fiber.Ctx) error {
 		PaymentRequests:    paymentReqs,
 		GatewayAccounts:    gatewayAccts,
 		JustPaymentCreated: c.Query("paymentcreated") == "1",
+		IsChannelOrigin:    inv.ChannelOrderID != nil,
 	}
 	if inv.JournalEntry != nil {
 		vm.JournalNo = inv.JournalEntry.JournalNo

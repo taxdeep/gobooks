@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
 	"gobooks/internal/models"
@@ -51,6 +52,22 @@ func VoidBill(db *gorm.DB, companyID, billID uint, actor string, userID *uuid.UU
 	origJE := bill.JournalEntry
 	if len(origJE.Lines) == 0 {
 		return errors.New("original journal entry has no lines")
+	}
+
+	// Block void if any settlement allocation references this bill.
+	// RecordPayBills creates SettlementAllocation records when a bill is paid via
+	// the Phase-4 allocation path. Voiding without removing the allocation would
+	// leave an orphaned AP release — the JE reversal cancels the AP debit but the
+	// allocation record still points at a voided bill.
+	var allocCount int64
+	if err := db.Model(&models.SettlementAllocation{}).
+		Where("document_type = ? AND document_id = ? AND company_id = ?",
+			models.SettlementDocBill, billID, companyID).
+		Count(&allocCount).Error; err != nil {
+		return fmt.Errorf("check settlement allocations: %w", err)
+	}
+	if allocCount > 0 {
+		return errors.New("cannot void bill: it has settlement allocations — remove the payment allocation first")
 	}
 
 	// ── 3. Transaction ───────────────────────────────────────────────────────
@@ -125,9 +142,13 @@ func VoidBill(db *gorm.DB, companyID, billID uint, actor string, userID *uuid.UU
 			return fmt.Errorf("reverse inventory movements: %w", err)
 		}
 
-		// g. Mark bill voided.
+		// g. Mark bill voided and zero out the balance fields.
+		// Voided bills owe nothing; keeping non-zero balance_due / balance_due_base
+		// would corrupt any code path that reads those fields (reports, recalculation, etc.).
 		if err := tx.Model(&bill).Updates(map[string]any{
-			"status": string(models.BillStatusVoided),
+			"status":           string(models.BillStatusVoided),
+			"balance_due":      decimal.Zero,
+			"balance_due_base": decimal.Zero,
 		}).Error; err != nil {
 			return fmt.Errorf("update bill status: %w", err)
 		}

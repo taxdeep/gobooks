@@ -43,6 +43,7 @@ func seedAccountWithBalance(t *testing.T, db *gorm.DB, companyID uint, code, nam
 		CompanyID: companyID,
 		EntryDate: time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC),
 		JournalNo: "JE-001",
+		Status:    models.JournalEntryStatusPosted,
 	}
 	if err := db.Create(&entry).Error; err != nil {
 		t.Fatal(err)

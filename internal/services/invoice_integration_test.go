@@ -44,6 +44,8 @@ func testInvoiceDB(t *testing.T) *gorm.DB {
 		&models.AuditLog{},
 		&models.InventoryMovement{},
 		&models.InventoryBalance{},
+		&models.PaymentTransaction{},   // required by VoidInvoice payment-transaction guard
+		&models.SettlementAllocation{}, // required by VoidInvoice settlement-allocation guard
 	); err != nil {
 		t.Fatal(err)
 	}
