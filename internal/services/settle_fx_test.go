@@ -48,6 +48,7 @@ func testSettleDB(t *testing.T) *gorm.DB {
 		&models.Currency{},
 		&models.ExchangeRate{},
 		&models.SettlementAllocation{},
+		&models.PaymentReceipt{},
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -164,6 +165,7 @@ func TestSettle_BaseCurrency_FullSettlement(t *testing.T) {
 		CustomerID:    custID,
 		EntryDate:     time.Date(2024, 7, 1, 0, 0, 0, 0, time.UTC),
 		BankAccountID: bankID,
+		PaymentMethod: models.PaymentMethodWire,
 		ARAccountID:   arID,
 		Allocations: []InvoiceAllocation{
 			{InvoiceID: invID, Amount: decimal.RequireFromString("500.00")},
@@ -224,6 +226,7 @@ func TestSettle_BaseCurrency_PartialSettlement(t *testing.T) {
 		CustomerID:    custID,
 		EntryDate:     time.Date(2024, 7, 1, 0, 0, 0, 0, time.UTC),
 		BankAccountID: bankID,
+		PaymentMethod: models.PaymentMethodWire,
 		ARAccountID:   arID,
 		Allocations: []InvoiceAllocation{
 			{InvoiceID: invID, Amount: decimal.RequireFromString("400.00")},
@@ -251,6 +254,7 @@ func TestSettle_BaseCurrency_PartialSettlement(t *testing.T) {
 		CustomerID:    custID,
 		EntryDate:     time.Date(2024, 7, 15, 0, 0, 0, 0, time.UTC),
 		BankAccountID: bankID,
+		PaymentMethod: models.PaymentMethodWire,
 		ARAccountID:   arID,
 		Allocations: []InvoiceAllocation{
 			{InvoiceID: invID, Amount: decimal.RequireFromString("600.00")},
@@ -290,6 +294,7 @@ func TestSettle_ForeignInvoice_FXGain(t *testing.T) {
 		CustomerID:    custID,
 		EntryDate:     time.Date(2024, 7, 1, 0, 0, 0, 0, time.UTC),
 		BankAccountID: bankID,
+		PaymentMethod: models.PaymentMethodWire,
 		ARAccountID:   arID,
 		Allocations: []InvoiceAllocation{
 			{InvoiceID: invID, Amount: decimal.RequireFromString("1000.00")},
@@ -357,6 +362,7 @@ func TestSettle_ForeignInvoice_FXLoss(t *testing.T) {
 		CustomerID:    custID,
 		EntryDate:     time.Date(2024, 7, 1, 0, 0, 0, 0, time.UTC),
 		BankAccountID: bankID,
+		PaymentMethod: models.PaymentMethodWire,
 		ARAccountID:   arID,
 		Allocations: []InvoiceAllocation{
 			{InvoiceID: invID, Amount: decimal.RequireFromString("1000.00")},
@@ -393,9 +399,12 @@ func TestSettle_ForeignInvoice_FXLoss(t *testing.T) {
 
 // TestSettle_ForeignInvoice_PartialThenFull: USD $1000 invoice, two payments at different rates.
 // Payment 1: USD 600 at 1.40 → bank CAD 840, carry released = 1370×(600/1000) = CAD 822
-//   FX gain = 840 - 822 = 18
+//
+//	FX gain = 840 - 822 = 18
+//
 // Payment 2: USD 400 at 1.35 → bank CAD 540, carry released = remaining 548
-//   FX loss = 540 - 548 = -8
+//
+//	FX loss = 540 - 548 = -8
 func TestSettle_ForeignInvoice_PartialThenFull(t *testing.T) {
 	db := testSettleDB(t)
 	cid := seedSettleCompany(t, db, "CAD")
@@ -412,6 +421,7 @@ func TestSettle_ForeignInvoice_PartialThenFull(t *testing.T) {
 		CustomerID:    custID,
 		EntryDate:     time.Date(2024, 7, 1, 0, 0, 0, 0, time.UTC),
 		BankAccountID: bankID,
+		PaymentMethod: models.PaymentMethodWire,
 		ARAccountID:   arID,
 		Allocations:   []InvoiceAllocation{{InvoiceID: invID, Amount: decimal.RequireFromString("600.00")}},
 	})
@@ -447,6 +457,7 @@ func TestSettle_ForeignInvoice_PartialThenFull(t *testing.T) {
 		CustomerID:    custID,
 		EntryDate:     time.Date(2024, 7, 15, 0, 0, 0, 0, time.UTC),
 		BankAccountID: bankID,
+		PaymentMethod: models.PaymentMethodWire,
 		ARAccountID:   arID,
 		Allocations:   []InvoiceAllocation{{InvoiceID: invID, Amount: decimal.RequireFromString("400.00")}},
 	})
@@ -611,6 +622,7 @@ func TestSettle_OverpaymentRejected(t *testing.T) {
 		CustomerID:    custID,
 		EntryDate:     time.Date(2024, 7, 1, 0, 0, 0, 0, time.UTC),
 		BankAccountID: bankID,
+		PaymentMethod: models.PaymentMethodWire,
 		ARAccountID:   arID,
 		Allocations:   []InvoiceAllocation{{InvoiceID: invID, Amount: decimal.RequireFromString("600.00")}},
 	})
@@ -635,6 +647,7 @@ func TestSettle_BankCurrencyValidation(t *testing.T) {
 		CustomerID:    custID,
 		EntryDate:     time.Date(2024, 7, 1, 0, 0, 0, 0, time.UTC),
 		BankAccountID: badBankID,
+		PaymentMethod: models.PaymentMethodWire,
 		ARAccountID:   arID,
 		Allocations:   []InvoiceAllocation{{InvoiceID: invID, Amount: decimal.RequireFromString("100.00")}},
 	})

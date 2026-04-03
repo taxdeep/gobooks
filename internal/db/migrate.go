@@ -124,6 +124,8 @@ func Migrate(db *gorm.DB) error {
 		&models.ExchangeRate{},
 		// Phase 4 multi-currency: settlement allocation records (per-invoice / per-bill)
 		&models.SettlementAllocation{},
+		// Business-layer customer receipt headers.
+		&models.PaymentReceipt{},
 		// Phase 5 multi-currency: period-end unrealized FX revaluation runs + lines
 		&models.RevaluationRun{},
 		&models.RevaluationLine{},

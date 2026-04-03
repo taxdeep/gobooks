@@ -2,6 +2,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -121,6 +122,7 @@ func TestClearingReport_FullCycle_BalanceZero(t *testing.T) {
 		RawPayload: datatypes.JSON("{}"),
 	}
 	sLines := []models.ChannelSettlementLine{
+		{LineType: models.SettlementLineSale, Amount: decimal.NewFromInt(1000), RawPayload: datatypes.JSON("{}")},
 		{LineType: models.SettlementLineFee, Amount: decimal.NewFromInt(150), RawPayload: datatypes.JSON("{}")},
 		{LineType: models.SettlementLinePayout, Amount: decimal.NewFromInt(850), RawPayload: datatypes.JSON("{}")},
 	}
@@ -240,5 +242,50 @@ func TestClearingReport_CompanyIsolation(t *testing.T) {
 	summary, _ := GetClearingSummary(db, otherCo.ID, s.channelID)
 	if summary != nil {
 		t.Error("Other company should not see this channel's clearing data")
+	}
+}
+
+func TestClearingReport_SharedClearingAccountBlocked(t *testing.T) {
+	db := testClearingReportDB(t)
+	s := setupClearingReport(t, db)
+
+	otherChannel := models.SalesChannelAccount{
+		CompanyID: s.companyID, ChannelType: models.ChannelTypeShopify,
+		DisplayName: "Shopify Store", AuthStatus: models.ChannelAuthPending, IsActive: true,
+	}
+	if err := db.Create(&otherChannel).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	// Simulate legacy/shared configuration directly in the DB. New saves are
+	// blocked in SaveAccountingMapping, but the report must still fail safely if
+	// old shared mappings already exist.
+	if err := db.Create(&models.ChannelAccountingMapping{
+		CompanyID: s.companyID, ChannelAccountID: otherChannel.ID,
+		ClearingAccountID: &s.clearingID, FeeExpenseAccountID: &s.feeID,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	summary, err := GetClearingSummary(db, s.companyID, s.channelID)
+	if err == nil {
+		t.Fatal("expected shared clearing account to block summary")
+	}
+	if !errors.Is(err, ErrSharedClearingAccount) {
+		t.Fatalf("expected ErrSharedClearingAccount, got %v", err)
+	}
+	if summary != nil {
+		t.Fatal("expected no summary when clearing account is shared")
+	}
+
+	movements, err := ListClearingMovements(db, s.companyID, s.channelID, 100)
+	if err == nil {
+		t.Fatal("expected shared clearing account to block movements")
+	}
+	if !errors.Is(err, ErrSharedClearingAccount) {
+		t.Fatalf("expected ErrSharedClearingAccount, got %v", err)
+	}
+	if movements != nil {
+		t.Fatal("expected no movements when clearing account is shared")
 	}
 }

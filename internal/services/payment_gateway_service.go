@@ -147,6 +147,8 @@ func PaymentRequestStatusLabel(s models.PaymentRequestStatus) string {
 	switch s {
 	case models.PaymentRequestDraft:
 		return "Draft"
+	case models.PaymentRequestCreated:
+		return "Pending"
 	case models.PaymentRequestPaid:
 		return "Paid"
 	case models.PaymentRequestPending:

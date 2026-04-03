@@ -8,6 +8,7 @@ type AccountingMappingsVM struct {
 	HasCompany      bool
 	ChannelAccounts []models.SalesChannelAccount
 	GLAccounts      []models.Account
+	FormError       string
 	Mappings        map[uint]*models.ChannelAccountingMapping // channel_account_id → mapping
 	Saved           bool
 }
@@ -42,6 +43,7 @@ type SettlementDetailVM struct {
 	// Payout recording state
 	IsPayoutRecordable bool
 	PayoutError        string
+	PayoutSubmitError  string
 	JustPayout         bool
 	BankAccounts       []models.Account
 

@@ -10,6 +10,7 @@ type PaymentGatewaysVM struct {
 	HasCompany bool
 	Accounts   []services.GatewayAccountSummary
 	Created    bool
+	FormError  string
 }
 
 type PaymentMappingsVM struct {
@@ -18,6 +19,7 @@ type PaymentMappingsVM struct {
 	GLAccounts      []models.Account
 	Mappings        map[uint]*models.PaymentAccountingMapping
 	Saved           bool
+	FormError       string
 }
 
 type PaymentRequestsVM struct {
@@ -25,6 +27,7 @@ type PaymentRequestsVM struct {
 	Requests   []models.PaymentRequest
 	Accounts   []models.PaymentGatewayAccount
 	Created    bool
+	FormError  string
 }
 
 type PaymentTransactionsVM struct {
@@ -40,4 +43,5 @@ type PaymentTransactionsVM struct {
 	JustApplied       bool
 	JustRefundApplied bool
 	JustUnapplied     bool
+	FormError         string
 }

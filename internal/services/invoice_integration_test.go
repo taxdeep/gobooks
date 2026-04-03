@@ -41,6 +41,7 @@ func testInvoiceDB(t *testing.T) *gorm.DB {
 		&models.JournalEntry{},
 		&models.JournalLine{},
 		&models.LedgerEntry{},
+		&models.PaymentReceipt{},
 		&models.AuditLog{},
 		&models.InventoryMovement{},
 		&models.InventoryBalance{},
@@ -112,6 +113,7 @@ func seedInvoiceWithLines(t *testing.T, db *gorm.DB, companyID, customerID uint,
 		Subtotal:              toDecimal("1000.00"),
 		TaxTotal:              toDecimal("50.00"),
 		BalanceDue:            toDecimal("1050.00"),
+		BalanceDueBase:        toDecimal("1050.00"),
 		Memo:                  "Test memo",
 	}
 	if err := db.Create(&inv).Error; err != nil {
@@ -167,6 +169,7 @@ func seedFullInvoice(t *testing.T, db *gorm.DB, companyID, customerID uint, stat
 		TaxTotal:              toDecimal("0"),
 		Amount:                toDecimal("1000.00"),
 		BalanceDue:            toDecimal("1000.00"),
+		BalanceDueBase:        toDecimal("1000.00"),
 		Memo:                  "Test memo",
 	}
 	db.Create(&inv)
@@ -346,8 +349,54 @@ func TestMarkInvoicePaid_ClearsBalanceDue(t *testing.T) {
 	if updated.Status != models.InvoiceStatusPaid {
 		t.Fatalf("Status not paid, got %v", updated.Status)
 	}
-	if updated.BalanceDue.GreaterThan(decimal.Zero) {
-		t.Fatalf("BalanceDue not cleared, got %v", updated.BalanceDue)
+	var reloaded models.Invoice
+	if err := db.First(&reloaded, invoiceID).Error; err != nil {
+		t.Fatalf("reload invoice: %v", err)
+	}
+	if reloaded.BalanceDue.GreaterThan(decimal.Zero) {
+		t.Fatalf("BalanceDue not cleared, got %v", reloaded.BalanceDue)
+	}
+	if !reloaded.BalanceDueBase.IsZero() {
+		t.Fatalf("BalanceDueBase not cleared, got %v", reloaded.BalanceDueBase)
+	}
+}
+
+func TestMarkInvoicePaid_NoJournalEntry(t *testing.T) {
+	db := testInvoiceDB(t)
+	companyID := seedCompanyForInvoice(t, db)
+	customerID := seedCustomerForInvoice(t, db, companyID)
+	invoiceID := seedInvoiceWithLines(t, db, companyID, customerID, models.InvoiceStatusSent)
+
+	je := models.JournalEntry{
+		CompanyID: companyID,
+		EntryDate: time.Now(),
+		JournalNo: "INV-PAID-CHECK",
+		Status:    models.JournalEntryStatusPosted,
+	}
+	if err := db.Create(&je).Error; err != nil {
+		t.Fatalf("create journal entry: %v", err)
+	}
+	if err := db.Model(&models.Invoice{}).
+		Where("id = ?", invoiceID).
+		Update("journal_entry_id", je.ID).Error; err != nil {
+		t.Fatalf("link journal entry: %v", err)
+	}
+
+	var before int64
+	if err := db.Model(&models.JournalEntry{}).Count(&before).Error; err != nil {
+		t.Fatalf("count before: %v", err)
+	}
+
+	if _, err := MarkInvoicePaid(db, companyID, invoiceID); err != nil {
+		t.Fatalf("MarkInvoicePaid failed: %v", err)
+	}
+
+	var after int64
+	if err := db.Model(&models.JournalEntry{}).Count(&after).Error; err != nil {
+		t.Fatalf("count after: %v", err)
+	}
+	if after != before {
+		t.Fatalf("MarkInvoicePaid should not create a new journal entry: before=%d after=%d", before, after)
 	}
 }
 

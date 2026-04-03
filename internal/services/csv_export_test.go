@@ -4,6 +4,7 @@ package services
 import (
 	"bytes"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -135,6 +136,62 @@ func TestExportClearingMovements_ContainsRunningBalance(t *testing.T) {
 	header := records[0]
 	if header[7] != "Running Balance" {
 		t.Errorf("Expected 'Running Balance' column, got %v", header)
+	}
+}
+
+func TestExportClearingSummary_SharedClearingAccountBlocked(t *testing.T) {
+	db := testExportDB(t)
+	s := setupExport(t, db)
+
+	otherChannel := models.SalesChannelAccount{
+		CompanyID: s.companyID, ChannelType: models.ChannelTypeShopify,
+		DisplayName: "Shopify Export", AuthStatus: models.ChannelAuthPending, IsActive: true,
+	}
+	if err := db.Create(&otherChannel).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&models.ChannelAccountingMapping{
+		CompanyID: s.companyID, ChannelAccountID: otherChannel.ID,
+		ClearingAccountID: &s.clearingID, FeeExpenseAccountID: &s.feeID,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	err := ExportClearingSummaryCSV(db, s.companyID, &buf)
+	if err == nil {
+		t.Fatal("expected shared clearing account export to fail")
+	}
+	if !errors.Is(err, ErrSharedClearingAccount) {
+		t.Fatalf("expected ErrSharedClearingAccount, got %v", err)
+	}
+}
+
+func TestExportClearingMovements_SharedClearingAccountBlocked(t *testing.T) {
+	db := testExportDB(t)
+	s := setupExport(t, db)
+
+	otherChannel := models.SalesChannelAccount{
+		CompanyID: s.companyID, ChannelType: models.ChannelTypeShopify,
+		DisplayName: "Shopify Export", AuthStatus: models.ChannelAuthPending, IsActive: true,
+	}
+	if err := db.Create(&otherChannel).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&models.ChannelAccountingMapping{
+		CompanyID: s.companyID, ChannelAccountID: otherChannel.ID,
+		ClearingAccountID: &s.clearingID, FeeExpenseAccountID: &s.feeID,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	err := ExportClearingMovementsCSV(db, s.companyID, s.channelID, &buf)
+	if err == nil {
+		t.Fatal("expected shared clearing account movement export to fail")
+	}
+	if !errors.Is(err, ErrSharedClearingAccount) {
+		t.Fatalf("expected ErrSharedClearingAccount, got %v", err)
 	}
 }
 

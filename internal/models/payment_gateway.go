@@ -44,6 +44,8 @@ type PaymentRequestStatus string
 
 const (
 	PaymentRequestDraft              PaymentRequestStatus = "draft"
+	// PaymentRequestCreated is kept for backward compatibility with older rows
+	// created before initial request status was unified to pending.
 	PaymentRequestCreated            PaymentRequestStatus = "created"
 	PaymentRequestPending            PaymentRequestStatus = "pending"
 	PaymentRequestPaid               PaymentRequestStatus = "paid"
@@ -167,7 +169,7 @@ type PaymentRequest struct {
 
 	Amount       decimal.Decimal      `gorm:"type:numeric(18,2);not null;default:0"`
 	CurrencyCode string               `gorm:"type:text;not null;default:''"`
-	Status       PaymentRequestStatus `gorm:"type:text;not null;default:'draft'"`
+	Status       PaymentRequestStatus `gorm:"type:text;not null;default:'pending'"`
 	Description  string               `gorm:"type:text;not null;default:''"`
 	ExternalRef  string               `gorm:"type:text;not null;default:''"`
 

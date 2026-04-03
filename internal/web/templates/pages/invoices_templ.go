@@ -315,7 +315,7 @@ func bodyInvoices(vm InvoicesVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var13 = []any{invoiceStatusBadgeClass(inv.Status)}
+			var templ_7745c5c3_Var13 = []any{invoiceStatusBadgeClass(invoiceDisplayStatus(inv))}
 			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var13...)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -338,9 +338,9 @@ func bodyInvoices(vm InvoicesVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var15 string
-			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(models.InvoiceStatusLabel(inv.Status))
+			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(models.InvoiceStatusLabel(invoiceDisplayStatus(inv)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoices.templ`, Line: 117, Col: 49}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoices.templ`, Line: 117, Col: 64}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 			if templ_7745c5c3_Err != nil {

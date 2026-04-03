@@ -8,4 +8,5 @@ type ClearingReportVM struct {
 	Summaries         []services.ClearingSummary
 	SelectedChannelID uint
 	Movements         []services.ClearingMovement
+	Warnings          []string
 }

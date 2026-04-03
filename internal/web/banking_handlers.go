@@ -341,6 +341,7 @@ func (s *Server) handleReceivePaymentSubmit(c *fiber.Ctx) error {
 	bankAccounts, _ := s.bankAccountsForCompany(companyID)
 
 	customerIDRaw := strings.TrimSpace(c.FormValue("customer_id"))
+	paymentMethodRaw := strings.TrimSpace(c.FormValue("payment_method"))
 	entryDateRaw := strings.TrimSpace(c.FormValue("entry_date"))
 	bankIDRaw := strings.TrimSpace(c.FormValue("bank_account_id"))
 	invoiceIDRaw := strings.TrimSpace(c.FormValue("invoice_id"))
@@ -352,6 +353,7 @@ func (s *Server) handleReceivePaymentSubmit(c *fiber.Ctx) error {
 		Customers:        customers,
 		BankAccounts:     bankAccounts,
 		OpenInvoicesJSON: buildOpenInvoicesJSON(s, companyID),
+		PaymentMethod:    paymentMethodRaw,
 		CustomerID:       customerIDRaw,
 		EntryDate:        entryDateRaw,
 		BankAccountID:    bankIDRaw,
@@ -363,6 +365,10 @@ func (s *Server) handleReceivePaymentSubmit(c *fiber.Ctx) error {
 	custU64, err := services.ParseUint(customerIDRaw)
 	if err != nil || custU64 == 0 {
 		vm.CustomerError = "Customer is required."
+	}
+	paymentMethod, err := models.ParsePaymentMethod(paymentMethodRaw)
+	if err != nil || !models.IsManualPaymentMethod(paymentMethod) {
+		vm.PaymentMethodError = "Payment method is required."
 	}
 
 	entryDate, err := time.Parse("2006-01-02", entryDateRaw)
@@ -386,7 +392,7 @@ func (s *Server) handleReceivePaymentSubmit(c *fiber.Ctx) error {
 		vm.ARError = "No Accounts Receivable account found. Please add one to your Chart of Accounts."
 	}
 
-	if vm.CustomerError != "" || vm.DateError != "" || vm.BankError != "" || vm.ARError != "" || vm.AmountError != "" {
+	if vm.CustomerError != "" || vm.PaymentMethodError != "" || vm.DateError != "" || vm.BankError != "" || vm.ARError != "" || vm.AmountError != "" {
 		return pages.ReceivePayment(vm).Render(c.Context(), c)
 	}
 
@@ -401,16 +407,23 @@ func (s *Server) handleReceivePaymentSubmit(c *fiber.Ctx) error {
 	var jeID uint
 	if err := s.DB.Transaction(func(tx *gorm.DB) error {
 		var txErr error
-		jeID, txErr = services.RecordReceivePayment(tx, services.ReceivePaymentInput{
+		input := services.ReceivePaymentInput{
 			CompanyID:     companyID,
 			CustomerID:    uint(custU64),
 			EntryDate:     entryDate,
 			BankAccountID: uint(bankU64),
+			PaymentMethod: paymentMethod,
 			ARAccountID:   arU64,
-			InvoiceID:     invoiceIDPtr,
 			Amount:        amount,
 			Memo:          memo,
-		})
+		}
+		if invoiceIDPtr != nil {
+			input.Allocations = []services.InvoiceAllocation{{
+				InvoiceID: *invoiceIDPtr,
+				Amount:    amount,
+			}}
+		}
+		jeID, txErr = services.RecordReceivePayment(tx, input)
 		return txErr
 	}); err != nil {
 		vm.FormError = "Could not record payment: " + err.Error()
@@ -424,10 +437,11 @@ func (s *Server) handleReceivePaymentSubmit(c *fiber.Ctx) error {
 	cid := companyID
 	uid := user.ID
 	services.TryWriteAuditLogWithContext(s.DB, "payment.received", "journal_entry", jeID, actor, map[string]any{
-		"customer_id": customerIDRaw,
-		"amount":      amount.StringFixed(2),
-		"entry_date":  entryDateRaw,
-		"company_id":  companyID,
+		"customer_id":    customerIDRaw,
+		"amount":         amount.StringFixed(2),
+		"payment_method": string(paymentMethod),
+		"entry_date":     entryDateRaw,
+		"company_id":     companyID,
 	}, &cid, &uid)
 
 	return c.Redirect("/banking/receive-payment?saved=1", fiber.StatusSeeOther)
@@ -605,9 +619,9 @@ func (s *Server) handlePayBillsSubmit(c *fiber.Ctx) error {
 	cid := companyID
 	uid := user.ID
 	services.TryWriteAuditLogWithContext(s.DB, "bills.paid", "journal_entry", jeID, actor, map[string]any{
-		"bill_count":  len(billPayments),
-		"entry_date":  entryDateRaw,
-		"company_id":  companyID,
+		"bill_count": len(billPayments),
+		"entry_date": entryDateRaw,
+		"company_id": companyID,
 	}, &cid, &uid)
 
 	return c.Redirect("/banking/pay-bills?saved=1", fiber.StatusSeeOther)

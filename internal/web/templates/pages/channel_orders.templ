@@ -30,6 +30,9 @@ templ bodyChannelOrders(vm ChannelOrdersVM) {
 		if vm.Created {
 			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Order imported.</div>
 		}
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">{ vm.FormError }</div>
+		}
 
 		// Manual import form
 		<div

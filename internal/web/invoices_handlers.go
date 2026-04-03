@@ -33,6 +33,7 @@ func (s *Server) handleInvoices(c *fiber.Ctx) error {
 	filterStatus := strings.TrimSpace(c.Query("status"))
 	filterFrom := strings.TrimSpace(c.Query("from"))
 	filterTo := strings.TrimSpace(c.Query("to"))
+	asOf := time.Now()
 
 	qry := s.DB.Preload("Customer").Model(&models.Invoice{}).Where("company_id = ?", companyID)
 	if filterQ != "" {
@@ -42,9 +43,6 @@ func (s *Server) handleInvoices(c *fiber.Ctx) error {
 		if id, err := services.ParseUint(filterCustomerID); err == nil && id > 0 {
 			qry = qry.Where("customer_id = ?", uint(id))
 		}
-	}
-	if filterStatus != "" {
-		qry = qry.Where("status = ?", filterStatus)
 	}
 	if filterFrom != "" {
 		if d, err := time.Parse("2006-01-02", filterFrom); err == nil {
@@ -63,6 +61,15 @@ func (s *Server) handleInvoices(c *fiber.Ctx) error {
 			HasCompany: true,
 			FormError:  "Could not load invoices.",
 		}).Render(c.Context(), c)
+	}
+	if filterStatus != "" {
+		filtered := make([]models.Invoice, 0, len(invoices))
+		for _, inv := range invoices {
+			if string(services.EffectiveInvoiceStatusAsOf(inv, asOf)) == filterStatus {
+				filtered = append(filtered, inv)
+			}
+		}
+		invoices = filtered
 	}
 
 	nextNo, err := services.SuggestNextInvoiceNumber(s.DB, companyID)

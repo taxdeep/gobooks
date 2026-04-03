@@ -94,6 +94,7 @@ func createPostedSettlement(t *testing.T, db *gorm.DB, s revSetup) uint {
 		SettlementDate: &now, RawPayload: datatypes.JSON("{}"),
 	}
 	lines := []models.ChannelSettlementLine{
+		{LineType: models.SettlementLineSale, Amount: decimal.NewFromInt(1000), RawPayload: datatypes.JSON("{}")},
 		{LineType: models.SettlementLineFee, Amount: decimal.NewFromInt(100), RawPayload: datatypes.JSON("{}")},
 		{LineType: models.SettlementLinePayout, Amount: decimal.NewFromInt(900), RawPayload: datatypes.JSON("{}")},
 	}

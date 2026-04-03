@@ -43,6 +43,7 @@ func (s *Server) handleAccountingMappings(c *fiber.Ctx) error {
 		ChannelAccounts: accounts,
 		GLAccounts:      allAccounts,
 		Mappings:        mappings,
+		FormError:       strings.TrimSpace(c.Query("error")),
 		Saved:           c.Query("saved") == "1",
 	}
 	return pages.AccountingMappings(vm).Render(c.Context(), c)
@@ -57,7 +58,7 @@ func (s *Server) handleAccountingMappingSave(c *fiber.Ctx) error {
 	acctIDRaw := strings.TrimSpace(c.FormValue("channel_account_id"))
 	acctID, _ := strconv.ParseUint(acctIDRaw, 10, 64)
 	if acctID == 0 {
-		return c.Redirect("/settings/channels/accounting", fiber.StatusSeeOther)
+		return redirectErr(c, "/settings/channels/accounting", "channel account is required")
 	}
 
 	m := models.ChannelAccountingMapping{
@@ -72,7 +73,7 @@ func (s *Server) handleAccountingMappingSave(c *fiber.Ctx) error {
 	}
 
 	if err := services.SaveAccountingMapping(s.DB, &m); err != nil {
-		return c.Redirect("/settings/channels/accounting?saveerror=1", fiber.StatusSeeOther)
+		return redirectErr(c, "/settings/channels/accounting", err.Error())
 	}
 	return c.Redirect("/settings/channels/accounting?saved=1", fiber.StatusSeeOther)
 }
@@ -91,6 +92,12 @@ func (s *Server) handleSettlements(c *fiber.Ctx) error {
 	// Build summaries with unmapped count.
 	var summaries []pages.SettlementSummary
 	for _, st := range settlements {
+		lines, _ := services.GetSettlementLines(s.DB, companyID, st.ID)
+		totals := services.ComputeSettlementTotals(lines)
+		st.GrossAmount = totals.GrossAmount
+		st.FeeAmount = totals.FeeAmount
+		st.NetAmount = totals.NetAmount
+
 		unmapped := services.CountUnmappedLines(s.DB, companyID, st.ID)
 		summaries = append(summaries, pages.SettlementSummary{Settlement: st, UnmappedCount: unmapped})
 	}
@@ -138,8 +145,6 @@ func (s *Server) handleSettlementCreate(c *fiber.Ctx) error {
 
 	lineCount, _ := strconv.Atoi(lineCountRaw)
 	var lines []models.ChannelSettlementLine
-	var grossTotal, feeTotal decimal.Decimal
-
 	for i := 0; i < lineCount; i++ {
 		lt := strings.TrimSpace(c.FormValue(strings.Replace("line_type[%d]", "%d", strconv.Itoa(i), 1)))
 		desc := strings.TrimSpace(c.FormValue(strings.Replace("line_desc[%d]", "%d", strconv.Itoa(i), 1)))
@@ -158,19 +163,12 @@ func (s *Server) handleSettlementCreate(c *fiber.Ctx) error {
 			Amount:      amt,
 			RawPayload:  datatypes.JSON("{}"),
 		})
-
-		// Aggregate totals.
-		switch lineType {
-		case models.SettlementLineSale:
-			grossTotal = grossTotal.Add(amt)
-		case models.SettlementLineFee, models.SettlementLineShippingFee:
-			feeTotal = feeTotal.Add(amt.Abs())
-		}
 	}
 
-	settlement.GrossAmount = grossTotal
-	settlement.FeeAmount = feeTotal
-	settlement.NetAmount = grossTotal.Sub(feeTotal)
+	totals := services.ComputeSettlementTotals(lines)
+	settlement.GrossAmount = totals.GrossAmount
+	settlement.FeeAmount = totals.FeeAmount
+	settlement.NetAmount = totals.NetAmount
 
 	if err := services.CreateSettlementWithLines(s.DB, &settlement, lines); err != nil {
 		return c.Redirect("/settings/channels/settlements?createerror=1", fiber.StatusSeeOther)
@@ -188,11 +186,12 @@ func (s *Server) handleSettlementRecordPayout(c *fiber.Ctx) error {
 	if id64 == 0 {
 		return c.Redirect("/settings/channels/settlements", fiber.StatusSeeOther)
 	}
+	detailPath := "/settings/channels/settlements/" + c.Params("id")
 
 	bankAcctIDRaw := strings.TrimSpace(c.FormValue("bank_account_id"))
 	bankAcctID, _ := strconv.ParseUint(bankAcctIDRaw, 10, 64)
 	if bankAcctID == 0 {
-		return c.Redirect("/settings/channels/settlements/"+c.Params("id")+"?payouterr=bank", fiber.StatusSeeOther)
+		return redirectErr(c, detailPath, "bank account is required to record a payout")
 	}
 
 	user := UserFromCtx(c)
@@ -208,10 +207,10 @@ func (s *Server) handleSettlementRecordPayout(c *fiber.Ctx) error {
 		EntryDate:     time.Now(),
 	}, actor)
 	if err != nil {
-		return c.Redirect("/settings/channels/settlements/"+c.Params("id")+"?payouterr=1", fiber.StatusSeeOther)
+		return redirectErr(c, detailPath, err.Error())
 	}
 
-	return c.Redirect("/settings/channels/settlements/"+c.Params("id")+"?payout=1", fiber.StatusSeeOther)
+	return c.Redirect(detailPath+"?payout=1", fiber.StatusSeeOther)
 }
 
 func (s *Server) handleSettlementReverseFee(c *fiber.Ctx) error {
@@ -223,6 +222,7 @@ func (s *Server) handleSettlementReverseFee(c *fiber.Ctx) error {
 	if id64 == 0 {
 		return c.Redirect("/settings/channels/settlements", fiber.StatusSeeOther)
 	}
+	detailPath := "/settings/channels/settlements/" + c.Params("id")
 	user := UserFromCtx(c)
 	actor := "system"
 	if user != nil && user.Email != "" {
@@ -230,9 +230,9 @@ func (s *Server) handleSettlementReverseFee(c *fiber.Ctx) error {
 	}
 	_, err := services.ReverseSettlementFeePosting(s.DB, companyID, uint(id64), actor)
 	if err != nil {
-		return c.Redirect("/settings/channels/settlements/"+c.Params("id")+"?feereverseerr=1", fiber.StatusSeeOther)
+		return redirectErr(c, detailPath, err.Error())
 	}
-	return c.Redirect("/settings/channels/settlements/"+c.Params("id")+"?feereversed=1", fiber.StatusSeeOther)
+	return c.Redirect(detailPath+"?feereversed=1", fiber.StatusSeeOther)
 }
 
 func (s *Server) handleSettlementReversePayout(c *fiber.Ctx) error {
@@ -244,6 +244,7 @@ func (s *Server) handleSettlementReversePayout(c *fiber.Ctx) error {
 	if id64 == 0 {
 		return c.Redirect("/settings/channels/settlements", fiber.StatusSeeOther)
 	}
+	detailPath := "/settings/channels/settlements/" + c.Params("id")
 	user := UserFromCtx(c)
 	actor := "system"
 	if user != nil && user.Email != "" {
@@ -251,9 +252,9 @@ func (s *Server) handleSettlementReversePayout(c *fiber.Ctx) error {
 	}
 	_, err := services.ReversePayoutRecording(s.DB, companyID, uint(id64), actor)
 	if err != nil {
-		return c.Redirect("/settings/channels/settlements/"+c.Params("id")+"?payoutreverseerr=1", fiber.StatusSeeOther)
+		return redirectErr(c, detailPath, err.Error())
 	}
-	return c.Redirect("/settings/channels/settlements/"+c.Params("id")+"?payoutreversed=1", fiber.StatusSeeOther)
+	return c.Redirect(detailPath+"?payoutreversed=1", fiber.StatusSeeOther)
 }
 
 func (s *Server) handleSettlementPost(c *fiber.Ctx) error {
@@ -298,6 +299,10 @@ func (s *Server) handleSettlementDetail(c *fiber.Ctx) error {
 	}
 
 	sLines, _ := services.GetSettlementLines(s.DB, companyID, settlement.ID)
+	displayTotals := services.ComputeSettlementTotals(sLines)
+	settlement.GrossAmount = displayTotals.GrossAmount
+	settlement.FeeAmount = displayTotals.FeeAmount
+	settlement.NetAmount = displayTotals.NetAmount
 	unmapped := services.CountUnmappedLines(s.DB, companyID, settlement.ID)
 
 	// Check postability.
@@ -305,6 +310,7 @@ func (s *Server) handleSettlementDetail(c *fiber.Ctx) error {
 
 	// Check payout recordability.
 	payoutErr := services.ValidatePayoutRecordable(s.DB, companyID, settlement.ID)
+	payoutSubmitErr := strings.TrimSpace(c.Query("error"))
 
 	// Load bank accounts for payout form.
 	var bankAccounts []models.Account
@@ -326,6 +332,7 @@ func (s *Server) handleSettlementDetail(c *fiber.Ctx) error {
 		// Payout state
 		IsPayoutRecordable: payoutErr == nil,
 		PayoutError:        "",
+		PayoutSubmitError:  payoutSubmitErr,
 		JustPayout:         c.Query("payout") == "1",
 		BankAccounts:       bankAccounts,
 		// Reversal state

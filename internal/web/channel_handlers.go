@@ -28,6 +28,7 @@ func (s *Server) handleChannelAccounts(c *fiber.Ctx) error {
 	vm := pages.ChannelAccountsVM{
 		HasCompany: true,
 		Accounts:   accounts,
+		FormError:  strings.TrimSpace(c.Query("error")),
 		Created:    c.Query("created") == "1",
 		Updated:    c.Query("updated") == "1",
 		Deleted:    c.Query("deleted") == "1",
@@ -86,7 +87,7 @@ func (s *Server) handleChannelAccountDelete(c *fiber.Ctx) error {
 	id64, _ := strconv.ParseUint(idRaw, 10, 64)
 	if id64 > 0 {
 		if err := services.DeleteChannelAccount(s.DB, companyID, uint(id64)); err != nil {
-			return c.Redirect("/settings/channels?deleteerror=1", fiber.StatusSeeOther)
+			return redirectErr(c, "/settings/channels", err.Error())
 		}
 	}
 	return c.Redirect("/settings/channels?deleted=1", fiber.StatusSeeOther)
@@ -112,6 +113,7 @@ func (s *Server) handleChannelMappings(c *fiber.Ctx) error {
 		Accounts:   accounts,
 		Items:      items,
 		Created:    c.Query("created") == "1",
+		FormError:  strings.TrimSpace(c.Query("error")),
 	}
 	return pages.ChannelMappings(vm).Render(c.Context(), c)
 }
@@ -132,13 +134,13 @@ func (s *Server) handleChannelMappingCreate(c *fiber.Ctx) error {
 	itemID, _ := strconv.ParseUint(itemIDRaw, 10, 64)
 
 	if acctID == 0 || itemID == 0 || externalSKU == "" {
-		return c.Redirect("/settings/channels/mappings", fiber.StatusSeeOther)
+		return redirectErr(c, "/settings/channels/mappings", "channel, item, and external SKU are required")
 	}
 
 	// Load channel account to get type.
 	acct, err := services.GetChannelAccount(s.DB, companyID, uint(acctID))
 	if err != nil {
-		return c.Redirect("/settings/channels/mappings", fiber.StatusSeeOther)
+		return redirectErr(c, "/settings/channels/mappings", "channel account not found")
 	}
 
 	m := models.ItemChannelMapping{
@@ -156,7 +158,9 @@ func (s *Server) handleChannelMappingCreate(c *fiber.Ctx) error {
 		m.ASIN = &asin
 	}
 
-	services.CreateItemMapping(s.DB, &m)
+	if err := services.CreateItemMapping(s.DB, &m); err != nil {
+		return redirectErr(c, "/settings/channels/mappings", err.Error())
+	}
 	return c.Redirect("/settings/channels/mappings?created=1", fiber.StatusSeeOther)
 }
 
@@ -176,6 +180,7 @@ func (s *Server) handleChannelOrders(c *fiber.Ctx) error {
 		Orders:     summaries,
 		Accounts:   accounts,
 		Created:    c.Query("created") == "1",
+		FormError:  strings.TrimSpace(c.Query("error")),
 	}
 	return pages.ChannelOrders(vm).Render(c.Context(), c)
 }
@@ -194,7 +199,7 @@ func (s *Server) handleChannelOrderCreate(c *fiber.Ctx) error {
 
 	acctID, _ := strconv.ParseUint(acctIDRaw, 10, 64)
 	if acctID == 0 {
-		return c.Redirect("/settings/channels/orders", fiber.StatusSeeOther)
+		return redirectErr(c, "/settings/channels/orders", "channel account is required")
 	}
 
 	orderDate := time.Now()
@@ -234,7 +239,9 @@ func (s *Server) handleChannelOrderCreate(c *fiber.Ctx) error {
 		})
 	}
 
-	services.CreateChannelOrderWithLines(s.DB, &order, lines)
+	if err := services.CreateChannelOrderWithLines(s.DB, &order, lines); err != nil {
+		return redirectErr(c, "/settings/channels/orders", err.Error())
+	}
 	return c.Redirect("/settings/channels/orders?created=1", fiber.StatusSeeOther)
 }
 
@@ -276,6 +283,7 @@ func (s *Server) handleChannelOrderDetail(c *fiber.Ctx) error {
 		Customers:          customers,
 		InvoiceNumber:      nextNo,
 		Converted:          c.Query("converted") == "1",
+		FormError:          strings.TrimSpace(c.Query("error")),
 	}
 	if convertErr != nil {
 		vm.ConvertibleError = convertErr.Error()
@@ -301,7 +309,7 @@ func (s *Server) handleChannelOrderConvert(c *fiber.Ctx) error {
 
 	custID, _ := strconv.ParseUint(customerIDRaw, 10, 64)
 	if custID == 0 || invoiceNumber == "" {
-		return c.Redirect("/settings/channels/orders/"+c.Params("id")+"?error=customer+and+invoice+number+required", fiber.StatusSeeOther)
+		return redirectErr(c, "/settings/channels/orders/"+c.Params("id"), "customer and invoice number required")
 	}
 
 	result, err := services.ConvertChannelOrderToDraftInvoice(s.DB, services.ConvertOptions{
@@ -312,7 +320,7 @@ func (s *Server) handleChannelOrderConvert(c *fiber.Ctx) error {
 		InvoiceDate:    time.Now(),
 	})
 	if err != nil {
-		return c.Redirect("/settings/channels/orders/"+c.Params("id")+"?error="+err.Error(), fiber.StatusSeeOther)
+		return redirectErr(c, "/settings/channels/orders/"+c.Params("id"), err.Error())
 	}
 
 	_ = result

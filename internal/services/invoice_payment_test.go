@@ -90,8 +90,16 @@ func TestCreatePaymentRequestForInvoice_OK(t *testing.T) {
 	if req.CurrencyCode != "CAD" {
 		t.Errorf("Expected currency CAD, got %s", req.CurrencyCode)
 	}
-	if req.Status != models.PaymentRequestCreated {
-		t.Errorf("Expected status created, got %s", req.Status)
+	if req.Status != models.PaymentRequestPending {
+		t.Errorf("Expected status pending, got %s", req.Status)
+	}
+
+	var saved models.PaymentRequest
+	if err := db.First(&saved, req.ID).Error; err != nil {
+		t.Fatalf("reload request: %v", err)
+	}
+	if saved.Status != models.PaymentRequestPending {
+		t.Errorf("Expected persisted status pending, got %s", saved.Status)
 	}
 }
 

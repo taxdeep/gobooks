@@ -46,6 +46,7 @@ func testFinancialIntegrityDB(t *testing.T) *gorm.DB {
 		&models.JournalLine{},
 		&models.LedgerEntry{},
 		&models.SettlementAllocation{},
+		&models.PaymentReceipt{},
 		&models.Currency{},
 		&models.ExchangeRate{},
 		&models.PaymentGatewayAccount{},
@@ -348,6 +349,7 @@ func TestReceivePayment_AppearsInLedger(t *testing.T) {
 		CustomerID:    cust.ID,
 		EntryDate:     time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC),
 		BankAccountID: bankAccID,
+		PaymentMethod: models.PaymentMethodWire,
 		ARAccountID:   arAccID,
 		Amount:        decimal.RequireFromString("250.00"),
 		Memo:          "Test payment",
@@ -504,6 +506,7 @@ func TestVoidInvoice_BlockedBySettlement(t *testing.T) {
 		CustomerID:    cust.ID,
 		EntryDate:     time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC),
 		BankAccountID: bankAccID,
+		PaymentMethod: models.PaymentMethodCheck,
 		ARAccountID:   arAccID,
 		Allocations: []InvoiceAllocation{{
 			InvoiceID: inv.ID,

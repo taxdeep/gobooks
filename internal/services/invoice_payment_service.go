@@ -11,13 +11,13 @@ package services
 //     connectors may introduce supported-currency validation or restrictions.
 //
 // Duplicate guard (current conservative strategy):
-//   At most one active (draft/created/pending) payment request is allowed per
+//   At most one active (draft/pending plus legacy created) payment request is allowed per
 //   (invoice, gateway_account) combination. This prevents accidental double-
 //   clicking and redundant requests. Future installment / partial payment
 //   request support may relax this to a more granular rule.
 //
 // Active payment request statuses:
-//   draft, created, pending — these are "in-flight" and block new requests.
+//   draft, pending, and legacy created rows — these are "in-flight" and block new requests.
 // Terminal statuses:
 //   paid, failed, cancelled, refunded, partially_refunded — these do NOT block.
 //
@@ -147,7 +147,8 @@ func CreatePaymentRequestForInvoice(db *gorm.DB, input InvoicePaymentRequestInpu
 		description = "Payment for Invoice " + inv.InvoiceNumber
 	}
 
-	// 8. Create payment request. Status = created (user explicitly requested).
+// 8. Create payment request. Initial status is always pending regardless of
+// creation entry point; "created" remains only as a legacy stored value.
 	req := models.PaymentRequest{
 		CompanyID:        input.CompanyID,
 		GatewayAccountID: input.GatewayAccountID,
@@ -155,7 +156,7 @@ func CreatePaymentRequestForInvoice(db *gorm.DB, input InvoicePaymentRequestInpu
 		CustomerID:       &inv.CustomerID,
 		Amount:           amount,
 		CurrencyCode:     currency,
-		Status:           models.PaymentRequestCreated,
+		Status:           models.PaymentRequestPending,
 		Description:      description,
 	}
 	if err := CreatePaymentRequest(db, &req); err != nil {

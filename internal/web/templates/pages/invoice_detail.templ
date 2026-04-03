@@ -21,6 +21,11 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 				Invoice voided. A reversal journal entry has been created.
 			</div>
 		}
+		if vm.FormError != "" {
+			<div class="mb-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">
+				{ vm.FormError }
+			</div>
+		}
 		if vm.VoidError != "" {
 			<div class="mb-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">
 				Could not void invoice: { vm.VoidError }
@@ -43,7 +48,7 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 		}
 		if vm.JustPaid {
 			<div class="mb-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">
-				Invoice marked as paid.
+				Payment recorded. Invoice balance updated.
 			</div>
 		}
 
@@ -52,8 +57,8 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 			<div class="min-w-0 flex-1">
 				<div class="flex items-center gap-3">
 					<h1 class="text-title font-semibold">Invoice { vm.Invoice.InvoiceNumber }</h1>
-					<span class={ invoiceStatusBadgeClass(vm.Invoice.Status) }>
-						{ models.InvoiceStatusLabel(vm.Invoice.Status) }
+					<span class={ invoiceStatusBadgeClass(invoiceDisplayStatus(vm.Invoice)) }>
+						{ models.InvoiceStatusLabel(invoiceDisplayStatus(vm.Invoice)) }
 					</span>
 				</div>
 				<p class="mt-1 text-text-muted2">{ vm.Invoice.Customer.Name }</p>
@@ -180,19 +185,6 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 					>
 						Receive Payment
 					</a>
-					<form
-						method="post"
-						action={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/mark-paid" }
-						class="inline"
-						onsubmit="return confirm('Mark this invoice as paid?');"
-					>
-						<button
-							type="submit"
-							class="inline-block rounded-md border border-success-border bg-success-soft px-3 py-2 text-small font-semibold text-success-hover hover:bg-success-soft"
-						>
-							Mark Paid
-						</button>
-					</form>
 				}
 
 				// ── Void action (any posted state except voided/paid) ─────────
@@ -374,7 +366,7 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 										<td class="py-2 pr-4 text-small">{ pr.CurrencyCode }</td>
 										<td class="py-2 pr-4">
 											<span class={ paymentRequestBadgeClass(string(pr.Status)) }>
-												{ string(pr.Status) }
+												{ paymentRequestDisplayLabel(pr.Status) }
 											</span>
 										</td>
 										<td class="py-2 pr-0 text-small text-text-muted2">{ pr.CreatedAt.Format("2006-01-02") }</td>
@@ -384,7 +376,7 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 						</table>
 					</div>
 					<p class="mt-2 text-[11px] text-text-muted3">
-						Created = request sent · Pending = payment in progress · Paid = completed · Failed/Cancelled = no longer active
+						Pending = request created and awaiting payment result · Paid = completed · Failed/Cancelled = no longer active
 					</p>
 				}
 
@@ -426,9 +418,7 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 func paymentRequestBadgeClass(status string) string {
 	base := "inline-block rounded px-2 py-0.5 text-small font-medium "
 	switch status {
-	case "created":
-		return base + "bg-primary-soft text-primary"
-	case "pending":
+	case "created", "pending":
 		return base + "bg-warning-soft text-warning"
 	case "paid":
 		return base + "bg-success-soft text-success-hover"

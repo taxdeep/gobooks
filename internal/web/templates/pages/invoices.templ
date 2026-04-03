@@ -113,8 +113,8 @@ templ bodyInvoices(vm InvoicesVM) {
 									}
 								</td>
 								<td class="py-3 pr-4">
-									<span class={ invoiceStatusBadgeClass(inv.Status) }>
-										{ models.InvoiceStatusLabel(inv.Status) }
+									<span class={ invoiceStatusBadgeClass(invoiceDisplayStatus(inv)) }>
+										{ models.InvoiceStatusLabel(invoiceDisplayStatus(inv)) }
 									</span>
 								</td>
 								<td class="py-3 pr-4 text-right tabular-nums">{ Money(inv.Amount) }</td>

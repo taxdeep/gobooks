@@ -13,6 +13,8 @@ package services
 // grouped by source_type for classification.
 
 import (
+	"fmt"
+
 	"github.com/shopspring/decimal"
 	"gobooks/internal/models"
 	"gorm.io/gorm"
@@ -54,6 +56,9 @@ func GetClearingSummary(db *gorm.DB, companyID, channelAccountID uint) (*Clearin
 	}
 
 	clearingAcctID := *mapping.ClearingAccountID
+	if err := validateClearingReportChannelScope(db, companyID, channelAccountID, clearingAcctID); err != nil {
+		return nil, err
+	}
 
 	// Load clearing account info.
 	var acct models.Account
@@ -115,6 +120,9 @@ func ListClearingMovements(db *gorm.DB, companyID, channelAccountID uint, limit 
 		return nil, nil
 	}
 	clearingAcctID := *mapping.ClearingAccountID
+	if err := validateClearingReportChannelScope(db, companyID, channelAccountID, clearingAcctID); err != nil {
+		return nil, err
+	}
 
 	if limit <= 0 {
 		limit = 100
@@ -147,6 +155,37 @@ func ListClearingMovements(db *gorm.DB, companyID, channelAccountID uint, limit 
 	}
 
 	return movements, nil
+}
+
+func validateClearingReportChannelScope(db *gorm.DB, companyID, channelAccountID, clearingAcctID uint) error {
+	var conflictCount int64
+	if err := db.Model(&models.ChannelAccountingMapping{}).
+		Where("company_id = ? AND clearing_account_id = ? AND channel_account_id <> ?",
+			companyID, clearingAcctID, channelAccountID).
+		Count(&conflictCount).Error; err != nil {
+		return err
+	}
+	if conflictCount == 0 {
+		return nil
+	}
+
+	var channel models.SalesChannelAccount
+	_ = db.Select("display_name").Where("id = ? AND company_id = ?", channelAccountID, companyID).First(&channel).Error
+
+	var account models.Account
+	_ = db.Select("code", "name").Where("id = ? AND company_id = ?", clearingAcctID, companyID).First(&account).Error
+
+	channelLabel := fmt.Sprintf("channel %d", channelAccountID)
+	if channel.DisplayName != "" {
+		channelLabel = channel.DisplayName
+	}
+	accountLabel := fmt.Sprintf("account %d", clearingAcctID)
+	if account.Code != "" || account.Name != "" {
+		accountLabel = account.Code + " " + account.Name
+	}
+
+	return fmt.Errorf("%w: %s shares clearing account %s with another channel",
+		ErrSharedClearingAccount, channelLabel, accountLabel)
 }
 
 func clearingSourceLabel(st models.LedgerSourceType) string {

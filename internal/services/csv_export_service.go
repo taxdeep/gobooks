@@ -80,6 +80,32 @@ func OrderBlockerReason(lines []models.ChannelOrderLine) string {
 // ExportClearingSummaryCSV writes clearing summary rows to w.
 func ExportClearingSummaryCSV(db *gorm.DB, companyID uint, w io.Writer) error {
 	accounts, _ := ListChannelAccounts(db, companyID)
+	var rows [][]string
+
+	for _, a := range accounts {
+		summary, err := GetClearingSummary(db, companyID, a.ID)
+		if err != nil {
+			return err
+		}
+		if summary == nil {
+			continue
+		}
+		unsettled := "No"
+		if !summary.CurrentBalance.IsZero() {
+			unsettled = "Yes"
+		}
+		rows = append(rows, []string{
+			fmt.Sprintf("%d", a.ID),
+			string(a.ChannelType),
+			a.DisplayName,
+			summary.ClearingAccountCode + " " + summary.ClearingAccountName,
+			summary.CurrentBalance.StringFixed(2),
+			summary.SalesTotal.StringFixed(2),
+			summary.FeesTotal.StringFixed(2),
+			summary.ReversalsTotal.StringFixed(2),
+			unsettled,
+		})
+	}
 
 	cw := csv.NewWriter(w)
 	defer cw.Flush()
@@ -91,26 +117,8 @@ func ExportClearingSummaryCSV(db *gorm.DB, companyID uint, w io.Writer) error {
 		"Unsettled",
 	})
 
-	for _, a := range accounts {
-		summary, err := GetClearingSummary(db, companyID, a.ID)
-		if err != nil || summary == nil {
-			continue
-		}
-		unsettled := "No"
-		if !summary.CurrentBalance.IsZero() {
-			unsettled = "Yes"
-		}
-		cw.Write([]string{
-			fmt.Sprintf("%d", a.ID),
-			string(a.ChannelType),
-			a.DisplayName,
-			summary.ClearingAccountCode + " " + summary.ClearingAccountName,
-			summary.CurrentBalance.StringFixed(2),
-			summary.SalesTotal.StringFixed(2),
-			summary.FeesTotal.StringFixed(2),
-			summary.ReversalsTotal.StringFixed(2),
-			unsettled,
-		})
+	for _, row := range rows {
+		cw.Write(row)
 	}
 	return nil
 }

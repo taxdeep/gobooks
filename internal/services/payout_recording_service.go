@@ -36,6 +36,9 @@ var (
 	ErrPayoutAlreadyRecorded = errors.New("payout has already been recorded for this settlement")
 	ErrPayoutNotFound        = errors.New("settlement has no payout line")
 	ErrNoBankAccount         = errors.New("bank account is required to record a payout")
+	ErrPayoutAmountInvalid   = errors.New("settlement payout amount must be greater than zero")
+	ErrPayoutNetMismatch     = errors.New("payout line total must match the settlement net amount before recording payout")
+	ErrSettlementNetInvalid  = errors.New("settlement net amount must be greater than zero before recording payout")
 )
 
 // RecordPayoutInput holds parameters for recording a channel payout.
@@ -77,6 +80,21 @@ func ValidatePayoutRecordable(db *gorm.DB, companyID, settlementID uint) error {
 		return ErrPayoutNotFound
 	}
 
+	totals := ComputeSettlementTotals(lines)
+	if !totals.PayoutAmount.GreaterThan(decimal.Zero) {
+		return ErrPayoutAmountInvalid
+	}
+	if !totals.NetAmount.GreaterThan(decimal.Zero) {
+		return ErrSettlementNetInvalid
+	}
+	if !totals.PayoutAmount.Equal(totals.NetAmount) {
+		return fmt.Errorf("%w (payout %s, net %s)",
+			ErrPayoutNetMismatch,
+			totals.PayoutAmount.StringFixed(2),
+			totals.NetAmount.StringFixed(2),
+		)
+	}
+
 	// Check clearing account.
 	mapping, _ := GetAccountingMapping(db, companyID, settlement.ChannelAccountID)
 	if mapping == nil || mapping.ClearingAccountID == nil {
@@ -100,16 +118,11 @@ func RecordPayout(db *gorm.DB, input RecordPayoutInput, actor string) (*RecordPa
 	mapping, _ := GetAccountingMapping(db, input.CompanyID, settlement.ChannelAccountID)
 	clearingAcctID := *mapping.ClearingAccountID
 
-	// Calculate payout amount from payout lines.
-	var payoutAmount decimal.Decimal
-	for _, l := range lines {
-		if l.LineType == models.SettlementLinePayout {
-			payoutAmount = payoutAmount.Add(l.Amount.Abs())
-		}
-	}
+	totals := ComputeSettlementTotals(lines)
+	payoutAmount := totals.PayoutAmount
 
 	if payoutAmount.IsZero() {
-		return nil, fmt.Errorf("payout amount is zero")
+		return nil, ErrPayoutAmountInvalid
 	}
 
 	entryDate := input.EntryDate

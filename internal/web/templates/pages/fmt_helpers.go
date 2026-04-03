@@ -8,6 +8,7 @@ import (
 
 	"github.com/shopspring/decimal"
 	"gobooks/internal/models"
+	"gobooks/internal/services"
 )
 
 // Uitoa formats a uint as a string (handy in templates).
@@ -58,6 +59,14 @@ func invoiceBalanceDue(inv models.Invoice) decimal.Decimal {
 	return inv.Amount
 }
 
+func invoiceDisplayStatus(inv models.Invoice) models.InvoiceStatus {
+	return services.EffectiveInvoiceStatus(inv)
+}
+
+func paymentRequestDisplayLabel(status models.PaymentRequestStatus) string {
+	return services.PaymentRequestStatusLabel(status)
+}
+
 // billBalanceDue returns the outstanding balance for a bill.
 // Uses BalanceDue if positive, otherwise falls back to the full Amount.
 func billBalanceDue(b models.Bill) decimal.Decimal {
@@ -82,4 +91,3 @@ func payBillsInitData(bills []models.Bill) string {
 	sb.WriteString("])")
 	return sb.String()
 }
-

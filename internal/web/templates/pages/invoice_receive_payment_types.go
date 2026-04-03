@@ -12,20 +12,23 @@ type InvoiceReceivePaymentVM struct {
 	// Preloaded: Invoice.Customer
 	Invoice models.Invoice
 
-	// Accounts is all active accounts, used to populate the Bank and AR dropdowns.
-	Accounts []models.Account
+	// BankAccounts are active bank accounts available for the receipt.
+	BankAccounts []models.Account
 
 	// Form values (re-populated on validation error)
+	PaymentMethod string
 	EntryDate     string
 	BankAccountID string
-	ARAccountID   string
+	Amount        string
 	Memo          string
 
 	// Errors
-	FormError string
-	DateError string
-	BankError string
-	ARError   string
+	FormError          string
+	DateError          string
+	PaymentMethodError string
+	BankError          string
+	ARError            string
+	AmountError        string
 
 	// JustSaved is set on redirect after a successful recording.
 	JustSaved bool

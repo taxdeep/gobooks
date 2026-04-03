@@ -1,6 +1,7 @@
 // 遵循project_guide.md
 package pages
 
+import "gobooks/internal/models"
 import "gobooks/internal/web/templates/layout"
 import "gobooks/internal/web/templates/ui"
 import "fmt"
@@ -30,6 +31,11 @@ templ bodyInvoiceReceivePayment(vm InvoiceReceivePaymentVM) {
 				{ vm.FormError }
 			</div>
 		}
+		if vm.ARError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">
+				{ vm.ARError }
+			</div>
+		}
 
 		<form
 			method="post"
@@ -39,7 +45,7 @@ templ bodyInvoiceReceivePayment(vm InvoiceReceivePaymentVM) {
 			// ── Payment Details ──────────────────────────────────────────────
 			<div class="rounded-lg border border-border bg-surface p-6">
 				<h2 class="text-section font-semibold text-text">Payment Details</h2>
-				<div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-3">
+				<div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
 
 					// Payment Date
 					<div>
@@ -62,6 +68,33 @@ templ bodyInvoiceReceivePayment(vm InvoiceReceivePaymentVM) {
 						}
 					</div>
 
+					// Payment Method
+					<div>
+						<label class="block text-body font-medium text-text">Payment Method *</label>
+						if vm.PaymentMethodError != "" {
+							<select
+								name="payment_method"
+								class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+							>
+								<option value="">-- Select --</option>
+								for _, method := range models.ManualPaymentMethods() {
+									<option value={ string(method) } selected?={ string(method) == vm.PaymentMethod }>{ models.PaymentMethodLabel(method) }</option>
+								}
+							</select>
+							<div class="mt-1 text-body text-danger">{ vm.PaymentMethodError }</div>
+						} else {
+							<select
+								name="payment_method"
+								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+							>
+								<option value="">-- Select --</option>
+								for _, method := range models.ManualPaymentMethods() {
+									<option value={ string(method) } selected?={ string(method) == vm.PaymentMethod }>{ models.PaymentMethodLabel(method) }</option>
+								}
+							</select>
+						}
+					</div>
+
 					// Deposit to (Bank account)
 					<div>
 						<label class="block text-body font-medium text-text">Deposit To (Bank) *</label>
@@ -71,7 +104,7 @@ templ bodyInvoiceReceivePayment(vm InvoiceReceivePaymentVM) {
 								class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
 							>
 								<option value="">-- Select --</option>
-								for _, a := range vm.Accounts {
+								for _, a := range vm.BankAccounts {
 									<option value={ Uitoa(a.ID) } selected?={ Uitoa(a.ID) == vm.BankAccountID }>{ a.Code } - { a.Name }</option>
 								}
 							</select>
@@ -82,38 +115,37 @@ templ bodyInvoiceReceivePayment(vm InvoiceReceivePaymentVM) {
 								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
 							>
 								<option value="">-- Select --</option>
-								for _, a := range vm.Accounts {
+								for _, a := range vm.BankAccounts {
 									<option value={ Uitoa(a.ID) } selected?={ Uitoa(a.ID) == vm.BankAccountID }>{ a.Code } - { a.Name }</option>
 								}
 							</select>
 						}
 					</div>
 
-					// A/R Account
+					// Amount
 					<div>
-						<label class="block text-body font-medium text-text">Accounts Receivable *</label>
-						if vm.ARError != "" {
-							<select
-								name="ar_account_id"
-								class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
-							>
-								<option value="">-- Select --</option>
-								for _, a := range vm.Accounts {
-									<option value={ Uitoa(a.ID) } selected?={ Uitoa(a.ID) == vm.ARAccountID }>{ a.Code } - { a.Name }</option>
-								}
-							</select>
-							<div class="mt-1 text-body text-danger">{ vm.ARError }</div>
+						<label class="block text-body font-medium text-text">Amount *</label>
+						if vm.AmountError != "" {
+							<input
+								type="text"
+								inputmode="decimal"
+								name="amount"
+								value={ vm.Amount }
+								placeholder="0.00"
+								class="mt-2 block w-full rounded-md border border-danger px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+							/>
+							<div class="mt-1 text-body text-danger">{ vm.AmountError }</div>
 						} else {
-							<select
-								name="ar_account_id"
-								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
-							>
-								<option value="">-- Select --</option>
-								for _, a := range vm.Accounts {
-									<option value={ Uitoa(a.ID) } selected?={ Uitoa(a.ID) == vm.ARAccountID }>{ a.Code } - { a.Name }</option>
-								}
-							</select>
+							<input
+								type="text"
+								inputmode="decimal"
+								name="amount"
+								value={ vm.Amount }
+								placeholder="0.00"
+								class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+							/>
 						}
+						<p class="mt-1 text-small text-text-muted2">Defaults to the remaining balance. Enter a smaller amount for a partial receipt.</p>
 					</div>
 
 					// Memo
@@ -165,18 +197,17 @@ templ bodyInvoiceReceivePayment(vm InvoiceReceivePaymentVM) {
 					</table>
 				</div>
 
-				// Payment amount (read-only, set from invoice balance)
+				// Remaining balance summary
 				<div class="mt-6 flex justify-end">
 					<div class="w-64 space-y-2 text-body">
 						<div class="flex items-center justify-between">
-							<span class="text-text-muted">Payment Amount</span>
+							<span class="text-text-muted">Current Balance Due</span>
 							<span class="tabular-nums font-semibold text-text">{ Money(invoiceBalanceDue(vm.Invoice)) }</span>
 						</div>
 					</div>
 				</div>
 
-				// Hidden: amount and invoice_id
-				<input type="hidden" name="amount" value={ invoiceBalanceDue(vm.Invoice).String() }/>
+				// Hidden: invoice_id and customer_id
 				<input type="hidden" name="invoice_id" value={ Uitoa(vm.Invoice.ID) }/>
 				<input type="hidden" name="customer_id" value={ Uitoa(vm.Invoice.CustomerID) }/>
 			</div>
@@ -229,6 +260,14 @@ templ bodyInvoiceReceivePayment(vm InvoiceReceivePaymentVM) {
 			<script>
 				function rpEnterReview() {
 					document.querySelectorAll('form input:not([type=hidden]), form select, form textarea').forEach(function(el) {
+						if (el.name) {
+							var mirror = document.createElement('input');
+							mirror.type = 'hidden';
+							mirror.name = el.name;
+							mirror.value = el.value;
+							mirror.setAttribute('data-review-mirror', '1');
+							el.form.appendChild(mirror);
+						}
 						el.disabled = true;
 					});
 					document.getElementById('rp-review-banner').style.display = '';
@@ -238,6 +277,9 @@ templ bodyInvoiceReceivePayment(vm InvoiceReceivePaymentVM) {
 					document.getElementById('rp-submit-btn').style.display = '';
 				}
 				function rpExitReview() {
+					document.querySelectorAll('form [data-review-mirror="1"]').forEach(function(el) {
+						el.remove();
+					});
 					document.querySelectorAll('form input:not([type=hidden]), form select, form textarea').forEach(function(el) {
 						el.disabled = false;
 					});

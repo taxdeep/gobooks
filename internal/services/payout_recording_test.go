@@ -2,6 +2,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -130,6 +131,62 @@ func TestValidatePayoutRecordable_NoPayout(t *testing.T) {
 	err := ValidatePayoutRecordable(db, s.companyID, settlement.ID)
 	if err == nil {
 		t.Fatal("Expected no-payout error")
+	}
+}
+
+func TestValidatePayoutRecordable_PayoutMustMatchNet(t *testing.T) {
+	db := testPayoutDB(t)
+	s := setupPayout(t, db)
+
+	now := time.Now()
+	settlement := models.ChannelSettlement{
+		CompanyID: s.companyID, ChannelAccountID: s.channelID,
+		ExternalSettlementID: "SET-PAY-MISMATCH", SettlementDate: &now,
+		RawPayload: datatypes.JSON("{}"),
+	}
+	lines := []models.ChannelSettlementLine{
+		{LineType: models.SettlementLineSale, Amount: decimal.NewFromInt(1000), RawPayload: datatypes.JSON("{}")},
+		{LineType: models.SettlementLineFee, Amount: decimal.NewFromInt(150), RawPayload: datatypes.JSON("{}")},
+		{LineType: models.SettlementLinePayout, Amount: decimal.NewFromInt(800), RawPayload: datatypes.JSON("{}")},
+	}
+	if err := CreateSettlementWithLines(db, &settlement, lines); err != nil {
+		t.Fatalf("CreateSettlementWithLines: %v", err)
+	}
+
+	err := ValidatePayoutRecordable(db, s.companyID, settlement.ID)
+	if err == nil {
+		t.Fatal("expected payout/net mismatch error")
+	}
+	if !errors.Is(err, ErrPayoutNetMismatch) {
+		t.Fatalf("expected ErrPayoutNetMismatch, got %v", err)
+	}
+}
+
+func TestValidatePayoutRecordable_NonPositiveNetBlocked(t *testing.T) {
+	db := testPayoutDB(t)
+	s := setupPayout(t, db)
+
+	now := time.Now()
+	settlement := models.ChannelSettlement{
+		CompanyID: s.companyID, ChannelAccountID: s.channelID,
+		ExternalSettlementID: "SET-PAY-ZERO", SettlementDate: &now,
+		RawPayload: datatypes.JSON("{}"),
+	}
+	lines := []models.ChannelSettlementLine{
+		{LineType: models.SettlementLineSale, Amount: decimal.NewFromInt(100), RawPayload: datatypes.JSON("{}")},
+		{LineType: models.SettlementLineRefund, Amount: decimal.NewFromInt(100), RawPayload: datatypes.JSON("{}")},
+		{LineType: models.SettlementLinePayout, Amount: decimal.NewFromInt(0), RawPayload: datatypes.JSON("{}")},
+	}
+	if err := CreateSettlementWithLines(db, &settlement, lines); err != nil {
+		t.Fatalf("CreateSettlementWithLines: %v", err)
+	}
+
+	err := ValidatePayoutRecordable(db, s.companyID, settlement.ID)
+	if err == nil {
+		t.Fatal("expected non-positive payout/net block")
+	}
+	if !errors.Is(err, ErrPayoutAmountInvalid) {
+		t.Fatalf("expected ErrPayoutAmountInvalid, got %v", err)
 	}
 }
 

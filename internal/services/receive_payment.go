@@ -42,6 +42,7 @@ type ReceivePaymentInput struct {
 	EntryDate  time.Time
 
 	BankAccountID uint
+	PaymentMethod models.PaymentMethod
 	// ARAccountID is the default AR account to credit.
 	// Can be overridden per-allocation via InvoiceAllocation.ARAccountID.
 	ARAccountID uint
@@ -89,6 +90,9 @@ func RecordReceivePayment(tx *gorm.DB, in ReceivePaymentInput) (uint, error) {
 	}
 	if in.CustomerID == 0 || in.BankAccountID == 0 || in.ARAccountID == 0 {
 		return 0, fmt.Errorf("missing required ids")
+	}
+	if _, err := models.ParsePaymentMethod(string(in.PaymentMethod)); err != nil {
+		return 0, fmt.Errorf("payment method is required")
 	}
 
 	// Route to Phase-4 allocation path when Allocations are present.
@@ -283,6 +287,9 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 	}); err != nil {
 		return 0, fmt.Errorf("project payment to ledger: %w", err)
 	}
+	if err := createPaymentReceipt(tx, in, je.ID, totalBankBase); err != nil {
+		return 0, fmt.Errorf("create payment receipt: %w", err)
+	}
 
 	// ── Create settlement allocations + update invoices ───────────────────────
 	for _, rec := range records {
@@ -404,6 +411,9 @@ func recordReceivePaymentLegacy(tx *gorm.DB, in ReceivePaymentInput) (uint, erro
 	}); err != nil {
 		return 0, fmt.Errorf("project payment to ledger: %w", err)
 	}
+	if err := createPaymentReceipt(tx, in, je.ID, in.Amount); err != nil {
+		return 0, fmt.Errorf("create payment receipt: %w", err)
+	}
 
 	// Legacy invoice full-settlement check (preserved from pre-Phase-4).
 	if in.InvoiceID != nil && *in.InvoiceID != 0 {
@@ -430,8 +440,9 @@ func recordReceivePaymentLegacy(tx *gorm.DB, in ReceivePaymentInput) (uint, erro
 			)
 		}
 		if err := tx.Model(&inv).Updates(map[string]any{
-			"status":      models.InvoiceStatusPaid,
-			"balance_due": decimal.Zero,
+			"status":           models.InvoiceStatusPaid,
+			"balance_due":      decimal.Zero,
+			"balance_due_base": decimal.Zero,
 		}).Error; err != nil {
 			return 0, err
 		}
@@ -442,3 +453,32 @@ func recordReceivePaymentLegacy(tx *gorm.DB, in ReceivePaymentInput) (uint, erro
 
 // errors referenced from other packages — kept for backward compat
 var _ = errors.New
+
+func createPaymentReceipt(tx *gorm.DB, in ReceivePaymentInput, journalEntryID uint, amountBase decimal.Decimal) error {
+	receipt := models.PaymentReceipt{
+		CompanyID:      in.CompanyID,
+		CustomerID:     in.CustomerID,
+		InvoiceID:      primaryReceiptInvoiceID(in),
+		JournalEntryID: journalEntryID,
+		BankAccountID:  in.BankAccountID,
+		PaymentMethod:  in.PaymentMethod,
+		AmountBase:     amountBase,
+		Memo:           in.Memo,
+		EntryDate:      in.EntryDate,
+	}
+	return tx.Create(&receipt).Error
+}
+
+func primaryReceiptInvoiceID(in ReceivePaymentInput) *uint {
+	if len(in.Allocations) == 1 {
+		id := in.Allocations[0].InvoiceID
+		if id != 0 {
+			return &id
+		}
+	}
+	if in.InvoiceID != nil && *in.InvoiceID != 0 {
+		id := *in.InvoiceID
+		return &id
+	}
+	return nil
+}

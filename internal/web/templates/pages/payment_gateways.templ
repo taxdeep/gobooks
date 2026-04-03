@@ -18,6 +18,9 @@ templ bodyPaymentGateways(vm PaymentGatewaysVM) {
 		if vm.Created {
 			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Gateway account created.</div>
 		}
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">{ vm.FormError }</div>
+		}
 
 		<form method="post" action="/settings/payment-gateways" class="mt-6 rounded-lg border border-border bg-surface p-6">
 			<h2 class="text-section font-semibold text-text">Add Gateway</h2>
@@ -100,6 +103,9 @@ templ bodyPaymentMappings(vm PaymentMappingsVM) {
 		if vm.Saved {
 			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Mapping saved.</div>
 		}
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">{ vm.FormError }</div>
+		}
 		for _, gw := range vm.GatewayAccounts {
 			<form method="post" action="/settings/payment-gateways/mappings" class="mt-6 rounded-lg border border-border bg-surface p-6">
 				<input type="hidden" name="gateway_account_id" value={ Uitoa(gw.ID) }/>
@@ -165,6 +171,9 @@ templ bodyPaymentRequests(vm PaymentRequestsVM) {
 		if vm.Created {
 			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Payment request created.</div>
 		}
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">{ vm.FormError }</div>
+		}
 		<form method="post" action="/settings/payment-gateways/requests" class="mt-6 rounded-lg border border-border bg-surface p-6">
 			<h2 class="text-section font-semibold text-text">Create Request</h2>
 			<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4">
@@ -210,7 +219,7 @@ templ bodyPaymentRequests(vm PaymentRequestsVM) {
 								<td class="py-3 pr-4">{ r.GatewayAccount.DisplayName }</td>
 								<td class="py-3 pr-4 text-right tabular-nums">{ r.Amount.StringFixed(2) }</td>
 								<td class="py-3 pr-4">{ r.CurrencyCode }</td>
-								<td class="py-3 pr-4"><span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-background text-text-muted">{ string(r.Status) }</span></td>
+								<td class="py-3 pr-4"><span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-background text-text-muted">{ paymentRequestDisplayLabel(r.Status) }</span></td>
 								<td class="py-3 pr-0 text-small text-text-muted2">{ r.Description }</td>
 							</tr>
 						}
@@ -248,6 +257,9 @@ templ bodyPaymentTransactions(vm PaymentTransactionsVM) {
 		}
 		if vm.JustUnapplied {
 			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Payment unapplied — invoice balance restored.</div>
+		}
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">{ vm.FormError }</div>
 		}
 		<form method="post" action="/settings/payment-gateways/transactions" class="mt-6 rounded-lg border border-border bg-surface p-6">
 			<h2 class="text-section font-semibold text-text">Record Transaction</h2>

@@ -167,6 +167,7 @@ func MarkInvoicePaid(db *gorm.DB, companyID, invoiceID uint) (*models.Invoice, e
 
 	invoice.Status = models.InvoiceStatusPaid
 	invoice.BalanceDue = decimal.Zero
+	invoice.BalanceDueBase = decimal.Zero
 
 	if err := db.Save(&invoice).Error; err != nil {
 		return nil, fmt.Errorf("invoice update failed: %w", err)

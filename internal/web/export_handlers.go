@@ -2,6 +2,7 @@
 package web
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"time"
@@ -26,8 +27,13 @@ func (s *Server) handleExportClearingSummary(c *fiber.Ctx) error {
 	if !ok {
 		return c.Status(fiber.StatusBadRequest).SendString("company required")
 	}
+	var buf bytes.Buffer
+	if err := services.ExportClearingSummaryCSV(s.DB, companyID, &buf); err != nil {
+		return c.Status(fiber.StatusConflict).SendString(err.Error())
+	}
 	setCsvHeaders(c, csvFilename("clearing_summary"))
-	return services.ExportClearingSummaryCSV(s.DB, companyID, c)
+	_, err := c.Write(buf.Bytes())
+	return err
 }
 
 func (s *Server) handleExportClearingMovements(c *fiber.Ctx) error {
@@ -39,8 +45,13 @@ func (s *Server) handleExportClearingMovements(c *fiber.Ctx) error {
 	if channelID == 0 {
 		return c.Status(fiber.StatusBadRequest).SendString("channel query param required")
 	}
+	var buf bytes.Buffer
+	if err := services.ExportClearingMovementsCSV(s.DB, companyID, uint(channelID), &buf); err != nil {
+		return c.Status(fiber.StatusConflict).SendString(err.Error())
+	}
 	setCsvHeaders(c, csvFilename("clearing_movements"))
-	return services.ExportClearingMovementsCSV(s.DB, companyID, uint(channelID), c)
+	_, err := c.Write(buf.Bytes())
+	return err
 }
 
 // ── Settlement exports ───────────────────────────────────────────────────────

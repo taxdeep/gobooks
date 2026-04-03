@@ -2,6 +2,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -106,6 +107,37 @@ func TestAccountingMapping_CompanyIsolation(t *testing.T) {
 	}
 }
 
+func TestAccountingMapping_SharedClearingAccountBlocked(t *testing.T) {
+	db := testSettlementDB(t)
+	s := setupSettle(t, db)
+
+	otherChannel := models.SalesChannelAccount{
+		CompanyID: s.companyID, ChannelType: models.ChannelTypeShopify,
+		DisplayName: "Shopify CA", AuthStatus: models.ChannelAuthPending, IsActive: true,
+	}
+	if err := db.Create(&otherChannel).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	first := models.ChannelAccountingMapping{
+		CompanyID: s.companyID, ChannelAccountID: s.channelAcctID, ClearingAccountID: &s.clearingAcctID,
+	}
+	if err := SaveAccountingMapping(db, &first); err != nil {
+		t.Fatalf("first save: %v", err)
+	}
+
+	second := models.ChannelAccountingMapping{
+		CompanyID: s.companyID, ChannelAccountID: otherChannel.ID, ClearingAccountID: &s.clearingAcctID,
+	}
+	err := SaveAccountingMapping(db, &second)
+	if err == nil {
+		t.Fatal("expected shared clearing account to be blocked")
+	}
+	if !errors.Is(err, ErrSharedClearingAccount) {
+		t.Fatalf("expected ErrSharedClearingAccount, got %v", err)
+	}
+}
+
 // ── Settlement CRUD tests ────────────────────────────────────────────────────
 
 func TestSettlement_CreateAndList(t *testing.T) {
@@ -161,6 +193,99 @@ func TestSettlement_CompanyIsolation(t *testing.T) {
 	list, _ := ListSettlements(db, otherCo.ID, 50)
 	if len(list) != 0 {
 		t.Error("Other company should not see settlements")
+	}
+}
+
+func TestComputeSettlementTotals_UsesFullNetComposition(t *testing.T) {
+	lines := []models.ChannelSettlementLine{
+		{LineType: models.SettlementLineSale, Amount: decimal.RequireFromString("1000.00")},
+		{LineType: models.SettlementLineFee, Amount: decimal.RequireFromString("-100.00")},
+		{LineType: models.SettlementLineShippingFee, Amount: decimal.RequireFromString("20.00")},
+		{LineType: models.SettlementLineRefund, Amount: decimal.RequireFromString("150.00")},
+		{LineType: models.SettlementLineReserve, Amount: decimal.RequireFromString("50.00")},
+		{LineType: models.SettlementLineAdjustment, Amount: decimal.RequireFromString("30.00")},
+		{LineType: models.SettlementLineAdjustment, Amount: decimal.RequireFromString("-25.00")},
+		{LineType: models.SettlementLinePayout, Amount: decimal.RequireFromString("685.00")},
+	}
+
+	totals := ComputeSettlementTotals(lines)
+
+	if !totals.GrossAmount.Equal(decimal.RequireFromString("1000.00")) {
+		t.Fatalf("gross: want 1000.00 got %s", totals.GrossAmount)
+	}
+	if !totals.FeeAmount.Equal(decimal.RequireFromString("120.00")) {
+		t.Fatalf("fees: want 120.00 got %s", totals.FeeAmount)
+	}
+	if !totals.NetAmount.Equal(decimal.RequireFromString("685.00")) {
+		t.Fatalf("net: want 685.00 got %s", totals.NetAmount)
+	}
+	if !totals.PayoutAmount.Equal(decimal.RequireFromString("685.00")) {
+		t.Fatalf("payout: want 685.00 got %s", totals.PayoutAmount)
+	}
+}
+
+func TestComputeSettlementTotals_PositiveAdjustmentIncreasesNet(t *testing.T) {
+	lines := []models.ChannelSettlementLine{
+		{LineType: models.SettlementLineSale, Amount: decimal.RequireFromString("100.00")},
+		{LineType: models.SettlementLineAdjustment, Amount: decimal.RequireFromString("30.00")},
+	}
+
+	totals := ComputeSettlementTotals(lines)
+
+	if !totals.NetAmount.Equal(decimal.RequireFromString("130.00")) {
+		t.Fatalf("net: want 130.00 got %s", totals.NetAmount)
+	}
+}
+
+func TestComputeSettlementTotals_NegativeAdjustmentDecreasesNet(t *testing.T) {
+	lines := []models.ChannelSettlementLine{
+		{LineType: models.SettlementLineSale, Amount: decimal.RequireFromString("100.00")},
+		{LineType: models.SettlementLineAdjustment, Amount: decimal.RequireFromString("-25.00")},
+	}
+
+	totals := ComputeSettlementTotals(lines)
+
+	if !totals.NetAmount.Equal(decimal.RequireFromString("75.00")) {
+		t.Fatalf("net: want 75.00 got %s", totals.NetAmount)
+	}
+}
+
+func TestSettlement_CreateAndPersist_RecomputesNetAmountFromAllRelevantLines(t *testing.T) {
+	db := testSettlementDB(t)
+	s := setupSettle(t, db)
+
+	now := time.Now()
+	settlement := models.ChannelSettlement{
+		CompanyID: s.companyID, ChannelAccountID: s.channelAcctID,
+		ExternalSettlementID: "SET-NET-001", SettlementDate: &now,
+		RawPayload: datatypes.JSON("{}"),
+	}
+	lines := []models.ChannelSettlementLine{
+		{LineType: models.SettlementLineSale, Amount: decimal.RequireFromString("1000.00"), RawPayload: datatypes.JSON("{}")},
+		{LineType: models.SettlementLineFee, Amount: decimal.RequireFromString("100.00"), RawPayload: datatypes.JSON("{}")},
+		{LineType: models.SettlementLineRefund, Amount: decimal.RequireFromString("150.00"), RawPayload: datatypes.JSON("{}")},
+		{LineType: models.SettlementLineAdjustment, Amount: decimal.RequireFromString("-50.00"), RawPayload: datatypes.JSON("{}")},
+		{LineType: models.SettlementLineReserve, Amount: decimal.RequireFromString("25.00"), RawPayload: datatypes.JSON("{}")},
+		{LineType: models.SettlementLinePayout, Amount: decimal.RequireFromString("675.00"), RawPayload: datatypes.JSON("{}")},
+	}
+
+	if err := CreateSettlementWithLines(db, &settlement, lines); err != nil {
+		t.Fatalf("CreateSettlementWithLines: %v", err)
+	}
+
+	saved, err := GetSettlement(db, s.companyID, settlement.ID)
+	if err != nil {
+		t.Fatalf("GetSettlement: %v", err)
+	}
+
+	if !saved.GrossAmount.Equal(decimal.RequireFromString("1000.00")) {
+		t.Fatalf("gross: want 1000.00 got %s", saved.GrossAmount)
+	}
+	if !saved.FeeAmount.Equal(decimal.RequireFromString("100.00")) {
+		t.Fatalf("fee amount: want 100.00 got %s", saved.FeeAmount)
+	}
+	if !saved.NetAmount.Equal(decimal.RequireFromString("675.00")) {
+		t.Fatalf("net amount: want 675.00 got %s", saved.NetAmount)
 	}
 }
 

@@ -67,6 +67,9 @@ templ bodySettlements(vm SettlementsVM) {
 						<h3 class="text-body font-semibold text-text">Settlement Lines</h3>
 						<button type="button" @click="lineCount++" class="text-small font-medium text-primary hover:text-primary-hover">+ Add Line</button>
 					</div>
+					<p class="mt-2 text-small text-text-muted2">
+						Adjustment amounts use marketplace sign conventions: positive = platform credit to you, negative = platform charge to you.
+					</p>
 					<input type="hidden" name="line_count" :value="lineCount"/>
 					<template x-for="idx in lineCount" :key="idx">
 						<div class="mt-3 grid grid-cols-3 gap-3 rounded border border-border-subtle bg-background p-3">
@@ -216,6 +219,9 @@ templ bodySettlementDetail(vm SettlementDetailVM) {
 					</p>
 				</div>
 			</div>
+			<p class="mt-4 text-small text-text-muted2">
+				Net reflects sales less platform fees, refunds, reserves, and signed adjustments. Positive adjustments mean the platform credited you; negative adjustments mean the platform charged you. Payout lines track the expected remittance and are not added into net again.
+			</p>
 		</div>
 
 		// Lines
@@ -308,7 +314,7 @@ templ bodySettlementDetail(vm SettlementDetailVM) {
 		<div class="mt-6 rounded-lg border border-border bg-surface p-6">
 			<h2 class="text-section font-semibold text-text">Record Payout</h2>
 			<p class="mt-2 text-small text-text-muted2">
-				Record the bank deposit from this settlement. Creates: Dr Bank, Cr Clearing.
+				Record the bank deposit from this settlement. Creates: Dr Bank, Cr Clearing. The payout line total must match the settlement net amount before this can be recorded.
 			</p>
 
 			if vm.JustPayout {
@@ -316,6 +322,9 @@ templ bodySettlementDetail(vm SettlementDetailVM) {
 			}
 			if vm.JustPayoutReversed {
 				<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Payout reversed.</div>
+			}
+			if vm.PayoutSubmitError != "" {
+				<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">{ vm.PayoutSubmitError }</div>
 			}
 
 			if vm.Settlement.PayoutReversalJEID != nil {

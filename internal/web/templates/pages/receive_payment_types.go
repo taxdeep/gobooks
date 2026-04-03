@@ -15,6 +15,7 @@ type ReceivePaymentVM struct {
 	OpenInvoicesJSON string
 
 	// Form values (for re-render)
+	PaymentMethod string
 	CustomerID    string
 	EntryDate     string
 	BankAccountID string
@@ -23,14 +24,14 @@ type ReceivePaymentVM struct {
 	Memo          string
 
 	// Errors
-	FormError     string
-	CustomerError string
-	DateError     string
-	BankError     string
-	ARError       string
-	InvoiceError  string
-	AmountError   string
+	FormError          string
+	PaymentMethodError string
+	CustomerError      string
+	DateError          string
+	BankError          string
+	ARError            string
+	InvoiceError       string
+	AmountError        string
 
 	Saved bool
 }
-

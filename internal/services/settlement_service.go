@@ -6,6 +6,7 @@ package services
 // account resolver that auto-maps settlement line types to GL accounts.
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -14,6 +15,8 @@ import (
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
+
+var ErrSharedClearingAccount = errors.New("shared clearing accounts are not supported; assign a dedicated clearing account to each channel")
 
 // ── Channel order workflow status (derived) ──────────────────────────────────
 
@@ -61,6 +64,12 @@ func GetAccountingMapping(db *gorm.DB, companyID, channelAccountID uint) (*model
 }
 
 func SaveAccountingMapping(db *gorm.DB, m *models.ChannelAccountingMapping) error {
+	if m.ClearingAccountID != nil {
+		if err := validateDedicatedClearingAccount(db, m.CompanyID, m.ChannelAccountID, *m.ClearingAccountID); err != nil {
+			return err
+		}
+	}
+
 	var existing models.ChannelAccountingMapping
 	err := db.Where("company_id = ? AND channel_account_id = ?", m.CompanyID, m.ChannelAccountID).
 		First(&existing).Error
@@ -72,6 +81,20 @@ func SaveAccountingMapping(db *gorm.DB, m *models.ChannelAccountingMapping) erro
 	}
 	m.ID = existing.ID
 	return db.Save(m).Error
+}
+
+func validateDedicatedClearingAccount(db *gorm.DB, companyID, channelAccountID, clearingAccountID uint) error {
+	var count int64
+	if err := db.Model(&models.ChannelAccountingMapping{}).
+		Where("company_id = ? AND clearing_account_id = ? AND channel_account_id <> ?",
+			companyID, clearingAccountID, channelAccountID).
+		Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return ErrSharedClearingAccount
+	}
+	return nil
 }
 
 // ── Settlement CRUD ──────────────────────────────────────────────────────────
@@ -142,23 +165,62 @@ func CreateSettlementWithLines(db *gorm.DB, settlement *models.ChannelSettlement
 		}
 
 		// Auto-recompute header totals from lines.
-		var gross, fees decimal.Decimal
-		for _, l := range lines {
-			switch l.LineType {
-			case models.SettlementLineSale:
-				gross = gross.Add(l.Amount)
-			case models.SettlementLineFee, models.SettlementLineShippingFee:
-				fees = fees.Add(l.Amount.Abs())
-			}
-		}
+		totals := ComputeSettlementTotals(lines)
 		return tx.Model(&models.ChannelSettlement{}).
 			Where("id = ?", settlement.ID).
 			Updates(map[string]any{
-				"gross_amount": gross,
-				"fee_amount":   fees,
-				"net_amount":   gross.Sub(fees),
+				"gross_amount": totals.GrossAmount,
+				"fee_amount":   totals.FeeAmount,
+				"net_amount":   totals.NetAmount,
 			}).Error
 	})
+}
+
+// SettlementTotals holds the header rollup used by settlement import, display,
+// and payout validation.
+type SettlementTotals struct {
+	GrossAmount  decimal.Decimal
+	FeeAmount    decimal.Decimal
+	NetAmount    decimal.Decimal
+	PayoutAmount decimal.Decimal
+}
+
+// ComputeSettlementTotals normalizes settlement lines into a single economic
+// view of the settlement:
+//   - gross: sales only
+//   - fee: platform fee + shipping fee only
+//   - net: sales less fees, refunds, reserves, and signed adjustments
+//   - payout: expected bank remittance from payout lines
+//
+// Payout is intentionally not added into net; it is a resulting cash movement
+// that should agree with the already-computed net amount.
+//
+// Adjustment sign convention follows how marketplaces usually export settlement
+// data:
+//   - positive adjustment = platform credit to seller (increase net)
+//   - negative adjustment = platform charge to seller (decrease net)
+func ComputeSettlementTotals(lines []models.ChannelSettlementLine) SettlementTotals {
+	var totals SettlementTotals
+
+	for _, l := range lines {
+		switch l.LineType {
+		case models.SettlementLineSale:
+			totals.GrossAmount = totals.GrossAmount.Add(l.Amount)
+			totals.NetAmount = totals.NetAmount.Add(l.Amount)
+		case models.SettlementLineFee, models.SettlementLineShippingFee:
+			amt := l.Amount.Abs()
+			totals.FeeAmount = totals.FeeAmount.Add(amt)
+			totals.NetAmount = totals.NetAmount.Sub(amt)
+		case models.SettlementLineRefund, models.SettlementLineReserve:
+			totals.NetAmount = totals.NetAmount.Sub(l.Amount.Abs())
+		case models.SettlementLineAdjustment:
+			totals.NetAmount = totals.NetAmount.Add(l.Amount)
+		case models.SettlementLinePayout:
+			totals.PayoutAmount = totals.PayoutAmount.Add(l.Amount.Abs())
+		}
+	}
+
+	return totals
 }
 
 // ── Suggested account mapping ────────────────────────────────────────────────

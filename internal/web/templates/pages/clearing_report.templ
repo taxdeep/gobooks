@@ -31,8 +31,16 @@ templ bodyClearingReport(vm ClearingReportVM) {
 			</div>
 		</div>
 
+		if len(vm.Warnings) > 0 {
+			<div class="mt-6 space-y-3">
+				for _, warning := range vm.Warnings {
+					<div class="rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">{ warning }</div>
+				}
+			</div>
+		}
+
 		// Summary cards
-		if len(vm.Summaries) == 0 {
+		if len(vm.Summaries) == 0 && len(vm.Warnings) == 0 {
 			<div class="mt-6 rounded-lg border border-border bg-surface p-6">
 				<p class="text-body text-text-muted2">No channel accounts with clearing account mappings configured.</p>
 			</div>

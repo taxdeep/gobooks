@@ -30,6 +30,7 @@ func testReceivePaymentDB(t *testing.T) *gorm.DB {
 		&models.JournalLine{},
 		&models.LedgerEntry{},
 		&models.SettlementAllocation{},
+		&models.PaymentReceipt{},
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -90,15 +91,16 @@ func TestRecordReceivePaymentShowsActionableMessageForPartialLinkedInvoice(t *te
 	bankID := seedReceivePaymentAccount(t, db, companyID, "1000", models.RootAsset, models.DetailBank)
 	arID := seedReceivePaymentAccount(t, db, companyID, "1100", models.RootAsset, models.DetailAccountsReceivable)
 	invoice := models.Invoice{
-		CompanyID:     companyID,
-		InvoiceNumber: "IN001",
-		CustomerID:    customer.ID,
-		InvoiceDate:   time.Date(2026, 3, 29, 0, 0, 0, 0, time.UTC),
-		Status:        models.InvoiceStatusSent,
-		Amount:        decimal.RequireFromString("100.00"),
-		Subtotal:      decimal.RequireFromString("100.00"),
-		TaxTotal:      decimal.Zero,
-		BalanceDue:    decimal.RequireFromString("100.00"),
+		CompanyID:      companyID,
+		InvoiceNumber:  "IN001",
+		CustomerID:     customer.ID,
+		InvoiceDate:    time.Date(2026, 3, 29, 0, 0, 0, 0, time.UTC),
+		Status:         models.InvoiceStatusSent,
+		Amount:         decimal.RequireFromString("100.00"),
+		Subtotal:       decimal.RequireFromString("100.00"),
+		TaxTotal:       decimal.Zero,
+		BalanceDue:     decimal.RequireFromString("100.00"),
+		BalanceDueBase: decimal.RequireFromString("100.00"),
 	}
 	if err := db.Create(&invoice).Error; err != nil {
 		t.Fatal(err)
@@ -109,6 +111,7 @@ func TestRecordReceivePaymentShowsActionableMessageForPartialLinkedInvoice(t *te
 		CustomerID:    customer.ID,
 		EntryDate:     time.Date(2026, 3, 29, 0, 0, 0, 0, time.UTC),
 		BankAccountID: bankID,
+		PaymentMethod: models.PaymentMethodCheck,
 		ARAccountID:   arID,
 		InvoiceID:     &invoice.ID,
 		Amount:        decimal.RequireFromString("50.00"),
@@ -135,15 +138,16 @@ func TestRecordReceivePaymentAllowsFullSettlementForOverdueInvoiceBalance(t *tes
 	bankID := seedReceivePaymentAccount(t, db, companyID, "1000", models.RootAsset, models.DetailBank)
 	arID := seedReceivePaymentAccount(t, db, companyID, "1100", models.RootAsset, models.DetailAccountsReceivable)
 	invoice := models.Invoice{
-		CompanyID:     companyID,
-		InvoiceNumber: "IN002",
-		CustomerID:    customer.ID,
-		InvoiceDate:   time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
-		Status:        models.InvoiceStatusOverdue,
-		Amount:        decimal.RequireFromString("100.00"),
-		Subtotal:      decimal.RequireFromString("100.00"),
-		TaxTotal:      decimal.Zero,
-		BalanceDue:    decimal.RequireFromString("25.00"),
+		CompanyID:      companyID,
+		InvoiceNumber:  "IN002",
+		CustomerID:     customer.ID,
+		InvoiceDate:    time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+		Status:         models.InvoiceStatusOverdue,
+		Amount:         decimal.RequireFromString("100.00"),
+		Subtotal:       decimal.RequireFromString("100.00"),
+		TaxTotal:       decimal.Zero,
+		BalanceDue:     decimal.RequireFromString("25.00"),
+		BalanceDueBase: decimal.RequireFromString("25.00"),
 	}
 	if err := db.Create(&invoice).Error; err != nil {
 		t.Fatal(err)
@@ -154,6 +158,7 @@ func TestRecordReceivePaymentAllowsFullSettlementForOverdueInvoiceBalance(t *tes
 		CustomerID:    customer.ID,
 		EntryDate:     time.Date(2026, 3, 30, 0, 0, 0, 0, time.UTC),
 		BankAccountID: bankID,
+		PaymentMethod: models.PaymentMethodWire,
 		ARAccountID:   arID,
 		InvoiceID:     &invoice.ID,
 		Amount:        decimal.RequireFromString("25.00"),
@@ -174,5 +179,66 @@ func TestRecordReceivePaymentAllowsFullSettlementForOverdueInvoiceBalance(t *tes
 	}
 	if !updated.BalanceDue.IsZero() {
 		t.Fatalf("expected balance due to be zero, got %s", updated.BalanceDue)
+	}
+	if !updated.BalanceDueBase.IsZero() {
+		t.Fatalf("expected balance due base to be zero, got %s", updated.BalanceDueBase)
+	}
+}
+
+func TestRecordReceivePayment_CreatesPaymentReceiptMetadata(t *testing.T) {
+	db := testReceivePaymentDB(t)
+	companyID := seedReceivePaymentCompany(t, db, "Acme")
+	customer := models.Customer{CompanyID: companyID, Name: "Customer A"}
+	if err := db.Create(&customer).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	bankID := seedReceivePaymentAccount(t, db, companyID, "1000", models.RootAsset, models.DetailBank)
+	arID := seedReceivePaymentAccount(t, db, companyID, "1100", models.RootAsset, models.DetailAccountsReceivable)
+	invoice := models.Invoice{
+		CompanyID:      companyID,
+		InvoiceNumber:  "IN003",
+		CustomerID:     customer.ID,
+		InvoiceDate:    time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		Status:         models.InvoiceStatusSent,
+		Amount:         decimal.RequireFromString("100.00"),
+		Subtotal:       decimal.RequireFromString("100.00"),
+		TaxTotal:       decimal.Zero,
+		BalanceDue:     decimal.RequireFromString("100.00"),
+		BalanceDueBase: decimal.RequireFromString("100.00"),
+	}
+	if err := db.Create(&invoice).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	jeID, err := RecordReceivePayment(db, ReceivePaymentInput{
+		CompanyID:     companyID,
+		CustomerID:    customer.ID,
+		EntryDate:     time.Date(2026, 4, 2, 0, 0, 0, 0, time.UTC),
+		BankAccountID: bankID,
+		PaymentMethod: models.PaymentMethodCheck,
+		ARAccountID:   arID,
+		Allocations: []InvoiceAllocation{{
+			InvoiceID: invoice.ID,
+			Amount:    decimal.RequireFromString("60.00"),
+		}},
+		Memo: "Cheque 1007",
+	})
+	if err != nil {
+		t.Fatalf("RecordReceivePayment failed: %v", err)
+	}
+
+	var receipt models.PaymentReceipt
+	if err := db.Where("journal_entry_id = ?", jeID).First(&receipt).Error; err != nil {
+		t.Fatalf("load receipt: %v", err)
+	}
+	if receipt.PaymentMethod != models.PaymentMethodCheck {
+		t.Fatalf("payment method: want %s got %s", models.PaymentMethodCheck, receipt.PaymentMethod)
+	}
+	if receipt.InvoiceID == nil || *receipt.InvoiceID != invoice.ID {
+		t.Fatalf("invoice linkage not saved correctly: %#v", receipt.InvoiceID)
+	}
+	if !receipt.AmountBase.Equal(decimal.RequireFromString("60.00")) {
+		t.Fatalf("amount base: want 60.00 got %s", receipt.AmountBase)
 	}
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 	"gobooks/internal/models"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
@@ -58,25 +59,15 @@ func (s *Server) handleInvoiceSend(c *fiber.Ctx) error {
 	return redirectTo(c, fmt.Sprintf("/invoices/%d?sent=1", invoiceID))
 }
 
-// handleInvoiceMarkPaid transitions an invoice to paid.
+// handleInvoiceMarkPaid is kept for backward compatibility and now redirects
+// users into the real Receive Payment flow instead of directly mutating status.
 // POST /invoices/:id/mark-paid
 func (s *Server) handleInvoiceMarkPaid(c *fiber.Ctx) error {
-	companyID, ok := ActiveCompanyIDFromCtx(c)
-	if !ok {
-		return redirectErr(c, "/invoices", "company context required")
-	}
-
 	invoiceID, err := parseInvoiceID(c)
 	if err != nil {
 		return redirectErr(c, "/invoices", "invalid invoice ID")
 	}
-
-	_, err = services.MarkInvoicePaid(s.DB, companyID, invoiceID)
-	if err != nil {
-		return redirectErr(c, fmt.Sprintf("/invoices/%d", invoiceID), "Could not mark invoice as paid.")
-	}
-
-	return redirectTo(c, fmt.Sprintf("/invoices/%d?paid=1", invoiceID))
+	return redirectTo(c, fmt.Sprintf("/invoices/%d/receive-payment", invoiceID))
 }
 
 // handleInvoiceVoid voids an invoice and creates a reversal JE.
@@ -230,13 +221,18 @@ func (s *Server) handleInvoiceReceivePaymentForm(c *fiber.Ctx) error {
 		return redirectErr(c, fmt.Sprintf("/invoices/%d", invoiceID), "invoice is not open for payment")
 	}
 
-	accounts, _ := s.activeAccountsForCompany(companyID)
+	bankAccounts, _ := s.bankAccountsForCompany(companyID)
+	amount := inv.BalanceDue
+	if !amount.IsPositive() {
+		amount = inv.Amount
+	}
 
 	vm := pages.InvoiceReceivePaymentVM{
-		HasCompany: true,
-		Invoice:    inv,
-		Accounts:   accounts,
-		EntryDate:  time.Now().Format("2006-01-02"),
+		HasCompany:   true,
+		Invoice:      inv,
+		BankAccounts: bankAccounts,
+		EntryDate:    time.Now().Format("2006-01-02"),
+		Amount:       amount.StringFixed(2),
 	}
 	return pages.InvoiceReceivePayment(vm).Render(c.Context(), c)
 }
@@ -265,20 +261,22 @@ func (s *Server) handleInvoiceReceivePaymentSubmit(c *fiber.Ctx) error {
 		return redirectErr(c, "/invoices", "invoice not found")
 	}
 
-	accounts, _ := s.activeAccountsForCompany(companyID)
+	bankAccounts, _ := s.bankAccountsForCompany(companyID)
 
 	entryDateRaw := strings.TrimSpace(c.FormValue("entry_date"))
+	paymentMethodRaw := strings.TrimSpace(c.FormValue("payment_method"))
 	bankIDRaw := strings.TrimSpace(c.FormValue("bank_account_id"))
-	arIDRaw := strings.TrimSpace(c.FormValue("ar_account_id"))
+	amountRaw := strings.TrimSpace(c.FormValue("amount"))
 	memo := strings.TrimSpace(c.FormValue("memo"))
 
 	vm := pages.InvoiceReceivePaymentVM{
 		HasCompany:    true,
 		Invoice:       inv,
-		Accounts:      accounts,
+		BankAccounts:  bankAccounts,
+		PaymentMethod: paymentMethodRaw,
 		EntryDate:     entryDateRaw,
 		BankAccountID: bankIDRaw,
-		ARAccountID:   arIDRaw,
+		Amount:        amountRaw,
 		Memo:          memo,
 	}
 
@@ -286,25 +284,26 @@ func (s *Server) handleInvoiceReceivePaymentSubmit(c *fiber.Ctx) error {
 	if err != nil {
 		vm.DateError = "Payment date is required."
 	}
+	paymentMethod, err := models.ParsePaymentMethod(paymentMethodRaw)
+	if err != nil || !models.IsManualPaymentMethod(paymentMethod) {
+		vm.PaymentMethodError = "Payment method is required."
+	}
 
 	bankU64, err := services.ParseUint(bankIDRaw)
 	if err != nil || bankU64 == 0 {
 		vm.BankError = "Bank account is required."
 	}
-
-	arU64, err := services.ParseUint(arIDRaw)
-	if err != nil || arU64 == 0 {
-		vm.ARError = "Accounts Receivable account is required."
+	amount, err := services.ParseDecimalMoney(amountRaw)
+	if err != nil || amount.LessThanOrEqual(decimal.Zero) {
+		vm.AmountError = "Amount must be greater than 0."
+	}
+	arID, arErr := s.defaultARAccountID(companyID)
+	if arErr != nil {
+		vm.ARError = "No Accounts Receivable account found. Please add one to your Chart of Accounts."
 	}
 
-	if vm.DateError != "" || vm.BankError != "" || vm.ARError != "" {
+	if vm.DateError != "" || vm.PaymentMethodError != "" || vm.BankError != "" || vm.ARError != "" || vm.AmountError != "" {
 		return pages.InvoiceReceivePayment(vm).Render(c.Context(), c)
-	}
-
-	// Determine the amount from the invoice balance.
-	amount := inv.BalanceDue
-	if !amount.IsPositive() {
-		amount = inv.Amount
 	}
 
 	var jeID uint
@@ -315,10 +314,13 @@ func (s *Server) handleInvoiceReceivePaymentSubmit(c *fiber.Ctx) error {
 			CustomerID:    inv.CustomerID,
 			EntryDate:     entryDate,
 			BankAccountID: uint(bankU64),
-			ARAccountID:   uint(arU64),
-			InvoiceID:     &invoiceID,
-			Amount:        amount,
-			Memo:          memo,
+			PaymentMethod: paymentMethod,
+			ARAccountID:   arID,
+			Allocations: []services.InvoiceAllocation{{
+				InvoiceID: invoiceID,
+				Amount:    amount,
+			}},
+			Memo: memo,
 		})
 		return txErr
 	}); err != nil {
@@ -333,14 +335,15 @@ func (s *Server) handleInvoiceReceivePaymentSubmit(c *fiber.Ctx) error {
 	cid := companyID
 	uid := user.ID
 	services.TryWriteAuditLogWithContext(s.DB, "payment.received", "journal_entry", jeID, actor, map[string]any{
-		"invoice_id":  invoiceID,
-		"customer_id": inv.CustomerID,
-		"amount":      amount.StringFixed(2),
-		"entry_date":  entryDateRaw,
-		"company_id":  companyID,
+		"invoice_id":     invoiceID,
+		"customer_id":    inv.CustomerID,
+		"amount":         amount.StringFixed(2),
+		"payment_method": string(paymentMethod),
+		"entry_date":     entryDateRaw,
+		"company_id":     companyID,
 	}, &cid, &uid)
 
-	return redirectTo(c, fmt.Sprintf("/invoices/%d?paid=1", invoiceID))
+	return redirectTo(c, fmt.Sprintf("/invoices/%d?received=1", invoiceID))
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
