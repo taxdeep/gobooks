@@ -33,12 +33,10 @@ type PaymentTransactionsVM struct {
 	Accounts     []models.PaymentGatewayAccount
 	Created      bool
 	JustPosted   bool
-	// Blockers maps txn_id → blocker reason (empty = postable).
-	Blockers       map[uint]string
-	// AppBlockers maps txn_id → application blocker reason (empty = applicable).
-	AppBlockers       map[uint]string
-	RefundBlockers    map[uint]string
-	UnapplyBlockers   map[uint]string
+
+	// TxnStates maps txn_id → unified action state (accounting + application + actions).
+	TxnStates map[uint]services.PaymentActionState
+
 	JustApplied       bool
 	JustRefundApplied bool
 	JustUnapplied     bool

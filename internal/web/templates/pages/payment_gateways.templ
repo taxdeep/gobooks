@@ -312,30 +312,32 @@ templ bodyPaymentTransactions(vm PaymentTransactionsVM) {
 								</td>
 								<td class="py-3 pr-4 text-small font-mono text-text-muted2">{ t.ExternalTxnRef }</td>
 								<td class="py-3 pr-0 text-right whitespace-nowrap">
-									if t.PostedJournalEntryID == nil {
-										if blocker, ok := vm.Blockers[t.ID]; ok && blocker == "" {
-											<form method="post" action={ "/settings/payment-gateways/transactions/" + Uitoa(t.ID) + "/post" } class="inline">
-												<button type="submit" class="text-small font-medium text-primary hover:text-primary-hover" onclick="return confirm('Post?');">Post</button>
-											</form>
-										}
-									} else if t.AppliedInvoiceID != nil {
-										<span class="inline-block rounded px-2 py-0.5 text-[10px] font-medium bg-success-soft text-success-hover">Applied</span>
-										if ub, ok := vm.UnapplyBlockers[t.ID]; ok && ub == "" {
-											<form method="post" action={ "/settings/payment-gateways/transactions/" + Uitoa(t.ID) + "/unapply" } class="inline ml-1">
-												<button type="submit" class="text-[10px] text-text-muted3 hover:text-danger" onclick="return confirm('Unapply this payment?');">Unapply</button>
-											</form>
-										}
-									} else {
-										<span class="text-small text-text-muted2 mr-1">JE #{ Uitoa(*t.PostedJournalEntryID) }</span>
-										if appB, ok := vm.AppBlockers[t.ID]; ok && appB == "" {
-											<form method="post" action={ "/settings/payment-gateways/transactions/" + Uitoa(t.ID) + "/apply" } class="inline">
-												<button type="submit" class="text-small font-medium text-success-hover hover:underline" onclick="return confirm('Apply payment?');">Apply</button>
-											</form>
-										}
-										if refB, ok := vm.RefundBlockers[t.ID]; ok && refB == "" {
-											<form method="post" action={ "/settings/payment-gateways/transactions/" + Uitoa(t.ID) + "/apply-refund" } class="inline ml-1">
-												<button type="submit" class="text-small font-medium text-warning hover:underline" onclick="return confirm('Apply refund to invoice? This restores invoice balance.');">Apply Refund</button>
-											</form>
+									if st, ok := vm.TxnStates[t.ID]; ok {
+										if !st.IsPosted {
+											if st.CanPost {
+												<form method="post" action={ "/settings/payment-gateways/transactions/" + Uitoa(t.ID) + "/post" } class="inline">
+													<button type="submit" class="text-small font-medium text-primary hover:text-primary-hover" onclick="return confirm('Post?');">Post</button>
+												</form>
+											}
+										} else if st.IsApplied {
+											<span class="inline-block rounded px-2 py-0.5 text-[10px] font-medium bg-success-soft text-success-hover">Applied</span>
+											if st.CanUnapply {
+												<form method="post" action={ "/settings/payment-gateways/transactions/" + Uitoa(t.ID) + "/unapply" } class="inline ml-1">
+													<button type="submit" class="text-[10px] text-text-muted3 hover:text-danger" onclick="return confirm('Unapply?');">Unapply</button>
+												</form>
+											}
+										} else {
+											<span class="text-small text-text-muted2 mr-1">JE #{ Uitoa(st.PostedJEID) }</span>
+											if st.CanApply {
+												<form method="post" action={ "/settings/payment-gateways/transactions/" + Uitoa(t.ID) + "/apply" } class="inline">
+													<button type="submit" class="text-small font-medium text-success-hover hover:underline" onclick="return confirm('Apply?');">Apply</button>
+												</form>
+											}
+											if st.CanRefundApply {
+												<form method="post" action={ "/settings/payment-gateways/transactions/" + Uitoa(t.ID) + "/apply-refund" } class="inline ml-1">
+													<button type="submit" class="text-small font-medium text-warning hover:underline" onclick="return confirm('Apply refund?');">Refund Apply</button>
+												</form>
+											}
 										}
 									}
 								</td>

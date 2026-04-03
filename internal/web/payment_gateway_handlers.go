@@ -142,22 +142,15 @@ func (s *Server) handlePaymentTransactions(c *fiber.Ctx) error {
 	txns, _ := services.ListPaymentTransactions(s.DB, companyID, 50)
 	accounts, _ := services.ListGatewayAccounts(s.DB, companyID)
 
-	blockers := make(map[uint]string)
-	appBlockers := make(map[uint]string)
-	refundBlockers := make(map[uint]string)
-	unapplyBlockers := make(map[uint]string)
+	txnStates := make(map[uint]services.PaymentActionState)
 	for _, t := range txns {
-		blockers[t.ID] = services.PaymentPostBlocker(s.DB, companyID, t.ID)
-		appBlockers[t.ID] = services.ApplicationBlocker(s.DB, companyID, t.ID)
-		refundBlockers[t.ID] = services.RefundApplicationBlocker(s.DB, companyID, t.ID)
-		unapplyBlockers[t.ID] = services.UnapplyBlocker(s.DB, companyID, t.ID)
+		txnStates[t.ID] = services.ComputePaymentActionState(s.DB, companyID, t)
 	}
 
 	vm := pages.PaymentTransactionsVM{
 		HasCompany: true, Transactions: txns, Accounts: accounts,
 		Created: c.Query("created") == "1", JustPosted: c.Query("posted") == "1",
-		Blockers: blockers, AppBlockers: appBlockers, RefundBlockers: refundBlockers,
-		UnapplyBlockers: unapplyBlockers,
+		TxnStates: txnStates,
 		JustApplied: c.Query("applied") == "1", JustRefundApplied: c.Query("refundapplied") == "1",
 		JustUnapplied: c.Query("unapplied") == "1",
 	}

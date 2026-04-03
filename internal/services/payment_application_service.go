@@ -27,7 +27,14 @@ package services
 // Refund note:
 //   Refund transactions are payment-side refund accounting (Dr Refund, Cr GW Clearing).
 //   They are NOT equivalent to credit notes or invoice/revenue reversal.
-//   Refund application to invoice is a future feature.
+//
+// Status revert strategy (simplified):
+//   When a full refund or full unapply restores BalanceDue to invoice.Amount,
+//   the invoice reverts to InvoiceStatusIssued regardless of its previous
+//   pre-payment state (sent, overdue, etc.). This is an intentional simplification:
+//   the original pre-payment status (sent/overdue) is not tracked as a separate
+//   "restore target." Future enhancement: store the pre-payment status on the
+//   invoice (e.g. StatusBeforePayment) so revert can restore the exact prior state.
 
 import (
 	"errors"
@@ -45,6 +52,59 @@ var (
 	ErrRefundExceedsTotal       = errors.New("refund would restore balance beyond invoice total")
 	ErrChannelInvoiceBlocked    = errors.New("channel-origin invoices cannot receive payment gateway application in this round")
 )
+
+// ── Unified payment action state ──────────────────────────────────────────────
+
+// PaymentActionState summarizes the three independent state dimensions of a
+// payment transaction for UI rendering. Computed once per transaction in the
+// handler and passed to the template via the VM.
+type PaymentActionState struct {
+	// Accounting: posted or not.
+	IsPosted bool
+	PostedJEID uint
+
+	// Invoice application: applied or not.
+	IsApplied bool
+
+	// Action availability.
+	CanPost         bool
+	PostBlocker     string
+	CanApply        bool
+	ApplyBlocker    string
+	CanRefundApply  bool
+	RefundBlocker   string
+	CanUnapply      bool
+	UnapplyBlocker  string
+}
+
+// ComputePaymentActionState produces a unified state for one transaction.
+func ComputePaymentActionState(db *gorm.DB, companyID uint, txn models.PaymentTransaction) PaymentActionState {
+	s := PaymentActionState{
+		IsPosted:   txn.PostedJournalEntryID != nil,
+		IsApplied:  txn.AppliedInvoiceID != nil,
+	}
+	if txn.PostedJournalEntryID != nil {
+		s.PostedJEID = *txn.PostedJournalEntryID
+	}
+
+	postErr := ValidatePaymentTransactionPostable(db, companyID, txn.ID)
+	s.CanPost = postErr == nil
+	if postErr != nil { s.PostBlocker = postErr.Error() }
+
+	applyErr := ValidatePaymentTransactionApplicable(db, companyID, txn.ID)
+	s.CanApply = applyErr == nil
+	if applyErr != nil { s.ApplyBlocker = applyErr.Error() }
+
+	refundErr := ValidateRefundTransactionApplicable(db, companyID, txn.ID)
+	s.CanRefundApply = refundErr == nil
+	if refundErr != nil { s.RefundBlocker = refundErr.Error() }
+
+	unapplyErr := ValidatePaymentTransactionUnapplicable(db, companyID, txn.ID)
+	s.CanUnapply = unapplyErr == nil
+	if unapplyErr != nil { s.UnapplyBlocker = unapplyErr.Error() }
+
+	return s
+}
 
 // applicableTransactionTypes are the types that can be applied to invoices.
 var applicableTransactionTypes = map[models.PaymentTransactionType]bool{
