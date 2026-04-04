@@ -111,6 +111,59 @@ func LatestActiveReconciliation(db *gorm.DB, companyID, accountID uint) (*models
 	return &rec, nil
 }
 
+// ReconcileDraftResult is a lightweight view of a draft used by the handler
+// to restore UI state without exposing the full model.
+type ReconcileDraftResult struct {
+	SelectedLineIDs string // JSON array of line ID strings
+}
+
+// ── Reconciliation draft (save-progress) ─────────────────────────────────────
+
+// UpsertReconcileDraft saves or overwrites the in-progress reconcile state for
+// a (company, account) pair. One draft per pair is enforced by the unique index.
+func UpsertReconcileDraft(db *gorm.DB, companyID, accountID uint, statementDate, endingBalance, selectedLineIDsJSON string) error {
+	eb, _ := decimal.NewFromString(endingBalance)
+	var existing models.ReconciliationDraft
+	err := db.Where("company_id = ? AND account_id = ?", companyID, accountID).First(&existing).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return db.Create(&models.ReconciliationDraft{
+			CompanyID:       companyID,
+			AccountID:       accountID,
+			StatementDate:   statementDate,
+			EndingBalance:   eb,
+			SelectedLineIDs: selectedLineIDsJSON,
+		}).Error
+	}
+	if err != nil {
+		return err
+	}
+	return db.Model(&existing).Updates(map[string]any{
+		"statement_date":    statementDate,
+		"ending_balance":    eb,
+		"selected_line_ids": selectedLineIDsJSON,
+	}).Error
+}
+
+// GetReconcileDraft returns the in-progress draft for the account, or nil if none.
+func GetReconcileDraft(db *gorm.DB, companyID, accountID uint) (*models.ReconciliationDraft, error) {
+	var d models.ReconciliationDraft
+	err := db.Where("company_id = ? AND account_id = ?", companyID, accountID).First(&d).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &d, nil
+}
+
+// DeleteReconcileDraft removes the draft after a successful reconciliation finish.
+// Best-effort: callers should not fail the main flow if this errors.
+func DeleteReconcileDraft(db *gorm.DB, companyID, accountID uint) error {
+	return db.Where("company_id = ? AND account_id = ?", companyID, accountID).
+		Delete(&models.ReconciliationDraft{}).Error
+}
+
 // VoidReconciliation voids the given reconciliation inside a transaction.
 // Only the latest active reconciliation for an account may be voided.
 // All journal lines linked to it are unreconciled (reconciliation_id = NULL).

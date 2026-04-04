@@ -140,6 +140,8 @@ func Migrate(db *gorm.DB) error {
 		&models.ChannelSettlement{},
 		&models.ChannelSettlementLine{},
 		&models.ChannelAccountingMapping{},
+		// Bank reconciliation draft (in-progress session persistence)
+		&models.ReconciliationDraft{},
 		// Payment Gateway foundation
 		&models.PaymentGatewayAccount{},
 		&models.PaymentAccountingMapping{},

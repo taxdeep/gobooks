@@ -62,6 +62,93 @@ func seedAccountWithBalance(t *testing.T, db *gorm.DB, companyID uint, code, nam
 	return acc.ID
 }
 
+// ── Primitive layer tests ─────────────────────────────────────────────────────
+
+func TestAccountBalances_PeriodFilter(t *testing.T) {
+	db := testReportsDB(t)
+	// Two entries for company 1: one in-range, one after range.
+	acc := models.Account{CompanyID: 1, Code: "1000", Name: "Cash", RootAccountType: models.RootAsset, DetailAccountType: models.DetailBank, IsActive: true}
+	db.Create(&acc)
+	inRange := models.JournalEntry{CompanyID: 1, EntryDate: time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC), JournalNo: "JE-IN", Status: models.JournalEntryStatusPosted}
+	db.Create(&inRange)
+	db.Create(&models.JournalLine{CompanyID: 1, JournalEntryID: inRange.ID, AccountID: acc.ID, Debit: decimal.RequireFromString("100.00")})
+	outRange := models.JournalEntry{CompanyID: 1, EntryDate: time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC), JournalNo: "JE-OUT", Status: models.JournalEntryStatusPosted}
+	db.Create(&outRange)
+	db.Create(&models.JournalLine{CompanyID: 1, JournalEntryID: outRange.ID, AccountID: acc.ID, Debit: decimal.RequireFromString("50.00")})
+
+	rows, err := accountBalances(db, AccountBalanceFilter{
+		CompanyID: 1,
+		FromDate:  time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+		ToDate:    time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(rows))
+	}
+	if !rows[0].Debit.Equal(decimal.RequireFromString("100.00")) {
+		t.Fatalf("period filter: want debit 100.00, got %s", rows[0].Debit)
+	}
+}
+
+func TestAccountBalances_CumulativeNoFromDate(t *testing.T) {
+	db := testReportsDB(t)
+	acc := models.Account{CompanyID: 1, Code: "2000", Name: "Payable", RootAccountType: models.RootLiability, DetailAccountType: models.DetailAccountsPayable, IsActive: true}
+	db.Create(&acc)
+	// Two entries at different dates — both should be included with no FromDate.
+	for i, d := range []int{1, 15} {
+		je := models.JournalEntry{CompanyID: 1, EntryDate: time.Date(2026, 3, d, 0, 0, 0, 0, time.UTC), JournalNo: "JE-CUM-" + fmt.Sprint(i), Status: models.JournalEntryStatusPosted}
+		db.Create(&je)
+		db.Create(&models.JournalLine{CompanyID: 1, JournalEntryID: je.ID, AccountID: acc.ID, Credit: decimal.RequireFromString("50.00")})
+	}
+
+	rows, err := accountBalances(db, AccountBalanceFilter{
+		CompanyID: 1,
+		ToDate:    time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC),
+		RootTypes: []models.RootAccountType{models.RootLiability},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(rows))
+	}
+	if !rows[0].Credit.Equal(decimal.RequireFromString("100.00")) {
+		t.Fatalf("cumulative: want credit 100.00, got %s", rows[0].Credit)
+	}
+}
+
+func TestNormalBalance(t *testing.T) {
+	d := decimal.RequireFromString("100.00")
+	z := decimal.Zero
+
+	tests := []struct {
+		root   models.RootAccountType
+		debit  decimal.Decimal
+		credit decimal.Decimal
+		want   string
+	}{
+		{models.RootAsset, d, z, "100.00"},        // debit-normal: debit excess is positive
+		{models.RootExpense, d, z, "100.00"},       // debit-normal
+		{models.RootCostOfSales, d, z, "100.00"},   // debit-normal
+		{models.RootLiability, z, d, "100.00"},     // credit-normal: credit excess is positive
+		{models.RootRevenue, z, d, "100.00"},       // credit-normal
+		{models.RootEquity, z, d, "100.00"},        // credit-normal
+		{models.RootAsset, z, d, "-100.00"},        // abnormal balance
+		{models.RootLiability, d, z, "-100.00"},    // abnormal balance
+	}
+
+	for _, tc := range tests {
+		got := normalBalance(tc.root, tc.debit, tc.credit)
+		if got.StringFixed(2) != tc.want {
+			t.Errorf("normalBalance(%s, %s, %s) = %s, want %s", tc.root, tc.debit, tc.credit, got, tc.want)
+		}
+	}
+}
+
+// ── Report-level tests ────────────────────────────────────────────────────────
+
 func TestTrialBalance_filtersByCompany(t *testing.T) {
 	db := testReportsDB(t)
 	seedAccountWithBalance(t, db, 1, "1000", "Cash A", models.RootAsset, models.DetailBank, "100.00", "0.00")

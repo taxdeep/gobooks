@@ -67,6 +67,7 @@ func (s *Server) handleBankReconcileForm(c *fiber.Ctx) error {
 		Saved:               c.Query("saved") == "1",
 		Voided:              c.Query("voided") == "1",
 		AutoMatchRan:        c.Query("auto_match") == "1",
+		ProgressSaved:       c.Query("progress_saved") == "1",
 		FormError:           formError,
 		BeginningBalance:    "0.00",
 		PreviouslyCleared:   "0.00",
@@ -90,6 +91,24 @@ func (s *Server) handleBankReconcileForm(c *fiber.Ctx) error {
 	if err := s.DB.Where("id = ? AND company_id = ?", accountID, companyID).First(&accRow).Error; err != nil {
 		vm.FormError = "Invalid account selected."
 		return pages.BankReconcile(vm).Render(c.Context(), c)
+	}
+
+	// Load draft: if no explicit statement_date/ending_balance in URL, restore from draft.
+	// Selected IDs from the draft are applied after accepted suggestion IDs are loaded,
+	// so draft state (most recent user intent) takes priority.
+	var reconcileDraft *services.ReconcileDraftResult
+	if statementDateStr == "" || endingBalanceStr == "" {
+		if draft, _ := services.GetReconcileDraft(s.DB, companyID, accountID); draft != nil {
+			if statementDateStr == "" {
+				statementDateStr = draft.StatementDate
+				vm.StatementDate = statementDateStr
+			}
+			if endingBalanceStr == "" {
+				endingBalanceStr = draft.EndingBalance.StringFixed(2)
+				vm.EndingBalance = endingBalanceStr
+			}
+			reconcileDraft = &services.ReconcileDraftResult{SelectedLineIDs: draft.SelectedLineIDs}
+		}
 	}
 
 	if statementDateStr == "" {
@@ -157,7 +176,45 @@ func (s *Server) handleBankReconcileForm(c *fiber.Ctx) error {
 		vm.AcceptedLineIDsJSON = string(b)
 	}
 
+	// Draft selected IDs override accepted suggestion IDs — the draft captures the
+	// user's most recent check state and already includes any suggestion-driven selections.
+	if reconcileDraft != nil && reconcileDraft.SelectedLineIDs != "" && reconcileDraft.SelectedLineIDs != "[]" {
+		vm.AcceptedLineIDsJSON = reconcileDraft.SelectedLineIDs
+	}
+
 	return pages.BankReconcile(vm).Render(c.Context(), c)
+}
+
+func (s *Server) handleBankReconcileSaveProgress(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/select-company", fiber.StatusSeeOther)
+	}
+
+	accountIDStr := strings.TrimSpace(c.FormValue("account_id"))
+	statementDateStr := strings.TrimSpace(c.FormValue("statement_date"))
+	endingBalanceStr := strings.TrimSpace(c.FormValue("ending_balance"))
+
+	accountIDU64, err := services.ParseUint(accountIDStr)
+	if err != nil || accountIDU64 == 0 {
+		return c.Redirect("/banking/reconcile", fiber.StatusSeeOther)
+	}
+	accountID := uint(accountIDU64)
+
+	lineIDBytes := c.Context().PostArgs().PeekMulti("line_ids")
+	selectedIDs := make([]string, 0, len(lineIDBytes))
+	for _, b := range lineIDBytes {
+		selectedIDs = append(selectedIDs, string(b))
+	}
+	lineIDsJSON := "[]"
+	if len(selectedIDs) > 0 {
+		b, _ := json.Marshal(selectedIDs)
+		lineIDsJSON = string(b)
+	}
+
+	_ = services.UpsertReconcileDraft(s.DB, companyID, accountID, statementDateStr, endingBalanceStr, lineIDsJSON)
+
+	return c.Redirect("/banking/reconcile?account_id="+accountIDStr+"&statement_date="+statementDateStr+"&ending_balance="+endingBalanceStr+"&progress_saved=1", fiber.StatusSeeOther)
 }
 
 func (s *Server) handleBankReconcileSubmit(c *fiber.Ctx) error {
@@ -284,6 +341,9 @@ WHERE jl.id IN ?
 	// Link accepted suggestions to the completed reconciliation for cross-reference.
 	// Best-effort: a failure here does not roll back the reconciliation itself.
 	_ = services.LinkSuggestionsToReconciliation(s.DB, companyID, accountID, savedRecID)
+
+	// Clear any in-progress draft — reconciliation is now complete.
+	_ = services.DeleteReconcileDraft(s.DB, companyID, accountID)
 
 	actor := user.Email
 	if actor == "" {

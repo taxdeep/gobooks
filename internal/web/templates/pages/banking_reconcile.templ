@@ -43,6 +43,11 @@ templ bodyBankReconcile(vm BankReconcileVM) {
 				Auto-match complete — { Itoa(vm.SuggestionCount) } suggestion(s) generated. Review them below and accept or reject each one.
 			</div>
 		}
+		if vm.ProgressSaved {
+			<div class="mt-4 rounded-md border border-border bg-background p-4 text-body text-text-muted2">
+				Progress saved. You can close this page and resume anytime by selecting the same account.
+			</div>
+		}
 		if vm.FormError != "" {
 			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">
 				{ vm.FormError }
@@ -328,6 +333,20 @@ templ bodyBankReconcile(vm BankReconcileVM) {
 								Edit Info
 							</a>
 
+							<!-- Save progress -->
+							<form method="post" action="/banking/reconcile/save-progress" @submit="beforeSave($event)">
+								<input type="hidden" name="account_id" value={ vm.AccountID }/>
+								<input type="hidden" name="statement_date" value={ vm.StatementDate }/>
+								<input type="hidden" name="ending_balance" value={ vm.EndingBalance }/>
+								<template x-for="id in selected" :key="id">
+									<input type="hidden" name="line_ids" :value="id"/>
+								</template>
+								<button type="submit"
+									class="rounded-md border border-border px-4 py-2 text-body font-semibold text-text hover:bg-background">
+									Save
+								</button>
+							</form>
+
 							<form method="post" action="/banking/reconcile" @submit="beforeSubmit($event)">
 								<input type="hidden" name="account_id" value={ vm.AccountID }/>
 								<input type="hidden" name="statement_date" value={ vm.StatementDate }/>
@@ -516,6 +535,10 @@ templ bodyBankReconcile(vm BankReconcileVM) {
 					this.voidReason = "";
 					this.voidSubmitted = false;
 					this.showVoidModal = true;
+				},
+
+				beforeSave(_e) {
+					// Save is always allowed regardless of difference — no validation needed.
 				},
 
 				beforeSubmit(e) {

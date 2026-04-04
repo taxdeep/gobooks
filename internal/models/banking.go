@@ -8,6 +8,24 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+// ReconciliationDraft persists in-progress reconciliation state so users can
+// resume a session after navigating away. At most one draft per (company, account).
+// The draft is deleted when the reconciliation is finished (Finish Now).
+type ReconciliationDraft struct {
+	ID uint `gorm:"primaryKey"`
+
+	CompanyID uint `gorm:"not null;uniqueIndex:uq_recon_draft_co_acct"`
+	AccountID uint `gorm:"not null;uniqueIndex:uq_recon_draft_co_acct"`
+
+	StatementDate  string          `gorm:"type:text;not null;default:''"`
+	EndingBalance  decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
+	// SelectedLineIDs is a JSON array of journal_line IDs the user had checked.
+	SelectedLineIDs string `gorm:"type:text;not null;default:'[]'"`
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 // Reconciliation represents a bank reconciliation session for one account.
 //
 // For MVP we reconcile against a GL account (usually an Asset account like "Bank").
