@@ -1,0 +1,289 @@
+// 遵循project_guide.md
+package pages
+
+// ReportToolbar renders the unified report toolbar used by all financial
+// statement pages. It is an Alpine.js component that:
+//   - drives period preset selection (Last Month / YTD / Last Fiscal Year / Custom)
+//   - auto-fills From/To (or As Of) from the selected preset client-side
+//   - switches back to "Custom" when the user edits dates manually
+//   - provides Print and Export CSV actions
+//   - emits a print-only header with company name, report title, and period
+//
+// Initial state is seeded via data-* attributes; the Alpine component reads them
+// in x-init so that template values are never embedded in JS strings.
+templ ReportToolbar(vm ReportToolbarVM) {
+	<div
+		class="report-toolbar-root"
+		x-data="reportToolbar()"
+		x-init="init($el)"
+		data-preset={ vm.Preset }
+		data-from={ vm.From }
+		data-to={ vm.To }
+		data-as-of={ vm.AsOf }
+		data-fy-end={ vm.FiscalYearEnd }
+		data-mode={ vm.Mode }
+		data-csv-base={ vm.CSVExportURL }
+	>
+		<!-- Print-only header (hidden in browser, shown when printing) -->
+		<div class="report-print-header">
+			<p class="report-print-company">{ vm.CompanyName }</p>
+			<p class="report-print-title">{ vm.ReportTitle }</p>
+			<p class="report-print-period" x-text="printPeriodLabel()"></p>
+		</div>
+
+		<!-- Toolbar (visible in browser, hidden when printing) -->
+		<form method="get" action={ templ.SafeURL(vm.FormAction) } class="report-toolbar-form mt-4 rounded-lg border border-border bg-surface px-5 py-4">
+			<!-- Period preset is submitted so the server can echo it back -->
+			<input type="hidden" name="period" :value="preset"/>
+
+			<div class="flex flex-wrap items-end gap-3">
+				<!-- Report Period selector -->
+				<div>
+					<label class="block text-small font-medium text-text-muted">Report Period</label>
+					<select
+						x-model="preset"
+						@change="onPresetChange()"
+						class="mt-1 rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
+					>
+						<option value="last_month">Last Month</option>
+						<option value="year_to_date">Year to Date</option>
+						<option value="last_fiscal_year">Last Fiscal Year</option>
+						<option value="custom">Custom</option>
+					</select>
+				</div>
+
+				if vm.Mode == "asof" {
+					<!-- Balance Sheet: single As Of date -->
+					<div>
+						<label class="block text-small font-medium text-text-muted">As of</label>
+						<input
+							type="date"
+							name="as_of"
+							x-model="asOf"
+							@change="onAsOfChange()"
+							class="mt-1 rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+						/>
+					</div>
+				} else {
+					<!-- Period reports: From + To -->
+					<div>
+						<label class="block text-small font-medium text-text-muted">From</label>
+						<input
+							type="date"
+							name="from"
+							x-model="from"
+							@change="onFromToChange()"
+							class="mt-1 rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+						/>
+					</div>
+					<div>
+						<label class="block text-small font-medium text-text-muted">To</label>
+						<input
+							type="date"
+							name="to"
+							x-model="to"
+							@change="onFromToChange()"
+							class="mt-1 rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+						/>
+					</div>
+				}
+
+				<!-- Run Report -->
+				<div>
+					<button
+						type="submit"
+						class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+					>
+						Run Report
+					</button>
+				</div>
+
+				<!-- Secondary actions: Print + Export CSV -->
+				<div class="ml-auto flex items-center gap-2">
+					<button
+						type="button"
+						@click="window.print()"
+						class="rounded-md border border-border px-3 py-2 text-body font-semibold text-text hover:bg-background"
+					>
+						Print
+					</button>
+					if vm.CSVExportURL != "" {
+						<a
+							:href="csvHref()"
+							class="rounded-md border border-border px-3 py-2 text-body font-semibold text-text hover:bg-background"
+						>
+							Export CSV
+						</a>
+					}
+				</div>
+			</div>
+		</form>
+	</div>
+
+	<style>
+		/* ── Print styles for report pages ───────────────────────────────────────── */
+		@media print {
+			/* Hide chrome: top nav, sidebar, footer, toolbar form, report nav tabs */
+			header, footer,
+			.report-toolbar-form,
+			.report-nav-tabs {
+				display: none !important;
+			}
+			/* Hide desktop sidebar wrapper (layout.templ: <div class="hidden md:block"> wrapping Sidebar) */
+			.sidebar-wrapper {
+				display: none !important;
+			}
+			/* Show print-only header */
+			.report-print-header {
+				display: block !important;
+				margin-bottom: 1.5rem;
+				border-bottom: 1px solid #e5e7eb;
+				padding-bottom: 0.75rem;
+			}
+			.report-print-company {
+				font-size: 1.125rem;
+				font-weight: 700;
+			}
+			.report-print-title {
+				font-size: 1rem;
+				font-weight: 600;
+				margin-top: 0.25rem;
+			}
+			.report-print-period {
+				font-size: 0.875rem;
+				color: #6b7280;
+				margin-top: 0.25rem;
+			}
+			/* Remove card borders/shadows in print */
+			.rounded-lg { border-radius: 0 !important; }
+			body { background: white !important; }
+		}
+		/* ── Screen: print header is invisible ───────────────────────────────────── */
+		.report-print-header { display: none; }
+	</style>
+
+	<script>
+		function reportToolbar() {
+			return {
+				preset: 'last_month',
+				from: '',
+				to: '',
+				asOf: '',
+				fyEnd: '12-31',
+				mode: 'period',
+				csvBase: '',
+
+				init(el) {
+					this.preset  = el.dataset.preset  || 'last_month';
+					this.from    = el.dataset.from    || '';
+					this.to      = el.dataset.to      || '';
+					this.asOf    = el.dataset.asOf    || '';
+					this.fyEnd   = el.dataset.fyEnd   || '12-31';
+					this.mode    = el.dataset.mode    || 'period';
+					this.csvBase = el.dataset.csvBase || '';
+				},
+
+				// Called when the preset select changes.
+				onPresetChange() {
+					if (this.preset === 'custom') return;
+					const d = this.computeDates(this.preset);
+					this.from = d.from;
+					this.to   = d.to;
+					if (this.mode === 'asof') this.asOf = d.to;
+				},
+
+				// Called when From or To inputs change manually.
+				onFromToChange() {
+					this.preset = 'custom';
+					for (const p of ['last_month', 'year_to_date', 'last_fiscal_year']) {
+						const d = this.computeDates(p);
+						if (this.from === d.from && this.to === d.to) {
+							this.preset = p;
+							break;
+						}
+					}
+				},
+
+				// Called when As Of input changes manually.
+				onAsOfChange() {
+					this.preset = 'custom';
+					for (const p of ['last_month', 'year_to_date', 'last_fiscal_year']) {
+						const d = this.computeDates(p);
+						if (this.asOf === d.to) {
+							this.preset = p;
+							break;
+						}
+					}
+				},
+
+				// Compute From/To dates for a named preset.
+				computeDates(p) {
+					const today = new Date();
+					const fmt = dt => {
+						const y  = dt.getFullYear();
+						const m  = String(dt.getMonth() + 1).padStart(2, '0');
+						const d  = String(dt.getDate()).padStart(2, '0');
+						return `${y}-${m}-${d}`;
+					};
+
+					if (p === 'last_month') {
+						const firstThis = new Date(today.getFullYear(), today.getMonth(), 1);
+						const to = new Date(firstThis);
+						to.setDate(to.getDate() - 1);
+						const from = new Date(to.getFullYear(), to.getMonth(), 1);
+						return { from: fmt(from), to: fmt(to) };
+					}
+
+					if (p === 'year_to_date') {
+						const start = this.fyStart(today);
+						return { from: fmt(start), to: fmt(today) };
+					}
+
+					if (p === 'last_fiscal_year') {
+						const curStart = this.fyStart(today);
+						const lastEnd = new Date(curStart);
+						lastEnd.setDate(lastEnd.getDate() - 1);
+						const lastStart = this.fyStart(lastEnd);
+						return { from: fmt(lastStart), to: fmt(lastEnd) };
+					}
+
+					return { from: this.from, to: this.to };
+				},
+
+				// Return the first day of the fiscal year containing the given date.
+				fyStart(refDate) {
+					const parts = (this.fyEnd || '12-31').split('-');
+					const fyM   = parseInt(parts[0], 10) - 1; // 0-indexed
+					const fyD   = parseInt(parts[1], 10);
+					const fyEndThis = new Date(refDate.getFullYear(), fyM, fyD);
+					if (refDate <= fyEndThis) {
+						// Still inside current FY: started last year.
+						const fyEndPrev = new Date(refDate.getFullYear() - 1, fyM, fyD);
+						const start = new Date(fyEndPrev);
+						start.setDate(start.getDate() + 1);
+						return start;
+					}
+					// After this year's FY end: new FY started.
+					const start = new Date(fyEndThis);
+					start.setDate(start.getDate() + 1);
+					return start;
+				},
+
+				// Build the CSV export href with current date params.
+				csvHref() {
+					if (!this.csvBase) return '#';
+					return this.mode === 'asof'
+						? `${this.csvBase}?as_of=${this.asOf}`
+						: `${this.csvBase}?from=${this.from}&to=${this.to}`;
+				},
+
+				// Label shown in the print-only header.
+				printPeriodLabel() {
+					return this.mode === 'asof'
+						? `As of ${this.asOf}`
+						: `${this.from} to ${this.to}`;
+				},
+			};
+		}
+	</script>
+}

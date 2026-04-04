@@ -2,7 +2,7 @@
 package pages
 
 templ ReportsNav(active string) {
-	<div class="mt-4 flex flex-wrap gap-2">
+	<div class="report-nav-tabs mt-4 flex flex-wrap gap-2">
 		@reportTab("/reports/trial-balance", "Trial Balance", active == "trial")
 		@reportTab("/reports/income-statement", "Income Statement", active == "income")
 		@reportTab("/reports/balance-sheet", "Balance Sheet", active == "balance")

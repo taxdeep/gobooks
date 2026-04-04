@@ -15,10 +15,11 @@ templ IncomeStatement(vm IncomeStatementVM) {
 
 templ bodyIncomeStatement(vm IncomeStatementVM) {
 	<div class="max-w-[95%]">
-		<h1 class="text-title font-semibold">Reports</h1>
-		<p class="mt-2 text-text-muted2">Income Statement</p>
-
-		@ReportsNav(vm.ActiveTab)
+		<div class="report-nav-area">
+			<h1 class="text-title font-semibold">Reports</h1>
+			<p class="mt-2 text-text-muted2">Income Statement</p>
+			@ReportsNav(vm.ActiveTab)
+		</div>
 
 		if vm.FormError != "" {
 			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">
@@ -26,25 +27,7 @@ templ bodyIncomeStatement(vm IncomeStatementVM) {
 			</div>
 		}
 
-		<form method="get" action="/reports/income-statement" class="mt-6 rounded-lg border border-border bg-surface p-6">
-			<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
-				<div>
-					<label class="block text-body font-medium text-text">From</label>
-					<input type="date" name="from" value={ vm.From }
-						class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"/>
-				</div>
-				<div>
-					<label class="block text-body font-medium text-text">To</label>
-					<input type="date" name="to" value={ vm.To }
-						class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"/>
-				</div>
-				<div class="flex items-end justify-end">
-					<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
-						Run Report
-					</button>
-				</div>
-			</div>
-		</form>
+		@ReportToolbar(vm.Toolbar)
 
 		<div class="mt-6 space-y-6">
 			@incomeSection("Revenue", vm.Report.Revenue, Money(vm.Report.TotalRevenue))
@@ -98,4 +81,3 @@ templ incomeSection(title string, lines []services.IncomeStatementLine, total st
 		</div>
 	</div>
 }
-

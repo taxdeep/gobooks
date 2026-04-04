@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -18,6 +19,78 @@ func csvFilename(reportType string) string {
 func setCsvHeaders(c *fiber.Ctx, filename string) {
 	c.Set("Content-Type", "text/csv; charset=utf-8")
 	c.Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+}
+
+// ── Financial statement CSV exports ──────────────────────────────────────────
+
+func (s *Server) handleExportTrialBalanceCSV(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).SendString("company required")
+	}
+	fromDate, toDate, _, _, errMsg := parseReportRange(c.Query("from"), c.Query("to"))
+	if errMsg != "" {
+		return c.Status(fiber.StatusBadRequest).SendString(errMsg)
+	}
+	rows, totalDebits, totalCredits, err := services.TrialBalance(s.DB, companyID, fromDate, toDate)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("could not run report")
+	}
+	var buf bytes.Buffer
+	if err := services.ExportTrialBalanceCSV(fromDate, toDate, rows, totalDebits, totalCredits, &buf); err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
+	setCsvHeaders(c, csvFilename("trial_balance"))
+	_, err = c.Write(buf.Bytes())
+	return err
+}
+
+func (s *Server) handleExportIncomeStatementCSV(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).SendString("company required")
+	}
+	fromDate, toDate, _, _, errMsg := parseReportRange(c.Query("from"), c.Query("to"))
+	if errMsg != "" {
+		return c.Status(fiber.StatusBadRequest).SendString(errMsg)
+	}
+	report, err := services.IncomeStatementReport(s.DB, companyID, fromDate, toDate)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("could not run report")
+	}
+	var buf bytes.Buffer
+	if err := services.ExportIncomeStatementCSV(report, &buf); err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
+	setCsvHeaders(c, csvFilename("income_statement"))
+	_, err = c.Write(buf.Bytes())
+	return err
+}
+
+func (s *Server) handleExportBalanceSheetCSV(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).SendString("company required")
+	}
+	asOfStr := strings.TrimSpace(c.Query("as_of"))
+	if asOfStr == "" {
+		asOfStr = time.Now().Format("2006-01-02")
+	}
+	asOf, err := time.Parse("2006-01-02", asOfStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString("as_of must be a valid date")
+	}
+	report, err := services.BalanceSheetReport(s.DB, companyID, asOf)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("could not run report")
+	}
+	var buf bytes.Buffer
+	if err := services.ExportBalanceSheetCSV(report, &buf); err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
+	setCsvHeaders(c, csvFilename("balance_sheet"))
+	_, err = c.Write(buf.Bytes())
+	return err
 }
 
 // ── Clearing exports ─────────────────────────────────────────────────────────

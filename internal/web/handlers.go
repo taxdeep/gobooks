@@ -131,13 +131,99 @@ func (s *Server) handleSalesTaxReport(c *fiber.Ctx) error {
 	return pages.ReportsHub(hasCompany).Render(c.Context(), c)
 }
 
+// reportCompanyInfo holds the company fields needed by report handlers.
+type reportCompanyInfo struct {
+	Name          string
+	FiscalYearEnd string
+}
+
+// loadReportCompanyInfo loads the company name and fiscal year end for report use.
+// Returns safe defaults on DB error.
+func (s *Server) loadReportCompanyInfo(companyID uint) reportCompanyInfo {
+	var co models.Company
+	if err := s.DB.Select("id, name, fiscal_year_end").First(&co, companyID).Error; err != nil {
+		return reportCompanyInfo{FiscalYearEnd: "12-31"}
+	}
+	return reportCompanyInfo{Name: co.Name, FiscalYearEnd: co.FiscalYearEnd}
+}
+
+// resolvePeriodDates resolves the effective from/to date strings from a period
+// preset plus any explicitly supplied from/to values.
+//
+//   - If from/to are both present, they are used as-is (preset is just echoed).
+//   - If preset is non-custom and dates are missing, they are computed server-side.
+//   - If nothing is supplied (first page load), PresetLastMonth is the default.
+func resolvePeriodDates(presetRaw, fromRaw, toRaw, fyEnd string) (preset, from, to string) {
+	fromRaw = strings.TrimSpace(fromRaw)
+	toRaw = strings.TrimSpace(toRaw)
+	presetRaw = strings.TrimSpace(presetRaw)
+
+	// If explicit from+to supplied, use them; preset is carried through for display.
+	if fromRaw != "" && toRaw != "" {
+		if presetRaw == "" {
+			presetRaw = string(services.PresetCustom)
+		}
+		return presetRaw, fromRaw, toRaw
+	}
+
+	// Determine the preset to compute.
+	p := services.ReportPreset(presetRaw)
+	if p == "" || p == services.PresetCustom {
+		p = services.PresetLastMonth // first-load default
+	}
+	result := services.ComputeReportPeriod(p, fyEnd, time.Now())
+	if result.From.IsZero() {
+		return string(services.PresetCustom), fromRaw, toRaw
+	}
+	return string(p), result.From.Format("2006-01-02"), result.To.Format("2006-01-02")
+}
+
+// resolveAsOfDate resolves the effective as_of date from a period preset or
+// explicit value. For Balance Sheet, the preset's To date serves as "as of".
+func resolveAsOfDate(presetRaw, asOfRaw, fyEnd string) (preset, asOf string) {
+	asOfRaw = strings.TrimSpace(asOfRaw)
+	presetRaw = strings.TrimSpace(presetRaw)
+
+	if asOfRaw != "" {
+		if presetRaw == "" {
+			presetRaw = string(services.PresetCustom)
+		}
+		return presetRaw, asOfRaw
+	}
+
+	p := services.ReportPreset(presetRaw)
+	if p == "" || p == services.PresetCustom {
+		p = services.PresetLastMonth
+	}
+	result := services.ComputeReportPeriod(p, fyEnd, time.Now())
+	if result.To.IsZero() {
+		return string(services.PresetCustom), time.Now().Format("2006-01-02")
+	}
+	return string(p), result.To.Format("2006-01-02")
+}
+
 func (s *Server) handleTrialBalance(c *fiber.Ctx) error {
 	companyID, ok := ActiveCompanyIDFromCtx(c)
 	if !ok {
 		return c.Redirect("/select-company", fiber.StatusSeeOther)
 	}
 
-	fromDate, toDate, fromStr, toStr, errMsg := parseReportRange(c.Query("from"), c.Query("to"))
+	co := s.loadReportCompanyInfo(companyID)
+	preset, fromStr, toStr := resolvePeriodDates(
+		c.Query("period"), c.Query("from"), c.Query("to"), co.FiscalYearEnd)
+
+	fromDate, toDate, fromStr, toStr, errMsg := parseReportRange(fromStr, toStr)
+
+	toolbar := pages.ReportToolbarVM{
+		Preset: preset, From: fromStr, To: toStr,
+		FiscalYearEnd: co.FiscalYearEnd,
+		CompanyName:   co.Name,
+		ReportTitle:   "Trial Balance",
+		FormAction:    "/reports/trial-balance",
+		CSVExportURL:  "/reports/trial-balance/export.csv",
+		Mode:          "period",
+	}
+
 	if errMsg != "" {
 		return pages.TrialBalance(pages.TrialBalanceVM{
 			HasCompany:   true,
@@ -148,6 +234,7 @@ func (s *Server) handleTrialBalance(c *fiber.Ctx) error {
 			TotalDebits:  "0.00",
 			TotalCredits: "0.00",
 			FormError:    errMsg,
+			Toolbar:      toolbar,
 		}).Render(c.Context(), c)
 	}
 
@@ -162,6 +249,7 @@ func (s *Server) handleTrialBalance(c *fiber.Ctx) error {
 			TotalDebits:  "0.00",
 			TotalCredits: "0.00",
 			FormError:    "Could not run report.",
+			Toolbar:      toolbar,
 		}).Render(c.Context(), c)
 	}
 
@@ -173,6 +261,7 @@ func (s *Server) handleTrialBalance(c *fiber.Ctx) error {
 		Rows:         rows,
 		TotalDebits:  pages.Money(totalDebits),
 		TotalCredits: pages.Money(totalCredits),
+		Toolbar:      toolbar,
 	}).Render(c.Context(), c)
 }
 
@@ -182,7 +271,22 @@ func (s *Server) handleIncomeStatement(c *fiber.Ctx) error {
 		return c.Redirect("/select-company", fiber.StatusSeeOther)
 	}
 
-	fromDate, toDate, fromStr, toStr, errMsg := parseReportRange(c.Query("from"), c.Query("to"))
+	co := s.loadReportCompanyInfo(companyID)
+	preset, fromStr, toStr := resolvePeriodDates(
+		c.Query("period"), c.Query("from"), c.Query("to"), co.FiscalYearEnd)
+
+	fromDate, toDate, fromStr, toStr, errMsg := parseReportRange(fromStr, toStr)
+
+	toolbar := pages.ReportToolbarVM{
+		Preset: preset, From: fromStr, To: toStr,
+		FiscalYearEnd: co.FiscalYearEnd,
+		CompanyName:   co.Name,
+		ReportTitle:   "Income Statement",
+		FormAction:    "/reports/income-statement",
+		CSVExportURL:  "/reports/income-statement/export.csv",
+		Mode:          "period",
+	}
+
 	if errMsg != "" {
 		return pages.IncomeStatement(pages.IncomeStatementVM{
 			HasCompany: true,
@@ -191,6 +295,7 @@ func (s *Server) handleIncomeStatement(c *fiber.Ctx) error {
 			ActiveTab:  "income",
 			Report:     services.IncomeStatement{FromDate: fromDate, ToDate: toDate},
 			FormError:  errMsg,
+			Toolbar:    toolbar,
 		}).Render(c.Context(), c)
 	}
 
@@ -203,6 +308,7 @@ func (s *Server) handleIncomeStatement(c *fiber.Ctx) error {
 			ActiveTab:  "income",
 			Report:     services.IncomeStatement{FromDate: fromDate, ToDate: toDate},
 			FormError:  "Could not run report.",
+			Toolbar:    toolbar,
 		}).Render(c.Context(), c)
 	}
 
@@ -212,6 +318,7 @@ func (s *Server) handleIncomeStatement(c *fiber.Ctx) error {
 		To:         toStr,
 		ActiveTab:  "income",
 		Report:     report,
+		Toolbar:    toolbar,
 	}).Render(c.Context(), c)
 }
 
@@ -221,9 +328,18 @@ func (s *Server) handleBalanceSheet(c *fiber.Ctx) error {
 		return c.Redirect("/select-company", fiber.StatusSeeOther)
 	}
 
-	asOfStr := strings.TrimSpace(c.Query("as_of"))
-	if asOfStr == "" {
-		asOfStr = time.Now().Format("2006-01-02")
+	co := s.loadReportCompanyInfo(companyID)
+	preset, asOfStr := resolveAsOfDate(
+		c.Query("period"), c.Query("as_of"), co.FiscalYearEnd)
+
+	toolbar := pages.ReportToolbarVM{
+		Preset: preset, AsOf: asOfStr,
+		FiscalYearEnd: co.FiscalYearEnd,
+		CompanyName:   co.Name,
+		ReportTitle:   "Balance Sheet",
+		FormAction:    "/reports/balance-sheet",
+		CSVExportURL:  "/reports/balance-sheet/export.csv",
+		Mode:          "asof",
 	}
 
 	asOf, err := time.Parse("2006-01-02", asOfStr)
@@ -235,6 +351,7 @@ func (s *Server) handleBalanceSheet(c *fiber.Ctx) error {
 			Report:     services.BalanceSheet{AsOf: time.Now()},
 			FormError:  "As of date must be a valid date.",
 			AsOfTime:   time.Now(),
+			Toolbar:    toolbar,
 		}).Render(c.Context(), c)
 	}
 
@@ -247,6 +364,7 @@ func (s *Server) handleBalanceSheet(c *fiber.Ctx) error {
 			Report:     services.BalanceSheet{AsOf: asOf},
 			FormError:  "Could not run report.",
 			AsOfTime:   asOf,
+			Toolbar:    toolbar,
 		}).Render(c.Context(), c)
 	}
 
@@ -256,6 +374,7 @@ func (s *Server) handleBalanceSheet(c *fiber.Ctx) error {
 		ActiveTab:  "balance",
 		Report:     report,
 		AsOfTime:   asOf,
+		Toolbar:    toolbar,
 	}).Render(c.Context(), c)
 }
 
