@@ -245,6 +245,7 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Post("/banking/reconcile", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleBankReconcileSubmit)
 	app.Post("/banking/reconcile/void", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleVoidReconciliation)
 	app.Post("/banking/reconcile/save-progress", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleBankReconcileSaveProgress)
+	app.Post("/banking/reconcile/setup", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleBankReconcileSetup)
 	app.Post("/banking/reconcile/discard-draft", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleBankReconcileDiscardDraft)
 	// Auto-match engine: suggest → accept/reject (membership only; no accounting changes)
 	app.Post("/banking/reconcile/auto-match", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleAutoMatch)

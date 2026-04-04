@@ -88,13 +88,13 @@ templ bodyBankReconcile(vm BankReconcileVM) {
 			</div>
 		}
 
-		// ── Setup mode: enter statement date + ending balance ─────────────────────
+		// ── Setup mode: enter statement date + ending balance (new period only) ─────
 		if vm.EntryMode == "setup" {
 			<div class="mt-6 rounded-lg border border-border bg-surface p-6">
 				<div class="flex items-center justify-between">
 					<div>
 						<h2 class="text-section font-semibold text-text">{ vm.AccountName }</h2>
-						<p class="mt-0.5 text-small text-text-muted2">Enter your bank statement details to begin reconciling.</p>
+						<p class="mt-0.5 text-small text-text-muted2">Enter your bank statement details to begin a new reconciliation period.</p>
 					</div>
 					<a href="/banking/reconcile" class="text-small text-primary hover:underline">Change Account</a>
 				</div>
@@ -103,8 +103,10 @@ templ bodyBankReconcile(vm BankReconcileVM) {
 						Last reconciled: <span class="font-semibold text-text">{ vm.LastStatementDateDisplay }</span>
 					</div>
 				}
-				<form method="get" action="/banking/reconcile" class="mt-6">
+				<form method="post" action="/banking/reconcile/setup" class="mt-6">
 					<input type="hidden" name="account_id" value={ vm.AccountID }/>
+
+					<!-- Statement period -->
 					<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 						<div>
 							<label class="block text-body font-medium text-text">Statement Date *</label>
@@ -127,6 +129,83 @@ templ bodyBankReconcile(vm BankReconcileVM) {
 							/>
 						</div>
 					</div>
+
+					<!-- Service charge / Interest earned -->
+					<div class="mt-6 border-t border-border pt-6">
+						<h3 class="text-body font-semibold text-text">Adjustments (optional)</h3>
+						<p class="mt-0.5 text-small text-text-muted2">These entries will be posted automatically and appear as cleared transactions.</p>
+
+						<!-- Service charge -->
+						<div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-3">
+							<div>
+								<label class="block text-body font-medium text-text">Service Charge</label>
+								<input
+									type="text"
+									inputmode="decimal"
+									name="service_charge"
+									placeholder="0.00"
+									class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+								/>
+							</div>
+							<div>
+								<label class="block text-body font-medium text-text">Charge Date</label>
+								<input
+									type="date"
+									name="service_charge_date"
+									value={ vm.StatementDate }
+									class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+								/>
+							</div>
+							<div>
+								<label class="block text-body font-medium text-text">Expense Account</label>
+								<select
+									name="service_charge_account_id"
+									class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+								>
+									<option value="">-- None --</option>
+									for _, a := range vm.ExpenseAccounts {
+										<option value={ Uitoa(a.ID) }>{ a.Code } - { a.Name }</option>
+									}
+								</select>
+							</div>
+						</div>
+
+						<!-- Interest earned -->
+						<div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-3">
+							<div>
+								<label class="block text-body font-medium text-text">Interest Earned</label>
+								<input
+									type="text"
+									inputmode="decimal"
+									name="interest_earned"
+									placeholder="0.00"
+									class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+								/>
+							</div>
+							<div>
+								<label class="block text-body font-medium text-text">Interest Date</label>
+								<input
+									type="date"
+									name="interest_earned_date"
+									value={ vm.StatementDate }
+									class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+								/>
+							</div>
+							<div>
+								<label class="block text-body font-medium text-text">Income Account</label>
+								<select
+									name="interest_earned_account_id"
+									class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+								>
+									<option value="">-- None --</option>
+									for _, a := range vm.IncomeAccounts {
+										<option value={ Uitoa(a.ID) }>{ a.Code } - { a.Name }</option>
+									}
+								</select>
+							</div>
+						</div>
+					</div>
+
 					<div class="mt-6 flex justify-end">
 						<button type="submit" class="rounded-md bg-primary px-6 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
 							Start Reconciling →

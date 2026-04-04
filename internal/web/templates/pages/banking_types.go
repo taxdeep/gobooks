@@ -20,6 +20,11 @@ type BankReconcileVM struct {
 	StatementDate string
 	EndingBalance string
 
+	// ExpenseAccounts and IncomeAccounts populate the service-charge and
+	// interest-earned account dropdowns in Setup mode.
+	ExpenseAccounts []models.Account
+	IncomeAccounts  []models.Account
+
 	Active string
 
 	FormError     string
@@ -112,6 +117,10 @@ func SourceTypeLabel(t string) string {
 		return "Reversal"
 	case "opening_balance":
 		return "Opening Bal."
+	case "bank_charge":
+		return "Bank Charge"
+	case "bank_interest":
+		return "Bank Interest"
 	default:
 		return "Journal"
 	}

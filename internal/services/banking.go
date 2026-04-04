@@ -3,6 +3,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -293,6 +294,106 @@ func VoidReconciliation(db *gorm.DB, companyID uint, recID uint, userID uuid.UUI
 			"voided_by_user_id":   userID,
 		}).Error; err != nil {
 			return err
+		}
+
+		return nil
+	})
+}
+
+// ── Reconciliation setup adjustments ─────────────────────────────────────────
+
+// ReconcileSetupEntriesInput carries optional service-charge and interest-earned
+// amounts to be posted as journal entries before entering work mode.
+// Any field whose amount is zero (or negative) is skipped.
+type ReconcileSetupEntriesInput struct {
+	CompanyID     uint
+	BankAccountID uint
+
+	// Service charge: bank fee (DR expense, CR bank).
+	ServiceCharge          decimal.Decimal
+	ServiceChargeDate      time.Time
+	ServiceChargeAccountID uint
+
+	// Interest earned: bank interest income (DR bank, CR income).
+	InterestEarned          decimal.Decimal
+	InterestEarnedDate      time.Time
+	InterestEarnedAccountID uint
+}
+
+// CreateReconcileSetupEntries posts service-charge and/or interest-earned journal
+// entries atomically. Each non-zero amount produces one two-line journal entry.
+// Entries are immediately cleared (added to the reconciliation candidate pool).
+func CreateReconcileSetupEntries(db *gorm.DB, in ReconcileSetupEntriesInput) error {
+	if !in.ServiceCharge.IsPositive() && !in.InterestEarned.IsPositive() {
+		return nil // nothing to do
+	}
+	return db.Transaction(func(tx *gorm.DB) error {
+		if in.ServiceCharge.IsPositive() {
+			if in.ServiceChargeAccountID == 0 {
+				return errors.New("service charge account is required when a service charge amount is provided")
+			}
+			je := models.JournalEntry{
+				CompanyID:  in.CompanyID,
+				EntryDate:  in.ServiceChargeDate,
+				JournalNo:  "Bank Service Charge",
+				Status:     models.JournalEntryStatusPosted,
+				SourceType: models.LedgerSourceBankCharge,
+			}
+			if err := tx.Create(&je).Error; err != nil {
+				return fmt.Errorf("create bank charge journal entry: %w", err)
+			}
+			lines := []models.JournalLine{
+				// DR expense account
+				{CompanyID: in.CompanyID, JournalEntryID: je.ID, AccountID: in.ServiceChargeAccountID, Debit: in.ServiceCharge, Credit: decimal.Zero, Memo: "Bank service charge"},
+				// CR bank account
+				{CompanyID: in.CompanyID, JournalEntryID: je.ID, AccountID: in.BankAccountID, Debit: decimal.Zero, Credit: in.ServiceCharge, Memo: "Bank service charge"},
+			}
+			for i := range lines {
+				if err := tx.Create(&lines[i]).Error; err != nil {
+					return fmt.Errorf("create bank charge journal line: %w", err)
+				}
+			}
+			if err := ProjectToLedger(tx, in.CompanyID, LedgerPostInput{
+				JournalEntry: je,
+				Lines:        lines,
+				SourceType:   models.LedgerSourceBankCharge,
+			}); err != nil {
+				return fmt.Errorf("project bank charge to ledger: %w", err)
+			}
+		}
+
+		if in.InterestEarned.IsPositive() {
+			if in.InterestEarnedAccountID == 0 {
+				return errors.New("interest earned account is required when an interest earned amount is provided")
+			}
+			je := models.JournalEntry{
+				CompanyID:  in.CompanyID,
+				EntryDate:  in.InterestEarnedDate,
+				JournalNo:  "Bank Interest Earned",
+				Status:     models.JournalEntryStatusPosted,
+				SourceType: models.LedgerSourceBankInterest,
+			}
+			if err := tx.Create(&je).Error; err != nil {
+				return fmt.Errorf("create bank interest journal entry: %w", err)
+			}
+			lines := []models.JournalLine{
+				// DR bank account
+				{CompanyID: in.CompanyID, JournalEntryID: je.ID, AccountID: in.BankAccountID, Debit: in.InterestEarned, Credit: decimal.Zero, Memo: "Bank interest earned"},
+				// CR income account
+				{CompanyID: in.CompanyID, JournalEntryID: je.ID, AccountID: in.InterestEarnedAccountID, Debit: decimal.Zero, Credit: in.InterestEarned, Memo: "Bank interest earned"},
+			}
+			for i := range lines {
+				if err := tx.Create(&lines[i]).Error; err != nil {
+					return fmt.Errorf("create bank interest journal line: %w", err)
+				}
+			}
+			if err := ProjectToLedger(tx, in.CompanyID, LedgerPostInput{
+				JournalEntry: je,
+				Lines:        lines,
+				SourceType:   models.LedgerSourceBankInterest,
+			}); err != nil {
+				return fmt.Errorf("project bank interest to ledger: %w", err)
+			}
 		}
 
 		return nil

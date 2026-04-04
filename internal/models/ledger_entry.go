@@ -40,6 +40,10 @@ const (
 	LedgerSourcePayout LedgerSourceType = "payout"
 	// LedgerSourcePaymentGateway is used by payment transaction posting.
 	LedgerSourcePaymentGateway LedgerSourceType = "payment_gateway"
+	// LedgerSourceBankCharge is used by bank service charge entries auto-created during reconciliation setup.
+	LedgerSourceBankCharge LedgerSourceType = "bank_charge"
+	// LedgerSourceBankInterest is used by bank interest earned entries auto-created during reconciliation setup.
+	LedgerSourceBankInterest LedgerSourceType = "bank_interest"
 )
 
 // LedgerEntry is one row in the accounting fact layer.

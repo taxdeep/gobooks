@@ -122,6 +122,14 @@ func (s *Server) handleBankReconcileForm(c *fiber.Ctx) error {
 		default: // ReconcileDefaultsBlank
 			vm.EntryMode = "setup"
 		}
+
+		// Load expense / income account lists for the setup form dropdowns.
+		// Only needed in setup mode; skipped in resume mode to avoid unnecessary queries.
+		if vm.EntryMode == "setup" {
+			vm.ExpenseAccounts, _ = s.expenseAccountsForCompany(companyID)
+			vm.IncomeAccounts, _ = s.incomeAccountsForCompany(companyID)
+		}
+
 		return pages.BankReconcile(vm).Render(c.Context(), c)
 	}
 
@@ -210,6 +218,120 @@ func (s *Server) handleBankReconcileDiscardDraft(c *fiber.Ctx) error {
 	}
 	_ = services.DeleteReconcileDraft(s.DB, companyID, uint(accountIDU64))
 	return c.Redirect("/banking/reconcile?account_id="+accountIDStr, fiber.StatusSeeOther)
+}
+
+// handleBankReconcileSetup processes the Setup form (new-period reconciliation).
+// It creates bank service charge and/or interest earned journal entries if the
+// user supplied non-zero amounts, then redirects to work mode.
+func (s *Server) handleBankReconcileSetup(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/select-company", fiber.StatusSeeOther)
+	}
+
+	accountIDStr := strings.TrimSpace(c.FormValue("account_id"))
+	statementDateStr := strings.TrimSpace(c.FormValue("statement_date"))
+	endingBalanceStr := strings.TrimSpace(c.FormValue("ending_balance"))
+
+	// Helper: re-render setup with an error.
+	renderSetupError := func(msg string) error {
+		accounts, _ := s.bankAccountsForCompany(companyID)
+		var accRow models.Account
+		_ = s.DB.Where("id = ? AND company_id = ?", accountIDStr, companyID).First(&accRow).Error
+		expAccounts, _ := s.expenseAccountsForCompany(companyID)
+		incAccounts, _ := s.incomeAccountsForCompany(companyID)
+		vm := pages.BankReconcileVM{
+			HasCompany:      true,
+			Accounts:        accounts,
+			AccountID:       accountIDStr,
+			AccountName:     accRow.Code + " - " + accRow.Name,
+			StatementDate:   statementDateStr,
+			EndingBalance:   endingBalanceStr,
+			Active:          "Bank Reconcile",
+			EntryMode:       "setup",
+			FormError:       msg,
+			ExpenseAccounts: expAccounts,
+			IncomeAccounts:  incAccounts,
+			CandidatesJSON:  "[]",
+			AcceptedLineIDsJSON: "[]",
+			BeginningBalance:   "0.00",
+			PreviouslyCleared:  "0.00",
+			Candidates:         nil,
+		}
+		return pages.BankReconcile(vm).Render(c.Context(), c)
+	}
+
+	// Validate required fields.
+	if accountIDStr == "" || statementDateStr == "" || endingBalanceStr == "" {
+		return renderSetupError("Account, statement date, and ending balance are required.")
+	}
+	accountIDU64, err := services.ParseUint(accountIDStr)
+	if err != nil || accountIDU64 == 0 {
+		return renderSetupError("Invalid account selected.")
+	}
+	accountID := uint(accountIDU64)
+
+	statementDate, err := time.Parse("2006-01-02", statementDateStr)
+	if err != nil {
+		return renderSetupError("Statement Date must be a valid date.")
+	}
+	if _, err := services.ParseDecimalMoney(endingBalanceStr); err != nil {
+		return renderSetupError("Ending Balance must be a valid number.")
+	}
+
+	// Parse optional service charge.
+	scAmtStr := strings.TrimSpace(c.FormValue("service_charge"))
+	scDateStr := strings.TrimSpace(c.FormValue("service_charge_date"))
+	scAcctIDStr := strings.TrimSpace(c.FormValue("service_charge_account_id"))
+
+	// Parse optional interest earned.
+	intAmtStr := strings.TrimSpace(c.FormValue("interest_earned"))
+	intDateStr := strings.TrimSpace(c.FormValue("interest_earned_date"))
+	intAcctIDStr := strings.TrimSpace(c.FormValue("interest_earned_account_id"))
+
+	in := services.ReconcileSetupEntriesInput{
+		CompanyID:     companyID,
+		BankAccountID: accountID,
+	}
+
+	if scAmtStr != "" {
+		if scAmt, err := decimal.NewFromString(scAmtStr); err == nil && scAmt.IsPositive() {
+			in.ServiceCharge = scAmt
+			in.ServiceChargeDate = statementDate
+			if scDateStr != "" {
+				if d, err := time.Parse("2006-01-02", scDateStr); err == nil {
+					in.ServiceChargeDate = d
+				}
+			}
+			scAcctID, _ := services.ParseUint(scAcctIDStr)
+			in.ServiceChargeAccountID = uint(scAcctID)
+		}
+	}
+
+	if intAmtStr != "" {
+		if intAmt, err := decimal.NewFromString(intAmtStr); err == nil && intAmt.IsPositive() {
+			in.InterestEarned = intAmt
+			in.InterestEarnedDate = statementDate
+			if intDateStr != "" {
+				if d, err := time.Parse("2006-01-02", intDateStr); err == nil {
+					in.InterestEarnedDate = d
+				}
+			}
+			intAcctID, _ := services.ParseUint(intAcctIDStr)
+			in.InterestEarnedAccountID = uint(intAcctID)
+		}
+	}
+
+	if err := services.CreateReconcileSetupEntries(s.DB, in); err != nil {
+		return renderSetupError("Could not create adjustment entries: " + err.Error())
+	}
+
+	return c.Redirect(
+		"/banking/reconcile?account_id="+accountIDStr+
+			"&statement_date="+statementDateStr+
+			"&ending_balance="+endingBalanceStr,
+		fiber.StatusSeeOther,
+	)
 }
 
 func (s *Server) handleBankReconcileSaveProgress(c *fiber.Ctx) error {
@@ -995,6 +1117,28 @@ func (s *Server) openPostedBillsForCompany(companyID uint) ([]models.Bill, error
 		Order("bill_date asc, id asc").
 		Find(&bills).Error
 	return bills, err
+}
+
+// expenseAccountsForCompany returns all active expense accounts for a company,
+// used to populate the service charge account selector in reconciliation setup.
+func (s *Server) expenseAccountsForCompany(companyID uint) ([]models.Account, error) {
+	var accounts []models.Account
+	err := s.DB.
+		Where("company_id = ? AND root_account_type = ? AND is_active = true", companyID, models.RootExpense).
+		Order("code asc").
+		Find(&accounts).Error
+	return accounts, err
+}
+
+// incomeAccountsForCompany returns all active revenue/income accounts for a company,
+// used to populate the interest earned account selector in reconciliation setup.
+func (s *Server) incomeAccountsForCompany(companyID uint) ([]models.Account, error) {
+	var accounts []models.Account
+	err := s.DB.
+		Where("company_id = ? AND root_account_type = ? AND is_active = true", companyID, models.RootRevenue).
+		Order("code asc").
+		Find(&accounts).Error
+	return accounts, err
 }
 
 // bankAccountsForCompany returns all active Asset · Bank accounts for a company,
