@@ -49,7 +49,7 @@ func ReportToolbar(vm ReportToolbarVM) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(vm.Preset)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `report_toolbar.templ`, Line: 20, Col: 25}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_toolbar.templ`, Line: 20, Col: 25}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -62,7 +62,7 @@ func ReportToolbar(vm ReportToolbarVM) templ.Component {
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(vm.From)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `report_toolbar.templ`, Line: 21, Col: 21}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_toolbar.templ`, Line: 21, Col: 21}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
@@ -75,7 +75,7 @@ func ReportToolbar(vm ReportToolbarVM) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(vm.To)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `report_toolbar.templ`, Line: 22, Col: 17}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_toolbar.templ`, Line: 22, Col: 17}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -88,7 +88,7 @@ func ReportToolbar(vm ReportToolbarVM) templ.Component {
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(vm.AsOf)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `report_toolbar.templ`, Line: 23, Col: 22}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_toolbar.templ`, Line: 23, Col: 22}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -101,7 +101,7 @@ func ReportToolbar(vm ReportToolbarVM) templ.Component {
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(vm.FiscalYearEnd)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `report_toolbar.templ`, Line: 24, Col: 32}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_toolbar.templ`, Line: 24, Col: 32}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
@@ -114,7 +114,7 @@ func ReportToolbar(vm ReportToolbarVM) templ.Component {
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(vm.Mode)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `report_toolbar.templ`, Line: 25, Col: 21}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_toolbar.templ`, Line: 25, Col: 21}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -127,7 +127,7 @@ func ReportToolbar(vm ReportToolbarVM) templ.Component {
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(vm.CSVExportURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `report_toolbar.templ`, Line: 26, Col: 33}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_toolbar.templ`, Line: 26, Col: 33}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
@@ -140,7 +140,7 @@ func ReportToolbar(vm ReportToolbarVM) templ.Component {
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(vm.CompanyName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `report_toolbar.templ`, Line: 30, Col: 51}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_toolbar.templ`, Line: 30, Col: 51}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
@@ -153,7 +153,7 @@ func ReportToolbar(vm ReportToolbarVM) templ.Component {
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(vm.ReportTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `report_toolbar.templ`, Line: 31, Col: 49}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_toolbar.templ`, Line: 31, Col: 49}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
@@ -166,7 +166,7 @@ func ReportToolbar(vm ReportToolbarVM) templ.Component {
 		var templ_7745c5c3_Var11 templ.SafeURL
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(vm.FormAction))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `report_toolbar.templ`, Line: 36, Col: 58}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_toolbar.templ`, Line: 36, Col: 58}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
@@ -177,7 +177,7 @@ func ReportToolbar(vm ReportToolbarVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if vm.Mode == "asof" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<p class=\"mt-1 text-small text-text-muted2\">For Balance Sheet, presets choose the As Of date.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<p class=\"mt-1 text-small text-text-muted2\">For as-of reports, presets choose the report date.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -207,7 +207,7 @@ func ReportToolbar(vm ReportToolbarVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</div></div></form></div><style>\r\n\t\t/* ── Print styles for report pages ───────────────────────────────────────── */\r\n\t\t@media print {\n\t\t\t/* Hide chrome: top nav, sidebar, footer, toolbar form, report nav tabs */\n\t\t\theader, footer,\n\t\t\t.report-toolbar-form,\n\t\t\t.report-nav-tabs,\n\t\t\t.report-nav-area {\n\t\t\t\tdisplay: none !important;\n\t\t\t}\n\t\t\t/* Hide desktop sidebar wrapper (layout.templ: <div class=\"hidden md:block\"> wrapping Sidebar) */\r\n\t\t\t.sidebar-wrapper {\r\n\t\t\t\tdisplay: none !important;\r\n\t\t\t}\r\n\t\t\t/* Show print-only header */\r\n\t\t\t.report-print-header {\r\n\t\t\t\tdisplay: block !important;\r\n\t\t\t\tmargin-bottom: 1.5rem;\r\n\t\t\t\tborder-bottom: 1px solid #e5e7eb;\r\n\t\t\t\tpadding-bottom: 0.75rem;\r\n\t\t\t}\r\n\t\t\t.report-print-company {\r\n\t\t\t\tfont-size: 1.125rem;\r\n\t\t\t\tfont-weight: 700;\r\n\t\t\t}\r\n\t\t\t.report-print-title {\r\n\t\t\t\tfont-size: 1rem;\r\n\t\t\t\tfont-weight: 600;\r\n\t\t\t\tmargin-top: 0.25rem;\r\n\t\t\t}\r\n\t\t\t.report-print-period {\r\n\t\t\t\tfont-size: 0.875rem;\r\n\t\t\t\tcolor: #6b7280;\r\n\t\t\t\tmargin-top: 0.25rem;\r\n\t\t\t}\r\n\t\t\t/* Remove card borders/shadows in print */\r\n\t\t\t.rounded-lg { border-radius: 0 !important; }\r\n\t\t\tbody { background: white !important; }\r\n\t\t}\r\n\t\t/* ── Screen: print header is invisible ───────────────────────────────────── */\r\n\t\t.report-print-header { display: none; }\r\n\t</style><script>\r\n\t\tfunction reportToolbar() {\r\n\t\t\treturn {\r\n\t\t\t\tpreset: 'last_month',\r\n\t\t\t\tfrom: '',\r\n\t\t\t\tto: '',\r\n\t\t\t\tasOf: '',\r\n\t\t\t\tfyEnd: '12-31',\r\n\t\t\t\tmode: 'period',\r\n\t\t\t\tcsvBase: '',\r\n\r\n\t\t\t\tinit(el) {\r\n\t\t\t\t\tthis.preset  = el.dataset.preset  || 'last_month';\r\n\t\t\t\t\tthis.from    = el.dataset.from    || '';\r\n\t\t\t\t\tthis.to      = el.dataset.to      || '';\r\n\t\t\t\t\tthis.asOf    = el.dataset.asOf    || '';\r\n\t\t\t\t\tthis.fyEnd   = el.dataset.fyEnd   || '12-31';\r\n\t\t\t\t\tthis.mode    = el.dataset.mode    || 'period';\r\n\t\t\t\t\tthis.csvBase = el.dataset.csvBase || '';\r\n\t\t\t\t},\r\n\r\n\t\t\t\t// Called when the preset select changes.\r\n\t\t\t\tonPresetChange() {\r\n\t\t\t\t\tif (this.preset === 'custom') return;\r\n\t\t\t\t\tconst d = this.computeDates(this.preset);\r\n\t\t\t\t\tthis.from = d.from;\r\n\t\t\t\t\tthis.to   = d.to;\r\n\t\t\t\t\tif (this.mode === 'asof') this.asOf = d.to;\r\n\t\t\t\t},\r\n\r\n\t\t\t\t// Called when From or To inputs change manually.\r\n\t\t\t\tonFromToChange() {\r\n\t\t\t\t\tthis.preset = 'custom';\r\n\t\t\t\t\tfor (const p of ['last_month', 'year_to_date', 'last_fiscal_year']) {\r\n\t\t\t\t\t\tconst d = this.computeDates(p);\r\n\t\t\t\t\t\tif (this.from === d.from && this.to === d.to) {\r\n\t\t\t\t\t\t\tthis.preset = p;\r\n\t\t\t\t\t\t\tbreak;\r\n\t\t\t\t\t\t}\r\n\t\t\t\t\t}\r\n\t\t\t\t},\r\n\r\n\t\t\t\t// Called when As Of input changes manually.\r\n\t\t\t\tonAsOfChange() {\r\n\t\t\t\t\tthis.preset = 'custom';\r\n\t\t\t\t\tfor (const p of ['last_month', 'year_to_date', 'last_fiscal_year']) {\r\n\t\t\t\t\t\tconst d = this.computeDates(p);\r\n\t\t\t\t\t\tif (this.asOf === d.to) {\r\n\t\t\t\t\t\t\tthis.preset = p;\r\n\t\t\t\t\t\t\tbreak;\r\n\t\t\t\t\t\t}\r\n\t\t\t\t\t}\r\n\t\t\t\t},\r\n\r\n\t\t\t\t// Compute From/To dates for a named preset.\r\n\t\t\t\tcomputeDates(p) {\r\n\t\t\t\t\tconst today = new Date();\r\n\t\t\t\t\tconst fmt = dt => {\r\n\t\t\t\t\t\tconst y  = dt.getFullYear();\r\n\t\t\t\t\t\tconst m  = String(dt.getMonth() + 1).padStart(2, '0');\r\n\t\t\t\t\t\tconst d  = String(dt.getDate()).padStart(2, '0');\r\n\t\t\t\t\t\treturn `${y}-${m}-${d}`;\r\n\t\t\t\t\t};\r\n\r\n\t\t\t\t\tif (p === 'last_month') {\r\n\t\t\t\t\t\tconst firstThis = new Date(today.getFullYear(), today.getMonth(), 1);\r\n\t\t\t\t\t\tconst to = new Date(firstThis);\r\n\t\t\t\t\t\tto.setDate(to.getDate() - 1);\r\n\t\t\t\t\t\tconst from = new Date(to.getFullYear(), to.getMonth(), 1);\r\n\t\t\t\t\t\treturn { from: fmt(from), to: fmt(to) };\r\n\t\t\t\t\t}\r\n\r\n\t\t\t\t\tif (p === 'year_to_date') {\r\n\t\t\t\t\t\tconst start = this.fyStart(today);\r\n\t\t\t\t\t\treturn { from: fmt(start), to: fmt(today) };\r\n\t\t\t\t\t}\r\n\r\n\t\t\t\t\tif (p === 'last_fiscal_year') {\r\n\t\t\t\t\t\tconst curStart = this.fyStart(today);\r\n\t\t\t\t\t\tconst lastEnd = new Date(curStart);\r\n\t\t\t\t\t\tlastEnd.setDate(lastEnd.getDate() - 1);\r\n\t\t\t\t\t\tconst lastStart = this.fyStart(lastEnd);\r\n\t\t\t\t\t\treturn { from: fmt(lastStart), to: fmt(lastEnd) };\r\n\t\t\t\t\t}\r\n\r\n\t\t\t\t\treturn { from: this.from, to: this.to };\r\n\t\t\t\t},\r\n\r\n\t\t\t\t// Return the first day of the fiscal year containing the given date.\r\n\t\t\t\tfyStart(refDate) {\r\n\t\t\t\t\tconst parts = (this.fyEnd || '12-31').split('-');\r\n\t\t\t\t\tconst fyM   = parseInt(parts[0], 10) - 1; // 0-indexed\r\n\t\t\t\t\tconst fyD   = parseInt(parts[1], 10);\r\n\t\t\t\t\tconst fyEndThis = new Date(refDate.getFullYear(), fyM, fyD);\r\n\t\t\t\t\tif (refDate <= fyEndThis) {\r\n\t\t\t\t\t\t// Still inside current FY: started last year.\r\n\t\t\t\t\t\tconst fyEndPrev = new Date(refDate.getFullYear() - 1, fyM, fyD);\r\n\t\t\t\t\t\tconst start = new Date(fyEndPrev);\r\n\t\t\t\t\t\tstart.setDate(start.getDate() + 1);\r\n\t\t\t\t\t\treturn start;\r\n\t\t\t\t\t}\r\n\t\t\t\t\t// After this year's FY end: new FY started.\r\n\t\t\t\t\tconst start = new Date(fyEndThis);\r\n\t\t\t\t\tstart.setDate(start.getDate() + 1);\r\n\t\t\t\t\treturn start;\r\n\t\t\t\t},\r\n\r\n\t\t\t\t// Build the CSV export href with current date params.\r\n\t\t\t\tcsvHref() {\r\n\t\t\t\t\tif (!this.csvBase) return '#';\r\n\t\t\t\t\treturn this.mode === 'asof'\r\n\t\t\t\t\t\t? `${this.csvBase}?as_of=${this.asOf}`\r\n\t\t\t\t\t\t: `${this.csvBase}?from=${this.from}&to=${this.to}`;\r\n\t\t\t\t},\r\n\r\n\t\t\t\t// Label shown in the print-only header.\r\n\t\t\t\tprintPeriodLabel() {\r\n\t\t\t\t\treturn this.mode === 'asof'\r\n\t\t\t\t\t\t? `As of ${this.asOf}`\r\n\t\t\t\t\t\t: `${this.from} to ${this.to}`;\r\n\t\t\t\t},\r\n\t\t\t};\r\n\t\t}\r\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</div></div></form></div><style>\r\n\t\t/* ── Print styles for report pages ───────────────────────────────────────── */\r\n\t\t@media print {\r\n\t\t\t/* Hide chrome: top nav, sidebar, footer, toolbar form, report nav tabs */\r\n\t\t\theader, footer,\r\n\t\t\t.report-toolbar-form,\r\n\t\t\t.report-nav-tabs,\r\n\t\t\t.report-nav-area {\r\n\t\t\t\tdisplay: none !important;\r\n\t\t\t}\r\n\t\t\t/* Hide desktop sidebar wrapper (layout.templ: <div class=\"hidden md:block\"> wrapping Sidebar) */\r\n\t\t\t.sidebar-wrapper {\r\n\t\t\t\tdisplay: none !important;\r\n\t\t\t}\r\n\t\t\t/* Show print-only header */\r\n\t\t\t.report-print-header {\r\n\t\t\t\tdisplay: block !important;\r\n\t\t\t\tmargin-bottom: 1.5rem;\r\n\t\t\t\tborder-bottom: 1px solid #e5e7eb;\r\n\t\t\t\tpadding-bottom: 0.75rem;\r\n\t\t\t}\r\n\t\t\t.report-print-company {\r\n\t\t\t\tfont-size: 1.125rem;\r\n\t\t\t\tfont-weight: 700;\r\n\t\t\t}\r\n\t\t\t.report-print-title {\r\n\t\t\t\tfont-size: 1rem;\r\n\t\t\t\tfont-weight: 600;\r\n\t\t\t\tmargin-top: 0.25rem;\r\n\t\t\t}\r\n\t\t\t.report-print-period {\r\n\t\t\t\tfont-size: 0.875rem;\r\n\t\t\t\tcolor: #6b7280;\r\n\t\t\t\tmargin-top: 0.25rem;\r\n\t\t\t}\r\n\t\t\t/* Remove card borders/shadows in print */\r\n\t\t\t.rounded-lg { border-radius: 0 !important; }\r\n\t\t\tbody { background: white !important; }\r\n\t\t}\r\n\t\t/* ── Screen: print header is invisible ───────────────────────────────────── */\r\n\t\t.report-print-header { display: none; }\r\n\t</style><script>\r\n\t\tfunction reportToolbar() {\r\n\t\t\treturn {\r\n\t\t\t\tpreset: 'last_month',\r\n\t\t\t\tfrom: '',\r\n\t\t\t\tto: '',\r\n\t\t\t\tasOf: '',\r\n\t\t\t\tfyEnd: '12-31',\r\n\t\t\t\tmode: 'period',\r\n\t\t\t\tcsvBase: '',\r\n\r\n\t\t\t\tinit(el) {\r\n\t\t\t\t\tthis.preset  = el.dataset.preset  || 'last_month';\r\n\t\t\t\t\tthis.from    = el.dataset.from    || '';\r\n\t\t\t\t\tthis.to      = el.dataset.to      || '';\r\n\t\t\t\t\tthis.asOf    = el.dataset.asOf    || '';\r\n\t\t\t\t\tthis.fyEnd   = el.dataset.fyEnd   || '12-31';\r\n\t\t\t\t\tthis.mode    = el.dataset.mode    || 'period';\r\n\t\t\t\t\tthis.csvBase = el.dataset.csvBase || '';\r\n\t\t\t\t},\r\n\r\n\t\t\t\t// Called when the preset select changes.\r\n\t\t\t\tonPresetChange() {\r\n\t\t\t\t\tif (this.preset === 'custom') return;\r\n\t\t\t\t\tconst d = this.computeDates(this.preset);\r\n\t\t\t\t\tthis.from = d.from;\r\n\t\t\t\t\tthis.to   = d.to;\r\n\t\t\t\t\tif (this.mode === 'asof') this.asOf = d.to;\r\n\t\t\t\t},\r\n\r\n\t\t\t\t// Called when From or To inputs change manually.\r\n\t\t\t\tonFromToChange() {\r\n\t\t\t\t\tthis.preset = 'custom';\r\n\t\t\t\t\tfor (const p of ['last_month', 'year_to_date', 'last_fiscal_year']) {\r\n\t\t\t\t\t\tconst d = this.computeDates(p);\r\n\t\t\t\t\t\tif (this.from === d.from && this.to === d.to) {\r\n\t\t\t\t\t\t\tthis.preset = p;\r\n\t\t\t\t\t\t\tbreak;\r\n\t\t\t\t\t\t}\r\n\t\t\t\t\t}\r\n\t\t\t\t},\r\n\r\n\t\t\t\t// Called when As Of input changes manually.\r\n\t\t\t\tonAsOfChange() {\r\n\t\t\t\t\tthis.preset = 'custom';\r\n\t\t\t\t\tfor (const p of ['last_month', 'year_to_date', 'last_fiscal_year']) {\r\n\t\t\t\t\t\tconst d = this.computeDates(p);\r\n\t\t\t\t\t\tif (this.asOf === d.to) {\r\n\t\t\t\t\t\t\tthis.preset = p;\r\n\t\t\t\t\t\t\tbreak;\r\n\t\t\t\t\t\t}\r\n\t\t\t\t\t}\r\n\t\t\t\t},\r\n\r\n\t\t\t\t// Compute From/To dates for a named preset.\r\n\t\t\t\tcomputeDates(p) {\r\n\t\t\t\t\tconst today = new Date();\r\n\t\t\t\t\tconst fmt = dt => {\r\n\t\t\t\t\t\tconst y  = dt.getFullYear();\r\n\t\t\t\t\t\tconst m  = String(dt.getMonth() + 1).padStart(2, '0');\r\n\t\t\t\t\t\tconst d  = String(dt.getDate()).padStart(2, '0');\r\n\t\t\t\t\t\treturn `${y}-${m}-${d}`;\r\n\t\t\t\t\t};\r\n\r\n\t\t\t\t\tif (p === 'last_month') {\r\n\t\t\t\t\t\tconst firstThis = new Date(today.getFullYear(), today.getMonth(), 1);\r\n\t\t\t\t\t\tconst to = new Date(firstThis);\r\n\t\t\t\t\t\tto.setDate(to.getDate() - 1);\r\n\t\t\t\t\t\tconst from = new Date(to.getFullYear(), to.getMonth(), 1);\r\n\t\t\t\t\t\treturn { from: fmt(from), to: fmt(to) };\r\n\t\t\t\t\t}\r\n\r\n\t\t\t\t\tif (p === 'year_to_date') {\r\n\t\t\t\t\t\tconst start = this.fyStart(today);\r\n\t\t\t\t\t\treturn { from: fmt(start), to: fmt(today) };\r\n\t\t\t\t\t}\r\n\r\n\t\t\t\t\tif (p === 'last_fiscal_year') {\r\n\t\t\t\t\t\tconst curStart = this.fyStart(today);\r\n\t\t\t\t\t\tconst lastEnd = new Date(curStart);\r\n\t\t\t\t\t\tlastEnd.setDate(lastEnd.getDate() - 1);\r\n\t\t\t\t\t\tconst lastStart = this.fyStart(lastEnd);\r\n\t\t\t\t\t\treturn { from: fmt(lastStart), to: fmt(lastEnd) };\r\n\t\t\t\t\t}\r\n\r\n\t\t\t\t\treturn { from: this.from, to: this.to };\r\n\t\t\t\t},\r\n\r\n\t\t\t\t// Return the first day of the fiscal year containing the given date.\r\n\t\t\t\tfyStart(refDate) {\r\n\t\t\t\t\tconst parts = (this.fyEnd || '12-31').split('-');\r\n\t\t\t\t\tconst fyM   = parseInt(parts[0], 10) - 1; // 0-indexed\r\n\t\t\t\t\tconst fyD   = parseInt(parts[1], 10);\r\n\t\t\t\t\tconst fyEndThis = new Date(refDate.getFullYear(), fyM, fyD);\r\n\t\t\t\t\tif (refDate <= fyEndThis) {\r\n\t\t\t\t\t\t// Still inside current FY: started last year.\r\n\t\t\t\t\t\tconst fyEndPrev = new Date(refDate.getFullYear() - 1, fyM, fyD);\r\n\t\t\t\t\t\tconst start = new Date(fyEndPrev);\r\n\t\t\t\t\t\tstart.setDate(start.getDate() + 1);\r\n\t\t\t\t\t\treturn start;\r\n\t\t\t\t\t}\r\n\t\t\t\t\t// After this year's FY end: new FY started.\r\n\t\t\t\t\tconst start = new Date(fyEndThis);\r\n\t\t\t\t\tstart.setDate(start.getDate() + 1);\r\n\t\t\t\t\treturn start;\r\n\t\t\t\t},\r\n\r\n\t\t\t\t// Build the CSV export href with current date params.\r\n\t\t\t\tcsvHref() {\r\n\t\t\t\t\tif (!this.csvBase) return '#';\r\n\t\t\t\t\treturn this.mode === 'asof'\r\n\t\t\t\t\t\t? `${this.csvBase}?as_of=${this.asOf}`\r\n\t\t\t\t\t\t: `${this.csvBase}?from=${this.from}&to=${this.to}`;\r\n\t\t\t\t},\r\n\r\n\t\t\t\t// Label shown in the print-only header.\r\n\t\t\t\tprintPeriodLabel() {\r\n\t\t\t\t\treturn this.mode === 'asof'\r\n\t\t\t\t\t\t? `As of ${this.asOf}`\r\n\t\t\t\t\t\t: `${this.from} to ${this.to}`;\r\n\t\t\t\t},\r\n\t\t\t};\r\n\t\t}\r\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

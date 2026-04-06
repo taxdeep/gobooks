@@ -15,7 +15,58 @@ templ Layout(title string, sidebar ui.SidebarVM, content templ.Component) {
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<title>{ title }</title>
-			<link rel="stylesheet" href="/static/app.css?v=3"/>
+			<link rel="stylesheet" href="/static/app.css?v=4"/>
+			<!-- Theme init: runs synchronously before first paint to avoid FOUC.
+			     Reads localStorage("gobooks-theme"): "dark" | "light" | "system" (default).
+			     Applies .dark class to <html> when appropriate. -->
+			<script>
+				(function () {
+					var t = localStorage.getItem("gobooks-theme") || "system";
+					var dark = t === "dark" || (t === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+					if (dark) document.documentElement.classList.add("dark");
+
+					// Expose theme helpers used by the toggle button and future Settings page.
+					window.gbTheme = {
+						get: function () { return localStorage.getItem("gobooks-theme") || "system"; },
+						set: function (val) {
+							localStorage.setItem("gobooks-theme", val);
+							var isDark = val === "dark" || (val === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+							document.documentElement.classList.toggle("dark", isDark);
+							window.gbTheme._updateBtn();
+						},
+						cycle: function () {
+							var order = ["system", "light", "dark"];
+							var cur = window.gbTheme.get();
+							var next = order[(order.indexOf(cur) + 1) % order.length];
+							window.gbTheme.set(next);
+						},
+						_updateBtn: function () {
+							var btn = document.getElementById("gb-theme-btn");
+							if (!btn) return;
+							var cur = window.gbTheme.get();
+							var labels = { system: "Theme: system (click for light)", light: "Theme: light (click for dark)", dark: "Theme: dark (click for system)" };
+							btn.title = labels[cur] || "";
+							["sun", "moon", "monitor"].forEach(function (n) {
+								var el = document.getElementById("gb-icon-" + n);
+								if (el) el.style.display = "none";
+							});
+							var show = cur === "dark" ? "moon" : cur === "light" ? "sun" : "monitor";
+							var active = document.getElementById("gb-icon-" + show);
+							if (active) active.style.display = "";
+						}
+					};
+
+					// Update icon when DOM is ready.
+					document.addEventListener("DOMContentLoaded", function () { window.gbTheme._updateBtn(); });
+
+					// Respond to OS-level preference changes when in "system" mode.
+					window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function (e) {
+						if ((localStorage.getItem("gobooks-theme") || "system") === "system") {
+							document.documentElement.classList.toggle("dark", e.matches);
+						}
+					});
+				})();
+			</script>
 			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
 			<script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 			<script>
@@ -92,6 +143,30 @@ templ Layout(title string, sidebar ui.SidebarVM, content templ.Component) {
 								class="w-[360px] max-w-[40vw] cursor-not-allowed rounded-md border border-border-input bg-background px-3 py-2 text-body text-text-muted3 outline-none opacity-70"
 							/>
 						</div>
+
+						<!-- Theme toggle (cycles system → light → dark) -->
+						<button
+							type="button"
+							id="gb-theme-btn"
+							onclick="window.gbTheme.cycle()"
+							title="Toggle theme"
+							class="inline-flex items-center justify-center rounded-md border border-border-input bg-surface p-2 text-text-muted3 hover:bg-background hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus transition-colors"
+							aria-label="Toggle colour theme"
+						>
+							<!-- Sun icon — shown when theme = light -->
+							<svg id="gb-icon-sun" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="display:none">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m8.66-9H21M3 12H2m15.36-6.36l-.71.71M7.05 16.95l-.71.71M18.71 16.95l-.71-.71M6.34 7.34l-.71-.71M12 8a4 4 0 100 8 4 4 0 000-8z"/>
+							</svg>
+							<!-- Moon icon — shown when theme = dark -->
+							<svg id="gb-icon-moon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="display:none">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+							</svg>
+							<!-- Monitor icon — shown when theme = system (default) -->
+							<svg id="gb-icon-monitor" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<rect x="2" y="3" width="20" height="14" rx="2" stroke-linejoin="round"/>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M8 21h8M12 17v4"/>
+							</svg>
+						</button>
 
 						<!-- User menu dropdown -->
 						<div class="relative" x-data="{ userMenuOpen: false }" @keydown.escape="userMenuOpen = false" @click.outside="userMenuOpen = false">
@@ -204,7 +279,15 @@ templ LayoutAuth(title string, content templ.Component) {
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<title>{ title }</title>
-			<link rel="stylesheet" href="/static/app.css?v=3"/>
+			<link rel="stylesheet" href="/static/app.css?v=4"/>
+			<!-- Theme init (same as Layout — no FOUC on auth pages either) -->
+			<script>
+				(function () {
+					var t = localStorage.getItem("gobooks-theme") || "system";
+					var dark = t === "dark" || (t === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+					if (dark) document.documentElement.classList.add("dark");
+				})();
+			</script>
 			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
 			<script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 			<script>

@@ -112,3 +112,64 @@ func ExportBalanceSheetCSV(report BalanceSheet, w io.Writer) error {
 
 	return cw.Error()
 }
+
+// ExportARAgingCSV writes an A/R Aging report as CSV to w.
+// Every data row (header, customer summary, invoice detail, totals) has exactly 10 columns:
+//
+//	Customer/Invoice | Invoice Date | Due Date | Terms | Current | 1-30 | 31-60 | 61-90 | 91+ | Balance Due
+//
+// Customer summary rows leave Invoice Date / Due Date / Terms blank.
+// Invoice detail rows are indented ("  INV-001") and follow their customer summary row.
+// Totals row leaves Invoice Date / Due Date / Terms blank.
+func ExportARAgingCSV(report ARAgingReport, w io.Writer) error {
+	cw := csv.NewWriter(w)
+	defer cw.Flush()
+
+	_ = cw.Write([]string{"A/R Aging"})
+	_ = cw.Write([]string{"As of: " + report.AsOf.Format("2006-01-02")})
+	if report.CurrencyCode != "" {
+		_ = cw.Write([]string{"Amounts shown in company base currency: " + report.CurrencyCode})
+	}
+	_ = cw.Write(nil)
+	_ = cw.Write([]string{"Customer/Invoice", "Invoice Date", "Due Date", "Terms", "Current", "1-30", "31-60", "61-90", "91+", "Balance Due"})
+	for _, row := range report.Rows {
+		_ = cw.Write([]string{
+			row.CustomerName, "", "", "",
+			csvMoneyBlankZero(row.Current),
+			csvMoneyBlankZero(row.Days1To30),
+			csvMoneyBlankZero(row.Days31To60),
+			csvMoneyBlankZero(row.Days61To90),
+			csvMoneyBlankZero(row.Days91Plus),
+			csvMoney(row.Total),
+		})
+		for _, d := range row.DetailRows {
+			dueDateStr := ""
+			if d.DueDate != nil {
+				dueDateStr = d.DueDate.Format("2006-01-02")
+			}
+			_ = cw.Write([]string{
+				"  " + d.InvoiceNumber,
+				d.InvoiceDate.Format("2006-01-02"),
+				dueDateStr,
+				d.Terms,
+				csvMoneyBlankZero(d.Current),
+				csvMoneyBlankZero(d.Days1To30),
+				csvMoneyBlankZero(d.Days31To60),
+				csvMoneyBlankZero(d.Days61To90),
+				csvMoneyBlankZero(d.Days91Plus),
+				csvMoney(d.BalanceDue),
+			})
+		}
+	}
+	_ = cw.Write([]string{
+		"Totals", "", "", "",
+		csvMoneyBlankZero(report.Totals.Current),
+		csvMoneyBlankZero(report.Totals.Days1To30),
+		csvMoneyBlankZero(report.Totals.Days31To60),
+		csvMoneyBlankZero(report.Totals.Days61To90),
+		csvMoneyBlankZero(report.Totals.Days91Plus),
+		csvMoney(report.Totals.Total),
+	})
+
+	return cw.Error()
+}

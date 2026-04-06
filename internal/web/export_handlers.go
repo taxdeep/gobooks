@@ -95,6 +95,32 @@ func (s *Server) handleExportBalanceSheetCSV(c *fiber.Ctx) error {
 
 // ── Clearing exports ─────────────────────────────────────────────────────────
 
+func (s *Server) handleExportARAgingCSV(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).SendString("company required")
+	}
+	asOfStr := strings.TrimSpace(c.Query("as_of"))
+	if asOfStr == "" {
+		asOfStr = time.Now().Format("2006-01-02")
+	}
+	asOf, err := time.Parse("2006-01-02", asOfStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString("as_of must be a valid date")
+	}
+	report, err := services.BuildARAgingReport(s.DB, companyID, asOf)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("could not run report")
+	}
+	var buf bytes.Buffer
+	if err := services.ExportARAgingCSV(report, &buf); err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
+	setCsvHeaders(c, csvFilename("ar_aging"))
+	_, err = c.Write(buf.Bytes())
+	return err
+}
+
 func (s *Server) handleExportClearingSummary(c *fiber.Ctx) error {
 	companyID, ok := ActiveCompanyIDFromCtx(c)
 	if !ok {

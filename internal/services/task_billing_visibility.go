@@ -1,7 +1,6 @@
 package services
 
 import (
-	"errors"
 	"sort"
 	"strings"
 	"time"
@@ -51,6 +50,7 @@ type TaskInvoiceTraceRow struct {
 	InvoiceLineID  *uint
 	InvoiceNumber  string
 	InvoiceStatus  models.InvoiceStatus
+	Payment        InvoicePaymentVisibility
 	AmountSnapshot decimal.Decimal
 	CurrencyCode   string
 	CreatedAt      time.Time
@@ -66,6 +66,7 @@ type TaskBillingTrace struct {
 	CurrentTaskInvoiceID  *uint
 	CurrentTaskInvoiceNum string
 	CurrentTaskStatus     models.InvoiceStatus
+	CurrentTaskPayment    InvoicePaymentVisibility
 	HasAnyActiveLinkage   bool
 	HasHistoricalLinkage  bool
 	TaskHistory           []TaskInvoiceTraceRow
@@ -250,6 +251,7 @@ func GetTaskBillingTrace(db *gorm.DB, companyID, taskID uint) (*TaskBillingTrace
 		trace.CurrentTaskInvoiceID = taskActive.InvoiceID
 		trace.CurrentTaskInvoiceNum = taskActive.InvoiceNumber
 		trace.CurrentTaskStatus = taskActive.InvoiceStatus
+		trace.CurrentTaskPayment = taskActive.Payment
 	}
 
 	switch {
@@ -426,7 +428,7 @@ func listTaskInvoiceTraceRows(db *gorm.DB, companyID uint, sourceType models.Tas
 	invoiceMap := map[uint]models.Invoice{}
 	if len(invoiceIDs) > 0 {
 		var invoices []models.Invoice
-		if err := db.Select("id", "invoice_number", "status").
+		if err := db.Select("id", "invoice_number", "status", "amount", "balance_due", "currency_code").
 			Where("company_id = ? AND id IN ?", companyID, dedupeUintIDs(invoiceIDs)).
 			Find(&invoices).Error; err != nil {
 			return nil, err
@@ -453,6 +455,7 @@ func listTaskInvoiceTraceRows(db *gorm.DB, companyID uint, sourceType models.Tas
 			if invoice, ok := invoiceMap[*bridge.InvoiceID]; ok {
 				row.InvoiceNumber = invoice.InvoiceNumber
 				row.InvoiceStatus = invoice.Status
+				row.Payment = BuildInvoicePaymentVisibility(invoice)
 			}
 		}
 		rows = append(rows, row)
@@ -567,10 +570,6 @@ func CustomerSummaryOrZero(summaries map[uint]CustomerBillableSummary, customerI
 		return summary
 	}
 	return CustomerBillableSummary{CustomerID: customerID}
-}
-
-func isBillLineNotFound(err error) bool {
-	return errors.Is(err, ErrBillLineNotFound)
 }
 
 func companyBaseCurrencyCode(db *gorm.DB, companyID uint) (string, error) {

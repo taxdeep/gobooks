@@ -1,0 +1,234 @@
+// 遵循project_guide.md
+package pages
+
+import "gobooks/internal/models"
+import "gobooks/internal/web/templates/layout"
+import "gobooks/internal/web/templates/ui"
+
+templ CustomerDetail(vm CustomerDetailVM) {
+	@layout.Layout(
+		"GoBooks - Customer",
+		ui.SidebarVM{Active: "Customers", HasCompany: vm.HasCompany},
+		bodyCustomerDetail(vm),
+	)
+}
+
+templ bodyCustomerDetail(vm CustomerDetailVM) {
+	<div class="max-w-[95%]">
+		<div class="flex flex-wrap items-start justify-between gap-4">
+			<div class="min-w-0 flex-1">
+				<div class="flex flex-wrap items-center gap-3">
+					<h1 class="text-title font-semibold">{ vm.Customer.Name }</h1>
+					<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-primary-soft text-primary">Customer Workspace</span>
+				</div>
+				<p class="mt-2 text-text-muted2">Operational visibility only. This page summarizes current billable work, outstanding balances, and recent customer invoice activity.</p>
+			</div>
+			<div class="flex shrink-0 flex-wrap items-center gap-2">
+				<a href="/customers" class="text-body text-text-muted3 hover:text-text">Back to Customers</a>
+			</div>
+		</div>
+
+		<div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+			<div class="rounded-lg border border-border bg-surface p-6">
+				<h2 class="text-section font-semibold text-text">Customer Details</h2>
+				<div class="mt-4 grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
+					<div>
+						<p class="text-small font-medium uppercase tracking-wider text-text-muted">Name</p>
+						<p class="mt-1 text-body font-medium text-text">{ vm.Customer.Name }</p>
+					</div>
+					<div>
+						<p class="text-small font-medium uppercase tracking-wider text-text-muted">Email</p>
+						if vm.Customer.Email != "" {
+							<p class="mt-1 text-body text-text">{ vm.Customer.Email }</p>
+						} else {
+							<p class="mt-1 text-body text-text-muted2">-</p>
+						}
+					</div>
+					<div>
+						<p class="text-small font-medium uppercase tracking-wider text-text-muted">Billing Address</p>
+						if addr := vm.Customer.FormattedAddress(); addr != "" {
+							<p class="mt-1 whitespace-pre-wrap text-body text-text">{ addr }</p>
+						} else {
+							<p class="mt-1 text-body text-text-muted2">-</p>
+						}
+					</div>
+					<div>
+						<p class="text-small font-medium uppercase tracking-wider text-text-muted">Default Payment Term</p>
+						if vm.DefaultPaymentTermLabel != "" {
+							<p class="mt-1 text-body text-text">{ vm.DefaultPaymentTermLabel }</p>
+						} else {
+							<p class="mt-1 text-body text-text-muted2">Use company default</p>
+						}
+					</div>
+				</div>
+			</div>
+
+			<div class="rounded-lg border border-border bg-surface p-6">
+				<h2 class="text-section font-semibold text-text">Recent Activity</h2>
+				<div class="mt-4 space-y-4">
+					<div class="rounded-md border border-border bg-background p-4">
+						<p class="text-small font-medium uppercase tracking-wider text-text-muted">Most Recent Invoice</p>
+						if vm.MostRecentInvoice != nil {
+							<p class="mt-2 text-body font-semibold text-text">
+								<a href={ "/invoices/" + Uitoa(vm.MostRecentInvoice.ID) } class="text-primary hover:text-primary-hover hover:underline">{ vm.MostRecentInvoice.InvoiceNumber }</a>
+							</p>
+							<p class="mt-1 text-small text-text-muted2">
+								{ vm.MostRecentInvoice.InvoiceDate.Format("2006-01-02") }
+								<span> · { models.InvoiceStatusLabel(invoiceDisplayStatus(*vm.MostRecentInvoice)) }</span>
+							</p>
+							<p class="mt-2">
+								<span class={ invoicePaymentBadgeClass(invoicePaymentVisibility(*vm.MostRecentInvoice)) }>{ invoicePaymentVisibility(*vm.MostRecentInvoice).Label }</span>
+							</p>
+							<p class="mt-2 text-small text-text-muted2">
+								Paid { taskMoney(invoicePaymentVisibility(*vm.MostRecentInvoice).PaidAmount, invoicePaymentVisibility(*vm.MostRecentInvoice).Currency) }
+								<span> · Due { taskMoney(invoicePaymentVisibility(*vm.MostRecentInvoice).BalanceDue, invoicePaymentVisibility(*vm.MostRecentInvoice).Currency) }</span>
+							</p>
+						} else {
+							<p class="mt-2 text-body text-text-muted2">No invoices for this customer yet.</p>
+						}
+					</div>
+					<div class="rounded-md border border-border bg-background p-4">
+						<p class="text-small font-medium uppercase tracking-wider text-text-muted">Last Billable Work</p>
+						if vm.BillableSummary.LastBillableWorkDate != nil {
+							<p class="mt-2 text-body font-semibold text-text">{ vm.BillableSummary.LastBillableWorkDate.Format("2006-01-02") }</p>
+						} else {
+							<p class="mt-2 text-body text-text-muted2">No current billable work waiting.</p>
+						}
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+			<div class="rounded-lg border border-border bg-surface p-6">
+				<p class="text-small uppercase tracking-wider text-text-muted">Unbilled Labor</p>
+				<p class="mt-3 text-section font-semibold text-text">{ currencyTotalsLabel(vm.BillableSummary.UnbilledTaskLabor) }</p>
+			</div>
+			<div class="rounded-lg border border-border bg-surface p-6">
+				<p class="text-small uppercase tracking-wider text-text-muted">Unbilled Expenses</p>
+				<p class="mt-3 text-section font-semibold text-text">{ currencyTotalsLabel(vm.BillableSummary.UnbilledBillableExpense) }</p>
+			</div>
+			<div class="rounded-lg border border-border bg-surface p-6">
+				<p class="text-small uppercase tracking-wider text-text-muted">Total Unbilled</p>
+				<p class="mt-3 text-section font-semibold text-text">{ currencyTotalsLabel(vm.BillableSummary.TotalUnbilled) }</p>
+			</div>
+		</div>
+
+		<div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+			<div class="rounded-lg border border-border bg-surface p-6">
+				<p class="text-small uppercase tracking-wider text-text-muted">Outstanding AR</p>
+				<p class="mt-3 text-section font-semibold text-text">{ currencyTotalsLabel(vm.ARSummary.OutstandingTotals) }</p>
+				<p class="mt-1 text-small text-text-muted2">Current customer balance due on non-draft, non-voided invoices.</p>
+			</div>
+			<div class="rounded-lg border border-border bg-surface p-6">
+				<p class="text-small uppercase tracking-wider text-text-muted">Outstanding Invoices</p>
+				<p class="mt-3 text-section font-semibold text-text">{ Itoa(vm.ARSummary.OutstandingInvoiceCount) }</p>
+				<p class="mt-1 text-small text-text-muted2">Invoices still carrying a balance due.</p>
+			</div>
+			<div class="rounded-lg border border-border bg-surface p-6">
+				<p class="text-small uppercase tracking-wider text-text-muted">Overdue Invoices</p>
+				<p class="mt-3 text-section font-semibold text-text">{ Itoa(vm.ARSummary.OverdueInvoiceCount) }</p>
+				<p class="mt-1 text-small text-text-muted2">Workspace helper only, based on the current overdue status helper rather than a full AR aging schedule.</p>
+			</div>
+		</div>
+
+		<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+			<h2 class="text-section font-semibold text-text">Quick Links</h2>
+			<p class="mt-2 text-small text-text-muted2">Use the existing operational pages to drill into this customer's work and invoices.</p>
+			<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+				<a href={ "/tasks/billable-work/report?customer_id=" + Uitoa(vm.Customer.ID) } class="rounded-md border border-border bg-background p-4 hover:border-primary-soft hover:bg-primary-soft/30">
+					<p class="text-body font-semibold text-text">View Billable Work Report</p>
+					<p class="mt-1 text-small text-text-muted2">See current unbilled tasks, expenses, and bill lines for this customer.</p>
+				</a>
+				<a href={ "/tasks?customer_id=" + Uitoa(vm.Customer.ID) } class="rounded-md border border-border bg-background p-4 hover:border-primary-soft hover:bg-primary-soft/30">
+					<p class="text-body font-semibold text-text">View Tasks</p>
+					<p class="mt-1 text-small text-text-muted2">Open the task list filtered to this customer.</p>
+				</a>
+				<a href={ "/invoices?customer_id=" + Uitoa(vm.Customer.ID) } class="rounded-md border border-border bg-background p-4 hover:border-primary-soft hover:bg-primary-soft/30">
+					<p class="text-body font-semibold text-text">View Invoices</p>
+					<p class="mt-1 text-small text-text-muted2">Open the invoice list filtered to this customer.</p>
+				</a>
+			</div>
+		</div>
+
+		<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+			<h2 class="text-section font-semibold text-text">Outstanding Invoices</h2>
+			if len(vm.OutstandingInvoices) == 0 {
+				<p class="mt-3 text-body text-text-muted2">No outstanding invoices for this customer.</p>
+			} else {
+				<div class="mt-4 overflow-x-auto">
+					<table class="w-full text-left text-body">
+						<thead class="text-small uppercase tracking-wider text-text-muted">
+							<tr class="border-b border-border">
+								<th class="py-3 pr-4">Invoice #</th>
+								<th class="py-3 pr-4">Date</th>
+								<th class="py-3 pr-4">Invoice Status</th>
+								<th class="py-3 pr-4">Payment</th>
+								<th class="py-3 pr-4 text-right">Paid</th>
+								<th class="py-3 pr-0 text-right">Balance Due</th>
+							</tr>
+						</thead>
+						<tbody class="text-text">
+							for _, inv := range vm.OutstandingInvoices {
+								<tr class="border-b border-border-subtle">
+									<td class="py-3 pr-4 font-medium">
+										<a href={ "/invoices/" + Uitoa(inv.ID) } class="text-primary hover:text-primary-hover hover:underline">{ inv.InvoiceNumber }</a>
+									</td>
+									<td class="py-3 pr-4">{ inv.InvoiceDate.Format("2006-01-02") }</td>
+									<td class="py-3 pr-4">
+										<span class={ invoiceStatusBadgeClass(invoiceDisplayStatus(inv)) }>{ models.InvoiceStatusLabel(invoiceDisplayStatus(inv)) }</span>
+									</td>
+									<td class="py-3 pr-4">
+										<span class={ invoicePaymentBadgeClass(invoicePaymentVisibility(inv)) }>{ invoicePaymentVisibility(inv).Label }</span>
+									</td>
+									<td class="py-3 pr-4 text-right tabular-nums">{ taskMoney(invoicePaymentVisibility(inv).PaidAmount, invoicePaymentVisibility(inv).Currency) }</td>
+									<td class="py-3 pr-0 text-right tabular-nums font-medium">{ taskMoney(invoicePaymentVisibility(inv).BalanceDue, invoicePaymentVisibility(inv).Currency) }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			}
+		</div>
+
+		<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+			<h2 class="text-section font-semibold text-text">Recent Invoices</h2>
+			if len(vm.RecentInvoices) == 0 {
+				<p class="mt-3 text-body text-text-muted2">No invoices for this customer yet.</p>
+			} else {
+				<div class="mt-4 overflow-x-auto">
+					<table class="w-full text-left text-body">
+						<thead class="text-small uppercase tracking-wider text-text-muted">
+							<tr class="border-b border-border">
+								<th class="py-3 pr-4">Invoice #</th>
+								<th class="py-3 pr-4">Date</th>
+								<th class="py-3 pr-4">Invoice Status</th>
+								<th class="py-3 pr-4">Payment</th>
+								<th class="py-3 pr-4 text-right">Paid</th>
+								<th class="py-3 pr-0 text-right">Balance Due</th>
+							</tr>
+						</thead>
+						<tbody class="text-text">
+							for _, inv := range vm.RecentInvoices {
+								<tr class="border-b border-border-subtle">
+									<td class="py-3 pr-4 font-medium">
+										<a href={ "/invoices/" + Uitoa(inv.ID) } class="text-primary hover:text-primary-hover hover:underline">{ inv.InvoiceNumber }</a>
+									</td>
+									<td class="py-3 pr-4">{ inv.InvoiceDate.Format("2006-01-02") }</td>
+									<td class="py-3 pr-4">
+										<span class={ invoiceStatusBadgeClass(invoiceDisplayStatus(inv)) }>{ models.InvoiceStatusLabel(invoiceDisplayStatus(inv)) }</span>
+									</td>
+									<td class="py-3 pr-4">
+										<span class={ invoicePaymentBadgeClass(invoicePaymentVisibility(inv)) }>{ invoicePaymentVisibility(inv).Label }</span>
+									</td>
+									<td class="py-3 pr-4 text-right tabular-nums">{ taskMoney(invoicePaymentVisibility(inv).PaidAmount, invoicePaymentVisibility(inv).Currency) }</td>
+									<td class="py-3 pr-0 text-right tabular-nums font-medium">{ taskMoney(invoicePaymentVisibility(inv).BalanceDue, invoicePaymentVisibility(inv).Currency) }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			}
+		</div>
+	</div>
+}

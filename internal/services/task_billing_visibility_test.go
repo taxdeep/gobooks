@@ -103,14 +103,22 @@ func TestGetTaskBillingTrace_DistinguishesActiveAndHistorical(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate second draft: %v", err)
 	}
+	if err := db.Model(&models.Invoice{}).
+		Where("id = ?", secondDraft.InvoiceID).
+		Updates(map[string]any{
+			"status":      models.InvoiceStatusPartiallyPaid,
+			"balance_due": decimal.RequireFromString("120.00"),
+		}).Error; err != nil {
+		t.Fatalf("mark second draft partially paid: %v", err)
+	}
 
 	trace, err := GetTaskBillingTrace(db, fixture.companyID, task.ID)
 	if err != nil {
 		t.Fatalf("GetTaskBillingTrace failed: %v", err)
 	}
 
-	if trace.StateLabel != "In draft invoice" {
-		t.Fatalf("expected in-draft state, got %q", trace.StateLabel)
+	if trace.StateLabel != "Invoiced" {
+		t.Fatalf("expected invoiced state, got %q", trace.StateLabel)
 	}
 	if !trace.HasAnyActiveLinkage {
 		t.Fatalf("expected active linkage")
@@ -121,11 +129,20 @@ func TestGetTaskBillingTrace_DistinguishesActiveAndHistorical(t *testing.T) {
 	if trace.CurrentTaskInvoiceID == nil || *trace.CurrentTaskInvoiceID != secondDraft.InvoiceID {
 		t.Fatalf("expected current task invoice %d, got %+v", secondDraft.InvoiceID, trace.CurrentTaskInvoiceID)
 	}
+	if trace.CurrentTaskPayment.State != InvoicePaymentStatePartiallyPaid {
+		t.Fatalf("expected partial payment state on current task invoice, got %+v", trace.CurrentTaskPayment)
+	}
+	if !trace.CurrentTaskPayment.PaidAmount.Equal(decimal.RequireFromString("210.00")) {
+		t.Fatalf("expected paid amount 210.00, got %s", trace.CurrentTaskPayment.PaidAmount)
+	}
 	if len(trace.TaskHistory) != 2 {
 		t.Fatalf("expected 2 task history rows, got %d", len(trace.TaskHistory))
 	}
 	if !trace.TaskHistory[0].IsActive {
 		t.Fatalf("expected newest task history row to be active")
+	}
+	if trace.TaskHistory[0].Payment.State != InvoicePaymentStatePartiallyPaid {
+		t.Fatalf("expected active task history row to carry partial payment state, got %+v", trace.TaskHistory[0].Payment)
 	}
 	if trace.TaskHistory[1].IsActive {
 		t.Fatalf("expected older task history row to be historical")

@@ -173,6 +173,13 @@ templ bodyTaskDetail(vm TaskDetailVM) {
 								<a href={ "/invoices/" + Uitoa(*vm.BillingTrace.CurrentTaskInvoiceID) } class="text-primary hover:text-primary-hover hover:underline">{ vm.BillingTrace.CurrentTaskInvoiceNum }</a>
 							</p>
 							<p class="mt-1 text-small text-text-muted2">{ models.InvoiceStatusLabel(vm.BillingTrace.CurrentTaskStatus) }</p>
+							<p class="mt-2">
+								<span class={ invoicePaymentBadgeClass(vm.BillingTrace.CurrentTaskPayment) }>{ vm.BillingTrace.CurrentTaskPayment.Label }</span>
+							</p>
+							<p class="mt-2 text-small text-text-muted2">
+								Paid { taskMoney(vm.BillingTrace.CurrentTaskPayment.PaidAmount, vm.BillingTrace.CurrentTaskPayment.Currency) }
+								<span> · Due { taskMoney(vm.BillingTrace.CurrentTaskPayment.BalanceDue, vm.BillingTrace.CurrentTaskPayment.Currency) }</span>
+							</p>
 						} else {
 							<p class="mt-2 text-body text-text-muted2">No active task labor invoice linkage.</p>
 						}
@@ -349,6 +356,13 @@ templ taskInvoiceTraceSection(title string, emptyText string, rows []services.Ta
 									if row.InvoiceID != nil && row.InvoiceNumber != "" {
 										<a href={ traceInvoiceHref(row) } class="font-medium text-primary hover:text-primary-hover hover:underline">{ row.InvoiceNumber }</a>
 										<p class="mt-1 text-small text-text-muted2">{ models.InvoiceStatusLabel(row.InvoiceStatus) }</p>
+										<p class="mt-2">
+											<span class={ invoicePaymentBadgeClass(row.Payment) }>{ row.Payment.Label }</span>
+										</p>
+										<p class="mt-2 text-small text-text-muted2">
+											Paid { taskMoney(row.Payment.PaidAmount, row.Payment.Currency) }
+											<span> · Due { taskMoney(row.Payment.BalanceDue, row.Payment.Currency) }</span>
+										</p>
 									} else {
 										<span class="text-text-muted2">Released draft reference cleared</span>
 									}

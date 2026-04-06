@@ -77,7 +77,12 @@ templ bodyCustomers(vm CustomersVM) {
 						}
 						for _, c := range vm.Customers {
 							<tr class="border-b border-border-subtle">
-								<td class="py-3 pr-4 font-medium">{ c.Name }</td>
+								<td class="py-3 pr-4 font-medium">
+									<a
+										href={ "/customers/" + Uitoa(c.ID) }
+										class="text-primary hover:text-primary-hover hover:underline"
+									>{ c.Name }</a>
+								</td>
 								<td class="py-3 pr-4 text-small text-text-muted2">
 									if c.Email != "" {
 										{ c.Email }
@@ -109,6 +114,13 @@ templ bodyCustomers(vm CustomersVM) {
 									{ currencyTotalsLabel(customerBillableSummary(vm.BillableSummaries, c.ID).TotalUnbilled) }
 								</td>
 								<td class="py-3 pr-0 text-right whitespace-nowrap">
+									<a
+										href={ "/customers/" + Uitoa(c.ID) }
+										class="text-small font-medium text-primary hover:text-primary-hover"
+									>
+										View
+									</a>
+									<span class="inline-block px-1 text-text-muted3">|</span>
 									<a
 										href={ "/tasks/billable-work/report?customer_id=" + Uitoa(c.ID) }
 										class="text-small font-medium text-primary hover:text-primary-hover"

@@ -10,7 +10,10 @@ type InvoiceAgingBucket string
 
 const (
 	InvoiceAgingBucketCurrent InvoiceAgingBucket = "current"
-	InvoiceAgingBucketOverdue InvoiceAgingBucket = "overdue"
+	InvoiceAgingBucket1To30   InvoiceAgingBucket = "days_1_30"
+	InvoiceAgingBucket31To60  InvoiceAgingBucket = "days_31_60"
+	InvoiceAgingBucket61To90  InvoiceAgingBucket = "days_61_90"
+	InvoiceAgingBucket91Plus  InvoiceAgingBucket = "days_91_plus"
 )
 
 func IsInvoiceOverdue(inv models.Invoice) bool {
@@ -40,24 +43,57 @@ func EffectiveInvoiceStatusAsOf(inv models.Invoice, asOf time.Time) models.Invoi
 	return inv.Status
 }
 
-// InvoiceAgingBucketForReport is intentionally kept even though the current
-// repo has no dedicated AR aging report route/page/service yet. List/detail
-// overdue display already flows through the overdue/effective-status helpers
-// above; when an AR aging report is added later, it should reuse this bucket
-// helper instead of re-implementing past-due rules in a report-specific layer.
+func AllInvoiceAgingBuckets() []InvoiceAgingBucket {
+	return []InvoiceAgingBucket{
+		InvoiceAgingBucketCurrent,
+		InvoiceAgingBucket1To30,
+		InvoiceAgingBucket31To60,
+		InvoiceAgingBucket61To90,
+		InvoiceAgingBucket91Plus,
+	}
+}
+
+func InvoiceAgingBucketLabel(bucket InvoiceAgingBucket) string {
+	switch bucket {
+	case InvoiceAgingBucket1To30:
+		return "1-30"
+	case InvoiceAgingBucket31To60:
+		return "31-60"
+	case InvoiceAgingBucket61To90:
+		return "61-90"
+	case InvoiceAgingBucket91Plus:
+		return "91+"
+	default:
+		return "Current"
+	}
+}
+
+// InvoiceAgingBucketForReport keeps report bucketing aligned with the same
+// due-date truth used by the workspace overdue helpers. Formal A/R Aging
+// report code should call this helper instead of duplicating bucket rules.
 func InvoiceAgingBucketForReport(inv models.Invoice) InvoiceAgingBucket {
 	return InvoiceAgingBucketForReportAsOf(inv, time.Now())
 }
 
-// InvoiceAgingBucketForReportAsOf is the future report-truth hook for AR aging
-// buckets. There is no direct consumer today outside tests, but future aging
-// report code should call this helper so report bucketing stays aligned with
-// the same overdue truth used by EffectiveInvoiceStatusAsOf.
+// InvoiceAgingBucketForReportAsOf maps one invoice into the formal A/R Aging
+// buckets using the current overdue truth plus days-past-due as of the report
+// date. Invoices that are not past due, or that cannot be bucketed because
+// they have no due date, stay in Current.
 func InvoiceAgingBucketForReportAsOf(inv models.Invoice, asOf time.Time) InvoiceAgingBucket {
-	if EffectiveInvoiceStatusAsOf(inv, asOf) == models.InvoiceStatusOverdue {
-		return InvoiceAgingBucketOverdue
+	if EffectiveInvoiceStatusAsOf(inv, asOf) != models.InvoiceStatusOverdue || inv.DueDate == nil {
+		return InvoiceAgingBucketCurrent
 	}
-	return InvoiceAgingBucketCurrent
+	daysPastDue := int(dateOnly(asOf).Sub(dateOnly(*inv.DueDate)).Hours() / 24)
+	switch {
+	case daysPastDue <= 30:
+		return InvoiceAgingBucket1To30
+	case daysPastDue <= 60:
+		return InvoiceAgingBucket31To60
+	case daysPastDue <= 90:
+		return InvoiceAgingBucket61To90
+	default:
+		return InvoiceAgingBucket91Plus
+	}
 }
 
 func dateOnly(t time.Time) time.Time {

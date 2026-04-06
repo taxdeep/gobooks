@@ -194,6 +194,8 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Get("/reports/income-statement/export.csv", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleExportIncomeStatementCSV)
 	app.Get("/reports/balance-sheet", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleBalanceSheet)
 	app.Get("/reports/balance-sheet/export.csv", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleExportBalanceSheetCSV)
+	app.Get("/reports/ar-aging", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleARAgingReport)
+	app.Get("/reports/ar-aging/export.csv", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleExportARAgingCSV)
 	app.Get("/reports/journal-entries", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleJournalEntryReport)
 	app.Get("/reports/sales-tax", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleSalesTaxReport)
 	app.Get("/reports/clearing", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleClearingReport)
@@ -225,6 +227,7 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	// 联系人数据对所有运营角色开放（不在现有 action 定义范围内，仅需成员资格）
 	app.Get("/customers", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCustomers)
 	app.Get("/customers/new", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerNew)
+	app.Get("/customers/:id", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCustomerDetail)
 	app.Post("/customers", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerCreate)
 	app.Post("/customers/update", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerUpdate)
 	app.Get("/tasks", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleTasks)

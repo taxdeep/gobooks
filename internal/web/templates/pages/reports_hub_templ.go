@@ -97,6 +97,7 @@ func bodyReportsHub() templ.Component {
 			"Dig into the details of your business's transactions, balances, and accounts.",
 			[]reportsHubItem{
 				{Href: "/reports/trial-balance", Title: "Trial Balance", Desc: "The sum of debits and credits for all accounts on a single day. Helps you check for discrepancies."},
+				{Href: "/reports/ar-aging", Title: "A/R Aging", Desc: "Outstanding receivables grouped by how long each balance has been due as of a chosen report date."},
 				{Href: "/reports/journal-entries", Title: "Account Transactions (General Ledger)", Desc: "Your complete financial activity — a detailed list of all transactions for every account."},
 			},
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -145,7 +146,7 @@ func reportsHubSection(title string, description string, items []reportsHubItem)
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/reports_hub.templ`, Line: 64, Col: 60}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/reports_hub.templ`, Line: 65, Col: 60}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -158,7 +159,7 @@ func reportsHubSection(title string, description string, items []reportsHubItem)
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(description)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/reports_hub.templ`, Line: 65, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/reports_hub.templ`, Line: 66, Col: 61}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -176,7 +177,7 @@ func reportsHubSection(title string, description string, items []reportsHubItem)
 			var templ_7745c5c3_Var6 templ.SafeURL
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinURLErrs(item.Href)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/reports_hub.templ`, Line: 71, Col: 22}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/reports_hub.templ`, Line: 72, Col: 22}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -189,7 +190,7 @@ func reportsHubSection(title string, description string, items []reportsHubItem)
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(item.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/reports_hub.templ`, Line: 75, Col: 89}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/reports_hub.templ`, Line: 76, Col: 89}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -202,7 +203,7 @@ func reportsHubSection(title string, description string, items []reportsHubItem)
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(item.Desc)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/reports_hub.templ`, Line: 76, Col: 64}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/reports_hub.templ`, Line: 77, Col: 64}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {

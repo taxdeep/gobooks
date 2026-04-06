@@ -85,3 +85,17 @@ type BalanceSheetVM struct {
 
 	Toolbar ReportToolbarVM
 }
+
+type ARAgingVM struct {
+	HasCompany bool
+
+	AsOf string
+
+	ActiveTab string
+
+	Report services.ARAgingReport
+
+	FormError string
+
+	Toolbar ReportToolbarVM
+}

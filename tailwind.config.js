@@ -5,74 +5,78 @@ module.exports = {
     "./internal/web/templates/**/*.templ",
     "./internal/web/**/*.go"
   ],
+  // Class-based dark mode: <html class="dark"> triggers .dark { --gb-* } overrides in input.css.
+  // All semantic color tokens are defined as CSS custom properties — no template changes needed.
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        // Semantic color tokens (design system)
+        // ── Semantic color tokens ──────────────────────────────────────────────
+        // Values are CSS custom properties defined in input.css (:root = light, .dark = dark).
+        // The rgb(var(...) / <alpha-value>) format enables Tailwind's opacity utilities
+        // (bg-primary/10, bg-background/50, etc.) to work with dynamic CSS variables.
         primary: {
-          DEFAULT: "#2563eb", // blue-600
-          hover: "#1d4ed8", // blue-700
-          soft: "#eff6ff", // blue-50
-          focus: "#bfdbfe" // blue-200
+          DEFAULT: 'rgb(var(--gb-primary) / <alpha-value>)',
+          hover:   'rgb(var(--gb-primary-hover) / <alpha-value>)',
+          soft:    'rgb(var(--gb-primary-soft) / <alpha-value>)',
+          focus:   'rgb(var(--gb-primary-focus) / <alpha-value>)',
         },
         success: {
-          DEFAULT: "#16a34a",
-          hover: "#15803d",
-          soft: "#dcfce7",
-          border: "#bbf7d0",
-          focus: "#86efac"
+          DEFAULT: 'rgb(var(--gb-success) / <alpha-value>)',
+          hover:   'rgb(var(--gb-success-hover) / <alpha-value>)',
+          soft:    'rgb(var(--gb-success-soft) / <alpha-value>)',
+          border:  'rgb(var(--gb-success-border) / <alpha-value>)',
+          focus:   'rgb(var(--gb-success-focus) / <alpha-value>)',
         },
         warning: {
-          DEFAULT: "#d97706", // amber-600
-          hover: "#b45309", // amber-700
-          soft: "#fffbeb", // amber-50
-          border: "#fcd34d",
-          focus: "#fbbf24"
+          DEFAULT: 'rgb(var(--gb-warning) / <alpha-value>)',
+          hover:   'rgb(var(--gb-warning-hover) / <alpha-value>)',
+          soft:    'rgb(var(--gb-warning-soft) / <alpha-value>)',
+          border:  'rgb(var(--gb-warning-border) / <alpha-value>)',
+          focus:   'rgb(var(--gb-warning-focus) / <alpha-value>)',
         },
         danger: {
-          DEFAULT: "#dc2626",
-          hover: "#b91c1c",
-          soft: "#fef2f2",
-          border: "#fecaca",
-          focus: "#fca5a5"
+          DEFAULT: 'rgb(var(--gb-danger) / <alpha-value>)',
+          hover:   'rgb(var(--gb-danger-hover) / <alpha-value>)',
+          soft:    'rgb(var(--gb-danger-soft) / <alpha-value>)',
+          border:  'rgb(var(--gb-danger-border) / <alpha-value>)',
+          focus:   'rgb(var(--gb-danger-focus) / <alpha-value>)',
         },
         background: {
-          DEFAULT: "#f9fafb" // gray-50
+          DEFAULT: 'rgb(var(--gb-background) / <alpha-value>)',
         },
         text: {
-          DEFAULT: "#111827", // gray-900
-          muted: "#6b7280", // gray-500
-          muted2: "#4b5563", // gray-600
-          muted3: "#374151" // gray-700
+          DEFAULT: 'rgb(var(--gb-text) / <alpha-value>)',
+          muted:   'rgb(var(--gb-text-muted) / <alpha-value>)',
+          muted2:  'rgb(var(--gb-text-muted2) / <alpha-value>)',
+          muted3:  'rgb(var(--gb-text-muted3) / <alpha-value>)',
         },
         border: {
-          DEFAULT: "#e5e7eb", // gray-200
-          input: "#d1d5db", // gray-300
-          subtle: "#f3f4f6", // gray-100
-          danger: "#fecaca" // red-200
+          DEFAULT: 'rgb(var(--gb-border) / <alpha-value>)',
+          input:   'rgb(var(--gb-border-input) / <alpha-value>)',
+          subtle:  'rgb(var(--gb-border-subtle) / <alpha-value>)',
+          danger:  'rgb(var(--gb-border-danger) / <alpha-value>)',
         },
         surface: {
-          DEFAULT: "#ffffff" // white
+          DEFAULT: 'rgb(var(--gb-surface) / <alpha-value>)',
         },
-        onPrimary: "#ffffff",
-        // Used for disabled states that previously used gray-200/gray-500 directly.
+        onPrimary: 'rgb(var(--gb-on-primary) / <alpha-value>)',
         disabled: {
-          bg: "#e5e7eb", // gray-200
-          text: "#6b7280" // gray-500
+          bg:   'rgb(var(--gb-disabled-bg) / <alpha-value>)',
+          text: 'rgb(var(--gb-disabled-text) / <alpha-value>)',
         },
         dangerText: {
-          DEFAULT: "#dc2626" // red-600
-        }
+          DEFAULT: 'rgb(var(--gb-danger-text) / <alpha-value>)',
+        },
       },
       fontSize: {
         // Typography scale
-        title: ["1.5rem", { lineHeight: "2rem" }], // 24px
-        section: ["1rem", { lineHeight: "1.5rem" }], // 16px
-        body: ["0.875rem", { lineHeight: "1.25rem" }], // 14px
-        small: ["0.75rem", { lineHeight: "1rem" }], // 12px
+        title:   ['1.5rem',   { lineHeight: '2rem' }],    // 24px
+        section: ['1rem',     { lineHeight: '1.5rem' }],  // 16px
+        body:    ['0.875rem', { lineHeight: '1.25rem' }], // 14px
+        small:   ['0.75rem',  { lineHeight: '1rem' }],    // 12px
       },
     }
   },
   plugins: []
 };
-

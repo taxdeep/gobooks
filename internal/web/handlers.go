@@ -383,6 +383,59 @@ func (s *Server) handleBalanceSheet(c *fiber.Ctx) error {
 	}).Render(c.Context(), c)
 }
 
+func (s *Server) handleARAgingReport(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/select-company", fiber.StatusSeeOther)
+	}
+
+	co := s.loadReportCompanyInfo(companyID)
+	preset, asOfStr := resolveAsOfDate(
+		c.Query("period"), c.Query("as_of"), co.FiscalYearEnd)
+
+	toolbar := pages.ReportToolbarVM{
+		Preset: preset, AsOf: asOfStr,
+		FiscalYearEnd: co.FiscalYearEnd,
+		CompanyName:   co.Name,
+		ReportTitle:   "A/R Aging",
+		FormAction:    "/reports/ar-aging",
+		CSVExportURL:  "/reports/ar-aging/export.csv",
+		Mode:          "asof",
+	}
+
+	asOf, err := time.Parse("2006-01-02", asOfStr)
+	if err != nil {
+		return pages.ARAging(pages.ARAgingVM{
+			HasCompany: true,
+			AsOf:       asOfStr,
+			ActiveTab:  "ar",
+			Report:     services.ARAgingReport{AsOf: time.Now()},
+			FormError:  "As of date must be a valid date.",
+			Toolbar:    toolbar,
+		}).Render(c.Context(), c)
+	}
+
+	report, err := services.BuildARAgingReport(s.DB, companyID, asOf)
+	if err != nil {
+		return pages.ARAging(pages.ARAgingVM{
+			HasCompany: true,
+			AsOf:       asOfStr,
+			ActiveTab:  "ar",
+			Report:     services.ARAgingReport{AsOf: asOf},
+			FormError:  "Could not run report.",
+			Toolbar:    toolbar,
+		}).Render(c.Context(), c)
+	}
+
+	return pages.ARAging(pages.ARAgingVM{
+		HasCompany: true,
+		AsOf:       asOfStr,
+		ActiveTab:  "ar",
+		Report:     report,
+		Toolbar:    toolbar,
+	}).Render(c.Context(), c)
+}
+
 func (s *Server) handleJournalEntryReport(c *fiber.Ctx) error {
 	companyID, ok := ActiveCompanyIDFromCtx(c)
 	if !ok {

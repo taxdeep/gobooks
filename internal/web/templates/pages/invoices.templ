@@ -89,8 +89,10 @@ templ bodyInvoices(vm InvoicesVM) {
 							<th class="py-3 pr-4">Customer</th>
 							<th class="py-3 pr-4">Date</th>
 							<th class="py-3 pr-4">Due</th>
-							<th class="py-3 pr-4">Status</th>
+							<th class="py-3 pr-4">Invoice Status</th>
+							<th class="py-3 pr-4">Payment</th>
 							<th class="py-3 pr-4 text-right">Total</th>
+							<th class="py-3 pr-4 text-right">Balance Due</th>
 							<th class="py-3 pr-0 text-right">Actions</th>
 						</tr>
 					</thead>
@@ -117,7 +119,11 @@ templ bodyInvoices(vm InvoicesVM) {
 										{ models.InvoiceStatusLabel(invoiceDisplayStatus(inv)) }
 									</span>
 								</td>
+								<td class="py-3 pr-4">
+									<span class={ invoicePaymentBadgeClass(invoicePaymentVisibility(inv)) }>{ invoicePaymentVisibility(inv).Label }</span>
+								</td>
 								<td class="py-3 pr-4 text-right tabular-nums">{ Money(inv.Amount) }</td>
+								<td class="py-3 pr-4 text-right tabular-nums">{ taskMoney(invoicePaymentVisibility(inv).BalanceDue, invoicePaymentVisibility(inv).Currency) }</td>
 								<td class="py-3 pr-0 text-right whitespace-nowrap">
 									<a
 										href={ "/invoices/" + Uitoa(inv.ID) }

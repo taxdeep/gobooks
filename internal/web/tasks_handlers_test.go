@@ -286,6 +286,57 @@ func TestTaskDetailShowsLinkedExpensesBillLinesAndSummary(t *testing.T) {
 	}
 }
 
+func TestTaskDetailShowsInvoicePaymentStateInBillingTrace(t *testing.T) {
+	db := testRouteDB(t)
+	companyID := seedCompany(t, db, "Task Trace Payment Co")
+	user, rawToken := seedUserSession(t, db, &companyID)
+	seedMembership(t, db, user.ID, companyID)
+
+	customerID := seedValidationCustomer(t, db, companyID, "Trace Customer")
+	_ = seedValidationAccount(t, db, companyID, "1100", models.RootAsset, models.DetailAccountsReceivable)
+	_ = seedValidationAccount(t, db, companyID, "4000", models.RootRevenue, models.DetailServiceRevenue)
+	if err := services.EnsureSystemTaskItems(db, companyID); err != nil {
+		t.Fatal(err)
+	}
+
+	taskID := seedTaskForWeb(t, db, companyID, customerID, models.TaskStatusCompleted, "Trace payment task")
+	draft, err := services.GenerateInvoiceDraft(db, services.GenerateInvoiceDraftInput{
+		CompanyID:  companyID,
+		CustomerID: customerID,
+		TaskIDs:    []uint{taskID},
+		Actor:      "tester",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&models.Invoice{}).
+		Where("id = ?", draft.InvoiceID).
+		Updates(map[string]any{
+			"status":      models.InvoiceStatusPartiallyPaid,
+			"balance_due": decimal.RequireFromString("120.00"),
+		}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	app := testRouteApp(t, db)
+	resp := performRequest(t, app, fmt.Sprintf("/tasks/%d", taskID), rawToken)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected %d, got %d", http.StatusOK, resp.StatusCode)
+	}
+	body := readResponseBody(t, resp)
+	for _, want := range []string{
+		"Trace payment task",
+		"Partially Paid",
+		"Paid 5.00",
+		"Due 120.00",
+		"Current Task Invoice",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("expected task detail trace to contain %q, got %q", want, body)
+		}
+	}
+}
+
 func TestTaskBillableWorkPageAndGenerateDraftHappyPath(t *testing.T) {
 	db := testRouteDB(t)
 	companyID := seedCompany(t, db, "Task Draft Web Co")
@@ -415,6 +466,31 @@ func TestTaskBillableWorkGenerateShowsErrorWhenNothingSelected(t *testing.T) {
 	body := readResponseBody(t, resp)
 	if !strings.Contains(body, services.ErrBillableWorkSelectionRequired.Error()) {
 		t.Fatalf("expected selection error banner, got %q", body)
+	}
+}
+
+func TestTasksListFiltersByCustomerID(t *testing.T) {
+	db := testRouteDB(t)
+	companyID := seedCompany(t, db, "Task Customer Filter Co")
+	user, rawToken := seedUserSession(t, db, &companyID)
+	seedMembership(t, db, user.ID, companyID)
+
+	customerA := seedValidationCustomer(t, db, companyID, "Customer A")
+	customerB := seedValidationCustomer(t, db, companyID, "Customer B")
+	_ = seedTaskForWeb(t, db, companyID, customerA, models.TaskStatusCompleted, "Customer A Task")
+	_ = seedTaskForWeb(t, db, companyID, customerB, models.TaskStatusCompleted, "Customer B Task")
+
+	app := testRouteApp(t, db)
+	resp := performRequest(t, app, fmt.Sprintf("/tasks?customer_id=%d", customerA), rawToken)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected %d, got %d", http.StatusOK, resp.StatusCode)
+	}
+	body := readResponseBody(t, resp)
+	if !strings.Contains(body, "Customer A Task") {
+		t.Fatalf("expected filtered task list to include target customer task, got %q", body)
+	}
+	if strings.Contains(body, "Customer B Task") {
+		t.Fatalf("expected filtered task list to exclude other customer task, got %q", body)
 	}
 }
 

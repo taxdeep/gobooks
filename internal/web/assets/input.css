@@ -4,8 +4,140 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Theme: CSS custom properties ──────────────────────────────────────────
+   All color tokens are defined here as bare RGB channel triplets so that
+   Tailwind's opacity modifiers (bg-primary/10, border-border/50, etc.) work.
+   :root = light mode  |  .dark = dark mode (applied to <html> by theme script)
+   ─────────────────────────────────────────────────────────────────────── */
+@layer base {
+  :root {
+    /* Primary — blue-600 */
+    --gb-primary:        37  99 235;
+    --gb-primary-hover:  29  78 216;
+    --gb-primary-soft:  239 246 255;
+    --gb-primary-focus: 191 219 254;
+
+    /* Success — green */
+    --gb-success:        22 163  74;
+    --gb-success-hover:  21 128  61;
+    --gb-success-soft:  220 252 231;
+    --gb-success-border:187 247 208;
+    --gb-success-focus: 134 239 172;
+
+    /* Warning — amber */
+    --gb-warning:       217 119   6;
+    --gb-warning-hover: 180  83   9;
+    --gb-warning-soft:  255 251 235;
+    --gb-warning-border:252 211  77;
+    --gb-warning-focus: 251 191  36;
+
+    /* Danger — red */
+    --gb-danger:        220  38  38;
+    --gb-danger-hover:  185  28  28;
+    --gb-danger-soft:   254 242 242;
+    --gb-danger-border: 254 202 202;
+    --gb-danger-focus:  252 165 165;
+
+    /* Page & surface */
+    --gb-background:    249 250 251;  /* gray-50  */
+    --gb-surface:       255 255 255;  /* white    */
+
+    /* Text hierarchy */
+    --gb-text:           17  24  39;  /* gray-900 */
+    --gb-text-muted:    107 114 128;  /* gray-500 */
+    --gb-text-muted2:    75  85  99;  /* gray-600 */
+    --gb-text-muted3:    55  65  81;  /* gray-700 */
+
+    /* Borders */
+    --gb-border:        229 231 235;  /* gray-200 */
+    --gb-border-input:  209 213 219;  /* gray-300 */
+    --gb-border-subtle: 243 244 246;  /* gray-100 */
+    --gb-border-danger: 254 202 202;  /* red-200  */
+
+    /* Special */
+    --gb-on-primary:    255 255 255;  /* white text on primary/danger buttons */
+    --gb-disabled-bg:   229 231 235;  /* gray-200 */
+    --gb-disabled-text: 107 114 128;  /* gray-500 */
+    --gb-danger-text:   220  38  38;  /* red-600  */
+  }
+
+  /* ── Dark mode overrides ─────────────────────────────────────────────────
+     Blue-gray palette (hue ≈ 220°), calibrated for long-session accounting use.
+     Soft blues reduce eye strain; no pure black or pure white anywhere.
+     Status colors shift to lighter hues that read on dark surfaces.
+     Primary buttons use dark navy text on blue-400 bg (8:1 contrast, AAA).
+     ─────────────────────────────────────────────────────────────────────── */
+  .dark {
+    /* Primary — blue-400 (readable on dark bg as text; AA+ for links) */
+    --gb-primary:        96 165 250;  /* blue-400  */
+    --gb-primary-hover: 147 197 253;  /* blue-300  */
+    --gb-primary-soft:   23  45  88;  /* dark blue tint for selected nav bg */
+    --gb-primary-focus:  59 130 246;  /* blue-500, focus ring */
+
+    /* Success — emerald-400 (vivid on dark bg) */
+    --gb-success:        52 211 153;  /* emerald-400 */
+    --gb-success-hover:  16 185 129;  /* emerald-500 */
+    --gb-success-soft:    6  36  24;  /* very dark emerald tint */
+    --gb-success-border:  4  72  44;  /* dark emerald border */
+    --gb-success-focus:  16 185 129;
+
+    /* Warning — amber-400 */
+    --gb-warning:       251 191  36;  /* amber-400 */
+    --gb-warning-hover: 245 158  11;  /* amber-500 */
+    --gb-warning-soft:   38  26   2;  /* very dark amber tint */
+    --gb-warning-border:112  48   8;  /* dark amber border */
+    --gb-warning-focus: 217 119   6;
+
+    /* Danger — red-400 (softer than red-600, still clear on dark) */
+    --gb-danger:        248 113 113;  /* red-400   */
+    --gb-danger-hover:  252 165 165;  /* red-300   */
+    --gb-danger-soft:    40  12  12;  /* very dark red tint */
+    --gb-danger-border: 110  26  26;  /* dark red border */
+    --gb-danger-focus:  220  38  38;  /* red-600 ring */
+
+    /* Page & surface — layered dark blue-gray */
+    --gb-background:     21  27  39;  /* #151b27 — page wash, deepest layer    */
+    --gb-surface:        29  38  54;  /* #1d2636 — cards, panels, header, sidebar */
+
+    /* Text — near-white with faint blue tint; avoids glare of pure white */
+    --gb-text:          220 228 240;  /* #dce4f0 — primary reading text   */
+    --gb-text-muted:    100 114 133;  /* #647285 — captions, tags         */
+    --gb-text-muted2:   138 152 172;  /* #8a98ac — secondary labels       */
+    --gb-text-muted3:   181 194 210;  /* #b5c2d2 — icons, nav items       */
+
+    /* Borders — subtle blue-gray, just enough to define edges */
+    --gb-border:         42  55  74;  /* #2a374a — default divider      */
+    --gb-border-input:   56  72  96;  /* #384860 — input/select borders */
+    --gb-border-subtle:  33  44  62;  /* #212c3e — table row separators */
+    --gb-border-danger: 110  26  26;  /* #6e1a1a — danger alert borders */
+
+    /* Special */
+    --gb-on-primary:     15  23  42;  /* #0f172a — dark navy on blue-400 btn (8:1 AAA) */
+    --gb-disabled-bg:    42  55  74;  /* matches gb-border */
+    --gb-disabled-text: 100 114 133;  /* matches gb-text-muted */
+    --gb-danger-text:   248 113 113;  /* red-400 */
+  }
+}
+
+/* ── Shadows: reinforce elevation on dark bg ─────────────────────────────── */
+.dark .shadow-md {
+  --tw-shadow: 0 4px 8px -2px rgba(0,0,0,.45), 0 2px 4px -2px rgba(0,0,0,.35);
+  box-shadow: var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow);
+}
+.dark .shadow-lg {
+  --tw-shadow: 0 8px 16px -4px rgba(0,0,0,.55), 0 4px 8px -4px rgba(0,0,0,.4);
+  box-shadow: var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow);
+}
+.dark .shadow-xl {
+  --tw-shadow: 0 16px 32px -8px rgba(0,0,0,.65), 0 8px 16px -8px rgba(0,0,0,.5);
+  box-shadow: var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow);
+}
+.dark .shadow-sm {
+  --tw-shadow: 0 1px 3px 0 rgba(0,0,0,.4), 0 1px 2px -1px rgba(0,0,0,.35);
+  box-shadow: var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow);
+}
+
 /* Alpine: hide elements until x-show is applied (avoids flash before JS runs). */
 [x-cloak] {
   display: none !important;
 }
-

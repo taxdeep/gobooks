@@ -22,6 +22,9 @@ func testReportsDB(t *testing.T) *gorm.DB {
 	if err := db.AutoMigrate(&models.Account{}, &models.JournalEntry{}, &models.JournalLine{}); err != nil {
 		t.Fatal(err)
 	}
+	if err := db.AutoMigrate(&models.Company{}, &models.Customer{}, &models.Invoice{}); err != nil {
+		t.Fatal(err)
+	}
 	return db
 }
 
@@ -129,14 +132,14 @@ func TestNormalBalance(t *testing.T) {
 		credit decimal.Decimal
 		want   string
 	}{
-		{models.RootAsset, d, z, "100.00"},        // debit-normal: debit excess is positive
-		{models.RootExpense, d, z, "100.00"},       // debit-normal
-		{models.RootCostOfSales, d, z, "100.00"},   // debit-normal
-		{models.RootLiability, z, d, "100.00"},     // credit-normal: credit excess is positive
-		{models.RootRevenue, z, d, "100.00"},       // credit-normal
-		{models.RootEquity, z, d, "100.00"},        // credit-normal
-		{models.RootAsset, z, d, "-100.00"},        // abnormal balance
-		{models.RootLiability, d, z, "-100.00"},    // abnormal balance
+		{models.RootAsset, d, z, "100.00"},       // debit-normal: debit excess is positive
+		{models.RootExpense, d, z, "100.00"},     // debit-normal
+		{models.RootCostOfSales, d, z, "100.00"}, // debit-normal
+		{models.RootLiability, z, d, "100.00"},   // credit-normal: credit excess is positive
+		{models.RootRevenue, z, d, "100.00"},     // credit-normal
+		{models.RootEquity, z, d, "100.00"},      // credit-normal
+		{models.RootAsset, z, d, "-100.00"},      // abnormal balance
+		{models.RootLiability, d, z, "-100.00"},  // abnormal balance
 	}
 
 	for _, tc := range tests {

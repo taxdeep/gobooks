@@ -23,6 +23,7 @@ func (s *Server) handleCustomers(c *fiber.Ctx) error {
 
 	vm := pages.CustomersVM{
 		HasCompany: true,
+		FormError:  strings.TrimSpace(c.Query("error")),
 		Created:    c.Query("created") == "1",
 		Updated:    c.Query("updated") == "1",
 	}
@@ -61,6 +62,34 @@ func (s *Server) handleCustomers(c *fiber.Ctx) error {
 	return pages.Customers(vm).Render(c.Context(), c)
 }
 
+func (s *Server) handleCustomerDetail(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/select-company", fiber.StatusSeeOther)
+	}
+
+	customerID64, err := strconv.ParseUint(strings.TrimSpace(c.Params("id")), 10, 64)
+	if err != nil || customerID64 == 0 {
+		return redirectErr(c, "/customers", "invalid customer ID")
+	}
+
+	workspace, err := services.GetCustomerWorkspace(s.DB, companyID, uint(customerID64))
+	if err != nil {
+		return redirectErr(c, "/customers", err.Error())
+	}
+
+	return pages.CustomerDetail(pages.CustomerDetailVM{
+		HasCompany:              true,
+		Customer:                workspace.Customer,
+		DefaultPaymentTermLabel: workspace.DefaultPaymentTermLabel,
+		BillableSummary:         workspace.BillableSummary,
+		ARSummary:               workspace.ARSummary,
+		OutstandingInvoices:     workspace.OutstandingInvoices,
+		RecentInvoices:          workspace.RecentInvoices,
+		MostRecentInvoice:       workspace.MostRecentInvoice,
+	}).Render(c.Context(), c)
+}
+
 func (s *Server) handleCustomerNew(c *fiber.Ctx) error {
 	companyID, ok := ActiveCompanyIDFromCtx(c)
 	if !ok {
@@ -89,11 +118,11 @@ func (s *Server) handleCustomerCreate(c *fiber.Ctx) error {
 		Email:                  email,
 		DefaultPaymentTermCode: paymentTerm,
 		AddrStreet1:            addrStreet1,
-		AddrStreet2:    addrStreet2,
-		AddrCity:       addrCity,
-		AddrProvince:   addrProvince,
-		AddrPostalCode: addrPostalCode,
-		AddrCountry:    addrCountry,
+		AddrStreet2:            addrStreet2,
+		AddrCity:               addrCity,
+		AddrProvince:           addrProvince,
+		AddrPostalCode:         addrPostalCode,
+		AddrCountry:            addrCountry,
 	}
 	_ = s.DB.Where("company_id = ? AND is_active = true", companyID).Order("sort_order asc, code asc").Find(&vm.PaymentTerms)
 
@@ -124,11 +153,11 @@ func (s *Server) handleCustomerCreate(c *fiber.Ctx) error {
 		Email:                  email,
 		DefaultPaymentTermCode: paymentTerm,
 		AddrStreet1:            addrStreet1,
-		AddrStreet2:    addrStreet2,
-		AddrCity:       addrCity,
-		AddrProvince:   addrProvince,
-		AddrPostalCode: addrPostalCode,
-		AddrCountry:    addrCountry,
+		AddrStreet2:            addrStreet2,
+		AddrCity:               addrCity,
+		AddrProvince:           addrProvince,
+		AddrPostalCode:         addrPostalCode,
+		AddrCountry:            addrCountry,
 	}
 	if err := s.DB.Create(&customer).Error; err != nil {
 		vm.FormError = "Could not create customer. Please try again."
@@ -187,13 +216,13 @@ func (s *Server) handleCustomerUpdate(c *fiber.Ctx) error {
 			Email:                  email,
 			DefaultPaymentTermCode: paymentTerm,
 			AddrStreet1:            addrStreet1,
-			AddrStreet2:    addrStreet2,
-			AddrCity:       addrCity,
-			AddrProvince:   addrProvince,
-			AddrPostalCode: addrPostalCode,
-			AddrCountry:    addrCountry,
-			NameError:      nameErr,
-			FormError:      formErr,
+			AddrStreet2:            addrStreet2,
+			AddrCity:               addrCity,
+			AddrProvince:           addrProvince,
+			AddrPostalCode:         addrPostalCode,
+			AddrCountry:            addrCountry,
+			NameError:              nameErr,
+			FormError:              formErr,
 		}
 		_ = s.DB.Where("company_id = ?", companyID).Order("name asc").Find(&vm.Customers)
 		_ = s.DB.Where("company_id = ? AND is_active = true", companyID).Order("sort_order asc, code asc").Find(&vm.PaymentTerms)

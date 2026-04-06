@@ -63,6 +63,22 @@ func invoiceDisplayStatus(inv models.Invoice) models.InvoiceStatus {
 	return services.EffectiveInvoiceStatus(inv)
 }
 
+func invoicePaymentVisibility(inv models.Invoice) services.InvoicePaymentVisibility {
+	return services.BuildInvoicePaymentVisibility(inv)
+}
+
+func invoicePaymentBadgeClass(v services.InvoicePaymentVisibility) string {
+	base := "inline-block rounded px-2 py-0.5 text-small font-medium "
+	switch v.State {
+	case services.InvoicePaymentStatePaid:
+		return base + "bg-success-soft text-success-hover border border-success-border"
+	case services.InvoicePaymentStatePartiallyPaid:
+		return base + "bg-warning-soft text-warning border border-warning-soft"
+	default:
+		return base + "bg-background text-text-muted border border-border"
+	}
+}
+
 func paymentRequestDisplayLabel(status models.PaymentRequestStatus) string {
 	return services.PaymentRequestStatusLabel(status)
 }
