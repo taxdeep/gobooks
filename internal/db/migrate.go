@@ -147,6 +147,10 @@ func Migrate(db *gorm.DB) error {
 		&models.PaymentAccountingMapping{},
 		&models.PaymentRequest{},
 		&models.PaymentTransaction{},
+		// Task + Billable Expense module (Batch 1: data foundation)
+		&models.Task{},
+		&models.Expense{},
+		&models.TaskInvoiceSource{},
 	); err != nil {
 		return err
 	}

@@ -194,6 +194,10 @@ func VoidInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 			return fmt.Errorf("update invoice status: %w", err)
 		}
 
+		if err := releaseTaskInvoiceSourcesForInvoice(tx, companyID, inv.ID, taskInvoiceReleaseKeepReferences); err != nil {
+			return fmt.Errorf("release task invoice sources: %w", err)
+		}
+
 		// h. Audit log.
 		cid := companyID
 		return WriteAuditLogWithContextDetails(tx, "invoice.voided", "invoice", inv.ID, actor,

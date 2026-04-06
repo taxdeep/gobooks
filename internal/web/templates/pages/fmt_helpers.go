@@ -67,6 +67,51 @@ func paymentRequestDisplayLabel(status models.PaymentRequestStatus) string {
 	return services.PaymentRequestStatusLabel(status)
 }
 
+func currencyTotalsLabel(totals []services.CurrencyTotal) string {
+	if len(totals) == 0 {
+		return Money(decimal.Zero)
+	}
+	parts := make([]string, 0, len(totals))
+	for _, total := range totals {
+		parts = append(parts, taskMoney(total.Amount, total.CurrencyCode))
+	}
+	return strings.Join(parts, " + ")
+}
+
+func traceRowLifecycleLabel(row services.TaskInvoiceTraceRow) string {
+	switch {
+	case row.IsActive:
+		return "Active"
+	case row.InvoiceID == nil:
+		return "Released"
+	default:
+		return "Historical"
+	}
+}
+
+func traceRowLifecycleBadgeClass(row services.TaskInvoiceTraceRow) string {
+	base := "inline-block rounded px-2 py-0.5 text-small font-medium "
+	switch {
+	case row.IsActive:
+		return base + "bg-success-soft text-success-hover border border-success-border"
+	case row.InvoiceID == nil:
+		return base + "bg-background text-text-muted2 border border-border"
+	default:
+		return base + "bg-warning-soft text-warning border border-warning-soft"
+	}
+}
+
+func traceInvoiceHref(row services.TaskInvoiceTraceRow) string {
+	if row.InvoiceID == nil || *row.InvoiceID == 0 {
+		return ""
+	}
+	return "/invoices/" + Uitoa(*row.InvoiceID)
+}
+
+func customerBillableSummary(m map[uint]services.CustomerBillableSummary, customerID uint) services.CustomerBillableSummary {
+	return services.CustomerSummaryOrZero(m, customerID)
+}
+
 // billBalanceDue returns the outstanding balance for a bill.
 // Uses BalanceDue if positive, otherwise falls back to the full Amount.
 func billBalanceDue(b models.Bill) decimal.Decimal {

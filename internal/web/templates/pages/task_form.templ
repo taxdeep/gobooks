@@ -1,0 +1,241 @@
+// 遵循project_guide.md
+package pages
+
+import "gobooks/internal/models"
+import "gobooks/internal/web/templates/layout"
+import "gobooks/internal/web/templates/ui"
+
+templ TaskForm(vm TaskFormVM) {
+	@layout.Layout(
+		"GoBooks - "+taskFormTitle(vm),
+		ui.SidebarVM{Active: "Tasks", HasCompany: vm.HasCompany},
+		bodyTaskForm(vm),
+	)
+}
+
+templ bodyTaskForm(vm TaskFormVM) {
+	<div class="max-w-[95%]">
+		<div class="flex flex-wrap items-center justify-between gap-4">
+			<div>
+				<h1 class="text-title font-semibold">{ taskFormTitle(vm) }</h1>
+				<p class="mt-1 text-text-muted2">Capture customer work details before they move into billing flows.</p>
+			</div>
+			if vm.IsEdit {
+				<a href={ "/tasks/" + Uitoa(vm.EditingID) } class="text-body text-text-muted3 hover:text-text">← Back to Task</a>
+			} else {
+				<a href="/tasks" class="text-body text-text-muted3 hover:text-text">← Back to Tasks</a>
+			}
+		</div>
+
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">
+				{ vm.FormError }
+			</div>
+		}
+		if vm.ReadOnlyCore {
+			<div class="mt-4 rounded-md border border-warning-soft bg-warning-soft/40 p-4 text-body text-warning">
+				Completed tasks keep billing snapshot fields locked. Only notes can be updated in this batch.
+			</div>
+		}
+
+		<form method="post" action={ taskFormAction(vm) } class="mt-6 space-y-6">
+			if vm.ReadOnlyCore {
+				@taskHiddenCoreFields(vm)
+			}
+
+			<div class="rounded-lg border border-border bg-surface p-6">
+				<h2 class="text-section font-semibold text-text">Task Details</h2>
+				<div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
+					<div>
+						<label class="block text-body font-medium text-text">Customer *</label>
+						if vm.ReadOnlyCore {
+							<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">{ taskSelectedCustomerName(vm) }</div>
+						} else {
+							<select name="customer_id" class={ taskInputClass(vm.CustomerError != "") }>
+								<option value="">-- Select customer --</option>
+								for _, customer := range vm.Customers {
+									<option value={ Uitoa(customer.ID) } selected?={ Uitoa(customer.ID) == vm.CustomerID }>{ customer.Name }</option>
+								}
+							</select>
+						}
+						if vm.CustomerError != "" {
+							<div class="mt-1 text-body text-danger">{ vm.CustomerError }</div>
+						}
+					</div>
+
+					<div>
+						<label class="block text-body font-medium text-text">Title *</label>
+						if vm.ReadOnlyCore {
+							<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">{ vm.Title }</div>
+						} else {
+							<input type="text" name="title" value={ vm.Title } maxlength="200" placeholder="e.g. April onsite consulting" class={ taskInputClass(vm.TitleError != "") }/>
+						}
+						if vm.TitleError != "" {
+							<div class="mt-1 text-body text-danger">{ vm.TitleError }</div>
+						}
+					</div>
+
+					<div>
+						<label class="block text-body font-medium text-text">Task Date *</label>
+						if vm.ReadOnlyCore {
+							<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">{ vm.TaskDate }</div>
+						} else {
+							<input type="date" name="task_date" value={ vm.TaskDate } class={ taskInputClass(vm.TaskDateError != "") }/>
+						}
+						if vm.TaskDateError != "" {
+							<div class="mt-1 text-body text-danger">{ vm.TaskDateError }</div>
+						}
+					</div>
+
+					<div>
+						<label class="block text-body font-medium text-text">Billing</label>
+						if vm.ReadOnlyCore {
+							<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">
+								if vm.IsBillable {
+									Billable
+								} else {
+									Non-billable
+								}
+							</div>
+						} else {
+							<label class="mt-2 inline-flex items-center gap-2 text-body text-text">
+								<input type="checkbox" name="is_billable" value="1" checked?={ vm.IsBillable } class="h-4 w-4 rounded border-border-input text-primary focus:ring-primary-focus"/>
+								<span>Billable task</span>
+							</label>
+						}
+					</div>
+
+					<div>
+						<label class="block text-body font-medium text-text">Quantity</label>
+						if vm.ReadOnlyCore {
+							<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">{ vm.Quantity }</div>
+						} else {
+							<input type="text" name="quantity" value={ vm.Quantity } inputmode="decimal" class={ taskInputClass(vm.QuantityError != "") }/>
+						}
+						if vm.QuantityError != "" {
+							<div class="mt-1 text-body text-danger">{ vm.QuantityError }</div>
+						}
+					</div>
+
+					<div>
+						<label class="block text-body font-medium text-text">Unit Type</label>
+						if vm.ReadOnlyCore {
+							<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">{ models.TaskUnitTypeLabel(vm.UnitType) }</div>
+						} else {
+							<select name="unit_type" class={ taskInputClass(vm.UnitTypeError != "") }>
+								for _, unit := range models.AllTaskUnitTypes() {
+									<option value={ unit } selected?={ unit == vm.UnitType }>{ models.TaskUnitTypeLabel(unit) }</option>
+								}
+							</select>
+						}
+						if vm.UnitTypeError != "" {
+							<div class="mt-1 text-body text-danger">{ vm.UnitTypeError }</div>
+						}
+					</div>
+
+					<div>
+						<label class="block text-body font-medium text-text">Rate</label>
+						if vm.ReadOnlyCore {
+							<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">{ vm.Rate }</div>
+						} else {
+							<input type="text" name="rate" value={ vm.Rate } inputmode="decimal" class={ taskInputClass(vm.RateError != "") }/>
+						}
+						if vm.RateError != "" {
+							<div class="mt-1 text-body text-danger">{ vm.RateError }</div>
+						}
+					</div>
+
+					<div>
+						<label class="block text-body font-medium text-text">Currency</label>
+						if vm.MultiCurrency {
+							if vm.ReadOnlyCore {
+								<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">{ vm.CurrencyCode }</div>
+							} else {
+								<select name="currency_code" class={ taskInputClass(vm.CurrencyError != "") }>
+									for _, code := range vm.CurrencyOptions {
+										<option value={ code } selected?={ code == vm.CurrencyCode }>{ code }</option>
+									}
+								</select>
+							}
+						} else {
+							<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">{ vm.BaseCurrencyCode }</div>
+							<input type="hidden" name="currency_code" value={ vm.BaseCurrencyCode }/>
+						}
+						if vm.CurrencyError != "" {
+							<div class="mt-1 text-body text-danger">{ vm.CurrencyError }</div>
+						}
+					</div>
+				</div>
+			</div>
+
+			<div class="rounded-lg border border-border bg-surface p-6">
+				<h2 class="text-section font-semibold text-text">Notes</h2>
+				<textarea name="notes" rows="5" placeholder="Optional internal notes about the work performed." class={ taskInputClass(false) }>{ vm.Notes }</textarea>
+			</div>
+
+			<div class="flex items-center justify-end gap-3">
+				if vm.IsEdit {
+					<a href={ "/tasks/" + Uitoa(vm.EditingID) } class="rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text">Cancel</a>
+				} else {
+					<a href="/tasks" class="rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text">Cancel</a>
+				}
+				<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
+					{ taskFormSubmitLabel(vm) }
+				</button>
+			</div>
+		</form>
+	</div>
+}
+
+templ taskHiddenCoreFields(vm TaskFormVM) {
+	<input type="hidden" name="customer_id" value={ vm.CustomerID }/>
+	<input type="hidden" name="title" value={ vm.Title }/>
+	<input type="hidden" name="task_date" value={ vm.TaskDate }/>
+	<input type="hidden" name="quantity" value={ vm.Quantity }/>
+	<input type="hidden" name="unit_type" value={ vm.UnitType }/>
+	<input type="hidden" name="rate" value={ vm.Rate }/>
+	<input type="hidden" name="currency_code" value={ vm.CurrencyCode }/>
+	if vm.IsBillable {
+		<input type="hidden" name="is_billable" value="1"/>
+	}
+}
+
+func taskFormTitle(vm TaskFormVM) string {
+	if vm.IsEdit {
+		return "Edit Task"
+	}
+	return "New Task"
+}
+
+func taskFormSubmitLabel(vm TaskFormVM) string {
+	if vm.IsEdit {
+		if vm.ReadOnlyCore {
+			return "Save Notes"
+		}
+		return "Save Changes"
+	}
+	return "Create Task"
+}
+
+func taskFormAction(vm TaskFormVM) string {
+	if vm.IsEdit {
+		return "/tasks/" + Uitoa(vm.EditingID) + "/edit"
+	}
+	return "/tasks"
+}
+
+func taskInputClass(hasErr bool) string {
+	if hasErr {
+		return "mt-2 block w-full rounded-md border border-danger px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+	}
+	return "mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+}
+
+func taskSelectedCustomerName(vm TaskFormVM) string {
+	for _, customer := range vm.Customers {
+		if Uitoa(customer.ID) == vm.CustomerID {
+			return customer.Name
+		}
+	}
+	return "—"
+}

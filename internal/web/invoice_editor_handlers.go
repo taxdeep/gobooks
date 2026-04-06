@@ -146,23 +146,35 @@ func (s *Server) handleInvoiceEdit(c *fiber.Ctx) error {
 		return c.Redirect("/invoices", fiber.StatusSeeOther)
 	}
 
+	taskGeneratedReadOnly, err := services.HasActiveTaskInvoiceSources(s.DB, companyID, invoiceID)
+	if err != nil {
+		return redirectErr(c, "/invoices", "could not load invoice editor")
+	}
+
 	vm := pages.InvoiceEditorVM{
-		HasCompany:    true,
-		IsEdit:        true,
-		EditingID:     invoiceID,
-		ReviewLocked:  c.Query("locked") == "1",
-		InvoiceNumber: inv.InvoiceNumber,
-		CustomerID:    strconv.FormatUint(uint64(inv.CustomerID), 10),
-		InvoiceDate:   inv.InvoiceDate.Format("2006-01-02"),
-		TermCode:      inv.TermCode,
-		Memo:          inv.Memo,
-		FormError:     strings.TrimSpace(c.Query("error")),
-		Saved:         c.Query("saved") == "1",
-		CurrencyCode:  inv.CurrencyCode,
-		ExchangeRate:  displayDocumentExchangeRate(inv.CurrencyCode, inv.ExchangeRate),
+		HasCompany:            true,
+		IsEdit:                true,
+		EditingID:             invoiceID,
+		ReviewLocked:          c.Query("locked") == "1",
+		TaskGeneratedReadOnly: taskGeneratedReadOnly,
+		InvoiceNumber:         inv.InvoiceNumber,
+		CustomerID:            strconv.FormatUint(uint64(inv.CustomerID), 10),
+		InvoiceDate:           inv.InvoiceDate.Format("2006-01-02"),
+		TermCode:              inv.TermCode,
+		Memo:                  inv.Memo,
+		FormError:             strings.TrimSpace(c.Query("error")),
+		Saved:                 c.Query("saved") == "1",
+		CurrencyCode:          inv.CurrencyCode,
+		ExchangeRate:          displayDocumentExchangeRate(inv.CurrencyCode, inv.ExchangeRate),
 	}
 	if CanFromCtx(c, ActionInvoiceApprove) {
 		vm.SubmitPath = fmt.Sprintf("/invoices/%d/issue", invoiceID)
+	}
+	if taskGeneratedReadOnly {
+		vm.ReviewLocked = true
+		if CanFromCtx(c, ActionInvoiceDelete) {
+			vm.DeletePath = fmt.Sprintf("/invoices/%d/delete", invoiceID)
+		}
 	}
 	if inv.DueDate != nil {
 		vm.DueDate = inv.DueDate.Format("2006-01-02")
@@ -240,6 +252,16 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 		vm.SubmitPath = fmt.Sprintf("/invoices/%d/issue", editingID)
 	}
 	_ = s.loadEditorDropdowns(companyID, &vm)
+	if isEdit {
+		taskGeneratedReadOnly, err := services.HasActiveTaskInvoiceSources(s.DB, companyID, editingID)
+		if err != nil {
+			vm.FormError = "Could not verify draft edit permissions."
+			return pages.InvoiceEditor(vm).Render(c.Context(), c)
+		}
+		if taskGeneratedReadOnly {
+			return redirectErr(c, fmt.Sprintf("/invoices/%d/edit", editingID), services.ErrTaskGeneratedDraftReadOnly.Error())
+		}
+	}
 
 	// ── Validate header ───────────────────────────────────────────────────────
 	if invoiceNo == "" {
@@ -544,6 +566,13 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 			}
 			if inv.Status != models.InvoiceStatusDraft {
 				return fmt.Errorf("only draft invoices can be edited")
+			}
+			taskGeneratedReadOnly, err := services.HasActiveTaskInvoiceSources(tx, companyID, editingID)
+			if err != nil {
+				return fmt.Errorf("check task invoice sources: %w", err)
+			}
+			if taskGeneratedReadOnly {
+				return services.ErrTaskGeneratedDraftReadOnly
 			}
 			inv.InvoiceNumber = invoiceNo
 			inv.CustomerID = uint(custID)

@@ -143,6 +143,16 @@ type ProductService struct {
 
 	IsActive bool `gorm:"not null;default:true"`
 
+	// SystemCode is a stable identifier for system-reserved items (e.g. "TASK_LABOR",
+	// "TASK_REIM"). NULL for all user-created items.
+	// Uniqueness within a company is enforced by a partial DB index
+	// (uq_product_services_company_system_code, added in migration 042).
+	SystemCode *string `gorm:"type:text;index"`
+
+	// IsSystem = true marks items that must not be deleted or have their Type changed.
+	// The service layer checks this flag before allowing mutations.
+	IsSystem bool `gorm:"not null;default:false"`
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

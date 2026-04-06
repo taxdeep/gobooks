@@ -34,6 +34,9 @@ func (s *Server) handleCustomers(c *fiber.Ctx) error {
 		vm.Customers = []models.Customer{}
 		return pages.Customers(vm).Render(c.Context(), c)
 	}
+	if summaries, err := services.ListCustomerBillableSummaries(s.DB, companyID); err == nil {
+		vm.BillableSummaries = summaries
+	}
 
 	// Handle ?edit=ID — open drawer pre-populated with the customer's data.
 	if editRaw := strings.TrimSpace(c.Query("edit")); editRaw != "" {
@@ -194,6 +197,9 @@ func (s *Server) handleCustomerUpdate(c *fiber.Ctx) error {
 		}
 		_ = s.DB.Where("company_id = ?", companyID).Order("name asc").Find(&vm.Customers)
 		_ = s.DB.Where("company_id = ? AND is_active = true", companyID).Order("sort_order asc, code asc").Find(&vm.PaymentTerms)
+		if summaries, err := services.ListCustomerBillableSummaries(s.DB, companyID); err == nil {
+			vm.BillableSummaries = summaries
+		}
 		return vm
 	}
 

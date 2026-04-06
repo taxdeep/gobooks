@@ -5,6 +5,7 @@ function billEditor() {
     lines: [],
     accounts: [],
     taxCodes: [],       // [{id, code, name, rate}]  rate is a fraction string e.g. "0.05"
+    tasks: [],          // [{id, title, customer_name, status}]
     paymentTerms: [],   // [{code, netDays}]
     contactTerms: {},   // {"vendorId": "termCode", ...}
     taxAdj: {},         // keyed by taxCodeId (string): { calc: "0.00", user: null }
@@ -17,6 +18,7 @@ function billEditor() {
       const el = this.$el;
       this.accounts     = JSON.parse(el.dataset.accounts     || "[]");
       this.taxCodes     = JSON.parse(el.dataset.taxCodes     || "[]");
+      this.tasks        = JSON.parse(el.dataset.tasks        || "[]");
       this.paymentTerms = JSON.parse(el.dataset.paymentTerms || "[]");
       this.contactTerms = JSON.parse(el.dataset.contactTerms || "{}");
       this.terms        = el.dataset.initialTerms   || "";
@@ -39,6 +41,8 @@ function billEditor() {
       this.lines.push({
         expense_account_id: "",
         description: "",
+        task_id: "",
+        is_billable: false,
         amount: "0.00",
         tax_code_id: "",
         line_net: "0.00",

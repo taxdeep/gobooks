@@ -339,9 +339,10 @@ type Bill struct {
 // posted to that account separately; only the non-recoverable portion is
 // rolled into the expense debit.
 type BillLine struct {
-	ID        uint `gorm:"primaryKey"`
-	CompanyID uint `gorm:"not null;index"`
-	BillID    uint `gorm:"not null;index"`
+	ID        uint  `gorm:"primaryKey"`
+	CompanyID uint  `gorm:"not null;index"`
+	BillID    uint  `gorm:"not null;index"`
+	Bill      *Bill `gorm:"foreignKey:BillID"`
 
 	// SortOrder controls display sequence within the bill (1-based).
 	SortOrder uint `gorm:"not null;default:1"`
@@ -370,6 +371,43 @@ type BillLine struct {
 	LineNet   decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
 	LineTax   decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
 	LineTotal decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
+
+	// ── Task linkage (line-level) ─────────────────────────────────────────────
+	// One bill can have lines belonging to different tasks / different customers,
+	// so task linkage is stored here at the line level, not on the Bill header.
+	//
+	// When TaskID is set, the line enters the Task body:
+	//   - BillableCustomerID becomes required and must equal Task.CustomerID
+	//     (enforced by the service layer).
+	//   - IsBillable determines whether this cost is passed through to the customer.
+	//   - If IsBillable = true: ReinvoiceStatus is set to "uninvoiced" by the
+	//     service layer; the line can be included in a billable Invoice Draft.
+	//   - If IsBillable = false: ReinvoiceStatus stays ""; the line contributes
+	//     to the task's non-billable cost for margin analysis only.
+	TaskID *uint `gorm:"index"`
+	Task   *Task `gorm:"foreignKey:TaskID"`
+
+	// BillableCustomerID identifies who this line's cost is billed to.
+	BillableCustomerID *uint     `gorm:"index"`
+	BillableCustomer   *Customer `gorm:"foreignKey:BillableCustomerID"`
+
+	IsBillable bool `gorm:"not null;default:false"`
+
+	// ReinvoiceStatus: '' | uninvoiced | invoiced | excluded
+	// Managed by the service layer; not set directly by handlers.
+	ReinvoiceStatus ReinvoiceStatus `gorm:"type:text;not null;default:''"`
+
+	// Quick-lookup cache for current invoice linkage.
+	// Authoritative source: task_invoice_sources.
+	// Cleared to NULL by the service layer when the linked invoice is voided.
+	InvoiceID     *uint        `gorm:"index"`
+	Invoice       *Invoice     `gorm:"foreignKey:InvoiceID"`
+	InvoiceLineID *uint        `gorm:"index"`
+	InvoiceLine   *InvoiceLine `gorm:"foreignKey:InvoiceLineID"`
+
+	// MarkupPercent is reserved for future pass-through pricing support.
+	// v1: always 0; UI does not expose this field.
+	MarkupPercent decimal.Decimal `gorm:"type:numeric(8,4);not null;default:0"`
 
 	CreatedAt time.Time
 	UpdatedAt time.Time

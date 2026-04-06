@@ -71,6 +71,7 @@ func testPostingDB(t *testing.T) *gorm.DB {
 		&models.JournalEntry{},
 		&models.JournalLine{},
 		&models.LedgerEntry{},
+		&models.TaskInvoiceSource{},
 		&models.AuditLog{},
 		&models.InventoryMovement{},
 		&models.InventoryBalance{},

@@ -33,14 +33,16 @@ type BillEditorVM struct {
 	FormError         string
 
 	// Dropdown data.
-	Vendors      []models.Vendor
-	Accounts     []models.Account
-	TaxCodes     []models.TaxCode
-	PaymentTerms []models.PaymentTerm
+	Vendors         []models.Vendor
+	Accounts        []models.Account
+	TaxCodes        []models.TaxCode
+	PaymentTerms    []models.PaymentTerm
+	SelectableTasks []models.Task
 
 	// Alpine initialisation JSON (set by handler, consumed by bill_editor.js).
 	AccountsJSON     string
 	TaxCodesJSON     string
+	TasksJSON        string
 	InitialLinesJSON string
 	// PaymentTermsJSON is a JSON array [{code, netDays}] for Alpine due-date calc.
 	PaymentTermsJSON string
@@ -73,6 +75,8 @@ type BillLineFormRow struct {
 	Description      string
 	Amount           string
 	TaxCodeID        string
+	TaskID           string
+	IsBillable       bool
 	// Computed by server after save.
 	LineNet   string
 	LineTax   string

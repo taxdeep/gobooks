@@ -234,6 +234,10 @@ func (s *Server) handleBootstrapSubmit(c *fiber.Ctx) error {
 		if err := tx.Model(&models.Company{}).Where("id = ?", company.ID).Update("account_code_length_locked", true).Error; err != nil {
 			return err
 		}
+		// Batch 1 – Task module: seed TASK_LABOR and TASK_REIM system items.
+		if err := services.EnsureSystemTaskItems(tx, company.ID); err != nil {
+			return err
+		}
 
 		cid := company.ID
 		sess := &models.Session{

@@ -1,6 +1,7 @@
 // 遵循project_guide.md
 package pages
 
+import "gobooks/internal/services"
 import "gobooks/internal/models"
 
 type CustomersVM struct {
@@ -29,6 +30,8 @@ type CustomersVM struct {
 
 	Customers    []models.Customer
 	PaymentTerms []models.PaymentTerm
+
+	BillableSummaries map[uint]services.CustomerBillableSummary
 }
 
 type CustomerNewVM struct {

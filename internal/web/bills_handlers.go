@@ -178,6 +178,8 @@ func (s *Server) handleBillEdit(c *fiber.Ctx) error {
 			Description:      l.Description,
 			Amount:           l.LineNet.StringFixed(2),
 			TaxCodeID:        optUintStr(l.TaxCodeID),
+			TaskID:           optUintStr(l.TaskID),
+			IsBillable:       l.IsBillable,
 			LineNet:          l.LineNet.StringFixed(2),
 			LineTax:          l.LineTax.StringFixed(2),
 			LineTotal:        l.LineTotal.StringFixed(2),
@@ -288,10 +290,14 @@ func (s *Server) handleBillSaveDraft(c *fiber.Ctx) error {
 	}
 
 	type parsedBillLine struct {
-		ExpenseAccountID *uint
-		Description      string
-		Amount           decimal.Decimal
-		TaxCodeID        *uint
+		ExpenseAccountID   *uint
+		Description        string
+		Amount             decimal.Decimal
+		TaxCodeID          *uint
+		TaskID             *uint
+		BillableCustomerID *uint
+		IsBillable         bool
+		ReinvoiceStatus    models.ReinvoiceStatus
 	}
 
 	var parsedLines []parsedBillLine
@@ -303,8 +309,10 @@ func (s *Server) handleBillSaveDraft(c *fiber.Ctx) error {
 		desc := strings.TrimSpace(c.FormValue(key("line_description")))
 		amtRaw := strings.TrimSpace(c.FormValue(key("line_amount")))
 		tcIDRaw := strings.TrimSpace(c.FormValue(key("line_tax_code_id")))
+		taskIDRaw := strings.TrimSpace(c.FormValue(key("line_task_id")))
+		isBillable := c.FormValue(key("line_is_billable")) == "1"
 
-		if isBillPlaceholderLine(desc, amtRaw, accIDRaw, tcIDRaw) {
+		if isBillPlaceholderLine(desc, amtRaw, accIDRaw, tcIDRaw, taskIDRaw, isBillable) {
 			continue
 		}
 
@@ -313,6 +321,8 @@ func (s *Server) handleBillSaveDraft(c *fiber.Ctx) error {
 			Description:      desc,
 			Amount:           amtRaw,
 			TaxCodeID:        tcIDRaw,
+			TaskID:           taskIDRaw,
+			IsBillable:       isBillable,
 		}
 
 		amt, aErr := decimal.NewFromString(amtRaw)
@@ -333,6 +343,11 @@ func (s *Server) handleBillSaveDraft(c *fiber.Ctx) error {
 			id := uint(id64)
 			pl.TaxCodeID = &id
 		}
+		if id64, err := strconv.ParseUint(taskIDRaw, 10, 64); err == nil && id64 > 0 {
+			id := uint(id64)
+			pl.TaskID = &id
+		}
+		pl.IsBillable = isBillable
 		parsedLines = append(parsedLines, pl)
 	}
 
@@ -349,6 +364,22 @@ func (s *Server) handleBillSaveDraft(c *fiber.Ctx) error {
 			lineFormRows[i].Description = name
 			lineFormRows[i].Error = ""
 		}
+	}
+
+	for i := range parsedLines {
+		linkage, err := services.NormalizeTaskCostLinkage(s.DB, services.TaskCostLinkageInput{
+			CompanyID:  companyID,
+			TaskID:     parsedLines[i].TaskID,
+			IsBillable: parsedLines[i].IsBillable,
+		})
+		if err != nil {
+			lineFormRows[i].Error = err.Error()
+			continue
+		}
+		parsedLines[i].TaskID = linkage.TaskID
+		parsedLines[i].BillableCustomerID = linkage.BillableCustomerID
+		parsedLines[i].IsBillable = linkage.IsBillable
+		parsedLines[i].ReinvoiceStatus = linkage.ReinvoiceStatus
 	}
 
 	vm.Lines = lineFormRows
@@ -622,17 +653,21 @@ func (s *Server) handleBillSaveDraft(c *fiber.Ctx) error {
 
 		for i, cl := range computed {
 			line := models.BillLine{
-				CompanyID:        companyID,
-				BillID:           bill.ID,
-				SortOrder:        uint(i + 1),
-				Description:      cl.Description,
-				Qty:              decimal.NewFromInt(1),
-				UnitPrice:        cl.Amount,
-				LineNet:          cl.LineNet,
-				LineTax:          cl.LineTax,
-				LineTotal:        cl.LineTotal,
-				ExpenseAccountID: cl.ExpenseAccountID,
-				TaxCodeID:        cl.TaxCodeID,
+				CompanyID:          companyID,
+				BillID:             bill.ID,
+				SortOrder:          uint(i + 1),
+				Description:        cl.Description,
+				Qty:                decimal.NewFromInt(1),
+				UnitPrice:          cl.Amount,
+				LineNet:            cl.LineNet,
+				LineTax:            cl.LineTax,
+				LineTotal:          cl.LineTotal,
+				ExpenseAccountID:   cl.ExpenseAccountID,
+				TaxCodeID:          cl.TaxCodeID,
+				TaskID:             cl.TaskID,
+				BillableCustomerID: cl.BillableCustomerID,
+				IsBillable:         cl.IsBillable,
+				ReinvoiceStatus:    cl.ReinvoiceStatus,
 			}
 			if err := tx.Create(&line).Error; err != nil {
 				return err
@@ -719,8 +754,14 @@ func (s *Server) loadBillEditorDropdowns(companyID uint, vm *pages.BillEditorVM)
 		Find(&vm.PaymentTerms).Error; err != nil {
 		return err
 	}
+	selectableTasks, err := services.ListSelectableTasks(s.DB, companyID)
+	if err != nil {
+		return err
+	}
+	vm.SelectableTasks = selectableTasks
 	vm.AccountsJSON = buildBillAccountsJSON(vm.Accounts)
 	vm.TaxCodesJSON = buildTaxCodesJSON(vm.TaxCodes)
+	vm.TasksJSON = buildBillTasksJSON(vm.SelectableTasks)
 	vm.PaymentTermsJSON = buildPaymentTermsJSON(vm.PaymentTerms)
 	vm.VendorsTermsJSON = buildVendorsTermsJSON(vm.Vendors)
 
@@ -772,6 +813,8 @@ func buildBillInitialLinesJSON(rows []pages.BillLineFormRow) string {
 		Description      string `json:"description"`
 		Amount           string `json:"amount"`
 		TaxCodeID        string `json:"tax_code_id"`
+		TaskID           string `json:"task_id"`
+		IsBillable       bool   `json:"is_billable"`
 		LineNet          string `json:"line_net"`
 		LineTax          string `json:"line_tax"`
 		Error            string `json:"error"`
@@ -791,9 +834,32 @@ func buildBillInitialLinesJSON(rows []pages.BillLineFormRow) string {
 			Description:      r.Description,
 			Amount:           r.Amount,
 			TaxCodeID:        r.TaxCodeID,
+			TaskID:           r.TaskID,
+			IsBillable:       r.IsBillable,
 			LineNet:          net,
 			LineTax:          tax,
 			Error:            r.Error,
+		})
+	}
+	b, _ := json.Marshal(items)
+	return string(b)
+}
+
+type billTaskJSONItem struct {
+	ID           uint   `json:"id"`
+	Title        string `json:"title"`
+	CustomerName string `json:"customer_name"`
+	Status       string `json:"status"`
+}
+
+func buildBillTasksJSON(tasks []models.Task) string {
+	items := make([]billTaskJSONItem, 0, len(tasks))
+	for _, task := range tasks {
+		items = append(items, billTaskJSONItem{
+			ID:           task.ID,
+			Title:        task.Title,
+			CustomerName: task.Customer.Name,
+			Status:       string(task.Status),
 		})
 	}
 	b, _ := json.Marshal(items)
@@ -809,8 +875,8 @@ func parseBillID(c *fiber.Ctx) (uint, error) {
 	return uint(id64), nil
 }
 
-func isBillPlaceholderLine(desc, amountRaw, expenseAccountIDRaw, taxCodeIDRaw string) bool {
-	if desc != "" || expenseAccountIDRaw != "" || taxCodeIDRaw != "" {
+func isBillPlaceholderLine(desc, amountRaw, expenseAccountIDRaw, taxCodeIDRaw, taskIDRaw string, isBillable bool) bool {
+	if desc != "" || expenseAccountIDRaw != "" || taxCodeIDRaw != "" || taskIDRaw != "" || isBillable {
 		return false
 	}
 

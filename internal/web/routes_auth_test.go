@@ -37,6 +37,20 @@ func testRouteDB(t *testing.T) *gorm.DB {
 		&models.COATemplate{},
 		&models.COATemplateAccount{},
 		&models.SystemSetting{},
+		// Task module: EnsureSystemTaskItems is called during company setup.
+		&models.TaxCode{},
+		&models.Customer{},
+		&models.Vendor{},
+		&models.NumberingSetting{},
+		&models.PaymentTerm{},
+		&models.Invoice{},
+		&models.InvoiceLine{},
+		&models.Bill{},
+		&models.BillLine{},
+		&models.ProductService{},
+		&models.Task{},
+		&models.Expense{},
+		&models.TaskInvoiceSource{},
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -303,5 +317,23 @@ func TestLegacySetupCreatesOwnerMembershipAndActivatesSessionCompany(t *testing.
 	}
 	if session.ActiveCompanyID == nil || *session.ActiveCompanyID != company.ID {
 		t.Fatalf("expected active_company_id=%d, got %+v", company.ID, session.ActiveCompanyID)
+	}
+
+	var items []models.ProductService
+	if err := db.Where("company_id = ? AND system_code IN (?, ?)", company.ID, "TASK_LABOR", "TASK_REIM").
+		Order("system_code asc").
+		Find(&items).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected 2 seeded system items, got %d", len(items))
+	}
+	for _, item := range items {
+		if !item.IsSystem {
+			t.Fatalf("expected %s to be marked is_system", item.Name)
+		}
+		if item.SystemCode == nil || (*item.SystemCode != "TASK_LABOR" && *item.SystemCode != "TASK_REIM") {
+			t.Fatalf("unexpected system_code %+v", item.SystemCode)
+		}
 	}
 }

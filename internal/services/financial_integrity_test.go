@@ -54,6 +54,7 @@ func testFinancialIntegrityDB(t *testing.T) *gorm.DB {
 		&models.PaymentTransaction{},
 		&models.InventoryMovement{},
 		&models.AuditLog{},
+		&models.TaskInvoiceSource{},
 	); err != nil {
 		t.Fatal(err)
 	}

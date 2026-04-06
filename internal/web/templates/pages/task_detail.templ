@@ -1,0 +1,368 @@
+// 遵循project_guide.md
+package pages
+
+import "gobooks/internal/models"
+import "gobooks/internal/services"
+import "gobooks/internal/web/templates/layout"
+import "gobooks/internal/web/templates/ui"
+
+templ TaskDetail(vm TaskDetailVM) {
+	@layout.Layout(
+		"GoBooks - Task",
+		ui.SidebarVM{Active: "Tasks", HasCompany: vm.HasCompany},
+		bodyTaskDetail(vm),
+	)
+}
+
+templ bodyTaskDetail(vm TaskDetailVM) {
+	<div class="max-w-[95%]">
+		if vm.Created || vm.Updated || vm.Completed || vm.Cancelled || vm.FormError != "" {
+			<div class="mb-4 space-y-3">
+				if vm.Created || vm.Updated || vm.Completed || vm.Cancelled {
+					<div class="rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">
+						if vm.Cancelled {
+							Task cancelled.
+						} else if vm.Completed {
+							Task marked completed.
+						} else if vm.Updated {
+							Task updated.
+						} else {
+							Task created.
+						}
+					</div>
+				}
+				if vm.FormError != "" {
+					<div class="rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">
+						{ vm.FormError }
+					</div>
+				}
+			</div>
+		}
+
+		<div class="flex flex-wrap items-start justify-between gap-4">
+			<div class="min-w-0 flex-1">
+				<div class="flex flex-wrap items-center gap-3">
+					<h1 class="text-title font-semibold">{ vm.Task.Title }</h1>
+					<span class={ taskStatusBadgeClass(vm.Task.Status) }>{ models.TaskStatusLabel(vm.Task.Status) }</span>
+					if vm.Task.IsBillable {
+						<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-primary-soft text-primary">Billable</span>
+					} else {
+						<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-background text-text-muted border border-border">Non-billable</span>
+					}
+				</div>
+				<p class="mt-2 text-text-muted2">{ vm.Task.Customer.Name }</p>
+			</div>
+			<div class="flex shrink-0 flex-wrap items-center gap-2">
+				if vm.CanEdit {
+					<a
+						href={ "/tasks/" + Uitoa(vm.Task.ID) + "/edit" }
+						class="inline-block rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+					>
+						Edit
+					</a>
+				}
+				if vm.CanComplete {
+					<form
+						method="post"
+						action={ "/tasks/" + Uitoa(vm.Task.ID) + "/complete" }
+						class="inline"
+						onsubmit="return confirm('Mark this task as completed? Completed tasks become billing candidates in later batches and core billing fields will be locked.');"
+					>
+						<button
+							type="submit"
+							class="inline-block rounded-md border border-success-border bg-success-soft px-4 py-2 text-body font-semibold text-success-hover hover:bg-success-soft"
+						>
+							Complete
+						</button>
+					</form>
+				}
+				if vm.CanCancel {
+					<form
+						method="post"
+						action={ "/tasks/" + Uitoa(vm.Task.ID) + "/cancel" }
+						class="inline"
+						onsubmit="return confirm('Cancel this task? Cancelled tasks stay read-only and cannot be billed.');"
+					>
+						<button
+							type="submit"
+							class="inline-block rounded-md border border-border-danger bg-danger-soft px-3 py-2 text-small font-medium text-danger-hover hover:bg-danger-soft"
+						>
+							Cancel Task
+						</button>
+					</form>
+				}
+				<a href="/tasks" class="ml-2 text-body text-primary hover:text-primary-hover">← Back</a>
+			</div>
+		</div>
+
+		<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+			<div class="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2 xl:grid-cols-4">
+				<div>
+					<p class="text-small font-medium uppercase tracking-wider text-text-muted">Customer</p>
+					<p class="mt-1 text-body font-medium text-text">{ vm.Task.Customer.Name }</p>
+				</div>
+				<div>
+					<p class="text-small font-medium uppercase tracking-wider text-text-muted">Task Date</p>
+					<p class="mt-1 text-body text-text">{ vm.Task.TaskDate.Format("2006-01-02") }</p>
+				</div>
+				<div>
+					<p class="text-small font-medium uppercase tracking-wider text-text-muted">Quantity</p>
+					<p class="mt-1 text-body text-text">
+						{ vm.Task.Quantity.String() }
+						<span class="text-small text-text-muted2">{ models.TaskUnitTypeLabel(vm.Task.UnitType) }</span>
+					</p>
+				</div>
+				<div>
+					<p class="text-small font-medium uppercase tracking-wider text-text-muted">Rate</p>
+					<p class="mt-1 text-body text-text">{ taskMoney(vm.Task.Rate, vm.Task.CurrencyCode) }</p>
+				</div>
+				<div>
+					<p class="text-small font-medium uppercase tracking-wider text-text-muted">Task Amount</p>
+					<p class="mt-1 text-body font-semibold text-text">{ taskMoney(vm.Task.BillableAmount(), vm.Task.CurrencyCode) }</p>
+					<p class="mt-1 text-small text-text-muted2">Display only. Not invoice truth.</p>
+				</div>
+				<div>
+					<p class="text-small font-medium uppercase tracking-wider text-text-muted">Billing Status</p>
+					<p class="mt-1 text-body text-text">
+						if vm.Task.IsBillable {
+							Billable
+						} else {
+							Non-billable
+						}
+					</p>
+				</div>
+				<div>
+					<p class="text-small font-medium uppercase tracking-wider text-text-muted">Billing Trace</p>
+					<p class="mt-1 text-body text-text">{ vm.BillingTrace.StateLabel }</p>
+					if vm.BillingTrace.CurrentTaskInvoiceID != nil && vm.BillingTrace.CurrentTaskInvoiceNum != "" {
+						<p class="mt-1 text-small text-text-muted2">
+							<a href={ "/invoices/" + Uitoa(*vm.BillingTrace.CurrentTaskInvoiceID) } class="text-primary hover:text-primary-hover hover:underline">{ vm.BillingTrace.CurrentTaskInvoiceNum }</a>
+						</p>
+					} else if vm.BillingTrace.HasHistoricalLinkage {
+						<p class="mt-1 text-small text-text-muted2">Historical linkage is available below.</p>
+					} else if vm.BillingTrace.HasAnyActiveLinkage {
+						<p class="mt-1 text-small text-text-muted2">Active linked cost invoices are listed below.</p>
+					} else {
+						<p class="mt-1 text-body text-text-muted2">Not invoiced yet</p>
+					}
+				</div>
+				<div>
+					<p class="text-small font-medium uppercase tracking-wider text-text-muted">Notes</p>
+					if vm.Task.Notes != "" {
+						<p class="mt-1 whitespace-pre-wrap text-body text-text">{ vm.Task.Notes }</p>
+					} else {
+						<p class="mt-1 text-body text-text-muted2">No notes.</p>
+					}
+				</div>
+			</div>
+		</div>
+
+		<div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+			<div class="rounded-lg border border-border bg-surface p-6 xl:col-span-2">
+				<h2 class="text-section font-semibold text-text">Task Billing Trace</h2>
+				<p class="mt-2 text-small text-text-muted2">{ vm.BillingTrace.StateDetail }</p>
+				<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+					<div class="rounded-md border border-border bg-background p-4">
+						<p class="text-small font-medium uppercase tracking-wider text-text-muted">Current Billing State</p>
+						<p class="mt-2 text-title font-semibold text-text">{ vm.BillingTrace.StateLabel }</p>
+					</div>
+					<div class="rounded-md border border-border bg-background p-4">
+						<p class="text-small font-medium uppercase tracking-wider text-text-muted">Current Task Invoice</p>
+						if vm.BillingTrace.CurrentTaskInvoiceID != nil && vm.BillingTrace.CurrentTaskInvoiceNum != "" {
+							<p class="mt-2 text-body font-semibold text-text">
+								<a href={ "/invoices/" + Uitoa(*vm.BillingTrace.CurrentTaskInvoiceID) } class="text-primary hover:text-primary-hover hover:underline">{ vm.BillingTrace.CurrentTaskInvoiceNum }</a>
+							</p>
+							<p class="mt-1 text-small text-text-muted2">{ models.InvoiceStatusLabel(vm.BillingTrace.CurrentTaskStatus) }</p>
+						} else {
+							<p class="mt-2 text-body text-text-muted2">No active task labor invoice linkage.</p>
+						}
+					</div>
+					<div class="rounded-md border border-border bg-background p-4">
+						<p class="text-small font-medium uppercase tracking-wider text-text-muted">History</p>
+						if vm.BillingTrace.HasHistoricalLinkage {
+							<p class="mt-2 text-body text-text">Historical bridge rows exist for this task or its linked costs.</p>
+						} else {
+							<p class="mt-2 text-body text-text-muted2">No historical invoice linkage yet.</p>
+						}
+					</div>
+				</div>
+
+				<div class="mt-6 space-y-6">
+					@taskInvoiceTraceSection("Task Invoice History", "The task labor line has not entered any invoice yet.", vm.BillingTrace.TaskHistory)
+					@taskInvoiceTraceSection("Linked Expense Invoice History", "No linked expense invoice history yet.", vm.BillingTrace.ExpenseHistory)
+					@taskInvoiceTraceSection("Linked Bill Line Invoice History", "No linked bill line invoice history yet.", vm.BillingTrace.BillLineHistory)
+				</div>
+			</div>
+
+			<div class="rounded-lg border border-border bg-surface p-6 xl:col-span-2">
+				<h2 class="text-section font-semibold text-text">Linked Cost Summary</h2>
+				<p class="mt-2 text-small text-text-muted2">Operational summary only. Current linked document amounts, not invoice truth or a profitability report.</p>
+				<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+					<div class="rounded-md border border-border bg-background p-4">
+						<p class="text-small font-medium uppercase tracking-wider text-text-muted">Billable Expense Amount</p>
+						<p class="mt-2 text-title font-semibold text-text">{ taskMoney(vm.BillableExpenseAmount, vm.Task.CurrencyCode) }</p>
+						<p class="mt-1 text-small text-text-muted2">Task-linked costs currently marked billable.</p>
+					</div>
+					<div class="rounded-md border border-border bg-background p-4">
+						<p class="text-small font-medium uppercase tracking-wider text-text-muted">Non-billable Expense Cost</p>
+						<p class="mt-2 text-title font-semibold text-text">{ taskMoney(vm.NonBillableExpenseCost, vm.Task.CurrencyCode) }</p>
+						<p class="mt-1 text-small text-text-muted2">Task-linked costs kept internal only.</p>
+					</div>
+				</div>
+			</div>
+
+			<div class="rounded-lg border border-border bg-surface p-6">
+				<h2 class="text-section font-semibold text-text">Linked Expenses</h2>
+				if len(vm.LinkedExpenses) == 0 {
+					<p class="mt-3 text-body text-text-muted2">No expenses linked to this task yet.</p>
+				} else {
+					<div class="mt-4 space-y-3">
+						for _, exp := range vm.LinkedExpenses {
+							<div class="rounded-md border border-border bg-background p-4">
+								<div class="flex flex-wrap items-start justify-between gap-3">
+									<div class="min-w-0 flex-1">
+										<div class="flex flex-wrap items-center gap-2">
+											<a href={ "/expenses/" + Uitoa(exp.ID) + "/edit" } class="font-medium text-primary hover:text-primary-hover hover:underline">{ exp.Description }</a>
+											<span class={ taskCostBadgeClass(exp.IsBillable) }>{ taskCostLabel(exp.IsBillable) }</span>
+										</div>
+										<p class="mt-1 text-small text-text-muted2">
+											{ exp.ExpenseDate.Format("2006-01-02") }
+											if exp.Vendor != nil {
+												<span> · { exp.Vendor.Name }</span>
+											}
+											if exp.ExpenseAccount != nil {
+												<span> · { exp.ExpenseAccount.Code } { exp.ExpenseAccount.Name }</span>
+											}
+										</p>
+									</div>
+									<div class="text-right">
+										<p class="text-body font-semibold text-text">{ taskMoney(exp.Amount, exp.CurrencyCode) }</p>
+										if exp.ReinvoiceStatus != models.ReinvoiceStatusNone {
+											<p class="mt-1 text-small text-text-muted2">{ string(exp.ReinvoiceStatus) }</p>
+										}
+									</div>
+								</div>
+							</div>
+						}
+					</div>
+				}
+			</div>
+			<div class="rounded-lg border border-border bg-surface p-6">
+				<h2 class="text-section font-semibold text-text">Linked Bill Lines</h2>
+				if len(vm.LinkedBillLines) == 0 {
+					<p class="mt-3 text-body text-text-muted2">No bill lines linked to this task yet.</p>
+				} else {
+					<div class="mt-4 space-y-3">
+						for _, line := range vm.LinkedBillLines {
+							<div class="rounded-md border border-border bg-background p-4">
+								<div class="flex flex-wrap items-start justify-between gap-3">
+									<div class="min-w-0 flex-1">
+										<div class="flex flex-wrap items-center gap-2">
+											if line.Bill != nil {
+												<a href={ "/bills/" + Uitoa(line.Bill.ID) + "/edit" } class="font-medium text-primary hover:text-primary-hover hover:underline">{ taskBillLineTitle(line) }</a>
+											} else {
+												<span class="font-medium text-text">{ line.Description }</span>
+											}
+											<span class={ taskCostBadgeClass(line.IsBillable) }>{ taskCostLabel(line.IsBillable) }</span>
+										</div>
+										<p class="mt-1 text-small text-text-muted2">
+											if line.Bill != nil {
+												<span>{ line.Bill.BillDate.Format("2006-01-02") }</span>
+												if line.Bill.Vendor.Name != "" {
+													<span> · { line.Bill.Vendor.Name }</span>
+												}
+											}
+											if line.ExpenseAccount != nil {
+												<span> · { line.ExpenseAccount.Code } { line.ExpenseAccount.Name }</span>
+											}
+										</p>
+									</div>
+									<div class="text-right">
+										<p class="text-body font-semibold text-text">{ taskBillLineMoney(line) }</p>
+										if line.ReinvoiceStatus != models.ReinvoiceStatusNone {
+											<p class="mt-1 text-small text-text-muted2">{ string(line.ReinvoiceStatus) }</p>
+										}
+									</div>
+								</div>
+							</div>
+						}
+					</div>
+				}
+			</div>
+		</div>
+	</div>
+}
+
+func taskCostLabel(isBillable bool) string {
+	if isBillable {
+		return "Billable"
+	}
+	return "Non-billable"
+}
+
+func taskCostBadgeClass(isBillable bool) string {
+	if isBillable {
+		return "inline-block rounded px-2 py-0.5 text-small font-medium bg-primary-soft text-primary"
+	}
+	return "inline-block rounded px-2 py-0.5 text-small font-medium bg-background text-text-muted border border-border"
+}
+
+func taskBillLineTitle(line models.BillLine) string {
+	if line.Bill != nil && line.Bill.BillNumber != "" {
+		return line.Bill.BillNumber + " — " + line.Description
+	}
+	return line.Description
+}
+
+func taskBillLineMoney(line models.BillLine) string {
+	if line.Bill != nil {
+		return taskMoney(line.LineNet, line.Bill.CurrencyCode)
+	}
+	return taskMoney(line.LineNet, "")
+}
+
+templ taskInvoiceTraceSection(title string, emptyText string, rows []services.TaskInvoiceTraceRow) {
+	<div>
+		<h3 class="text-body font-semibold text-text">{ title }</h3>
+		if len(rows) == 0 {
+			<p class="mt-2 text-small text-text-muted2">{ emptyText }</p>
+		} else {
+			<div class="mt-3 overflow-x-auto">
+				<table class="w-full text-left text-body">
+					<thead class="text-small uppercase tracking-wider text-text-muted">
+						<tr class="border-b border-border">
+							<th class="py-3 pr-4">Source</th>
+							<th class="py-3 pr-4">Invoice</th>
+							<th class="py-3 pr-4">Lifecycle</th>
+							<th class="py-3 pr-4">Created</th>
+							<th class="py-3 pr-0 text-right">Amount Snapshot</th>
+						</tr>
+					</thead>
+					<tbody class="text-text">
+						for _, row := range rows {
+							<tr class="border-b border-border-subtle">
+								<td class="py-3 pr-4">
+									<div class="font-medium text-text">{ row.SourceLabel }</div>
+									<div class="mt-1 text-small text-text-muted2">{ string(row.SourceType) } #{ Uitoa(row.SourceID) }</div>
+								</td>
+								<td class="py-3 pr-4">
+									if row.InvoiceID != nil && row.InvoiceNumber != "" {
+										<a href={ traceInvoiceHref(row) } class="font-medium text-primary hover:text-primary-hover hover:underline">{ row.InvoiceNumber }</a>
+										<p class="mt-1 text-small text-text-muted2">{ models.InvoiceStatusLabel(row.InvoiceStatus) }</p>
+									} else {
+										<span class="text-text-muted2">Released draft reference cleared</span>
+									}
+								</td>
+								<td class="py-3 pr-4">
+									<span class={ traceRowLifecycleBadgeClass(row) }>{ traceRowLifecycleLabel(row) }</span>
+								</td>
+								<td class="py-3 pr-4 text-small text-text-muted2">{ row.CreatedAt.Format("2006-01-02 15:04") }</td>
+								<td class="py-3 pr-0 text-right tabular-nums font-medium">{ taskMoney(row.AmountSnapshot, row.CurrencyCode) }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</div>
+}

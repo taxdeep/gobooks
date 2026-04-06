@@ -113,6 +113,45 @@ A **ledger entry projection layer** (`ledger_entries` table) is maintained along
 
 ---
 
+### Task + Billable Expense
+
+A work-execution and cost-tracking layer that bridges service delivery with the invoice workflow.
+
+**Tasks** represent a discrete unit of billable or non-billable work for a customer:
+- Status machine: `open → completed → invoiced | cancelled`
+- Snapshot fields (rate, quantity, unit type, currency) are locked once the task is completed
+- Only completed, billable tasks enter the invoicing pipeline
+
+**Billable cost linkage** (Expenses and Bill lines) can be attached to a task:
+- Expenses and bill-line items carry `task_id`, `is_billable`, and `reinvoice_status` (`uninvoiced | invoiced | excluded | —`)
+- `NormalizeTaskCostLinkage` is the single service-layer truth engine for all task-cost rules: auto-derives `billable_customer_id` from the task, validates task status, rejects customer mismatches
+- Non-billable costs remain visible on the task but never enter the invoicing pipeline
+
+**Draft Generator** (`/tasks/billable-work`):
+- Selects completed + billable Tasks, task-linked + billable + uninvoiced Expenses, and task-linked + billable + uninvoiced Bill lines for a single customer
+- Creates an Invoice Draft in one transaction: invoice header + invoice lines + `task_invoice_sources` bridge rows + source cache updates + source status transitions
+- System items `TASK_LABOR` (for task labor lines) and `TASK_REIM` (for expense/cost pass-through lines) are bootstrapped per company and looked up by `system_code`, never by hardcoded ID
+- Currency: all sources must share the same document currency; mixed-currency batches are rejected with a clear error
+
+**Source lifecycle**:
+- `generate` → Task moves to `invoiced`; Expense/Bill line `reinvoice_status` → `invoiced`; bridge row created (active)
+- `delete draft` → sources released back to draftable state; bridge row preserved but `voided_at` set and invoice refs cleared
+- `void invoice` → sources released back; bridge row preserved with invoice refs retained for audit history
+- `re-generate` → works cleanly after any release; partial-unique index on `task_invoice_sources (source_type, source_id) WHERE voided_at IS NULL` prevents duplicate active linkages at the database layer
+
+**Task-generated draft protection** (Batch 5):
+- The Invoice Editor detects task-generated drafts via `HasActiveTaskInvoiceSources` (bridge table, not cache)
+- Task-generated drafts are read-only in the editor: fieldset disabled + two-layer backend block (pre-check redirect + in-transaction backstop)
+- Delete Draft remains available for users with `ActionInvoiceDelete` permission, allowing source release and regeneration
+
+**Billing visibility** (Batch 6):
+- `/tasks/billable-work/report` — read-only Billable Work Report: lists all currently draftable work, shows per-customer summary, supports customer filter
+- Task detail page — full billing trace showing current billing state, active invoice linkage, and full history from `task_invoice_sources` (not source cache)
+- Customers list — per-customer unbilled labor / expense / total columns linked to the report
+- All amounts are grouped by document currency; no FX normalization is performed; explicitly presented as operational visibility, not a profitability or accounting report
+
+---
+
 ### Bank Reconciliation
 
 QuickBooks-style reconciliation UI with a four-metric summary bar (Statement Ending Balance, Beginning Balance, Cleared Balance, Difference). Finish Now is only enabled when Difference = $0.00, enforced both client-side (Alpine.js) and server-side inside a database transaction.

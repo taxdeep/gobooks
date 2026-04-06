@@ -1,0 +1,253 @@
+package pages
+
+import "gobooks/internal/models"
+import "gobooks/internal/web/templates/layout"
+import "gobooks/internal/web/templates/ui"
+
+templ TaskBillableWorkReport(vm BillableWorkReportVM) {
+	@layout.Layout(
+		"GoBooks - Billable Work Report",
+		ui.SidebarVM{Active: "Tasks", HasCompany: vm.HasCompany},
+		bodyTaskBillableWorkReport(vm),
+	)
+}
+
+templ bodyTaskBillableWorkReport(vm BillableWorkReportVM) {
+	<div class="max-w-[95%]">
+		<div class="flex flex-wrap items-start justify-between gap-4">
+			<div class="min-w-0 flex-1">
+				<h1 class="text-title font-semibold">Billable Work Report</h1>
+				<p class="mt-2 text-text-muted2">See what is still ready to invoice and which customers currently have billable work waiting.</p>
+			</div>
+			<div class="shrink-0 flex flex-wrap items-center gap-2">
+				<a href="/tasks" class="text-body text-text-muted3 hover:text-text">← Back to Tasks</a>
+			</div>
+		</div>
+
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">
+				{ vm.FormError }
+			</div>
+		}
+
+		<form method="get" action="/tasks/billable-work/report" class="mt-6 rounded-lg border border-border bg-surface p-6">
+			<h2 class="text-section font-semibold text-text">Customer Filter</h2>
+			<div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,24rem)_auto] md:items-end">
+				<div>
+					<label class="block text-body font-medium text-text">Customer</label>
+					<select name="customer_id" class={ taskInputClass(false) }>
+						<option value="">-- All customers --</option>
+						for _, customer := range vm.Customers {
+							<option value={ Uitoa(customer.ID) } selected?={ Uitoa(customer.ID) == vm.SelectedCustomerID }>{ customer.Name }</option>
+						}
+					</select>
+				</div>
+				<div class="flex items-center justify-end">
+					<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">Apply Filter</button>
+				</div>
+			</div>
+		</form>
+
+		<div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+			<div class="rounded-lg border border-border bg-surface p-6">
+				<p class="text-small uppercase tracking-wider text-text-muted">Unbilled Task Labor</p>
+				<p class="mt-3 text-section font-semibold text-text">{ currencyTotalsLabel(vm.TaskLaborTotals) }</p>
+			</div>
+			<div class="rounded-lg border border-border bg-surface p-6">
+				<p class="text-small uppercase tracking-wider text-text-muted">Unbilled Billable Expense</p>
+				<p class="mt-3 text-section font-semibold text-text">{ currencyTotalsLabel(vm.BillableExpenseTotals) }</p>
+			</div>
+			<div class="rounded-lg border border-border bg-surface p-6">
+				<p class="text-small uppercase tracking-wider text-text-muted">Total Unbilled</p>
+				<p class="mt-3 text-section font-semibold text-text">{ currencyTotalsLabel(vm.TotalUnbilledTotals) }</p>
+			</div>
+		</div>
+
+		if vm.SelectedCustomerID == "" && len(vm.CustomerSummaries) > 0 {
+			<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+				<div class="flex flex-wrap items-start justify-between gap-4">
+					<div>
+						<h2 class="text-section font-semibold text-text">Per-Customer Billable Summary</h2>
+						<p class="mt-2 text-small text-text-muted2">Operational visibility only. Totals are grouped by document currency and do not perform FX normalization.</p>
+					</div>
+				</div>
+				<div class="mt-4 overflow-x-auto">
+					<table class="w-full text-left text-body">
+						<thead class="text-small uppercase tracking-wider text-text-muted">
+							<tr class="border-b border-border">
+								<th class="py-3 pr-4">Customer</th>
+								<th class="py-3 pr-4">Task Labor</th>
+								<th class="py-3 pr-4">Billable Expense</th>
+								<th class="py-3 pr-4">Total</th>
+								<th class="py-3 pr-0">Last Billable Work</th>
+							</tr>
+						</thead>
+						<tbody class="text-text">
+							for _, customer := range vm.Customers {
+								<tr class="border-b border-border-subtle">
+									<td class="py-3 pr-4 font-medium">
+										<a href={ "/tasks/billable-work/report?customer_id=" + Uitoa(customer.ID) } class="text-primary hover:text-primary-hover hover:underline">{ customer.Name }</a>
+									</td>
+									<td class="py-3 pr-4 tabular-nums">{ currencyTotalsLabel(customerBillableSummary(vm.CustomerSummaries, customer.ID).UnbilledTaskLabor) }</td>
+									<td class="py-3 pr-4 tabular-nums">{ currencyTotalsLabel(customerBillableSummary(vm.CustomerSummaries, customer.ID).UnbilledBillableExpense) }</td>
+									<td class="py-3 pr-4 tabular-nums font-medium">{ currencyTotalsLabel(customerBillableSummary(vm.CustomerSummaries, customer.ID).TotalUnbilled) }</td>
+									<td class="py-3 pr-0 text-small text-text-muted2">
+										if customerBillableSummary(vm.CustomerSummaries, customer.ID).LastBillableWorkDate != nil {
+											{ customerBillableSummary(vm.CustomerSummaries, customer.ID).LastBillableWorkDate.Format("2006-01-02") }
+										} else {
+											<span class="text-text-muted3">—</span>
+										}
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		}
+
+		@taskBillableReportSectionTasks(vm)
+		@taskBillableReportSectionExpenses(vm)
+		@taskBillableReportSectionBillLines(vm)
+	</div>
+}
+
+templ taskBillableReportSectionTasks(vm BillableWorkReportVM) {
+	<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+		<h2 class="text-section font-semibold text-text">Unbilled Tasks</h2>
+		if len(vm.Tasks) == 0 {
+			<p class="mt-3 text-body text-text-muted2">No completed billable tasks are currently waiting for invoicing.</p>
+		} else {
+			<div class="mt-4 overflow-x-auto">
+				<table class="w-full text-left text-body">
+					<thead class="text-small uppercase tracking-wider text-text-muted">
+						<tr class="border-b border-border">
+							<th class="py-3 pr-4">Task</th>
+							<th class="py-3 pr-4">Customer</th>
+							<th class="py-3 pr-4">Date</th>
+							<th class="py-3 pr-4">Status</th>
+							<th class="py-3 pr-0 text-right">Amount</th>
+						</tr>
+					</thead>
+					<tbody class="text-text">
+						for _, task := range vm.Tasks {
+							<tr class="border-b border-border-subtle">
+								<td class="py-3 pr-4 font-medium"><a href={ "/tasks/" + Uitoa(task.ID) } class="text-primary hover:text-primary-hover hover:underline">{ task.Title }</a></td>
+								<td class="py-3 pr-4">{ task.Customer.Name }</td>
+								<td class="py-3 pr-4">{ task.TaskDate.Format("2006-01-02") }</td>
+								<td class="py-3 pr-4"><span class={ taskStatusBadgeClass(task.Status) }>{ models.TaskStatusLabel(task.Status) }</span></td>
+								<td class="py-3 pr-0 text-right tabular-nums font-medium">{ taskMoney(task.BillableAmount(), task.CurrencyCode) }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</div>
+}
+
+templ taskBillableReportSectionExpenses(vm BillableWorkReportVM) {
+	<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+		<h2 class="text-section font-semibold text-text">Unbilled Billable Expenses</h2>
+		if len(vm.Expenses) == 0 {
+			<p class="mt-3 text-body text-text-muted2">No task-linked billable expenses are currently waiting for invoicing.</p>
+		} else {
+			<div class="mt-4 overflow-x-auto">
+				<table class="w-full text-left text-body">
+					<thead class="text-small uppercase tracking-wider text-text-muted">
+						<tr class="border-b border-border">
+							<th class="py-3 pr-4">Expense</th>
+							<th class="py-3 pr-4">Task</th>
+							<th class="py-3 pr-4">Customer</th>
+							<th class="py-3 pr-4">Date</th>
+							<th class="py-3 pr-4">Status</th>
+							<th class="py-3 pr-0 text-right">Amount</th>
+						</tr>
+					</thead>
+					<tbody class="text-text">
+						for _, exp := range vm.Expenses {
+							<tr class="border-b border-border-subtle">
+								<td class="py-3 pr-4 font-medium"><a href={ "/expenses/" + Uitoa(exp.ID) + "/edit" } class="text-primary hover:text-primary-hover hover:underline">{ exp.Description }</a></td>
+								<td class="py-3 pr-4">
+									if exp.Task != nil {
+										<a href={ "/tasks/" + Uitoa(exp.Task.ID) } class="text-primary hover:text-primary-hover hover:underline">{ exp.Task.Title }</a>
+									} else {
+										<span class="text-text-muted3">—</span>
+									}
+								</td>
+								<td class="py-3 pr-4">
+									if exp.BillableCustomer != nil {
+										{ exp.BillableCustomer.Name }
+									} else if exp.Task != nil {
+										{ exp.Task.Customer.Name }
+									} else {
+										<span class="text-text-muted3">—</span>
+									}
+								</td>
+								<td class="py-3 pr-4">{ exp.ExpenseDate.Format("2006-01-02") }</td>
+								<td class="py-3 pr-4"><span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-primary-soft text-primary">{ exp.ReinvoiceStatus }</span></td>
+								<td class="py-3 pr-0 text-right tabular-nums font-medium">{ taskMoney(exp.Amount, exp.CurrencyCode) }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</div>
+}
+
+templ taskBillableReportSectionBillLines(vm BillableWorkReportVM) {
+	<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+		<h2 class="text-section font-semibold text-text">Unbilled Bill Lines</h2>
+		if len(vm.BillLines) == 0 {
+			<p class="mt-3 text-body text-text-muted2">No task-linked bill lines are currently waiting for invoicing.</p>
+		} else {
+			<div class="mt-4 overflow-x-auto">
+				<table class="w-full text-left text-body">
+					<thead class="text-small uppercase tracking-wider text-text-muted">
+						<tr class="border-b border-border">
+							<th class="py-3 pr-4">Bill</th>
+							<th class="py-3 pr-4">Description</th>
+							<th class="py-3 pr-4">Task</th>
+							<th class="py-3 pr-4">Customer</th>
+							<th class="py-3 pr-4">Status</th>
+							<th class="py-3 pr-0 text-right">Amount</th>
+						</tr>
+					</thead>
+					<tbody class="text-text">
+						for _, line := range vm.BillLines {
+							<tr class="border-b border-border-subtle">
+								<td class="py-3 pr-4">
+									if line.Bill != nil {
+										<a href={ "/bills/" + Uitoa(line.Bill.ID) + "/edit" } class="font-medium text-primary hover:text-primary-hover hover:underline">{ line.Bill.BillNumber }</a>
+									} else {
+										<span class="text-text-muted3">—</span>
+									}
+								</td>
+								<td class="py-3 pr-4">{ line.Description }</td>
+								<td class="py-3 pr-4">
+									if line.Task != nil {
+										<a href={ "/tasks/" + Uitoa(line.Task.ID) } class="text-primary hover:text-primary-hover hover:underline">{ line.Task.Title }</a>
+									} else {
+										<span class="text-text-muted3">—</span>
+									}
+								</td>
+								<td class="py-3 pr-4">
+									if line.BillableCustomer != nil {
+										{ line.BillableCustomer.Name }
+									} else if line.Task != nil {
+										{ line.Task.Customer.Name }
+									} else {
+										<span class="text-text-muted3">—</span>
+									}
+								</td>
+								<td class="py-3 pr-4"><span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-primary-soft text-primary">{ line.ReinvoiceStatus }</span></td>
+								<td class="py-3 pr-0 text-right tabular-nums font-medium">{ taskBillLineMoney(line) }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</div>
+}

@@ -202,6 +202,10 @@ func DeleteInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID 
 	}
 
 	return db.Transaction(func(tx *gorm.DB) error {
+		if err := releaseTaskInvoiceSourcesForInvoice(tx, companyID, invoiceID, taskInvoiceReleaseClearReferences); err != nil {
+			return fmt.Errorf("release task invoice sources: %w", err)
+		}
+
 		// Delete lines first (FK constraint)
 		if err := tx.Where("invoice_id = ? AND company_id = ?", invoiceID, companyID).
 			Delete(&models.InvoiceLine{}).Error; err != nil {

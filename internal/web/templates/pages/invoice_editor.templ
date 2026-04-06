@@ -18,7 +18,9 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 			<div>
 				<h1 class="text-title font-semibold">{ InvoiceEditorTitle(vm) }</h1>
 				<p class="mt-1 text-text-muted2">
-					if vm.IsEdit {
+					if vm.TaskGeneratedReadOnly {
+						This draft was generated from Billable Work. Review it here, or delete the draft and regenerate from Billable Work to change the included work.
+					} else if vm.IsEdit {
 						Edit draft invoice. Changes are saved as a draft until posted.
 					} else {
 						Create a new invoice. Save as draft to review before posting.
@@ -36,6 +38,15 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 		if vm.LinesError != "" {
 			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">
 				{ vm.LinesError }
+			</div>
+		}
+		if vm.TaskGeneratedReadOnly {
+			<div class="mt-4 rounded-md border border-border bg-background p-4 text-body text-text-muted2">
+				if vm.Saved {
+					<span class="font-semibold text-text">Draft generated from Billable Work.</span>
+					<span> </span>
+				}
+				This draft is read-only in the editor. To change the included work, delete the draft and regenerate it from Billable Work.
 			</div>
 		}
 
@@ -59,7 +70,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 			}
 
 			// Wrapper div — JS adds 'ie-reviewing' class to lock fields
-			<fieldset id="ie-fields" disabled?={ vm.ReviewLocked }>
+			<fieldset id="ie-fields" disabled?={ vm.ReviewLocked || vm.TaskGeneratedReadOnly }>
 
 			// ── Header ──────────────────────────────────────────────────────
 			<div class="rounded-lg border border-border bg-surface p-6">
@@ -431,7 +442,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 			</fieldset>
 
 			// ── Review banner ─────────────────────────────────────────────────
-			<div
+			if !vm.TaskGeneratedReadOnly {
+				<div
 				id="ie-review-banner"
 				style={ editorDisplay(vm.ReviewLocked) }
 				class="rounded-md border border-border bg-background px-4 py-3 text-body text-text-muted2"
@@ -441,11 +453,46 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 					<span> </span>
 				}
 				Review your invoice. If everything looks correct, click <strong class="text-text">Submit</strong> to save — or click <strong class="text-text">← Edit</strong> to make changes.
-			</div>
+				</div>
+			}
 
 			// ── Actions ──────────────────────────────────────────────────────
 			<div class="flex flex-wrap items-center justify-end gap-3">
-				<a
+				if vm.TaskGeneratedReadOnly {
+					<a
+						href="/invoices"
+						class="rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text"
+					>
+						Back to Invoices
+					</a>
+					if vm.DeletePath != "" {
+						<form
+							method="post"
+							action={ vm.DeletePath }
+							class="inline"
+							onsubmit="return confirm('Delete this draft invoice? This will release the linked Billable Work so you can regenerate it.');"
+						>
+							<button
+								type="submit"
+								class="rounded-md border border-border-danger px-4 py-2 text-body font-semibold text-danger hover:bg-danger-soft"
+							>
+								Delete Draft
+							</button>
+						</form>
+					}
+					if vm.SubmitPath != "" {
+						<button
+							id="ie-submit-btn"
+							type="submit"
+							formmethod="post"
+							formaction={ vm.SubmitPath }
+							class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+						>
+							Submit
+						</button>
+					}
+				} else {
+					<a
 					id="ie-cancel-link"
 					href="/invoices"
 					style={ editorDisplay(!vm.ReviewLocked) }
@@ -470,7 +517,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 				>
 					Save Draft
 				</button>
-				if vm.SubmitPath != "" {
+					if vm.SubmitPath != "" {
 					<button
 						id="ie-submit-btn"
 						style={ editorDisplay(vm.ReviewLocked) }
@@ -481,6 +528,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 					>
 						Submit
 					</button>
+				}
 				}
 			</div>
 

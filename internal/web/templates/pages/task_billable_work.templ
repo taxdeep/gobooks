@@ -1,0 +1,216 @@
+package pages
+
+import "gobooks/internal/models"
+import "gobooks/internal/web/templates/layout"
+import "gobooks/internal/web/templates/ui"
+
+templ TaskBillableWork(vm BillableWorkVM) {
+	@layout.Layout(
+		"GoBooks - Billable Work",
+		ui.SidebarVM{Active: "Tasks", HasCompany: vm.HasCompany},
+		bodyTaskBillableWork(vm),
+	)
+}
+
+templ bodyTaskBillableWork(vm BillableWorkVM) {
+	<div class="max-w-[95%]">
+		<div class="flex flex-wrap items-start justify-between gap-4">
+			<div class="min-w-0 flex-1">
+				<h1 class="text-title font-semibold">Billable Work</h1>
+				<p class="mt-2 text-text-muted2">Select completed billable tasks and task-linked billable costs, then generate one invoice draft for a customer.</p>
+			</div>
+			<a href="/tasks" class="text-body text-text-muted3 hover:text-text">← Back to Tasks</a>
+		</div>
+
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">
+				{ vm.FormError }
+			</div>
+		}
+
+		<form method="get" action="/tasks/billable-work" class="mt-6 rounded-lg border border-border bg-surface p-6">
+			<h2 class="text-section font-semibold text-text">Customer</h2>
+			<div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,24rem)_auto] md:items-end">
+				<div>
+					<label class="block text-body font-medium text-text">Choose customer</label>
+					<select name="customer_id" class={ taskInputClass(false) }>
+						<option value="">-- Select customer --</option>
+						for _, customer := range vm.Customers {
+							<option value={ Uitoa(customer.ID) } selected?={ Uitoa(customer.ID) == vm.SelectedCustomerID }>{ customer.Name }</option>
+						}
+					</select>
+				</div>
+				<div class="flex items-center justify-end">
+					<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">Load Billable Work</button>
+				</div>
+			</div>
+		</form>
+
+		if vm.SelectedCustomerID == "" {
+			<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+				<p class="text-body text-text-muted2">Choose a customer to load completed billable tasks and uninvoiced task-linked costs.</p>
+			</div>
+		} else {
+			<form method="post" action="/tasks/billable-work/generate" class="mt-6 space-y-6">
+				<input type="hidden" name="customer_id" value={ vm.SelectedCustomerID }/>
+
+				<div class="rounded-lg border border-border bg-surface p-6">
+					<div class="flex flex-wrap items-start justify-between gap-4">
+						<div>
+							<h2 class="text-section font-semibold text-text">Draft Sources</h2>
+							<p class="mt-2 text-small text-text-muted2">One source becomes one invoice line. TASK_LABOR is used for tasks; TASK_REIM is used for billable expense and bill lines.</p>
+						</div>
+						if vm.CanGenerate {
+							<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">Generate Invoice Draft</button>
+						}
+					</div>
+				</div>
+
+				@taskBillableSectionTasks(vm)
+				@taskBillableSectionExpenses(vm)
+				@taskBillableSectionBillLines(vm)
+			</form>
+		}
+	</div>
+}
+
+templ taskBillableSectionTasks(vm BillableWorkVM) {
+	<div class="rounded-lg border border-border bg-surface p-6">
+		<h2 class="text-section font-semibold text-text">Tasks</h2>
+		if len(vm.Tasks) == 0 {
+			<p class="mt-3 text-body text-text-muted2">No completed billable tasks are currently ready for this customer.</p>
+		} else {
+			<div class="mt-4 overflow-x-auto">
+				<table class="w-full text-left text-body">
+					<thead class="text-small uppercase tracking-wider text-text-muted">
+						<tr class="border-b border-border">
+							<th class="py-3 pr-4">Select</th>
+							<th class="py-3 pr-4">Task</th>
+							<th class="py-3 pr-4">Date</th>
+							<th class="py-3 pr-4 text-right">Qty</th>
+							<th class="py-3 pr-4 text-right">Rate</th>
+							<th class="py-3 pr-0 text-right">Amount</th>
+						</tr>
+					</thead>
+					<tbody class="text-text">
+						for _, task := range vm.Tasks {
+							<tr class="border-b border-border-subtle">
+								<td class="py-3 pr-4">
+									<input type="checkbox" name="task_id" value={ Uitoa(task.ID) } checked?={ selectedIDContains(vm.SelectedTaskIDs, Uitoa(task.ID)) } class="h-4 w-4 rounded border-border-input text-primary focus:ring-primary-focus"/>
+								</td>
+								<td class="py-3 pr-4">
+									<a href={ "/tasks/" + Uitoa(task.ID) } class="font-medium text-primary hover:text-primary-hover hover:underline">{ task.Title }</a>
+								</td>
+								<td class="py-3 pr-4">{ task.TaskDate.Format("2006-01-02") }</td>
+								<td class="py-3 pr-4 text-right tabular-nums">{ task.Quantity.String() } <span class="text-small text-text-muted2">{ models.TaskUnitTypeLabel(task.UnitType) }</span></td>
+								<td class="py-3 pr-4 text-right tabular-nums">{ taskMoney(task.Rate, task.CurrencyCode) }</td>
+								<td class="py-3 pr-0 text-right tabular-nums font-medium">{ taskMoney(task.BillableAmount(), task.CurrencyCode) }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</div>
+}
+
+templ taskBillableSectionExpenses(vm BillableWorkVM) {
+	<div class="rounded-lg border border-border bg-surface p-6">
+		<h2 class="text-section font-semibold text-text">Expenses</h2>
+		if len(vm.Expenses) == 0 {
+			<p class="mt-3 text-body text-text-muted2">No task-linked billable uninvoiced expenses are currently ready for this customer.</p>
+		} else {
+			<div class="mt-4 overflow-x-auto">
+				<table class="w-full text-left text-body">
+					<thead class="text-small uppercase tracking-wider text-text-muted">
+						<tr class="border-b border-border">
+							<th class="py-3 pr-4">Select</th>
+							<th class="py-3 pr-4">Description</th>
+							<th class="py-3 pr-4">Task</th>
+							<th class="py-3 pr-4">Date</th>
+							<th class="py-3 pr-0 text-right">Amount</th>
+						</tr>
+					</thead>
+					<tbody class="text-text">
+						for _, exp := range vm.Expenses {
+							<tr class="border-b border-border-subtle">
+								<td class="py-3 pr-4">
+									<input type="checkbox" name="expense_id" value={ Uitoa(exp.ID) } checked?={ selectedIDContains(vm.SelectedExpenseIDs, Uitoa(exp.ID)) } class="h-4 w-4 rounded border-border-input text-primary focus:ring-primary-focus"/>
+								</td>
+								<td class="py-3 pr-4">
+									<a href={ "/expenses/" + Uitoa(exp.ID) + "/edit" } class="font-medium text-primary hover:text-primary-hover hover:underline">{ exp.Description }</a>
+								</td>
+								<td class="py-3 pr-4">
+									if exp.Task != nil {
+										<a href={ "/tasks/" + Uitoa(exp.Task.ID) } class="text-primary hover:text-primary-hover hover:underline">{ exp.Task.Title }</a>
+									} else {
+										<span class="text-text-muted2">—</span>
+									}
+								</td>
+								<td class="py-3 pr-4">{ exp.ExpenseDate.Format("2006-01-02") }</td>
+								<td class="py-3 pr-0 text-right tabular-nums font-medium">{ taskMoney(exp.Amount, exp.CurrencyCode) }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</div>
+}
+
+templ taskBillableSectionBillLines(vm BillableWorkVM) {
+	<div class="rounded-lg border border-border bg-surface p-6">
+		<h2 class="text-section font-semibold text-text">Bill Lines</h2>
+		if len(vm.BillLines) == 0 {
+			<p class="mt-3 text-body text-text-muted2">No task-linked billable uninvoiced bill lines are currently ready for this customer.</p>
+		} else {
+			<div class="mt-4 overflow-x-auto">
+				<table class="w-full text-left text-body">
+					<thead class="text-small uppercase tracking-wider text-text-muted">
+						<tr class="border-b border-border">
+							<th class="py-3 pr-4">Select</th>
+							<th class="py-3 pr-4">Bill</th>
+							<th class="py-3 pr-4">Description</th>
+							<th class="py-3 pr-4">Task</th>
+							<th class="py-3 pr-0 text-right">Amount</th>
+						</tr>
+					</thead>
+					<tbody class="text-text">
+						for _, line := range vm.BillLines {
+							<tr class="border-b border-border-subtle">
+								<td class="py-3 pr-4">
+									<input type="checkbox" name="bill_line_id" value={ Uitoa(line.ID) } checked?={ selectedIDContains(vm.SelectedBillLineIDs, Uitoa(line.ID)) } class="h-4 w-4 rounded border-border-input text-primary focus:ring-primary-focus"/>
+								</td>
+								<td class="py-3 pr-4">
+									if line.Bill != nil {
+										<a href={ "/bills/" + Uitoa(line.Bill.ID) + "/edit" } class="font-medium text-primary hover:text-primary-hover hover:underline">{ line.Bill.BillNumber }</a>
+									} else {
+										<span class="text-text-muted2">—</span>
+									}
+								</td>
+								<td class="py-3 pr-4">{ line.Description }</td>
+								<td class="py-3 pr-4">
+									if line.Task != nil {
+										<a href={ "/tasks/" + Uitoa(line.Task.ID) } class="text-primary hover:text-primary-hover hover:underline">{ line.Task.Title }</a>
+									} else {
+										<span class="text-text-muted2">—</span>
+									}
+								</td>
+								<td class="py-3 pr-0 text-right tabular-nums font-medium">{ taskBillLineMoney(line) }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</div>
+}
+
+func selectedIDContains(ids []string, want string) bool {
+	for _, id := range ids {
+		if id == want {
+			return true
+		}
+	}
+	return false
+}

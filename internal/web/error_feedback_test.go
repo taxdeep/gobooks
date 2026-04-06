@@ -17,6 +17,7 @@ import (
 	"gorm.io/gorm"
 
 	"gobooks/internal/models"
+	"gobooks/internal/services"
 )
 
 func testErrorFeedbackDB(t *testing.T) *gorm.DB {
@@ -33,6 +34,7 @@ func testErrorFeedbackDB(t *testing.T) *gorm.DB {
 		&models.CompanyMembership{},
 		&models.Customer{},
 		&models.Account{},
+		&models.TaxCode{},
 		&models.NumberingSetting{},
 		&models.CompanyNotificationSettings{},
 		&models.SystemNotificationSettings{},
@@ -41,6 +43,7 @@ func testErrorFeedbackDB(t *testing.T) *gorm.DB {
 		&models.PaymentRequest{},
 		&models.PaymentTransaction{},
 		&models.ProductService{},
+		&models.ItemComponent{},
 		&models.ItemChannelMapping{},
 		&models.SalesChannelAccount{},
 		&models.ChannelAccountingMapping{},
@@ -100,6 +103,10 @@ func errorFeedbackApp(server *Server, user *models.User, companyID uint) *fiber.
 	app.Post("/settings/payment-gateways/transactions/:id/apply", server.handlePaymentTransactionApply)
 	app.Post("/settings/payment-gateways/transactions/:id/unapply", server.handlePaymentTransactionUnapply)
 	app.Post("/settings/payment-gateways/transactions/:id/apply-refund", server.handlePaymentTransactionApplyRefund)
+
+	app.Get("/products-services", server.handleProductServices)
+	app.Post("/products-services/update", server.handleProductServiceUpdate)
+	app.Post("/products-services/inactive", server.handleProductServiceInactive)
 
 	app.Get("/settings/channels", server.handleChannelAccounts)
 	app.Post("/settings/channels/delete", server.handleChannelAccountDelete)
@@ -443,7 +450,7 @@ func TestChannelOrderConvertServiceErrorIsEscapedAndDisplayed(t *testing.T) {
 		CompanyID: companyID, ChannelOrderID: order.ID,
 		ExternalSKU: "SKU-1", Quantity: decimal.NewFromInt(1),
 		MappingStatus: models.MappingStatusMappedExact,
-		RawPayload: datatypes.JSON("{}"),
+		RawPayload:    datatypes.JSON("{}"),
 	}).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -718,5 +725,119 @@ func TestClearingReportShowsSharedClearingWarning(t *testing.T) {
 	body := readResponseBody(t, resp)
 	if !strings.Contains(body, "shared clearing accounts are not supported") {
 		t.Fatalf("expected shared clearing warning, got %q", body)
+	}
+}
+
+func TestSystemItemMutationsAreBlockedAndOrdinaryItemsStillWork(t *testing.T) {
+	db := testErrorFeedbackDB(t)
+	server := &Server{DB: db}
+	user := seedErrorFeedbackUser(t, db)
+	companyID := seedValidationCompany(t, db, "System Item Guard Co")
+	app := errorFeedbackApp(server, user, companyID)
+
+	revenueAccountID := seedValidationAccount(t, db, companyID, "4000", models.RootRevenue, models.DetailServiceRevenue)
+
+	systemCode := "TASK_LABOR"
+	systemItem := models.ProductService{
+		CompanyID:        companyID,
+		Name:             "Task",
+		Type:             models.ProductServiceTypeService,
+		RevenueAccountID: revenueAccountID,
+		IsActive:         true,
+		IsSystem:         true,
+		SystemCode:       &systemCode,
+	}
+	ordinaryItem := models.ProductService{
+		CompanyID:        companyID,
+		Name:             "Consulting",
+		Type:             models.ProductServiceTypeService,
+		RevenueAccountID: revenueAccountID,
+		IsActive:         true,
+	}
+	if err := db.Create(&systemItem).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&ordinaryItem).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	updateSystemResp := performFormRequest(t, app, http.MethodPost, "/products-services/update", url.Values{
+		"item_id":            {fmt.Sprintf("%d", systemItem.ID)},
+		"name":               {"Task"},
+		"type":               {string(models.ProductServiceTypeNonInventory)},
+		"structure_type":     {string(models.ItemStructureSingle)},
+		"default_price":      {"0.00"},
+		"revenue_account_id": {fmt.Sprintf("%d", revenueAccountID)},
+	}, "")
+	if updateSystemResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected %d, got %d", http.StatusOK, updateSystemResp.StatusCode)
+	}
+	updateSystemBody := readResponseBody(t, updateSystemResp)
+	if !strings.Contains(updateSystemBody, services.ErrSystemItemTypeImmutable.Error()) {
+		t.Fatalf("expected system item type guard banner, got %q", updateSystemBody)
+	}
+	if err := db.First(&systemItem, systemItem.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if systemItem.Type != models.ProductServiceTypeService {
+		t.Fatalf("expected system item type to remain %q, got %q", models.ProductServiceTypeService, systemItem.Type)
+	}
+
+	updateOrdinaryResp := performFormRequest(t, app, http.MethodPost, "/products-services/update", url.Values{
+		"item_id":            {fmt.Sprintf("%d", ordinaryItem.ID)},
+		"name":               {"Consulting"},
+		"type":               {string(models.ProductServiceTypeNonInventory)},
+		"structure_type":     {string(models.ItemStructureSingle)},
+		"default_price":      {"0.00"},
+		"revenue_account_id": {fmt.Sprintf("%d", revenueAccountID)},
+	}, "")
+	if updateOrdinaryResp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("expected %d, got %d", http.StatusSeeOther, updateOrdinaryResp.StatusCode)
+	}
+	if got, want := updateOrdinaryResp.Header.Get("Location"), "/products-services?updated=1"; got != want {
+		t.Fatalf("expected ordinary item redirect %q, got %q", want, got)
+	}
+	if err := db.First(&ordinaryItem, ordinaryItem.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if ordinaryItem.Type != models.ProductServiceTypeNonInventory {
+		t.Fatalf("expected ordinary item type to change to %q, got %q", models.ProductServiceTypeNonInventory, ordinaryItem.Type)
+	}
+
+	inactivateSystemResp := performFormRequest(t, app, http.MethodPost, "/products-services/inactive", url.Values{
+		"item_id": {fmt.Sprintf("%d", systemItem.ID)},
+	}, "")
+	if inactivateSystemResp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("expected %d, got %d", http.StatusSeeOther, inactivateSystemResp.StatusCode)
+	}
+	if !strings.Contains(inactivateSystemResp.Header.Get("Location"), "/products-services?error=") {
+		t.Fatalf("expected redirect with error, got %q", inactivateSystemResp.Header.Get("Location"))
+	}
+	systemPage := performRequest(t, app, inactivateSystemResp.Header.Get("Location"), "")
+	systemBody := readResponseBody(t, systemPage)
+	if !strings.Contains(systemBody, services.ErrSystemItemCannotBeInactivated.Error()) {
+		t.Fatalf("expected system item inactive guard banner, got %q", systemBody)
+	}
+	if err := db.First(&systemItem, systemItem.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if !systemItem.IsActive {
+		t.Fatal("expected system item to remain active")
+	}
+
+	inactivateOrdinaryResp := performFormRequest(t, app, http.MethodPost, "/products-services/inactive", url.Values{
+		"item_id": {fmt.Sprintf("%d", ordinaryItem.ID)},
+	}, "")
+	if inactivateOrdinaryResp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("expected %d, got %d", http.StatusSeeOther, inactivateOrdinaryResp.StatusCode)
+	}
+	if got, want := inactivateOrdinaryResp.Header.Get("Location"), "/products-services?inactive=1"; got != want {
+		t.Fatalf("expected ordinary inactive redirect %q, got %q", want, got)
+	}
+	if err := db.First(&ordinaryItem, ordinaryItem.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if ordinaryItem.IsActive {
+		t.Fatal("expected ordinary item to become inactive")
 	}
 }

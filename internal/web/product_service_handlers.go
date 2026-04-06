@@ -29,6 +29,7 @@ func (s *Server) handleProductServices(c *fiber.Ctx) error {
 		InactiveOK:   c.Query("inactive") == "1",
 		OpeningOK:    c.Query("opening") == "1",
 		AdjustmentOK: c.Query("adjustment") == "1",
+		FormError:    strings.TrimSpace(c.Query("error")),
 	}
 
 	if c.Query("new") == "1" {
@@ -289,6 +290,16 @@ func (s *Server) handleProductServiceUpdate(c *fiber.Ctx) error {
 		return pages.ProductServices(vm).Render(c.Context(), c)
 	}
 
+	desiredType := psType
+	if isBundle {
+		desiredType = models.ProductServiceTypeNonInventory
+	}
+	if err := services.ValidateSystemItemTypeChange(existing, desiredType); err != nil {
+		vm.FormError = err.Error()
+		s.loadItemsForVM(companyID, &vm)
+		return pages.ProductServices(vm).Render(c.Context(), c)
+	}
+
 	// Duplicate name check (exclude self).
 	var count int64
 	if err := s.DB.Model(&models.ProductService{}).
@@ -378,6 +389,9 @@ func (s *Server) handleProductServiceInactive(c *fiber.Ctx) error {
 	}
 	if !item.IsActive {
 		return c.Redirect("/products-services", fiber.StatusSeeOther)
+	}
+	if err := services.ValidateSystemItemInactivation(item); err != nil {
+		return redirectErr(c, "/products-services", err.Error())
 	}
 	s.DB.Model(&item).Update("is_active", false)
 

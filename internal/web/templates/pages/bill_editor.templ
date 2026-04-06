@@ -47,6 +47,7 @@ templ bodyBillEditor(vm BillEditorVM) {
 			x-init="init()"
 			data-accounts={ vm.AccountsJSON }
 			data-tax-codes={ vm.TaxCodesJSON }
+			data-tasks={ vm.TasksJSON }
 			data-initial-lines={ vm.InitialLinesJSON }
 			data-payment-terms={ vm.PaymentTermsJSON }
 			data-contact-terms={ vm.VendorsTermsJSON }
@@ -254,7 +255,10 @@ templ bodyBillEditor(vm BillEditorVM) {
 				class="rounded-lg border border-border bg-surface p-6"
 			>
 				<div class="flex items-center justify-between">
-					<h2 class="text-section font-semibold text-text">Line Items</h2>
+					<div>
+						<h2 class="text-section font-semibold text-text">Line Items</h2>
+						<p class="mt-1 text-small text-text-muted2">Task-linked lines inherit billable customer from the selected task. Only open or completed tasks can be chosen.</p>
+					</div>
 					<button
 						type="button"
 						@click="addLine()"
@@ -270,6 +274,8 @@ templ bodyBillEditor(vm BillEditorVM) {
 							<tr class="border-b border-border">
 								<th class="py-2 pr-3 w-56">Category</th>
 								<th class="py-2 pr-3">Description</th>
+								<th class="py-2 pr-3 w-64">Task</th>
+								<th class="py-2 pr-3 w-32">Billing</th>
 								<th class="py-2 pr-3 w-32">Amount</th>
 								<th class="py-2 pr-3 w-40">Sales Tax</th>
 								<th class="py-2 w-10"></th>
@@ -312,6 +318,32 @@ templ bodyBillEditor(vm BillEditorVM) {
 											x-text="line.error"
 											class="mt-1 text-small text-danger"
 										></p>
+									</td>
+									// Task
+									<td class="py-2 pr-3">
+										<select
+											:name="'line_task_id[' + idx + ']'"
+											x-model="line.task_id"
+											class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+										>
+											<option value="">-- No task --</option>
+											<template x-for="task in tasks" :key="task.id">
+												<option :value="task.id" :selected="String(line.task_id) === String(task.id)" x-text="task.title + ' — ' + task.customer_name"></option>
+											</template>
+										</select>
+									</td>
+									// Billing
+									<td class="py-2 pr-3">
+										<label class="inline-flex items-center gap-2 text-body text-text">
+											<input
+												type="checkbox"
+												:name="'line_is_billable[' + idx + ']'"
+												value="1"
+												x-model="line.is_billable"
+												class="h-4 w-4 rounded border-border-input text-primary focus:ring-primary-focus"
+											/>
+											<span>Billable</span>
+										</label>
 									</td>
 									// Amount
 									<td class="py-2 pr-3">

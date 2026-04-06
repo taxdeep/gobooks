@@ -14,8 +14,14 @@ type InvoiceEditorVM struct {
 	// ReviewLocked is true after a draft save when the editor re-opens in
 	// review mode.
 	ReviewLocked bool
+	// TaskGeneratedReadOnly is true when this draft has active task invoice
+	// sources and must stay read-only in the editor.
+	TaskGeneratedReadOnly bool
 	// SubmitPath is used by the locked-state Submit button.
 	SubmitPath string
+	// DeletePath is used by read-only task-generated drafts so users can delete
+	// the whole draft and regenerate from Billable Work.
+	DeletePath string
 
 	// Header fields (form values).
 	InvoiceNumber string
