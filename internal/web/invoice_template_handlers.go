@@ -263,6 +263,41 @@ func (s *Server) handleInvoiceTemplatesSettings(c *fiber.Ctx) error {
 	})
 }
 
+// handleSetDefaultInvoiceTemplate atomically sets a template as the company default.
+// POST /settings/invoice-templates/:id/set-default
+// Requires: ActionSettingsUpdate
+func (s *Server) handleSetDefaultInvoiceTemplate(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(map[string]string{
+			"error": "company context required",
+		})
+	}
+
+	templateID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(map[string]string{
+			"error": "invalid template ID",
+		})
+	}
+
+	tmpl, err := services.SetDefaultInvoiceTemplate(s.DB, companyID, uint(templateID))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(map[string]string{
+			"error": fmt.Sprintf("failed to set default: %v", err),
+		})
+	}
+
+	// Support both JSON API calls and form-based redirects.
+	if c.Get("Accept") == "application/json" || c.Get("HX-Request") != "" {
+		return c.JSON(map[string]any{
+			"success":     true,
+			"template_id": tmpl.ID,
+		})
+	}
+	return c.Redirect("/settings/company/templates?saved=1", fiber.StatusSeeOther)
+}
+
 // handleGetDefaultInvoiceTemplate retrieves the default template for a company.
 // GET /api/invoice-templates/default
 // Used by invoice creation form to pre-fill template

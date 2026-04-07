@@ -243,6 +243,35 @@ func RecordSystemSMSTestResult(db *gorm.DB, success bool, errMsg, testedBy strin
 	return db.Save(&row).Error
 }
 
+// ── SMTP gate ────────────────────────────────────────────────────────────────
+
+// ErrSMTPNotReady is returned by CheckSMTPGate when no verified SMTP configuration
+// exists for the company. This sentinel allows callers to distinguish "gate rejected"
+// from "send failed" in error handling and test assertions.
+var ErrSMTPNotReady = errors.New("SMTP not configured or not verified for this company — configure and test SMTP in Notification Settings first")
+
+// CheckSMTPGate is the named gate for invoice email delivery.
+// It returns nil if the company has a verified SMTP configuration ready for use,
+// or ErrSMTPNotReady if not.
+//
+// This is a pure readiness check — it does NOT send anything, does NOT log anything,
+// and does NOT create any DB records. A failed gate must NEVER cause a delivery log
+// to be created; that would misrepresent history.
+//
+// Internally delegates to EffectiveSMTPForCompany, which checks:
+//   - Company override config (EmailVerificationReady = true, hash match)
+//   - System fallback config (if AllowSystemFallback, EmailVerificationReady = true)
+func CheckSMTPGate(db *gorm.DB, companyID uint) error {
+	_, ready, err := EffectiveSMTPForCompany(db, companyID)
+	if err != nil {
+		return fmt.Errorf("SMTP config lookup failed: %w", err)
+	}
+	if !ready {
+		return ErrSMTPNotReady
+	}
+	return nil
+}
+
 // ── Backend-authoritative readiness checks ────────────────────────────────────
 //
 // These functions are the single source of truth for callers (e.g. future

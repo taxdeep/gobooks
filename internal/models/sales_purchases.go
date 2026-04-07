@@ -172,8 +172,14 @@ type Invoice struct {
 
 	// State tracking timestamps (set by service layer on status transitions)
 	IssuedAt *time.Time `gorm:"index"` // set when status changes to issued/sent
-	SentAt   *time.Time // set when email is sent
+	SentAt   *time.Time // updated to now on each successful email delivery (last_sent_at)
 	VoidedAt *time.Time // set when status changes to voided
+
+	// SendCount is incremented by the send service on each successful email delivery.
+	// It provides a quick "sent N times" summary without querying InvoiceEmailLog.
+	// Detailed send history lives in InvoiceEmailLog.
+	// Never decremented; failure paths do not modify this field.
+	SendCount int `gorm:"not null;default:0"`
 
 	// BalanceDue = Amount - (sum of payments recorded)
 	// Calculated field; not directly assigned by create/update handlers.

@@ -3,7 +3,6 @@ package web
 
 import (
 	"strconv"
-	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -78,14 +77,39 @@ func (s *Server) handleInvoicePDF(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString("PDF generation failed: " + err.Error())
 	}
 
-	// Sanitize filename
-	safeNumber := strings.ReplaceAll(invoice.InvoiceNumber, "/", "-")
-	safeNumber = strings.ReplaceAll(safeNumber, "\\", "-")
-	filename := "Invoice-" + safeNumber + ".pdf"
+	filename := services.InvoicePDFSafeFilename(invoice.InvoiceNumber)
 
 	c.Set("Content-Type", "application/pdf")
 	c.Set("Content-Disposition", `attachment; filename="`+filename+`"`)
 	return c.Send(pdfBytes)
+}
+
+// handleInvoicePrint renders a print-friendly invoice page that auto-triggers window.print().
+// GET /invoices/:id/print
+func (s *Server) handleInvoicePrint(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).SendString("company context required")
+	}
+
+	invoiceID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString("invalid invoice ID")
+	}
+
+	invoice, err := loadInvoiceForRender(s.DB, companyID, uint(invoiceID))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).SendString("invoice not found")
+	}
+
+	renderData, err := services.BuildInvoiceRenderData(s.DB, companyID, invoice)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("render failed: " + err.Error())
+	}
+
+	html := services.RenderInvoiceForPrint(*renderData)
+	c.Set("Content-Type", "text/html; charset=utf-8")
+	return c.SendString(html)
 }
 
 // loadInvoiceForRender loads an invoice with all preloads needed for rendering.

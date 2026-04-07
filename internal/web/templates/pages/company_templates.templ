@@ -1,10 +1,14 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import (
+	"fmt"
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
 
-templ CompanyTemplates(vm CompanySubpageVM) {
+templ CompanyTemplates(vm CompanyTemplatesVM) {
 	@layout.Layout(
 		"GoBooks - Templates",
 		ui.SidebarVM{Active: "Company Templates", HasCompany: vm.HasCompany},
@@ -12,24 +16,87 @@ templ CompanyTemplates(vm CompanySubpageVM) {
 	)
 }
 
-templ bodyCompanyTemplates(vm CompanySubpageVM) {
+templ bodyCompanyTemplates(vm CompanyTemplatesVM) {
 	<div class="max-w-[95%]">
 		@SettingsBreadcrumb(vm.Breadcrumb)
-		<h1 class="text-title font-semibold">Templates</h1>
+		<h1 class="text-title font-semibold">Invoice Templates</h1>
 		<p class="mt-2 max-w-3xl text-text-muted2">
-			Manage invoice templates and future document layouts.
+			Manage invoice templates for layout, branding, and email defaults.
 		</p>
-
-		<div class="mt-8 rounded-lg border border-border bg-surface p-6">
-			<div class="text-small font-semibold uppercase tracking-wider text-text-muted">Coming soon</div>
-			<p class="mt-2 text-body text-text-muted2">
-				This area will support invoice template selection, branding and logo placement, and layout customization.
-			</p>
-			<ul class="mt-4 list-disc space-y-2 pl-5 text-body text-text-muted2">
-				<li>Invoice template selection</li>
-				<li>Branding and logo</li>
-				<li>Layout customization</li>
-			</ul>
-		</div>
+		if vm.Saved {
+			<div class="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+				Default template updated.
+			</div>
+		}
+		if len(vm.Templates) == 0 {
+			<div class="mt-8 rounded-lg border border-border bg-surface p-6">
+				<div class="text-small font-semibold uppercase tracking-wider text-text-muted">No templates</div>
+				<p class="mt-2 text-body text-text-muted2">
+					No invoice templates have been created yet. Templates define the visual layout, branding,
+					and default email content used when sending invoices.
+				</p>
+			</div>
+		} else {
+			<div class="mt-8 overflow-hidden rounded-lg border border-border bg-surface">
+				<table class="w-full text-sm">
+					<thead class="border-b border-border bg-surface-alt">
+						<tr>
+							<th class="px-4 py-3 text-left font-semibold text-text-muted">Name</th>
+							<th class="px-4 py-3 text-left font-semibold text-text-muted">Style</th>
+							<th class="px-4 py-3 text-left font-semibold text-text-muted">Status</th>
+							<th class="px-4 py-3 text-left font-semibold text-text-muted">Actions</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-border">
+						for _, t := range vm.Templates {
+							@templateRow(t)
+						}
+					</tbody>
+				</table>
+			</div>
+		}
 	</div>
+}
+
+templ templateRow(t models.InvoiceTemplate) {
+	<tr>
+		<td class="px-4 py-3 font-medium">
+			{ t.Name }
+			if t.IsDefault {
+				<span class="ml-2 inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">Default</span>
+			}
+		</td>
+		<td class="px-4 py-3 capitalize text-text-muted2">{ templateStyle(t) }</td>
+		<td class="px-4 py-3">
+			if t.IsActive {
+				<span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">Active</span>
+			} else {
+				<span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-500">Inactive</span>
+			}
+		</td>
+		<td class="px-4 py-3">
+			<div class="flex items-center gap-3">
+				<a
+					href={ templ.SafeURL(fmt.Sprintf("/invoices/preview-template/%d", t.ID)) }
+					class="text-link hover:underline"
+					target="_blank"
+				>Preview</a>
+				if !t.IsDefault && t.IsActive {
+					<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/settings/invoice-templates/%d/set-default", t.ID)) }>
+						<button type="submit" class="text-link hover:underline">Set Default</button>
+					</form>
+				}
+			</div>
+		</td>
+	</tr>
+}
+
+// templateStyle extracts the style name from a template's ConfigJSON for display.
+// Falls back to "classic" if unparseable.
+func templateStyle(t models.InvoiceTemplate) string {
+	cfg, err := t.UnmarshalConfig()
+	if err != nil || cfg.TemplateStyle == "" {
+		return "classic"
+	}
+	return cfg.TemplateStyle
 }

@@ -100,7 +100,14 @@ func ValidateChannelOrderConvertible(db *gorm.DB, companyID, orderID uint) error
 // ConvertChannelOrderToDraftInvoice creates a draft invoice from a channel order.
 // All lines must be mapped. The invoice is NOT posted.
 func ConvertChannelOrderToDraftInvoice(db *gorm.DB, opts ConvertOptions) (*ConvertResult, error) {
-	// 1. Validate.
+	// 1a. Validate document number — source-of-truth guard.
+	// Prevents dirty invoice_number values from reaching the database regardless
+	// of which caller invokes this service (handler, test, future API).
+	if err := ValidateDocumentNumber(opts.InvoiceNumber); err != nil {
+		return nil, fmt.Errorf("invoice number: %w", err)
+	}
+
+	// 1b. Validate order convertibility.
 	if err := ValidateChannelOrderConvertible(db, opts.CompanyID, opts.ChannelOrderID); err != nil {
 		return nil, err
 	}

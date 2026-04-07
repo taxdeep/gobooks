@@ -27,6 +27,11 @@ type InvoiceTemplate struct {
 	// IsDefault: only one per company (unique partial index enforced in migration)
 	IsDefault bool `gorm:"not null;default:false;index:uk_invoices_templates_company_default,where:is_default = true"`
 
+	// IsActive: inactive templates are skipped during template resolution and
+	// cannot be selected for new invoices. Existing invoice links are preserved
+	// but the template falls back to the company default or system default on render.
+	IsActive bool `gorm:"not null;default:true"`
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

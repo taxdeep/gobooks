@@ -21,6 +21,14 @@ type CompanySubpageVM struct {
 	Breadcrumb []SettingsBreadcrumbPart
 }
 
+// CompanyTemplatesVM is the view-model for Settings > Company > Templates.
+type CompanyTemplatesVM struct {
+	HasCompany bool
+	Breadcrumb []SettingsBreadcrumbPart
+	Templates  []models.InvoiceTemplate // all templates for the company
+	Saved      bool                     // true when redirected after a set-default action
+}
+
 // SalesTaxVM is the view-model for Settings > Company > Sales Tax.
 type SalesTaxVM struct {
 	HasCompany bool

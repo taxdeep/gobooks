@@ -65,6 +65,11 @@ func Migrate(db *gorm.DB) error {
 	if err := migrateCurrencyPhase4(db); err != nil {
 		return err
 	}
+	// Batch 6: hosted invoice link infrastructure (share tokens, access audit).
+	// Must run before AutoMigrate so the partial unique index is in place.
+	if err := migrateHostedInvoicePhase1(db); err != nil {
+		return err
+	}
 	if err := db.AutoMigrate(
 		&models.Company{},
 		&models.User{},
@@ -151,6 +156,13 @@ func Migrate(db *gorm.DB) error {
 		&models.Task{},
 		&models.Expense{},
 		&models.TaskInvoiceSource{},
+		// Invoice Template + Sending: template definitions and email audit log
+		&models.InvoiceTemplate{},
+		&models.InvoiceEmailLog{},
+		// Batch 6: Hosted Invoice share links (token-based, no-auth public access)
+		&models.InvoiceHostedLink{},
+		// Batch 7: Hosted payment attempt trace (immutable; no accounting entries)
+		&models.HostedPaymentAttempt{},
 	); err != nil {
 		return err
 	}
@@ -926,6 +938,60 @@ END $$;
 		}
 		if err != nil {
 			return fmt.Errorf("migrateCurrencyPhase4: %w", err)
+		}
+	}
+	return nil
+}
+
+// migrateHostedInvoicePhase1 creates the invoice_hosted_links table and its indexes.
+//
+// The table is created with IF NOT EXISTS so this function is safe to call on
+// databases that already have the table. GORM AutoMigrate adds new columns
+// automatically after this runs.
+//
+// Key index: uk_ihl_invoice_active is a PostgreSQL partial unique index that
+// enforces "at most one active link per invoice" at the DB level. The service
+// layer enforces this constraint as well (so SQLite tests work without partial
+// index support).
+func migrateHostedInvoicePhase1(db *gorm.DB) error {
+	steps := []string{
+		`
+CREATE TABLE IF NOT EXISTS invoice_hosted_links (
+    id          BIGSERIAL PRIMARY KEY,
+    company_id  BIGINT    NOT NULL,
+    invoice_id  BIGINT    NOT NULL,
+    token_hash  TEXT      NOT NULL,
+    status      TEXT      NOT NULL DEFAULT 'active',
+    expires_at  TIMESTAMPTZ,
+    revoked_at  TIMESTAMPTZ,
+    created_by  BIGINT,
+    last_viewed_at TIMESTAMPTZ,
+    view_count  INT       NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS uk_ihl_token    ON invoice_hosted_links (token_hash);`,
+		`CREATE INDEX        IF NOT EXISTS idx_ihl_company ON invoice_hosted_links (company_id);`,
+		`CREATE INDEX        IF NOT EXISTS idx_ihl_invoice ON invoice_hosted_links (invoice_id);`,
+		// Partial unique index: enforces one active link per invoice in PostgreSQL.
+		// SQLite (used in tests) ignores this silently; service layer is the
+		// authoritative enforcement point for both environments.
+		`CREATE UNIQUE INDEX IF NOT EXISTS uk_ihl_invoice_active
+             ON invoice_hosted_links (invoice_id)
+             WHERE status = 'active';`,
+	}
+
+	for _, sql := range steps {
+		if err := db.Exec(sql).Error; err != nil {
+			// Ignore "table already exists" (42P07) and "relation already exists" (42P07).
+			// SQLite partial index syntax is unsupported: ignore those errors silently.
+			if strings.Contains(err.Error(), "42P07") ||
+				strings.Contains(err.Error(), "already exists") ||
+				strings.Contains(err.Error(), "near \"WHERE\"") {
+				continue
+			}
+			return fmt.Errorf("migrateHostedInvoicePhase1: %w", err)
 		}
 	}
 	return nil

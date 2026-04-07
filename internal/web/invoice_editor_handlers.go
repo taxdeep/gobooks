@@ -4,6 +4,7 @@ package web
 import (
 	"encoding/json"
 	"fmt"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -51,8 +52,22 @@ func (s *Server) handleInvoiceDetail(c *fiber.Ctx) error {
 		return c.Redirect("/invoices", fiber.StatusSeeOther)
 	}
 
-	// Check SMTP readiness for Send Email button
-	_, smtpReady, _ := services.EffectiveSMTPForCompany(s.DB, companyID)
+	// Load send defaults for non-draft, non-voided invoices.
+	// Uses the same resolution pipeline as SendInvoiceByEmail so the modal matches
+	// exactly what would be sent.
+	var sendDefaults *services.InvoiceSendDefaults
+	if inv.Status != models.InvoiceStatusDraft && inv.Status != models.InvoiceStatusVoided {
+		sendDefaults, _ = services.GetInvoiceSendDefaults(s.DB, companyID, uint(id64))
+	}
+
+	// Load email history (all attempts, newest first).
+	emailHistory, _ := services.GetInvoiceEmailHistory(s.DB, companyID, inv.ID)
+
+	// Load company templates for draft bind-template action.
+	var templates []models.InvoiceTemplate
+	if inv.Status == models.InvoiceStatusDraft {
+		templates, _ = services.ListInvoiceTemplates(s.DB, companyID)
+	}
 
 	// Load payment requests for this invoice.
 	paymentReqs, _ := services.ListPaymentRequestsForInvoice(s.DB, companyID, inv.ID)
@@ -60,14 +75,33 @@ func (s *Server) handleInvoiceDetail(c *fiber.Ctx) error {
 	// Load gateway accounts for "Request Payment" form.
 	gatewayAccts, _ := services.ListGatewayAccounts(s.DB, companyID)
 
+	// Load active hosted share link for non-draft, non-voided invoices.
+	// Nil when no active link exists or when the invoice is draft/voided.
+	var activeLink *models.InvoiceHostedLink
+	if inv.Status != models.InvoiceStatusDraft && inv.Status != models.InvoiceStatusVoided {
+		if link, err := services.GetActiveHostedLink(s.DB, companyID, inv.ID); err == nil {
+			activeLink = link
+		}
+	}
+
+	// PDFAvailable: true when wkhtmltopdf is installed. Checked per-request so
+	// install/uninstall takes effect without a server restart. LookPath is a
+	// lightweight OS call. Mirrors the CanDownload logic in handleHostedInvoice.
+	_, wkErr := exec.LookPath("wkhtmltopdf")
+
 	vm := pages.InvoiceDetailVM{
 		HasCompany:         true,
 		Invoice:            inv,
-		SMTPReady:          smtpReady,
+		ActiveLink:         activeLink,
+		NewShareURL:        strings.TrimSpace(c.Query("newlink")),
+		SendDefaults:       sendDefaults,
+		EmailHistory:       emailHistory,
+		Templates:          templates,
 		JustVoided:         c.Query("voided") == "1",
 		JustIssued:         c.Query("issued") == "1",
 		JustSent:           c.Query("sent") == "1",
 		JustPaid:           c.Query("paid") == "1" || c.Query("received") == "1",
+		JustTemplateBound:  c.Query("tmplbound") == "1",
 		FormError:          strings.TrimSpace(c.Query("error")),
 		VoidError:          c.Query("voiderror"),
 		EmailError:         c.Query("emailerror"),
@@ -75,6 +109,7 @@ func (s *Server) handleInvoiceDetail(c *fiber.Ctx) error {
 		GatewayAccounts:    gatewayAccts,
 		JustPaymentCreated: c.Query("paymentcreated") == "1",
 		IsChannelOrigin:    inv.ChannelOrderID != nil,
+		PDFAvailable:       wkErr == nil,
 	}
 	if inv.JournalEntry != nil {
 		vm.JournalNo = inv.JournalEntry.JournalNo
@@ -625,6 +660,14 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 				CustomerNameSnapshot:    customer.Name,
 				CustomerEmailSnapshot:   customer.Email,
 				CustomerAddressSnapshot: customer.FormattedAddress(),
+			}
+			// Auto-assign company active default template on new invoice creation.
+			// Best-effort: if no default template exists the invoice starts unbound (nil),
+			// which is valid — the render pipeline falls back gracefully.
+			var defaultTmpl models.InvoiceTemplate
+			if err := tx.Where("company_id = ? AND is_default = true AND is_active = true", companyID).
+				First(&defaultTmpl).Error; err == nil {
+				inv.TemplateID = &defaultTmpl.ID
 			}
 			if err := tx.Create(&inv).Error; err != nil {
 				return err

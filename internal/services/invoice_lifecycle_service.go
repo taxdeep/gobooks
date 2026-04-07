@@ -79,6 +79,19 @@ func IssueInvoice(db *gorm.DB, companyID, invoiceID uint) (*models.Invoice, erro
 		}
 	}
 
+	// 4c. Template stabilization — pin the company default template if no explicit
+	// binding is set. This prevents silent presentation drift on issued invoices
+	// when the company default is later changed. Done before db.Save so the
+	// TemplateID is written atomically with snapshots. Best-effort: failure to
+	// find a default is not a blocking error (nil template → system fallback at render).
+	if invoice.TemplateID == nil {
+		var defaultTmpl models.InvoiceTemplate
+		if err := db.Where("company_id = ? AND is_default = true AND is_active = true", companyID).
+			First(&defaultTmpl).Error; err == nil {
+			invoice.TemplateID = &defaultTmpl.ID
+		}
+	}
+
 	// 5. Refresh customer snapshots from current customer data
 	invoice.CustomerNameSnapshot = invoice.Customer.Name
 	invoice.CustomerEmailSnapshot = invoice.Customer.Email

@@ -1,11 +1,23 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/models"
+import (
+	"gobooks/internal/models"
+	"gobooks/internal/services"
+)
 
 // InvoiceDetailVM is the view-model for the read-only invoice detail page.
 type InvoiceDetailVM struct {
 	HasCompany bool
+
+	// ActiveLink is the current active hosted invoice share link, or nil if none exists.
+	// Shown in the Share Link management section for non-draft, non-voided invoices.
+	ActiveLink *models.InvoiceHostedLink
+
+	// NewShareURL holds the plaintext token returned after a create or regenerate action.
+	// Populated from the ?newlink= query param on the redirect — shown once to the
+	// authenticated user as a copy-this-link banner. Never stored server-side.
+	NewShareURL string
 
 	// Invoice is fully preloaded:
 	//   Invoice.Customer
@@ -19,18 +31,30 @@ type InvoiceDetailVM struct {
 	// Empty when the invoice has not been posted.
 	JournalNo string
 
-	// SMTPReady indicates whether the company has a verified SMTP config.
-	// Controls whether the "Send Email" button is enabled or disabled.
-	SMTPReady bool
-
 	// Banner flags set via query string on redirect.
-	JustVoided bool   // ?voided=1
-	JustIssued bool   // ?issued=1
-	JustSent   bool   // ?sent=1
-	JustPaid   bool   // ?paid=1 or ?received=1
-	FormError  string // ?error=...
-	VoidError  string // ?voiderror=...
-	EmailError string // ?emailerror=...
+	JustVoided       bool   // ?voided=1
+	JustIssued       bool   // ?issued=1
+	JustSent         bool   // ?sent=1
+	JustPaid         bool   // ?paid=1 or ?received=1
+	JustTemplateBound bool  // ?tmplbound=1
+	FormError        string // ?error=...
+	VoidError        string // ?voiderror=...
+	EmailError       string // ?emailerror=...
+
+	// SendDefaults holds the server-resolved send modal defaults.
+	// Non-nil for all sendable statuses (issued/sent/paid/partially_paid/overdue).
+	// Nil for draft and voided invoices.
+	// Uses the same resolution pipeline as SendInvoiceByEmail — what the modal
+	// shows is exactly what would be sent.
+	SendDefaults *services.InvoiceSendDefaults
+
+	// EmailHistory contains all send attempts for this invoice, newest first.
+	// Empty for drafts and freshly issued invoices.
+	EmailHistory []models.InvoiceEmailLog
+
+	// Templates contains all active company templates.
+	// Populated only for draft invoices (for the bind-template action).
+	Templates []models.InvoiceTemplate
 
 	// Payment requests
 	PaymentRequests    []models.PaymentRequest
@@ -40,4 +64,10 @@ type InvoiceDetailVM struct {
 	// IsChannelOrigin is true when this invoice was created from a channel order.
 	// Payment gateway request buttons are hidden for channel-origin invoices.
 	IsChannelOrigin bool
+
+	// PDFAvailable is true when wkhtmltopdf is installed on the server.
+	// When false, the Download PDF link is replaced with a Print link so that
+	// internal users do not receive a 500 from a missing PDF engine.
+	// Mirrors the CanDownload flag used on the hosted invoice page.
+	PDFAvailable bool
 }

@@ -51,6 +51,39 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 				Payment recorded. Invoice balance updated.
 			</div>
 		}
+		if vm.JustTemplateBound {
+			<div class="mb-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">
+				Template updated for this invoice.
+			</div>
+		}
+		// ── New share link one-time banner ────────────────────────────────────
+		// NewShareURL is populated from the ?newlink= query param immediately
+		// after a create or regenerate action. Shown only once to the authenticated
+		// user; the plaintext token is not stored server-side after this page load.
+		if vm.NewShareURL != "" {
+			<div class="mb-4 rounded-md border border-primary bg-primary-soft p-4">
+				<p class="text-body font-medium text-primary">Share link created. Copy this URL — it will not be shown again.</p>
+				<div class="mt-3 flex items-center gap-2">
+					<input
+						id="hosted-link-url"
+						type="text"
+						readonly
+						value={ "/i/" + vm.NewShareURL }
+						class="flex-1 rounded-md border border-border-input bg-surface px-3 py-2 font-mono text-small text-text outline-none"
+					/>
+					<button
+						type="button"
+						onclick="(function(){var inp=document.getElementById('hosted-link-url');inp.value=window.location.origin+inp.value;inp.select();navigator.clipboard.writeText(inp.value).catch(function(){});})();"
+						class="rounded-md border border-primary px-3 py-2 text-small font-medium text-primary hover:bg-primary-soft"
+					>
+						Copy
+					</button>
+				</div>
+				<p class="mt-2 text-[11px] text-text-muted2">
+					Anyone with this link can view the invoice. Revoke it from the Share Link panel below.
+				</p>
+			</div>
+		}
 
 		// ── Header bar ───────────────────────────────────────────────────────
 		<div class="flex flex-wrap items-start justify-between gap-4">
@@ -72,12 +105,24 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 				>
 					Preview
 				</a>
-				<a
-					href={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/pdf" }
-					class="inline-block rounded-md border border-border px-3 py-2 text-small font-medium text-text hover:bg-background"
-				>
-					Download PDF
-				</a>
+				// PDF download only shown when wkhtmltopdf is available (PDFAvailable=true).
+				// Falls back to Print link when generator is absent, preventing a 500.
+				if vm.PDFAvailable {
+					<a
+						href={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/pdf" }
+						class="inline-block rounded-md border border-border px-3 py-2 text-small font-medium text-text hover:bg-background"
+					>
+						Download PDF
+					</a>
+				} else {
+					<a
+						href={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/print" }
+						target="_blank"
+						class="inline-block rounded-md border border-border px-3 py-2 text-small font-medium text-text hover:bg-background"
+					>
+						Print / Save PDF
+					</a>
+				}
 
 				// ── Draft actions ─────────────────────────────────────────────
 				if vm.Invoice.Status == models.InvoiceStatusDraft {
@@ -115,7 +160,7 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 					</form>
 				}
 
-				// ── Issued actions ────────────────────────────────────────────
+				// ── Issued actions (mark sent) ────────────────────────────────
 				if vm.Invoice.Status == models.InvoiceStatusIssued {
 					<form
 						method="post"
@@ -132,45 +177,26 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 					</form>
 				}
 
-				// ── Issued or Sent actions ────────────────────────────────────
-				if vm.Invoice.Status == models.InvoiceStatusIssued || vm.Invoice.Status == models.InvoiceStatusSent {
-					if vm.SMTPReady {
-						<form
-							method="post"
-							action={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/send-email" }
-							class="inline"
-							onsubmit="return invoiceSendEmailConfirm(this);"
+				// ── Send Email (all sendable statuses) ────────────────────────
+				// SendDefaults is non-nil for all sendable statuses (issued/sent/
+				// paid/partially_paid/overdue). Nil for draft and voided.
+				if vm.SendDefaults != nil {
+					if vm.SendDefaults.CanSend {
+						<button
+							type="button"
+							onclick="document.getElementById('sendModal').showModal()"
+							class="inline-block rounded-md border border-primary bg-primary-soft px-4 py-2 text-body font-semibold text-primary hover:bg-primary-soft"
 						>
-							<input type="hidden" name="to_email" value={ vm.Invoice.CustomerEmailSnapshot }/>
-							<button
-								type="submit"
-								class="inline-block rounded-md border border-primary bg-primary-soft px-4 py-2 text-body font-semibold text-primary hover:bg-primary-soft"
-							>
+							if vm.SendDefaults.SendCount > 0 {
+								Resend
+							} else {
 								Send Email
-							</button>
-						</form>
-						<script>
-							function invoiceSendEmailConfirm(form) {
-								var input = form.querySelector('[name=to_email]');
-								var email = input ? input.value.trim() : '';
-								if (!email) {
-									var entered = window.prompt('No email on file for this customer.\nEnter recipient email address:');
-									if (!entered || !entered.trim()) return false;
-									entered = entered.trim();
-									if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(entered)) {
-										alert('Please enter a valid email address.');
-										return false;
-									}
-									input.value = entered;
-									email = entered;
-								}
-								return confirm('Send this invoice via email to ' + email + '?');
 							}
-						</script>
+						</button>
 					} else {
 						<span
-							class="inline-block rounded-md border border-border bg-disabled-bg px-4 py-2 text-body text-disabled-text cursor-not-allowed"
-							title="SMTP not configured or not verified. Configure in Settings > Notifications."
+							class="inline-block cursor-not-allowed rounded-md border border-border bg-disabled-bg px-4 py-2 text-body text-disabled-text"
+							title={ vm.SendDefaults.EligibilityError }
 						>
 							Send Email
 						</span>
@@ -260,6 +286,52 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 				}
 			</div>
 		</div>
+
+		// ── Template binding (draft only) ────────────────────────────────────
+		if vm.Invoice.Status == models.InvoiceStatusDraft {
+			<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+				<h2 class="text-section font-semibold text-text">Invoice Template</h2>
+				<p class="mt-1 text-small text-text-muted2">
+					The template is pinned when the invoice is issued. Changing it here updates the draft.
+				</p>
+				<div class="mt-4 flex flex-wrap items-center gap-4">
+					<div>
+						<p class="text-small font-medium text-text-muted uppercase tracking-wider">Current Template</p>
+						<p class="mt-1 text-body text-text">
+							if vm.Invoice.TemplateID != nil {
+								// TemplateID is set — show the ID; name resolves at render time
+								Template #{ Uitoa(*vm.Invoice.TemplateID) } (pinned)
+							} else {
+								<span class="text-text-muted2">Company default (not pinned)</span>
+							}
+						</p>
+					</div>
+					if len(vm.Templates) > 0 {
+						<form
+							method="post"
+							action={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/bind-template" }
+							class="flex items-end gap-2"
+						>
+							<div>
+								<label class="block text-small font-medium text-text mb-1">Change Template</label>
+								<select name="template_id" class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus">
+									for _, t := range vm.Templates {
+										if vm.Invoice.TemplateID != nil && t.ID == *vm.Invoice.TemplateID {
+											<option value={ Uitoa(t.ID) } selected>{ t.Name }</option>
+										} else {
+											<option value={ Uitoa(t.ID) }>{ t.Name }</option>
+										}
+									}
+								</select>
+							</div>
+							<button type="submit" class="rounded-md bg-primary px-3 py-1.5 text-body font-semibold text-onPrimary hover:bg-primary-hover">
+								Apply
+							</button>
+						</form>
+					}
+				</div>
+			</div>
+		}
 
 		// ── Line items ───────────────────────────────────────────────────────
 		<div class="mt-6 rounded-lg border border-border bg-surface p-6">
@@ -411,6 +483,318 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 					<p class="mt-4 text-small text-text-muted2">This invoice is fully paid. No new payment requests can be created.</p>
 				}
 			</div>
+		}
+
+		// ── Email History panel ──────────────────────────────────────────────
+		// Shows all send attempts (newest first). Each row shows status, time,
+		// recipient, subject, and template. Failed rows show the error reason.
+		// BodyResolved is shown via an expandable section — always the historical
+		// resolved content, never re-rendered from the current template.
+		if len(vm.EmailHistory) > 0 {
+			<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+				<h2 class="text-section font-semibold text-text">
+					Email History
+					<span class="ml-2 text-small font-normal text-text-muted2">({ Itoa(len(vm.EmailHistory)) } attempt(s))</span>
+				</h2>
+				<div class="mt-4 overflow-x-auto">
+					<table class="w-full text-left text-body">
+						<thead class="text-small uppercase tracking-wider text-text-muted">
+							<tr class="border-b border-border">
+								<th class="py-2 pr-4">Status</th>
+								<th class="py-2 pr-4">Date</th>
+								<th class="py-2 pr-4">Recipient</th>
+								<th class="py-2 pr-4">Subject</th>
+								<th class="py-2 pr-4">Template</th>
+								<th class="py-2 pr-0">Details</th>
+							</tr>
+						</thead>
+						<tbody class="text-text">
+							for _, log := range vm.EmailHistory {
+								<tr class="border-b border-border-subtle align-top">
+									<td class="py-3 pr-4">
+										<span class={ emailSendStatusBadgeClass(log.SendStatus) }>
+											{ models.EmailSendStatusLabel(log.SendStatus) }
+										</span>
+									</td>
+									<td class="py-3 pr-4 text-small text-text-muted2 whitespace-nowrap tabular-nums">
+										{ log.CreatedAt.Format("2006-01-02 15:04") }
+									</td>
+									<td class="py-3 pr-4 text-small">{ log.ToEmail }</td>
+									<td class="py-3 pr-4 text-small max-w-[16rem] truncate">{ log.Subject }</td>
+									<td class="py-3 pr-4 text-small text-text-muted2">
+										if log.TemplateNameSnapshot != "" {
+											{ log.TemplateNameSnapshot }
+										} else {
+											<span class="text-text-muted3">system fallback</span>
+										}
+									</td>
+									<td class="py-3 pr-0">
+										if log.ErrorMessage != "" {
+											<details class="text-small">
+												<summary class="cursor-pointer text-danger">Error</summary>
+												<p class="mt-1 text-text-muted2">{ log.ErrorMessage }</p>
+											</details>
+										}
+										if log.BodyResolved != "" {
+											<details class="text-small mt-1">
+												<summary class="cursor-pointer text-primary hover:underline">View body</summary>
+												<pre class="mt-2 max-w-sm whitespace-pre-wrap rounded border border-border bg-background p-3 text-small text-text">{ log.BodyResolved }</pre>
+											</details>
+										}
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+				<p class="mt-2 text-[11px] text-text-muted3">
+					Each row is an independent send attempt. Resend creates a new row — history is never overwritten.
+					"View body" shows the exact content that was sent at the time.
+				</p>
+			</div>
+		}
+
+		// ── Share Link panel ─────────────────────────────────────────────────
+		// Shown for non-draft, non-voided invoices only.
+		// Allows internal users to generate, revoke, and regenerate hosted invoice links.
+		// The hosted link gives customers a read-only view of the invoice via a token URL.
+		if vm.Invoice.Status != models.InvoiceStatusDraft && vm.Invoice.Status != models.InvoiceStatusVoided {
+			<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+				<div class="flex items-start justify-between gap-4">
+					<div>
+						<h2 class="text-section font-semibold text-text">Share Link</h2>
+						<p class="mt-1 text-small text-text-muted2">
+							Generate a customer-facing link to this invoice. The link is read-only and can be revoked at any time.
+						</p>
+					</div>
+					// ── Actions ────────────────────────────────────────────────────────
+					<div class="flex shrink-0 items-center gap-2">
+						if vm.ActiveLink != nil {
+							// Regenerate: atomic rotate (old token revoked before new token is issued)
+							<form method="post" action={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/share-link/regenerate" } class="inline"
+								onsubmit="return confirm('Regenerate share link? The current link will immediately stop working.');">
+								<button type="submit" class="rounded-md border border-border px-3 py-1.5 text-small font-medium text-text hover:bg-background">
+									Regenerate
+								</button>
+							</form>
+							// Revoke: kills the active link with no replacement
+							<form method="post" action={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/share-link/revoke" } class="inline"
+								onsubmit="return confirm('Revoke this share link? Anyone with the current link will lose access.');">
+								<button type="submit" class="rounded-md border border-border-danger px-3 py-1.5 text-small font-medium text-danger hover:bg-danger-soft">
+									Revoke
+								</button>
+							</form>
+						} else {
+							// Generate: creates a new active link
+							<form method="post" action={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/share-link" } class="inline">
+								<button type="submit" class="rounded-md bg-primary px-3 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover">
+									Generate Share Link
+								</button>
+							</form>
+						}
+					</div>
+				</div>
+
+				// ── Status display ──────────────────────────────────────────────────
+				<div class="mt-4">
+					if vm.ActiveLink != nil {
+						<div class="flex flex-wrap items-center gap-x-6 gap-y-2">
+							<div>
+								<p class="text-small font-medium text-text-muted uppercase tracking-wider">Status</p>
+								<span class="mt-1 inline-block rounded px-2 py-0.5 text-small font-medium bg-success-soft text-success-hover border border-success-border">Active</span>
+							</div>
+							<div>
+								<p class="text-small font-medium text-text-muted uppercase tracking-wider">Created</p>
+								<p class="mt-1 text-body text-text">{ vm.ActiveLink.CreatedAt.Format("2006-01-02 15:04") }</p>
+							</div>
+							<div>
+								<p class="text-small font-medium text-text-muted uppercase tracking-wider">Views</p>
+								<p class="mt-1 text-body text-text tabular-nums">{ Itoa(vm.ActiveLink.ViewCount) }</p>
+							</div>
+							if vm.ActiveLink.LastViewedAt != nil {
+								<div>
+									<p class="text-small font-medium text-text-muted uppercase tracking-wider">Last Viewed</p>
+									<p class="mt-1 text-body text-text">{ vm.ActiveLink.LastViewedAt.Format("2006-01-02 15:04") }</p>
+								</div>
+							}
+							if vm.ActiveLink.ExpiresAt != nil {
+								<div>
+									<p class="text-small font-medium text-text-muted uppercase tracking-wider">Expires</p>
+									<p class="mt-1 text-body text-text">{ vm.ActiveLink.ExpiresAt.Format("2006-01-02 15:04") }</p>
+								</div>
+							}
+						</div>
+						// ── Expiry form ─────────────────────────────────────────────────
+						<form method="post" action={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/share-link/expiry" } class="mt-4 flex flex-wrap items-end gap-3">
+							<div>
+								<label class="block text-small font-medium text-text-muted uppercase tracking-wider mb-1" for="expires_at">Set Expiry</label>
+								if vm.ActiveLink.ExpiresAt != nil {
+									<input type="datetime-local" id="expires_at" name="expires_at"
+										value={ vm.ActiveLink.ExpiresAt.Format("2006-01-02T15:04") }
+										class="rounded-md border border-border bg-surface px-2 py-1 text-small text-text focus:outline-none focus:ring-1 focus:ring-primary"/>
+								} else {
+									<input type="datetime-local" id="expires_at" name="expires_at"
+										class="rounded-md border border-border bg-surface px-2 py-1 text-small text-text focus:outline-none focus:ring-1 focus:ring-primary"/>
+								}
+							</div>
+							<button type="submit" class="rounded-md border border-border px-3 py-1.5 text-small font-medium text-text hover:bg-background">Set</button>
+							<button type="submit" name="expires_at" value="" class="text-small text-text-muted2 hover:text-text underline">Clear expiry</button>
+						</form>
+						<p class="mt-3 text-[11px] text-text-muted2">
+							Use <span class="font-medium">Regenerate</span> to rotate the link (old link immediately revoked).
+							Use <span class="font-medium">Generate Share Link</span> again after revoking to create a new link.
+						</p>
+					} else {
+						<p class="text-body text-text-muted2">No active share link. Click <span class="font-medium">Generate Share Link</span> to create one.</p>
+					}
+				</div>
+			</div>
+		}
+
+		// ── Send Email modal ─────────────────────────────────────────────────
+		// Rendered only when send defaults are available (all sendable statuses).
+		// Data comes from the server-side resolved InvoiceSendDefaults — same
+		// pipeline as SendInvoiceByEmail — so the modal shows exactly what would
+		// be sent. User may edit recipient, subject, and body before submitting.
+		if vm.SendDefaults != nil {
+			<dialog
+				id="sendModal"
+				class="m-auto rounded-lg border border-border bg-surface p-0 shadow-xl"
+				style="max-width: min(42rem, 90vw);"
+			>
+				<div class="p-6">
+					// ── Modal header ──────────────────────────────────────────
+					<div class="mb-4 flex items-center justify-between">
+						<h2 class="text-section font-semibold text-text">
+							if vm.SendDefaults.SendCount > 0 {
+								Resend Invoice
+							} else {
+								Send Invoice
+							}
+						</h2>
+						<button
+							type="button"
+							onclick="document.getElementById('sendModal').close()"
+							class="rounded p-1 text-text-muted2 hover:bg-background hover:text-text"
+							aria-label="Close"
+						>
+							✕
+						</button>
+					</div>
+
+					// ── Cannot-send warning (SMTP or eligibility not met) ─────
+					if !vm.SendDefaults.CanSend {
+						<div class="mb-4 rounded-md border border-border-danger bg-danger-soft p-3 text-small text-danger-hover">
+							{ vm.SendDefaults.EligibilityError }
+						</div>
+					}
+
+					// ── Template + preview row ────────────────────────────────
+					<div class="mb-4 flex items-center justify-between rounded-md border border-border bg-background px-4 py-3">
+						<div>
+							<p class="text-small font-medium text-text-muted uppercase tracking-wider">Template</p>
+							<p class="mt-0.5 text-body text-text">
+								if vm.SendDefaults.TemplateName != "" {
+									{ vm.SendDefaults.TemplateName }
+									<span class="ml-1 text-small text-text-muted2">
+										({ templateSourceLabel(vm.SendDefaults.TemplateSource) })
+									</span>
+								} else {
+									<span class="text-text-muted2">System fallback</span>
+								}
+							</p>
+						</div>
+						<a
+							href={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/preview" }
+							target="_blank"
+							class="text-small text-primary hover:underline"
+						>
+							Preview invoice ↗
+						</a>
+					</div>
+
+					// ── Send form ─────────────────────────────────────────────
+					<form method="post" action={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/send-email" }>
+						<input type="hidden" name="template_type" value="invoice"/>
+
+						<div class="mb-4">
+							<label class="block text-small font-medium text-text mb-1" for="sendTo">To</label>
+							<input
+								id="sendTo"
+								type="email"
+								name="to_email"
+								required
+								value={ vm.SendDefaults.ToEmail }
+								class="w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+							/>
+						</div>
+
+						<div class="mb-4">
+							<label class="block text-small font-medium text-text mb-1" for="sendCC">CC <span class="font-normal text-text-muted2">(optional, comma-separated)</span></label>
+							<input
+								id="sendCC"
+								type="text"
+								name="cc_emails"
+								class="w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+							/>
+						</div>
+
+						<div class="mb-4">
+							<label class="block text-small font-medium text-text mb-1" for="sendSubject">Subject</label>
+							<input
+								id="sendSubject"
+								type="text"
+								name="subject"
+								required
+								value={ vm.SendDefaults.Subject }
+								class="w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+							/>
+						</div>
+
+						<div class="mb-5">
+							<label class="block text-small font-medium text-text mb-1" for="sendBody">
+								Message
+								<span class="ml-1 font-normal text-text-muted2 text-[11px]">Email body · PDF invoice is attached separately</span>
+							</label>
+							<textarea
+								id="sendBody"
+								name="body"
+								rows="9"
+								class="w-full rounded-md border border-border-input bg-surface px-3 py-2 font-mono text-small text-text outline-none focus:ring-2 focus:ring-primary-focus"
+							>{ vm.SendDefaults.Body }</textarea>
+						</div>
+
+						<div class="flex justify-end gap-3">
+							<button
+								type="button"
+								onclick="document.getElementById('sendModal').close()"
+								class="rounded-md border border-border px-4 py-2 text-body text-text hover:bg-background"
+							>
+								Cancel
+							</button>
+							if vm.SendDefaults.CanSend {
+								<button
+									type="submit"
+									class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+								>
+									if vm.SendDefaults.SendCount > 0 {
+										Resend
+									} else {
+										Send Email
+									}
+								</button>
+							} else {
+								<span
+									class="inline-block cursor-not-allowed rounded-md bg-disabled-bg px-4 py-2 text-body text-disabled-text"
+									title={ vm.SendDefaults.EligibilityError }
+								>
+									Send Email
+								</span>
+							}
+						</div>
+					</form>
+				</div>
+			</dialog>
 		}
 	</div>
 }

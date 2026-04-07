@@ -152,6 +152,7 @@ func (s *Server) registerRoutes(app *fiber.App) {
 
 	// Invoice preview & PDF
 	app.Get("/invoices/:id/preview", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoicePreview)
+	app.Get("/invoices/:id/print", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoicePrint)
 	app.Get("/invoices/:id/pdf", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoicePDF)
 
 	// Invoice lifecycle management (issue → send → mark paid / void)
@@ -159,6 +160,16 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Post("/invoices/:id/send", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceSend)
 	app.Post("/invoices/:id/send-email", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceSendEmail)
 	app.Get("/invoices/:id/email-history", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleGetInvoiceEmailHistory)
+	app.Post("/invoices/:id/bind-template", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleBindTemplate)
+	app.Get("/api/invoices/:id/send-defaults", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleGetInvoiceSendDefaults)
+	app.Get("/api/invoices/:id/email-preview", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleGetInvoiceEmailPreview)
+
+	// Hosted invoice share link management (internal auth + company scope required).
+	app.Post("/invoices/:id/share-link", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleCreateShareLink)
+	app.Post("/invoices/:id/share-link/revoke", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleRevokeShareLink)
+	app.Post("/invoices/:id/share-link/regenerate", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleRegenerateShareLink)
+	app.Post("/invoices/:id/share-link/expiry", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleUpdateShareLinkExpiry)
+
 	app.Post("/invoices/:id/mark-paid", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceMarkPaid)
 	app.Post("/invoices/:id/request-payment", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceRequestPayment)
 	app.Get("/invoices/:id/receive-payment", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceReceivePaymentForm)
@@ -173,6 +184,7 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Post("/settings/invoice-templates", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleInvoiceTemplateCreate)
 	app.Post("/settings/invoice-templates/:id", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleInvoiceTemplateUpdate)
 	app.Post("/settings/invoice-templates/:id/delete", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleInvoiceTemplateDelete)
+	app.Post("/settings/invoice-templates/:id/set-default", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleSetDefaultInvoiceTemplate)
 
 	// API endpoints for templates
 	app.Get("/api/invoice-templates/default", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleGetDefaultInvoiceTemplate)
@@ -277,4 +289,16 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Post("/banking/receive-payment", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleReceivePaymentSubmit)
 	app.Get("/banking/pay-bills", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionBillPay), s.handlePayBillsForm)
 	app.Post("/banking/pay-bills", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionBillPay), s.handlePayBillsSubmit)
+
+	// ── Hosted Invoice public routes (NO auth — token-controlled access) ──────
+	// These routes deliberately have no session or auth middleware.
+	// Access is controlled entirely by the cryptographic token in the URL.
+	// Any failure (invalid/revoked/expired token, load error) returns 410 Gone.
+	app.Get("/i/:token", s.handleHostedInvoice)
+	// Batch 7: payment entry point (POST — state-changing, prevents browser prefetch)
+	app.Post("/i/:token/pay", s.handleHostedPay)
+	app.Get("/i/:token/pay/pending", s.handleHostedPayPending)
+	app.Get("/i/:token/pay/cancel", s.handleHostedPayCancel)
+	// Batch 8: server-side PDF download (token-gated, no auth required)
+	app.Get("/i/:token/download", s.handleHostedInvoiceDownload)
 }

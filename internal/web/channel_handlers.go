@@ -312,6 +312,13 @@ func (s *Server) handleChannelOrderConvert(c *fiber.Ctx) error {
 		return redirectErr(c, "/settings/channels/orders/"+c.Params("id"), "customer and invoice number required")
 	}
 
+	// Validate document number format before service call.
+	// Mirrors the service-layer guard so the user gets a friendly redirect
+	// rather than an opaque error from deep in the conversion transaction.
+	if err := services.ValidateDocumentNumber(invoiceNumber); err != nil {
+		return redirectErr(c, "/settings/channels/orders/"+c.Params("id"), "invoice number: "+err.Error())
+	}
+
 	result, err := services.ConvertChannelOrderToDraftInvoice(s.DB, services.ConvertOptions{
 		CompanyID:      companyID,
 		ChannelOrderID: orderID,

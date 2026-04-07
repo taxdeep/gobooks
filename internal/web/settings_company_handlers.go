@@ -191,10 +191,17 @@ func (s *Server) handleCompanyTemplatesGet(c *fiber.Ctx) error {
 	if !ok {
 		return c.Redirect("/select-company", fiber.StatusSeeOther)
 	}
-	_ = companyID
-	return pages.CompanyTemplates(pages.CompanySubpageVM{
+
+	templates, err := services.ListInvoiceTemplates(s.DB, companyID)
+	if err != nil {
+		templates = []models.InvoiceTemplate{}
+	}
+
+	return pages.CompanyTemplates(pages.CompanyTemplatesVM{
 		HasCompany: true,
 		Breadcrumb: breadcrumbSettingsCompanyTemplates(),
+		Templates:  templates,
+		Saved:      c.Query("saved") == "1",
 	}).Render(c.Context(), c)
 }
 

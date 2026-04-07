@@ -47,6 +47,10 @@ func (s *Server) handleInvoiceSendEmail(c *fiber.Ctx) error {
 		templateType = "invoice"
 	}
 	ccEmails := strings.TrimSpace(c.FormValue("cc_emails"))
+	// subject: user override from modal; empty means server resolves from template.
+	subject := strings.TrimSpace(c.FormValue("subject"))
+	// userBody: user-edited body from modal; empty means server resolves from template.
+	userBody := strings.TrimSpace(c.FormValue("body"))
 
 	// If no email supplied via form, fall back to the customer's current email.
 	if toEmail == "" {
@@ -70,12 +74,9 @@ func (s *Server) handleInvoiceSendEmail(c *fiber.Ctx) error {
 		return c.Redirect(detailURL+"?emailerror="+url.QueryEscape(msg), fiber.StatusSeeOther)
 	}
 
+	// TriggeredByUserID is *uint but User.ID is uuid.UUID — no mapping possible.
+	// Set to nil; the audit log (written by SendInvoiceByEmail) captures actor context.
 	var userIDPtr *uint
-	user := UserFromCtx(c)
-	if user != nil {
-		uid := uint(0)
-		userIDPtr = &uid
-	}
 
 	req := services.SendInvoiceEmailRequest{
 		CompanyID:         companyID,
@@ -83,7 +84,8 @@ func (s *Server) handleInvoiceSendEmail(c *fiber.Ctx) error {
 		ToEmail:           toEmail,
 		CCEmails:          ccEmails,
 		TemplateType:      templateType,
-		Subject:           "",
+		Subject:           subject,   // user override; empty → server resolves
+		UserBody:          userBody,  // user override; empty → server resolves
 		TriggeredByUserID: userIDPtr,
 	}
 
@@ -160,5 +162,99 @@ func (s *Server) handleGetInvoiceEmailHistory(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"email_logs": responses,
+	})
+}
+
+// handleGetInvoiceSendDefaults - GET /api/invoices/:id/send-defaults
+// Returns server-resolved defaults for the send email modal as JSON.
+// The resolution uses the same pipeline as SendInvoiceByEmail so callers
+// can rely on the data being consistent with what would actually be sent.
+func (s *Server) handleGetInvoiceSendDefaults(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "company context required",
+		})
+	}
+
+	invoiceID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid invoice ID",
+		})
+	}
+
+	defaults, err := services.GetInvoiceSendDefaults(s.DB, companyID, uint(invoiceID))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(defaults)
+}
+
+// handleBindTemplate - POST /invoices/:id/bind-template
+// Binds a template to a draft invoice. Draft-only; backend enforces the constraint.
+// On success: redirect to invoice detail with ?tmplbound=1.
+// On failure: redirect to invoice detail with ?error=<msg>.
+func (s *Server) handleBindTemplate(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "company context required",
+		})
+	}
+
+	invoiceID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid invoice ID",
+		})
+	}
+
+	detailURL := fmt.Sprintf("/invoices/%d", invoiceID)
+
+	templateIDStr := strings.TrimSpace(c.FormValue("template_id"))
+	templateID, err := strconv.ParseUint(templateIDStr, 10, 32)
+	if err != nil || templateID == 0 {
+		return c.Redirect(detailURL+"?error="+url.QueryEscape("invalid template ID"), fiber.StatusSeeOther)
+	}
+
+	if _, err := services.BindTemplateToInvoice(s.DB, companyID, uint(invoiceID), uint(templateID)); err != nil {
+		slog.Warn("bind template failed",
+			"company_id", companyID,
+			"invoice_id", invoiceID,
+			"template_id", templateID,
+			"error", err.Error(),
+		)
+		return c.Redirect(detailURL+"?error="+url.QueryEscape(err.Error()), fiber.StatusSeeOther)
+	}
+
+	return c.Redirect(detailURL+"?tmplbound=1", fiber.StatusSeeOther)
+}
+
+// handleGetInvoiceEmailPreview returns the resolved email subject and body for
+// an invoice without sending it. Reuses the same GetInvoiceSendDefaults pipeline.
+// GET /api/invoices/:id/email-preview
+// Requires internal auth + company scope (same as send-defaults).
+func (s *Server) handleGetInvoiceEmailPreview(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "company context required"})
+	}
+	invoiceID, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil || invoiceID == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid invoice ID"})
+	}
+
+	defaults, err := services.GetInvoiceSendDefaults(s.DB, companyID, uint(invoiceID))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"subject": defaults.Subject,
+		"body":    defaults.Body,
 	})
 }

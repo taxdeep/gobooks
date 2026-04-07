@@ -42,6 +42,19 @@ type InvoiceEmailLog struct {
 	Subject      string `gorm:"not null;default:''"`
 	TemplateType string `gorm:"type:text;not null;default:'invoice';index:idx_invoices_email_logs_template"` // invoice|reminder|reminder2
 
+	// Send-time presentation snapshot.
+	// These fields capture the resolved state at the moment of this send event:
+	//   BodyResolved        — fully rendered email body text (after token substitution)
+	//   TemplateIDSnapshot  — template.ID that was used for rendering (nil = system fallback)
+	//   TemplateNameSnapshot — template.Name at send time (stable after rename/delete)
+	//
+	// These are write-once: set when the log entry is created and never updated.
+	// They allow future audits to answer "what did we actually send?" without
+	// re-rendering from a template that may have since changed or been deactivated.
+	BodyResolved         string `gorm:"not null;default:''"`
+	TemplateIDSnapshot   *uint  `gorm:"index"`
+	TemplateNameSnapshot string `gorm:"not null;default:''"`
+
 	// Audit: who triggered the send
 	// TriggeredByUserID: foreign key to users table (optional, NULL for automatic sends)
 	TriggeredByUserID *uint `gorm:"index"`

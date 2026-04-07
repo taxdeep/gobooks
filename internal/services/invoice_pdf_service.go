@@ -104,6 +104,49 @@ func GenerateInvoicePDF(htmlContent string) ([]byte, error) {
 	return pdfBytes, nil
 }
 
+// InvoicePDFSafeFilename returns the Content-Disposition filename for an invoice PDF.
+//
+// Safety contract:
+//   - Output contains only ASCII letters, digits, '.', '_', and '-'.
+//   - All other characters (quotes, semicolons, control chars, CR/LF, <, >, |, :, etc.)
+//     are replaced with '-'. This prevents malformed Content-Disposition headers.
+//   - Consecutive '-' are collapsed to a single '-'.
+//   - Leading and trailing '-' are trimmed from the sanitized segment.
+//   - If the sanitized segment is empty, "unknown" is used as fallback.
+//   - Final format: "Invoice-<safe>.pdf"
+//
+// Used by both the internal /invoices/:id/pdf route and the hosted /i/:token/download route.
+// This is the single source of truth for PDF filename safety — do not inline alternatives.
+func InvoicePDFSafeFilename(invoiceNumber string) string {
+	// Build safe segment using ASCII whitelist: [A-Za-z0-9._-]
+	// All other bytes → '-'
+	buf := make([]byte, 0, len(invoiceNumber))
+	for i := 0; i < len(invoiceNumber); i++ {
+		b := invoiceNumber[i]
+		if (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z') ||
+			(b >= '0' && b <= '9') || b == '.' || b == '_' || b == '-' {
+			buf = append(buf, b)
+		} else {
+			buf = append(buf, '-')
+		}
+	}
+	safe := string(buf)
+
+	// Collapse consecutive '-' to a single '-'.
+	for strings.Contains(safe, "--") {
+		safe = strings.ReplaceAll(safe, "--", "-")
+	}
+	// Trim leading/trailing '-'.
+	safe = strings.Trim(safe, "-")
+
+	// Empty-after-clean fallback.
+	if safe == "" {
+		safe = "unknown"
+	}
+
+	return "Invoice-" + safe + ".pdf"
+}
+
 // GeneratePDFFilename creates a timestamped filename for invoice PDF.
 // Format: invoice-<invoice_number>-<timestamp>.pdf
 func GeneratePDFFilename(invoiceNumber string) string {

@@ -13,6 +13,7 @@ import (
 )
 
 // InvoiceRenderData holds the complete data needed to render an invoice to HTML.
+// All monetary fields are sourced from stored invoice fields — never recalculated.
 type InvoiceRenderData struct {
 	InvoiceNumber   string
 	InvoiceDate     string
@@ -26,10 +27,16 @@ type InvoiceRenderData struct {
 	Subtotal        decimal.Decimal
 	TaxTotal        decimal.Decimal
 	Amount          decimal.Decimal
+	BalanceDue      decimal.Decimal // sourced from invoice.BalanceDue
+	Currency        string          // effective currency code (invoice.CurrencyCode or company.BaseCurrencyCode)
 	Terms           string
 	Memo            string
 	Status          string
 	LogoImageBase64 string // empty string if no logo
+
+	// IsShipToAvailable is true when the invoice has a ship-to address snapshot.
+	// Rendering is only attempted when cfg.ShowShipTo is also true.
+	IsShipToAvailable bool
 
 	// Template configuration (from InvoiceTemplate.ConfigJSON)
 	TemplateConfig models.TemplateConfig
@@ -149,11 +156,13 @@ func renderClassicTemplate(data InvoiceRenderData) string {
                 <p><strong>` + escapeHTML(data.CustomerName) + `</strong></p>
 `)
 	if data.CustomerAddress != "" {
-		html.WriteString(`                <p>` + escapeHTML(data.CustomerAddress) + `</p>
+		for _, line := range strings.Split(data.CustomerAddress, "\n") {
+			html.WriteString(`                <p style="font-size: 13px; color: #555;">` + escapeHTML(line) + `</p>
 `)
+		}
 	}
 	if data.CustomerEmail != "" {
-		html.WriteString(`                <p>` + escapeHTML(data.CustomerEmail) + `</p>
+		html.WriteString(`                <p style="font-size: 13px; color: #555;">` + escapeHTML(data.CustomerEmail) + `</p>
 `)
 	}
 	html.WriteString(`            </div>
@@ -273,8 +282,10 @@ func renderModernTemplate(data InvoiceRenderData) string {
                 <p><strong>` + escapeHTML(data.CustomerName) + `</strong></p>
 `)
 	if data.CustomerAddress != "" {
-		html.WriteString(`                <p>` + escapeHTML(data.CustomerAddress) + `</p>
+		for _, line := range strings.Split(data.CustomerAddress, "\n") {
+			html.WriteString(`                <p>` + escapeHTML(line) + `</p>
 `)
+		}
 	}
 	if data.CustomerEmail != "" {
 		html.WriteString(`                <p>` + escapeHTML(data.CustomerEmail) + `</p>
@@ -393,37 +404,55 @@ func writeSummarySection(html *strings.Builder, data InvoiceRenderData, cfg mode
 
 // ── Data builders ────────────────────────────────────────────────────────────
 
-// BuildInvoiceRenderData constructs render data from invoice + company + template.
-// Loads all necessary relationships, snapshots, and logo.
+// resolveRenderTemplate resolves the TemplateConfig for rendering using the
+// following priority chain:
+//  1. Invoice's pinned template (must be active and belong to companyID)
+//  2. Company's active default template
+//  3. System fallback: DefaultTemplateConfig("classic")
+func resolveRenderTemplate(db *gorm.DB, invoice *models.Invoice, companyID uint) models.TemplateConfig {
+	if invoice.TemplateID != nil {
+		var tmpl models.InvoiceTemplate
+		if err := db.Where("id = ? AND company_id = ? AND is_active = ?", *invoice.TemplateID, companyID, true).
+			First(&tmpl).Error; err == nil {
+			if parsed, err := tmpl.UnmarshalConfig(); err == nil {
+				return *parsed
+			}
+		}
+		// Pinned template was inactive or not found — fall through to company default.
+	}
+
+	// Company active default template.
+	var tmpl models.InvoiceTemplate
+	if err := db.Where("company_id = ? AND is_default = ? AND is_active = ?", companyID, true, true).
+		First(&tmpl).Error; err == nil {
+		if parsed, err := tmpl.UnmarshalConfig(); err == nil {
+			return *parsed
+		}
+	}
+
+	// System fallback.
+	return models.DefaultTemplateConfig("classic")
+}
+
+// BuildInvoiceRenderData constructs render data from invoice + company + resolved template.
+// Monetary fields are sourced directly from stored invoice fields — never recalculated.
+// Company isolation is enforced: invoice.CompanyID must match companyID.
 func BuildInvoiceRenderData(db *gorm.DB, companyID uint, invoice *models.Invoice) (*InvoiceRenderData, error) {
-	// Load company
+	// Company isolation guard.
+	if invoice.CompanyID != companyID {
+		return nil, fmt.Errorf("invoice does not belong to this company")
+	}
+
+	// Load company.
 	var company models.Company
 	if err := db.Where("id = ?", companyID).First(&company).Error; err != nil {
 		return nil, fmt.Errorf("company lookup failed: %w", err)
 	}
 
-	// Load template config (from invoice's template, or company default, or fallback)
-	tmplCfg := models.DefaultTemplateConfig("classic")
-	if invoice.TemplateID != nil {
-		var tmpl models.InvoiceTemplate
-		if err := db.Where("id = ? AND company_id = ?", *invoice.TemplateID, companyID).
-			First(&tmpl).Error; err == nil {
-			if parsed, err := tmpl.UnmarshalConfig(); err == nil {
-				tmplCfg = *parsed
-			}
-		}
-	} else {
-		// Try company default template
-		var tmpl models.InvoiceTemplate
-		if err := db.Where("company_id = ? AND is_default = ?", companyID, true).
-			First(&tmpl).Error; err == nil {
-			if parsed, err := tmpl.UnmarshalConfig(); err == nil {
-				tmplCfg = *parsed
-			}
-		}
-	}
+	// Resolve template config via priority chain.
+	tmplCfg := resolveRenderTemplate(db, invoice, companyID)
 
-	// Build line renders
+	// Build line renders.
 	lines := make([]InvoiceLineRender, len(invoice.Lines))
 	for i, iline := range invoice.Lines {
 		taxRate := "0%"
@@ -441,14 +470,20 @@ func BuildInvoiceRenderData(db *gorm.DB, companyID uint, invoice *models.Invoice
 		}
 	}
 
-	// Format dates
+	// Format dates.
 	invoiceDate := invoice.InvoiceDate.Format("January 2, 2006")
 	dueDate := ""
 	if invoice.DueDate != nil {
 		dueDate = invoice.DueDate.Format("January 2, 2006")
 	}
 
-	// Load logo as base64
+	// Effective currency: invoice-level override or company base currency.
+	currency := invoice.CurrencyCode
+	if currency == "" {
+		currency = company.BaseCurrencyCode
+	}
+
+	// Load logo as base64.
 	logoBase64 := ""
 	if tmplCfg.ShowLogo && company.LogoPath != "" {
 		if data, err := os.ReadFile(company.LogoPath); err == nil {
@@ -457,24 +492,37 @@ func BuildInvoiceRenderData(db *gorm.DB, companyID uint, invoice *models.Invoice
 	}
 
 	return &InvoiceRenderData{
-		InvoiceNumber:   invoice.InvoiceNumber,
-		InvoiceDate:     invoiceDate,
-		DueDate:         dueDate,
-		CustomerName:    invoice.CustomerNameSnapshot,
-		CustomerEmail:   invoice.CustomerEmailSnapshot,
-		CustomerAddress: invoice.CustomerAddressSnapshot,
-		CompanyName:     company.Name,
-		CompanyAddress:  buildCompanyAddress(company),
-		Lines:           lines,
-		Subtotal:        invoice.Subtotal,
-		TaxTotal:        invoice.TaxTotal,
-		Amount:          invoice.Amount,
-		Terms:           invoice.TermDescription,
-		Memo:            invoice.Memo,
-		Status:          string(invoice.Status),
-		LogoImageBase64: logoBase64,
-		TemplateConfig:  tmplCfg,
+		InvoiceNumber:     invoice.InvoiceNumber,
+		InvoiceDate:       invoiceDate,
+		DueDate:           dueDate,
+		CustomerName:      invoice.CustomerNameSnapshot,
+		CustomerEmail:     invoice.CustomerEmailSnapshot,
+		CustomerAddress:   invoice.CustomerAddressSnapshot,
+		CompanyName:       company.Name,
+		CompanyAddress:    buildCompanyAddress(company),
+		Lines:             lines,
+		Subtotal:          invoice.Subtotal,
+		TaxTotal:          invoice.TaxTotal,
+		Amount:            invoice.Amount,
+		BalanceDue:        invoice.BalanceDue,
+		Currency:          currency,
+		Terms:             invoice.TermDescription,
+		Memo:              invoice.Memo,
+		Status:            string(invoice.Status),
+		LogoImageBase64:   logoBase64,
+		IsShipToAvailable: invoice.CustomerAddressSnapshot != "",
+		TemplateConfig:    tmplCfg,
 	}, nil
+}
+
+// RenderInvoiceForPrint wraps RenderInvoiceToHTML with a print-trigger script.
+// The returned HTML is a fully self-contained page that calls window.print()
+// on load. It has no app chrome (no nav, no headers).
+func RenderInvoiceForPrint(data InvoiceRenderData) string {
+	body := RenderInvoiceToHTML(data)
+	// Inject auto-print script before </body>.
+	printScript := `<script>window.addEventListener('load',function(){window.print();});</script>`
+	return strings.Replace(body, "</body>", printScript+"\n</body>", 1)
 }
 
 // ── String helpers ───────────────────────────────────────────────────────────

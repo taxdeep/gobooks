@@ -128,6 +128,31 @@ func customerBillableSummary(m map[uint]services.CustomerBillableSummary, custom
 	return services.CustomerSummaryOrZero(m, customerID)
 }
 
+// emailSendStatusBadgeClass returns the Tailwind badge class for an email send status.
+func emailSendStatusBadgeClass(status models.EmailSendStatus) string {
+	base := "inline-block rounded px-2 py-0.5 text-small font-medium "
+	switch status {
+	case models.EmailSendStatusSent:
+		return base + "bg-success-soft text-success-hover border border-success-border"
+	case models.EmailSendStatusFailed:
+		return base + "bg-danger-soft text-danger border border-border-danger"
+	default:
+		return base + "bg-warning-soft text-warning border border-warning-soft"
+	}
+}
+
+// templateSourceLabel returns a human-readable label for the template source field.
+func templateSourceLabel(source string) string {
+	switch source {
+	case "pinned":
+		return "pinned"
+	case "company_default":
+		return "company default"
+	default:
+		return "system fallback"
+	}
+}
+
 // billBalanceDue returns the outstanding balance for a bill.
 // Uses BalanceDue if positive, otherwise falls back to the full Amount.
 func billBalanceDue(b models.Bill) decimal.Decimal {

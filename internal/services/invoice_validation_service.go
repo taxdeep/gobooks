@@ -180,12 +180,27 @@ func ValidateInvoiceForPosting(db *gorm.DB, companyID, invoiceID uint) error {
 	return nil
 }
 
-// ValidateInvoiceForSending checks if an invoice can be sent via email.
-// Returns nil if valid; otherwise returns validation errors.
+// sendableStatuses is the set of invoice statuses from which email delivery is allowed.
+// draft and voided are explicitly excluded:
+//   - draft: invoice has not been issued; accounting truth not established; sending is premature.
+//   - voided: cancelled document; delivery would be misleading to the recipient.
+var sendableStatuses = map[models.InvoiceStatus]bool{
+	models.InvoiceStatusIssued:        true,
+	models.InvoiceStatusSent:          true,
+	models.InvoiceStatusPaid:          true,
+	models.InvoiceStatusPartiallyPaid: true,
+	models.InvoiceStatusOverdue:       true,
+}
+
+// ValidateInvoiceForSending checks if an invoice is eligible for email delivery.
+// Returns nil if valid; otherwise returns an *InvoiceValidationError with details.
 //
-// Checks:
-// 1. Customer email exists
-// 2. Recipient email is valid format
+// Checks (in order — all checked; all errors collected):
+//  1. Invoice status must be in sendableStatuses (issued/sent/paid/partially_paid/overdue)
+//  2. Customer email snapshot must be set (used as fallback recipient)
+//
+// SMTP readiness is NOT checked here — use CheckSMTPGate separately.
+// Recipient override (caller-supplied to_email) is validated at send time.
 func ValidateInvoiceForSending(db *gorm.DB, companyID, invoiceID uint) error {
 	var invoice models.Invoice
 	if err := db.Where("id = ? AND company_id = ?", invoiceID, companyID).
@@ -194,25 +209,28 @@ func ValidateInvoiceForSending(db *gorm.DB, companyID, invoiceID uint) error {
 		return &InvoiceValidationError{Errors: []string{"invoice lookup failed"}}
 	}
 
-	errors := make([]string, 0)
+	var errs []string
 
-	// 1. Check customer exists (value type: ID == 0 means not loaded)
-	if invoice.Customer.ID == 0 {
-		errors = append(errors, "customer not found")
+	// 1. Status eligibility.
+	if !sendableStatuses[invoice.Status] {
+		switch invoice.Status {
+		case models.InvoiceStatusDraft:
+			errs = append(errs, "draft invoices cannot be sent — issue the invoice first")
+		case models.InvoiceStatusVoided:
+			errs = append(errs, "voided invoices cannot be sent")
+		default:
+			errs = append(errs, fmt.Sprintf("invoice status %q does not allow sending", invoice.Status))
+		}
 	}
 
-	// 2. Check customer has email snapshot (used as send destination)
+	// 2. Customer email (fallback recipient) must exist.
 	if invoice.CustomerEmailSnapshot == "" {
-		errors = append(errors, "customer email is not set — update the customer record and re-save the invoice")
+		errs = append(errs, "customer email is not set — update the customer record and re-save the invoice")
 	}
 
-	// 3. Check SMTP is configured for company
-	// This is checked at send time by email service
-
-	if len(errors) > 0 {
-		return &InvoiceValidationError{Errors: errors}
+	if len(errs) > 0 {
+		return &InvoiceValidationError{Errors: errs}
 	}
-
 	return nil
 }
 

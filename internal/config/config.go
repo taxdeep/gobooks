@@ -22,6 +22,13 @@ type Config struct {
 	DBName     string
 	DBSSLMode  string
 	AISecretKey string
+
+	// PublicBaseURL is the canonical public origin of this deployment.
+	// Used to build payment provider return URLs (success / cancel).
+	// Must be scheme+host with no trailing slash, e.g. "https://app.example.com".
+	// Set via APP_PUBLIC_URL environment variable.
+	// If empty, handlers fall back to the request host (logged as WARN).
+	PublicBaseURL string
 }
 
 // Load reads .env (if present) and then reads environment variables.
@@ -40,7 +47,8 @@ func Load() (Config, error) {
 		DBPassword: getenv("DB_PASSWORD", "gobooks"),
 		DBName:     getenv("DB_NAME", "gobooks"),
 		DBSSLMode:  getenv("DB_SSLMODE", "disable"),
-		AISecretKey: getenv("AI_SECRET_KEY", ""),
+		AISecretKey:   getenv("AI_SECRET_KEY", ""),
+		PublicBaseURL: getenv("APP_PUBLIC_URL", ""),
 	}
 
 	if cfg.DBHost == "" || cfg.DBPort == "" || cfg.DBUser == "" || cfg.DBName == "" {
