@@ -461,6 +461,9 @@ func (s *Server) taskFormVMFromTask(companyID uint, task *models.Task) (pages.Ta
 		IsBillable:   task.IsBillable,
 		Notes:        task.Notes,
 	}
+	if task.ProductServiceID != nil {
+		vm.ServiceItemID = strconv.FormatUint(uint64(*task.ProductServiceID), 10)
+	}
 	if err := s.loadTaskFormContext(companyID, &vm); err != nil {
 		return vm, err
 	}
@@ -487,6 +490,7 @@ func (s *Server) buildTaskFormVMFromRequest(c *fiber.Ctx, companyID uint, existi
 	vm.CurrencyCode = strings.ToUpper(strings.TrimSpace(c.FormValue("currency_code")))
 	vm.IsBillable = c.FormValue("is_billable") == "1"
 	vm.Notes = strings.TrimSpace(c.FormValue("notes"))
+	vm.ServiceItemID = strings.TrimSpace(c.FormValue("product_service_id"))
 
 	if vm.Quantity == "" {
 		vm.Quantity = "1"
@@ -510,6 +514,15 @@ func (s *Server) buildTaskFormVMFromRequest(c *fiber.Ctx, companyID uint, existi
 	input.Notes = vm.Notes
 
 	var hasErr bool
+	if vm.ServiceItemID != "" {
+		if id64, err := services.ParseUint(vm.ServiceItemID); err == nil && id64 > 0 {
+			id := uint(id64)
+			input.ProductServiceID = &id
+		} else {
+			vm.ServiceItemError = "Service item is invalid."
+			hasErr = true
+		}
+	}
 	if id64, err := services.ParseUint(vm.CustomerID); err == nil && id64 > 0 {
 		input.CustomerID = uint(id64)
 	} else {
@@ -570,6 +583,16 @@ func (s *Server) loadTaskFormContext(companyID uint, vm *pages.TaskFormVM) error
 		return err
 	}
 	vm.Customers = customers
+
+	// Load active service-type items for the service item dropdown.
+	var serviceItems []models.ProductService
+	if err := s.DB.
+		Where("company_id = ? AND type = ? AND is_active = true", companyID, models.ProductServiceTypeService).
+		Order("name ASC").
+		Find(&serviceItems).Error; err != nil {
+		return err
+	}
+	vm.ServiceItems = serviceItems
 
 	var company models.Company
 	if err := s.DB.Select("id", "base_currency_code", "multi_currency_enabled").First(&company, companyID).Error; err != nil {
@@ -646,6 +669,8 @@ func (s *Server) applyTaskServiceError(vm *pages.TaskFormVM, err error) {
 		vm.RateError = err.Error()
 	case errors.Is(err, services.ErrTaskCurrencyRequired):
 		vm.CurrencyError = err.Error()
+	case errors.Is(err, services.ErrTaskServiceItemInvalid):
+		vm.ServiceItemError = err.Error()
 	default:
 		vm.FormError = err.Error()
 	}

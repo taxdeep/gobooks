@@ -25,6 +25,8 @@ func taskServiceDB(t *testing.T) *gorm.DB {
 	if err := db.AutoMigrate(
 		&models.Company{},
 		&models.Customer{},
+		&models.Account{},
+		&models.ProductService{},
 		&models.Invoice{},
 		&models.InvoiceLine{},
 		&models.Task{},
@@ -288,5 +290,197 @@ func TestListTasksFilters(t *testing.T) {
 	}
 	if tasks[0].Title != "Completed B" {
 		t.Fatalf("expected Completed B, got %q", tasks[0].Title)
+	}
+}
+
+// ── service item helpers ──────────────────────────────────────────────────────
+
+func seedTaskRevenueAccount(t *testing.T, db *gorm.DB, companyID uint, code string) uint {
+	t.Helper()
+	acct := models.Account{
+		CompanyID:         companyID,
+		Code:              code,
+		Name:              "Revenue " + code,
+		RootAccountType:   models.RootRevenue,
+		DetailAccountType: models.DetailServiceRevenue,
+		IsActive:          true,
+	}
+	if err := db.Create(&acct).Error; err != nil {
+		t.Fatal(err)
+	}
+	return acct.ID
+}
+
+func seedTaskServiceItem(t *testing.T, db *gorm.DB, companyID, accountID uint, name string, psType models.ProductServiceType, active bool) uint {
+	t.Helper()
+	item := models.ProductService{
+		CompanyID:        companyID,
+		Name:             name,
+		Type:             psType,
+		RevenueAccountID: accountID,
+		IsActive:         true,
+	}
+	if err := db.Create(&item).Error; err != nil {
+		t.Fatal(err)
+	}
+	if !active {
+		if err := db.Model(&item).Update("is_active", false).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	return item.ID
+}
+
+// ── service item tests ────────────────────────────────────────────────────────
+
+func TestCreateTask_WithServiceItem_Saves(t *testing.T) {
+	db := taskServiceDB(t)
+	companyID := seedTaskServiceCompany(t, db, "SvcItem Save Co")
+	customerID := seedTaskServiceCustomer(t, db, companyID, "Acme")
+	acctID := seedTaskRevenueAccount(t, db, companyID, "4000")
+	itemID := seedTaskServiceItem(t, db, companyID, acctID, "Consulting", models.ProductServiceTypeService, true)
+
+	in := baseTaskInput(companyID, customerID)
+	in.ProductServiceID = &itemID
+	task, err := CreateTask(db, in)
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	if task.ProductServiceID == nil || *task.ProductServiceID != itemID {
+		t.Fatalf("expected ProductServiceID %d, got %v", itemID, task.ProductServiceID)
+	}
+
+	// Verify GetTaskByID preloads it.
+	fetched, err := GetTaskByID(db, companyID, task.ID)
+	if err != nil {
+		t.Fatalf("GetTaskByID: %v", err)
+	}
+	if fetched.ProductService == nil {
+		t.Fatal("expected ProductService preloaded, got nil")
+	}
+	if fetched.ProductService.Name != "Consulting" {
+		t.Fatalf("expected name %q, got %q", "Consulting", fetched.ProductService.Name)
+	}
+}
+
+func TestCreateTask_CrossCompanyServiceItemRejected(t *testing.T) {
+	db := taskServiceDB(t)
+	companyA := seedTaskServiceCompany(t, db, "Cross Co A")
+	companyB := seedTaskServiceCompany(t, db, "Cross Co B")
+	customerID := seedTaskServiceCustomer(t, db, companyA, "Acme")
+	acctID := seedTaskRevenueAccount(t, db, companyB, "4000")
+	itemID := seedTaskServiceItem(t, db, companyB, acctID, "B's Service", models.ProductServiceTypeService, true)
+
+	in := baseTaskInput(companyA, customerID)
+	in.ProductServiceID = &itemID
+	_, err := CreateTask(db, in)
+	if !errors.Is(err, ErrTaskServiceItemInvalid) {
+		t.Fatalf("expected ErrTaskServiceItemInvalid for cross-company item, got %v", err)
+	}
+}
+
+func TestCreateTask_NonServiceTypeItemRejected(t *testing.T) {
+	db := taskServiceDB(t)
+	companyID := seedTaskServiceCompany(t, db, "NonSvc Co")
+	customerID := seedTaskServiceCustomer(t, db, companyID, "Acme")
+	acctID := seedTaskRevenueAccount(t, db, companyID, "4000")
+	invItemID := seedTaskServiceItem(t, db, companyID, acctID, "Widget", models.ProductServiceTypeInventory, true)
+
+	in := baseTaskInput(companyID, customerID)
+	in.ProductServiceID = &invItemID
+	_, err := CreateTask(db, in)
+	if !errors.Is(err, ErrTaskServiceItemInvalid) {
+		t.Fatalf("expected ErrTaskServiceItemInvalid for non-service item, got %v", err)
+	}
+}
+
+func TestCreateTask_InactiveServiceItemRejected(t *testing.T) {
+	db := taskServiceDB(t)
+	companyID := seedTaskServiceCompany(t, db, "Inactive Svc Co")
+	customerID := seedTaskServiceCustomer(t, db, companyID, "Acme")
+	acctID := seedTaskRevenueAccount(t, db, companyID, "4000")
+	itemID := seedTaskServiceItem(t, db, companyID, acctID, "Old Svc", models.ProductServiceTypeService, false) // inactive
+
+	in := baseTaskInput(companyID, customerID)
+	in.ProductServiceID = &itemID
+	_, err := CreateTask(db, in)
+	if !errors.Is(err, ErrTaskServiceItemInvalid) {
+		t.Fatalf("expected ErrTaskServiceItemInvalid for inactive item, got %v", err)
+	}
+}
+
+func TestEditTask_ServiceItemEchoed(t *testing.T) {
+	db := taskServiceDB(t)
+	companyID := seedTaskServiceCompany(t, db, "SvcItem Echo Co")
+	customerID := seedTaskServiceCustomer(t, db, companyID, "Acme")
+	acctID := seedTaskRevenueAccount(t, db, companyID, "4000")
+	itemID := seedTaskServiceItem(t, db, companyID, acctID, "Design", models.ProductServiceTypeService, true)
+
+	in := baseTaskInput(companyID, customerID)
+	in.ProductServiceID = &itemID
+	task := createTaskForTest(t, db, in)
+
+	// Update with a different (nil) service item — should clear it.
+	updated, err := UpdateTask(db, companyID, task.ID, TaskInput{
+		CompanyID:    companyID,
+		CustomerID:   customerID,
+		Title:        task.Title,
+		TaskDate:     task.TaskDate,
+		Quantity:     task.Quantity,
+		UnitType:     task.UnitType,
+		Rate:         task.Rate,
+		CurrencyCode: task.CurrencyCode,
+		IsBillable:   task.IsBillable,
+		Notes:        task.Notes,
+		// ProductServiceID intentionally nil
+	})
+	if err != nil {
+		t.Fatalf("UpdateTask: %v", err)
+	}
+	if updated.ProductServiceID != nil {
+		t.Fatalf("expected ProductServiceID cleared, got %v", updated.ProductServiceID)
+	}
+
+	// Re-assign the item.
+	updated2, err := UpdateTask(db, companyID, task.ID, TaskInput{
+		CompanyID:        companyID,
+		CustomerID:       customerID,
+		Title:            task.Title,
+		TaskDate:         task.TaskDate,
+		Quantity:         task.Quantity,
+		UnitType:         task.UnitType,
+		Rate:             task.Rate,
+		CurrencyCode:     task.CurrencyCode,
+		IsBillable:       task.IsBillable,
+		Notes:            task.Notes,
+		ProductServiceID: &itemID,
+	})
+	if err != nil {
+		t.Fatalf("UpdateTask re-assign: %v", err)
+	}
+	if updated2.ProductServiceID == nil || *updated2.ProductServiceID != itemID {
+		t.Fatalf("expected ProductServiceID %d after re-assign, got %v", itemID, updated2.ProductServiceID)
+	}
+}
+
+func TestCreateTask_DateStoredAsYYYYMMDD(t *testing.T) {
+	db := taskServiceDB(t)
+	companyID := seedTaskServiceCompany(t, db, "Date Format Co")
+	customerID := seedTaskServiceCustomer(t, db, companyID, "Acme")
+
+	in := baseTaskInput(companyID, customerID)
+	in.TaskDate = time.Date(2026, 4, 9, 0, 0, 0, 0, time.UTC)
+	task, err := CreateTask(db, in)
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+
+	// Reload from DB to verify stored format.
+	var row models.Task
+	if err := db.First(&row, task.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if row.TaskDate.Format("2006-01-02") != "2026-04-09" {
+		t.Fatalf("expected date 2026-04-09, got %s", row.TaskDate.Format("2006-01-02"))
 	}
 }

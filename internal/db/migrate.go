@@ -209,7 +209,12 @@ func Migrate(db *gorm.DB) error {
 	if err := ensureCompanyAccountCodeDefaults(db); err != nil {
 		return err
 	}
-	return ensureDocumentNumberIndexes(db)
+	if err := ensureDocumentNumberIndexes(db); err != nil {
+		return err
+	}
+	// Batch 28 task service item: link tasks to Products & Services catalogue.
+	// AutoMigrate above handles fresh installs; this guard adds the column on live DBs.
+	return migrateTaskServiceItem(db)
 }
 
 // migrateBatch15Columns adds Batch 15 columns to existing live databases.

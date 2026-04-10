@@ -53,13 +53,13 @@ func testTaskInvoiceDraftDB(t *testing.T) *gorm.DB {
 }
 
 type taskDraftFixture struct {
-	companyID         uint
-	customerID        uint
-	otherCustomerID   uint
-	vendorID          uint
-	expenseAccountID  uint
-	taskLaborItemID   uint
-	taskReimItemID    uint
+	companyID        uint
+	customerID       uint
+	otherCustomerID  uint
+	vendorID         uint
+	expenseAccountID uint
+	taskLaborItemID  uint
+	taskReimItemID   uint
 }
 
 func seedTaskDraftFixture(t *testing.T, db *gorm.DB) taskDraftFixture {
@@ -130,6 +130,37 @@ func seedDraftTask(t *testing.T, db *gorm.DB, companyID, customerID uint, status
 		task.IsBillable = false
 	}
 	return task
+}
+
+func seedDraftProductServiceItem(t *testing.T, db *gorm.DB, companyID uint, accountCode, name string, itemType models.ProductServiceType) uint {
+	t.Helper()
+
+	revenueAccountID := seedAccountForInvoice(t, db, companyID, accountCode, name+" Revenue", models.RootRevenue, models.DetailServiceRevenue)
+	item := models.ProductService{
+		CompanyID:        companyID,
+		Name:             name,
+		Type:             itemType,
+		RevenueAccountID: revenueAccountID,
+		IsActive:         true,
+	}
+	if err := db.Create(&item).Error; err != nil {
+		t.Fatal(err)
+	}
+	return item.ID
+}
+
+func loadSingleDraftLine(t *testing.T, db *gorm.DB, invoiceID uint) models.InvoiceLine {
+	t.Helper()
+
+	var invoice models.Invoice
+	if err := db.Preload("Lines", func(db *gorm.DB) *gorm.DB { return db.Order("sort_order asc") }).
+		First(&invoice, invoiceID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(invoice.Lines) != 1 {
+		t.Fatalf("expected one invoice line, got %d", len(invoice.Lines))
+	}
+	return invoice.Lines[0]
 }
 
 func seedDraftExpense(t *testing.T, db *gorm.DB, fixture taskDraftFixture, taskID *uint, billable bool, description string, amount string) models.Expense {
@@ -305,6 +336,62 @@ func TestGenerateInvoiceDraft_HappyPathWithMixedSources(t *testing.T) {
 	}
 	if reloadedBillLine.ReinvoiceStatus != models.ReinvoiceStatusInvoiced || reloadedBillLine.InvoiceID == nil || *reloadedBillLine.InvoiceID != invoice.ID {
 		t.Fatalf("unexpected bill-line linkage after draft: %+v", reloadedBillLine)
+	}
+}
+
+func TestGenerateInvoiceDraft_UsesTaskServiceItemAndRejectsNonServiceAtDraftTime(t *testing.T) {
+	db := testTaskInvoiceDraftDB(t)
+	fixture := seedTaskDraftFixture(t, db)
+
+	customServiceID := seedDraftProductServiceItem(t, db, fixture.companyID, "4100", "Implementation Service", models.ProductServiceTypeService)
+	task := seedDraftTask(t, db, fixture.companyID, fixture.customerID, models.TaskStatusCompleted, "Custom service task", true)
+	if err := db.Model(&task).Update("product_service_id", customServiceID).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := GenerateInvoiceDraft(db, GenerateInvoiceDraftInput{
+		CompanyID:  fixture.companyID,
+		CustomerID: fixture.customerID,
+		TaskIDs:    []uint{task.ID},
+		Actor:      "tester",
+	})
+	if err != nil {
+		t.Fatalf("GenerateInvoiceDraft custom service failed: %v", err)
+	}
+	line := loadSingleDraftLine(t, db, result.InvoiceID)
+	if line.ProductServiceID == nil || *line.ProductServiceID != customServiceID {
+		t.Fatalf("expected custom service item %d, got %+v", customServiceID, line.ProductServiceID)
+	}
+	if *line.ProductServiceID == fixture.taskLaborItemID {
+		t.Fatalf("expected custom service item, got TASK_LABOR %d", fixture.taskLaborItemID)
+	}
+
+	staleServiceID := seedDraftProductServiceItem(t, db, fixture.companyID, "4101", "Later Non-Service", models.ProductServiceTypeService)
+	staleTask := seedDraftTask(t, db, fixture.companyID, fixture.customerID, models.TaskStatusCompleted, "Stale service task", true)
+	if err := db.Model(&staleTask).Update("product_service_id", staleServiceID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&models.ProductService{}).
+		Where("id = ?", staleServiceID).
+		Update("type", models.ProductServiceTypeNonInventory).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	staleResult, err := GenerateInvoiceDraft(db, GenerateInvoiceDraftInput{
+		CompanyID:  fixture.companyID,
+		CustomerID: fixture.customerID,
+		TaskIDs:    []uint{staleTask.ID},
+		Actor:      "tester",
+	})
+	if err != nil {
+		t.Fatalf("GenerateInvoiceDraft stale service failed: %v", err)
+	}
+	staleLine := loadSingleDraftLine(t, db, staleResult.InvoiceID)
+	if staleLine.ProductServiceID == nil || *staleLine.ProductServiceID != fixture.taskLaborItemID {
+		t.Fatalf("expected fallback TASK_LABOR item %d, got %+v", fixture.taskLaborItemID, staleLine.ProductServiceID)
+	}
+	if *staleLine.ProductServiceID == staleServiceID {
+		t.Fatalf("expected non-service task item %d to be rejected at draft time", staleServiceID)
 	}
 }
 

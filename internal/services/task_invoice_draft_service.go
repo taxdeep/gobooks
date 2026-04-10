@@ -15,16 +15,16 @@ import (
 )
 
 var (
-	ErrBillableWorkCustomerRequired   = errors.New("customer is required")
-	ErrBillableWorkSelectionRequired  = errors.New("select at least one billable work source")
-	ErrBillableWorkCurrencyMismatch   = errors.New("all selected billable work must use the same currency in this version")
-	ErrBillableWorkSourceAlreadyUsed  = errors.New("one or more selected sources are already linked to an active invoice")
-	ErrBillableWorkTaskNotReady       = errors.New("only completed billable tasks can be invoiced")
-	ErrBillableWorkExpenseNotReady    = errors.New("only task-linked billable uninvoiced expenses can be invoiced")
-	ErrBillableWorkBillLineNotReady   = errors.New("only task-linked billable uninvoiced bill lines can be invoiced")
-	ErrBillableWorkCustomerMismatch   = errors.New("all selected sources must belong to the selected customer")
-	ErrBillableWorkSystemItemMissing  = errors.New("required task billing system items are missing or inactive")
-	ErrBillLineNotFound               = errors.New("bill line not found")
+	ErrBillableWorkCustomerRequired  = errors.New("customer is required")
+	ErrBillableWorkSelectionRequired = errors.New("select at least one billable work source")
+	ErrBillableWorkCurrencyMismatch  = errors.New("all selected billable work must use the same currency in this version")
+	ErrBillableWorkSourceAlreadyUsed = errors.New("one or more selected sources are already linked to an active invoice")
+	ErrBillableWorkTaskNotReady      = errors.New("only completed billable tasks can be invoiced")
+	ErrBillableWorkExpenseNotReady   = errors.New("only task-linked billable uninvoiced expenses can be invoiced")
+	ErrBillableWorkBillLineNotReady  = errors.New("only task-linked billable uninvoiced bill lines can be invoiced")
+	ErrBillableWorkCustomerMismatch  = errors.New("all selected sources must belong to the selected customer")
+	ErrBillableWorkSystemItemMissing = errors.New("required task billing system items are missing or inactive")
+	ErrBillLineNotFound              = errors.New("bill line not found")
 )
 
 type BillableWorkCandidates struct {
@@ -332,6 +332,7 @@ func loadDraftableTasks(tx *gorm.DB, companyID, customerID uint, ids []uint) (ma
 	var tasks []models.Task
 	if err := applyLockForUpdate(tx.
 		Preload("Customer").
+		Preload("ProductService").
 		Where("company_id = ? AND id IN ?", companyID, ids)).
 		Find(&tasks).Error; err != nil {
 		return nil, err
@@ -435,7 +436,17 @@ func buildTaskDraftSources(tx *gorm.DB, companyID uint, item *models.ProductServ
 	out := make([]draftTaskSource, 0, len(ids))
 	for _, id := range ids {
 		task := sourceMap[id]
-		line, amount, currency, err := buildDraftInvoiceLine(tx, companyID, item, strings.TrimSpace(task.Title), task.Quantity, task.Rate, task.CurrencyCode)
+		// Use the task's own service item if one was linked at task-creation time.
+		// The item must still be active at draft-generation time — if it was
+		// deactivated since then, we fall back to the TASK_LABOR system item so
+		// the draft can still be generated (the editor can correct it before issuing).
+		lineItem := item
+		if task.ProductService != nil && task.ProductService.IsActive &&
+			task.ProductService.CompanyID == companyID &&
+			task.ProductService.Type == models.ProductServiceTypeService {
+			lineItem = task.ProductService
+		}
+		line, amount, currency, err := buildDraftInvoiceLine(tx, companyID, lineItem, strings.TrimSpace(task.Title), task.Quantity, task.Rate, task.CurrencyCode)
 		if err != nil {
 			return nil, err
 		}

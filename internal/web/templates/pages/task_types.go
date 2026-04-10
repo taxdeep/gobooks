@@ -35,29 +35,35 @@ type TaskFormVM struct {
 	ReadOnlyCore bool
 	CanCancel    bool
 
-	CustomerID   string
-	Title        string
-	TaskDate     string
-	Quantity     string
-	UnitType     string
-	Rate         string
-	CurrencyCode string
-	IsBillable   bool
-	Notes        string
+	CustomerID       string
+	Title            string
+	TaskDate         string
+	Quantity         string
+	UnitType         string
+	Rate             string
+	CurrencyCode     string
+	IsBillable       bool
+	Notes            string
+	// ServiceItemID is the string form of ProductServiceID (empty = none selected).
+	ServiceItemID string
 
-	CustomerError string
-	TitleError    string
-	TaskDateError string
-	QuantityError string
-	UnitTypeError string
-	RateError     string
-	CurrencyError string
-	FormError     string
+	CustomerError     string
+	TitleError        string
+	TaskDateError     string
+	QuantityError     string
+	UnitTypeError     string
+	RateError         string
+	CurrencyError     string
+	ServiceItemError  string
+	FormError         string
 
 	BaseCurrencyCode string
 	MultiCurrency    bool
 	CurrencyOptions  []string
 	Customers        []models.Customer
+	// ServiceItems holds the active service-type items for the company, used to
+	// populate the Service Item dropdown in the New / Edit Task form.
+	ServiceItems []models.ProductService
 }
 
 type TaskDetailVM struct {

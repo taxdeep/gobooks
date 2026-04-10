@@ -76,11 +76,28 @@ templ bodyTaskForm(vm TaskFormVM) {
 					</div>
 
 					<div>
+						<label class="block text-body font-medium text-text">Service Item</label>
+						if vm.ReadOnlyCore {
+							<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">{ taskSelectedServiceItemName(vm) }</div>
+						} else {
+							<select name="product_service_id" class={ taskInputClass(vm.ServiceItemError != "") }>
+								<option value="">-- None --</option>
+								for _, item := range vm.ServiceItems {
+									<option value={ Uitoa(item.ID) } selected?={ Uitoa(item.ID) == vm.ServiceItemID }>{ item.Name }</option>
+								}
+							</select>
+						}
+						if vm.ServiceItemError != "" {
+							<div class="mt-1 text-body text-danger">{ vm.ServiceItemError }</div>
+						}
+					</div>
+
+					<div>
 						<label class="block text-body font-medium text-text">Task Date *</label>
 						if vm.ReadOnlyCore {
 							<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">{ vm.TaskDate }</div>
 						} else {
-							<input type="date" name="task_date" value={ vm.TaskDate } class={ taskInputClass(vm.TaskDateError != "") }/>
+							<input type="text" name="task_date" value={ vm.TaskDate } placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}" class={ taskInputClass(vm.TaskDateError != "") }/>
 						}
 						if vm.TaskDateError != "" {
 							<div class="mt-1 text-body text-danger">{ vm.TaskDateError }</div>
@@ -195,6 +212,7 @@ templ taskHiddenCoreFields(vm TaskFormVM) {
 	<input type="hidden" name="unit_type" value={ vm.UnitType }/>
 	<input type="hidden" name="rate" value={ vm.Rate }/>
 	<input type="hidden" name="currency_code" value={ vm.CurrencyCode }/>
+	<input type="hidden" name="product_service_id" value={ vm.ServiceItemID }/>
 	if vm.IsBillable {
 		<input type="hidden" name="is_billable" value="1"/>
 	}
@@ -226,15 +244,27 @@ func taskFormAction(vm TaskFormVM) string {
 
 func taskInputClass(hasErr bool) string {
 	if hasErr {
-		return "mt-2 block w-full rounded-md border border-danger px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+		return "mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-danger-focus"
 	}
-	return "mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+	return "mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus"
 }
 
 func taskSelectedCustomerName(vm TaskFormVM) string {
 	for _, customer := range vm.Customers {
 		if Uitoa(customer.ID) == vm.CustomerID {
 			return customer.Name
+		}
+	}
+	return "—"
+}
+
+func taskSelectedServiceItemName(vm TaskFormVM) string {
+	if vm.ServiceItemID == "" {
+		return "—"
+	}
+	for _, item := range vm.ServiceItems {
+		if Uitoa(item.ID) == vm.ServiceItemID {
+			return item.Name
 		}
 	}
 	return "—"

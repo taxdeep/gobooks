@@ -152,6 +152,14 @@ type Task struct {
 	CustomerID uint     `gorm:"not null;index"`
 	Customer   Customer `gorm:"foreignKey:CustomerID"`
 
+	// ProductServiceID optionally links the task to a specific service item from the
+	// Products & Services catalogue.  When set, the linked service item's revenue
+	// account and tax code are used when generating the invoice draft line for this
+	// task instead of the generic TASK_LABOR system item.
+	// Only active, service-type items belonging to the same company are valid.
+	ProductServiceID *uint           `gorm:"index"`
+	ProductService   *ProductService `gorm:"foreignKey:ProductServiceID"`
+
 	// Title is the human-readable work description.
 	// It becomes the invoice line Description when the task is billed.
 	Title string `gorm:"type:text;not null;default:''"`

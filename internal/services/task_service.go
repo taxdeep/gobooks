@@ -23,6 +23,7 @@ var (
 	ErrTaskRateNegative             = errors.New("rate must be zero or greater")
 	ErrTaskNotFound                 = errors.New("task not found")
 	ErrTaskCustomerInvalid          = errors.New("customer is not valid for this company")
+	ErrTaskServiceItemInvalid       = errors.New("service item must be an active service-type item for this company")
 	ErrTaskCompletedReadOnly        = errors.New("completed tasks can only update notes")
 	ErrTaskCancelledReadOnly        = errors.New("cancelled tasks cannot be edited")
 	ErrTaskInvoicedReadOnly         = errors.New("invoiced tasks cannot be edited")
@@ -31,16 +32,19 @@ var (
 )
 
 type TaskInput struct {
-	CompanyID    uint
-	CustomerID   uint
-	Title        string
-	TaskDate     time.Time
-	Quantity     decimal.Decimal
-	UnitType     string
-	Rate         decimal.Decimal
-	CurrencyCode string
-	IsBillable   bool
-	Notes        string
+	CompanyID        uint
+	CustomerID       uint
+	Title            string
+	TaskDate         time.Time
+	Quantity         decimal.Decimal
+	UnitType         string
+	Rate             decimal.Decimal
+	CurrencyCode     string
+	IsBillable       bool
+	Notes            string
+	// ProductServiceID optionally links the task to a service item from the
+	// Products & Services catalogue.  nil = use TASK_LABOR default when billing.
+	ProductServiceID *uint
 }
 
 type TaskListFilter struct {
@@ -57,17 +61,18 @@ func CreateTask(db *gorm.DB, in TaskInput) (*models.Task, error) {
 	}
 
 	task := models.Task{
-		CompanyID:    in.CompanyID,
-		CustomerID:   in.CustomerID,
-		Title:        strings.TrimSpace(in.Title),
-		TaskDate:     in.TaskDate,
-		Quantity:     in.Quantity,
-		UnitType:     strings.TrimSpace(in.UnitType),
-		Rate:         in.Rate,
-		CurrencyCode: strings.ToUpper(strings.TrimSpace(in.CurrencyCode)),
-		IsBillable:   in.IsBillable,
-		Status:       models.TaskStatusOpen,
-		Notes:        strings.TrimSpace(in.Notes),
+		CompanyID:        in.CompanyID,
+		CustomerID:       in.CustomerID,
+		Title:            strings.TrimSpace(in.Title),
+		TaskDate:         in.TaskDate,
+		Quantity:         in.Quantity,
+		UnitType:         strings.TrimSpace(in.UnitType),
+		Rate:             in.Rate,
+		CurrencyCode:     strings.ToUpper(strings.TrimSpace(in.CurrencyCode)),
+		IsBillable:       in.IsBillable,
+		Status:           models.TaskStatusOpen,
+		Notes:            strings.TrimSpace(in.Notes),
+		ProductServiceID: in.ProductServiceID,
 	}
 
 	if err := db.Create(&task).Error; err != nil {
@@ -107,6 +112,7 @@ func UpdateTask(db *gorm.DB, companyID, taskID uint, in TaskInput) (*models.Task
 			task.CurrencyCode = strings.ToUpper(strings.TrimSpace(in.CurrencyCode))
 			task.IsBillable = in.IsBillable
 			task.Notes = strings.TrimSpace(in.Notes)
+			task.ProductServiceID = in.ProductServiceID
 		}
 
 		if err := tx.Save(task).Error; err != nil {
@@ -149,6 +155,7 @@ func GetTaskByID(db *gorm.DB, companyID, taskID uint) (*models.Task, error) {
 		Preload("Customer").
 		Preload("Invoice").
 		Preload("InvoiceLine").
+		Preload("ProductService").
 		Where("id = ? AND company_id = ?", taskID, companyID).
 		First(&task).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -260,6 +267,18 @@ func validateTaskInput(db *gorm.DB, in TaskInput) error {
 	if count == 0 {
 		return ErrTaskCustomerInvalid
 	}
+
+	if in.ProductServiceID != nil {
+		var item models.ProductService
+		err := db.
+			Where("id = ? AND company_id = ? AND type = ?",
+				*in.ProductServiceID, in.CompanyID, models.ProductServiceTypeService).
+			Where("is_active = true").
+			First(&item).Error
+		if err != nil {
+			return ErrTaskServiceItemInvalid
+		}
+	}
 	return nil
 }
 
@@ -286,6 +305,15 @@ func completedTaskCoreChanged(task models.Task, in TaskInput) bool {
 		return true
 	}
 	if task.IsBillable != in.IsBillable {
+		return true
+	}
+	// ProductServiceID is part of the billing configuration; treat as core.
+	switch {
+	case task.ProductServiceID == nil && in.ProductServiceID != nil:
+		return true
+	case task.ProductServiceID != nil && in.ProductServiceID == nil:
+		return true
+	case task.ProductServiceID != nil && in.ProductServiceID != nil && *task.ProductServiceID != *in.ProductServiceID:
 		return true
 	}
 	return false

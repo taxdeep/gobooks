@@ -173,6 +173,115 @@ func TestTaskPagesHappyPath(t *testing.T) {
 	}
 }
 
+func TestTaskFormServiceItemHandlerIntegration(t *testing.T) {
+	db := testRouteDB(t)
+	companyID := seedCompany(t, db, "Task Service Item Web Co")
+	otherCompanyID := seedCompany(t, db, "Task Service Item Other Co")
+	user, rawToken := seedUserSession(t, db, &companyID)
+	seedMembership(t, db, user.ID, companyID)
+	customerID := seedValidationCustomer(t, db, companyID, "Service Item Customer")
+	revenueID := seedValidationAccount(t, db, companyID, "4000", models.RootRevenue, models.DetailServiceRevenue)
+	otherRevenueID := seedValidationAccount(t, db, otherCompanyID, "4000", models.RootRevenue, models.DetailServiceRevenue)
+
+	validServiceID := seedTaskWebServiceItem(t, db, companyID, revenueID, "Task Service A", models.ProductServiceTypeService, true)
+	crossCompanyServiceID := seedTaskWebServiceItem(t, db, otherCompanyID, otherRevenueID, "Other Co Service", models.ProductServiceTypeService, true)
+	nonServiceID := seedTaskWebServiceItem(t, db, companyID, revenueID, "Task Widget", models.ProductServiceTypeInventory, true)
+	inactiveServiceID := seedTaskWebServiceItem(t, db, companyID, revenueID, "Inactive Task Service", models.ProductServiceTypeService, false)
+
+	app := testRouteApp(t, db)
+
+	newResp := performRequest(t, app, "/tasks/new", rawToken)
+	if newResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected %d, got %d", http.StatusOK, newResp.StatusCode)
+	}
+	newBody := readResponseBody(t, newResp)
+	if !strings.Contains(newBody, "Task Service A") {
+		t.Fatalf("expected active same-company service item on new task page, got %q", newBody)
+	}
+	for _, notWant := range []string{"Other Co Service", "Task Widget", "Inactive Task Service"} {
+		if strings.Contains(newBody, notWant) {
+			t.Fatalf("expected new task page to hide %q, got %q", notWant, newBody)
+		}
+	}
+
+	postTask := func(title string, productServiceID uint) *http.Response {
+		t.Helper()
+		csrf := newCSRFToken(t)
+		form := url.Values{
+			"customer_id":        {fmt.Sprintf("%d", customerID)},
+			"title":              {title},
+			"task_date":          {"2026-04-09"},
+			"quantity":           {"1.00"},
+			"unit_type":          {models.TaskUnitTypeHour},
+			"rate":               {"125.00"},
+			"currency_code":      {"CAD"},
+			"is_billable":        {"1"},
+			"product_service_id": {fmt.Sprintf("%d", productServiceID)},
+		}
+		form.Set(CSRFFormField, csrf)
+		return performSecurityRequest(
+			t,
+			app,
+			http.MethodPost,
+			"/tasks",
+			[]byte(form.Encode()),
+			"application/x-www-form-urlencoded",
+			&http.Cookie{Name: SessionCookieName, Value: rawToken, Path: "/"},
+			&http.Cookie{Name: CSRFCookieName, Value: csrf, Path: "/"},
+		)
+	}
+
+	createResp := postTask("Service linked task", validServiceID)
+	if createResp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("expected %d, got %d", http.StatusSeeOther, createResp.StatusCode)
+	}
+	var created models.Task
+	if err := db.Where("company_id = ? AND title = ?", companyID, "Service linked task").First(&created).Error; err != nil {
+		t.Fatal(err)
+	}
+	if created.ProductServiceID == nil || *created.ProductServiceID != validServiceID {
+		t.Fatalf("expected ProductServiceID %d, got %+v", validServiceID, created.ProductServiceID)
+	}
+
+	editResp := performRequest(t, app, fmt.Sprintf("/tasks/%d/edit", created.ID), rawToken)
+	if editResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected %d, got %d", http.StatusOK, editResp.StatusCode)
+	}
+	editBody := readResponseBody(t, editResp)
+	if !strings.Contains(editBody, fmt.Sprintf("value=\"%d\" selected", validServiceID)) ||
+		!strings.Contains(editBody, "Task Service A") {
+		t.Fatalf("expected edit page to show selected service item, got %q", editBody)
+	}
+
+	for _, tc := range []struct {
+		name             string
+		title            string
+		productServiceID uint
+	}{
+		{name: "cross-company", title: "Reject cross-company service", productServiceID: crossCompanyServiceID},
+		{name: "non-service", title: "Reject non-service item", productServiceID: nonServiceID},
+		{name: "inactive", title: "Reject inactive service", productServiceID: inactiveServiceID},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := postTask(tc.title, tc.productServiceID)
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("expected form re-render %d, got %d", http.StatusOK, resp.StatusCode)
+			}
+			body := readResponseBody(t, resp)
+			if !strings.Contains(body, services.ErrTaskServiceItemInvalid.Error()) {
+				t.Fatalf("expected service item error, got %q", body)
+			}
+			var count int64
+			if err := db.Model(&models.Task{}).Where("company_id = ? AND title = ?", companyID, tc.title).Count(&count).Error; err != nil {
+				t.Fatal(err)
+			}
+			if count != 0 {
+				t.Fatalf("expected rejected task not to be saved, found %d rows", count)
+			}
+		})
+	}
+}
+
 func TestTaskDetailShowsLinkedExpensesBillLinesAndSummary(t *testing.T) {
 	db := testRouteDB(t)
 	companyID := seedCompany(t, db, "Task Detail Co")
@@ -538,4 +647,25 @@ func seedBillableBillLineForTaskWeb(t *testing.T, db *gorm.DB, companyID, vendor
 		t.Fatal(err)
 	}
 	return line
+}
+
+func seedTaskWebServiceItem(t *testing.T, db *gorm.DB, companyID, accountID uint, name string, psType models.ProductServiceType, active bool) uint {
+	t.Helper()
+
+	item := models.ProductService{
+		CompanyID:        companyID,
+		Name:             name,
+		Type:             psType,
+		RevenueAccountID: accountID,
+		IsActive:         true,
+	}
+	if err := db.Create(&item).Error; err != nil {
+		t.Fatal(err)
+	}
+	if !active {
+		if err := db.Model(&item).Update("is_active", false).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	return item.ID
 }

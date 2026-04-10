@@ -82,7 +82,7 @@ templ textField(label string, name string, value string, err string, placeholder
 }
 
 templ dateField(label string, name string, value string, err string) {
-	@ui.InputField(label, name, value, "", "date", err)
+	@ui.InputField(label, name, value, "YYYY-MM-DD", "text", err)
 }
 
 templ monthDayField(label string, name string, value string, err string) {
