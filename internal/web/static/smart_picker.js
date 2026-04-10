@@ -1,5 +1,5 @@
 // smart_picker.js — GoBooks universal SmartPicker Alpine component.
-// v=1
+// v=2
 //
 // IMPORTANT — entity semantics:
 //   entity="account" in Phase 1 maps to ExpenseAccountProvider, which returns
@@ -152,6 +152,15 @@ function gobooksSmartPicker() {
       this.query         = item.primary;
       this.open          = false;
       this.highlighted   = -1;
+      // Dispatch a bubbling event so parent Alpine components can react.
+      // `payload` carries machine-readable data (e.g. default_price) that
+      // providers embed in SmartPickerItem.Payload — not shown in the dropdown UI.
+      this.$dispatch("gobooks-picker-select", {
+        entity:  this.entity,
+        context: this.context,
+        id:      item.id,
+        payload: item.payload || {},
+      });
     },
 
     close() {
@@ -212,6 +221,39 @@ function gobooksSmartPicker() {
             this.close();
           }
           break;
+      }
+    },
+  };
+}
+
+// gobooksTaskRateSync — Alpine component for the Task Form.
+//
+// Listens for gobooks-picker-select events bubbling up from any SmartPicker
+// inside the form. When the user picks a service item (context =
+// "task_form_service_item"), and the item carries a non-zero default_price in
+// its payload, the Rate field is auto-filled. The user can still type over it.
+//
+// Usage in templ:
+//   <form x-data="gobooksTaskRateSync()" data-init-rate="0.00"
+//         @gobooks-picker-select="onServiceItemSelect($event)">
+//     <input name="rate" x-model="rate" ...>
+//   </form>
+function gobooksTaskRateSync() {
+  return {
+    rate: "0.00",
+
+    init() {
+      this.rate = this.$el.dataset.initRate || "0.00";
+    },
+
+    onServiceItemSelect(event) {
+      const d = event.detail || {};
+      if (d.context !== "task_form_service_item") return;
+      const raw = (d.payload || {}).default_price;
+      if (!raw) return;
+      const price = parseFloat(raw);
+      if (!isNaN(price) && price > 0) {
+        this.rate = price.toFixed(2);
       }
     },
   };

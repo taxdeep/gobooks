@@ -13,12 +13,16 @@ import (
 // SmartPickerItem is the canonical response shape for a single entity in the picker.
 // Primary: the main display label (e.g. account name).
 // Secondary: supplementary info shown below/beside primary (e.g. account code).
-// Meta: reserved for future extensibility (e.g. tags, icons); nil unless populated.
+// Meta: key-value pairs rendered visually in the dropdown (e.g. type label, tags).
+// Payload: machine-readable data passed to JS select events but never rendered in UI.
+//          Use this for auto-fill values (e.g. default_price) that downstream Alpine
+//          components can act on without polluting the visual display.
 type SmartPickerItem struct {
 	ID        string            `json:"id"`
 	Primary   string            `json:"primary"`
 	Secondary string            `json:"secondary"`
 	Meta      map[string]string `json:"meta,omitempty"`
+	Payload   map[string]string `json:"payload,omitempty"`
 }
 
 // SmartPickerResult is the top-level JSON response from the search endpoint.
@@ -329,6 +333,11 @@ func productServiceSmartPickerItem(item models.ProductService) SmartPickerItem {
 		ID:        fmt.Sprintf("%d", item.ID),
 		Primary:   item.Name,
 		Secondary: productServiceSmartPickerSecondary(item),
+		// Payload carries default_price for JS auto-fill (e.g. Task Form Rate field).
+		// It is not rendered in the dropdown UI.
+		Payload: map[string]string{
+			"default_price": item.DefaultPrice.StringFixed(2),
+		},
 	}
 	if strings.TrimSpace(item.SKU) != "" {
 		spItem.Meta = map[string]string{"type": models.ProductServiceTypeLabel(item.Type)}

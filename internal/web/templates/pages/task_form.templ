@@ -38,7 +38,10 @@ templ bodyTaskForm(vm TaskFormVM) {
 			</div>
 		}
 
-		<form method="post" action={ taskFormAction(vm) } class="mt-6 space-y-6">
+		<form method="post" action={ taskFormAction(vm) } class="mt-6 space-y-6"
+			x-data="gobooksTaskRateSync()"
+			data-init-rate={ vm.Rate }
+			@gobooks-picker-select="onServiceItemSelect($event)">
 			<div class="rounded-lg border border-border bg-surface p-6">
 				<h2 class="text-section font-semibold text-text">Task Details</h2>
 				<div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -167,7 +170,7 @@ templ bodyTaskForm(vm TaskFormVM) {
 						if vm.ReadOnlyCore {
 							<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">{ vm.Rate }</div>
 						} else {
-							<input type="text" name="rate" value={ vm.Rate } inputmode="decimal" class={ taskInputClass(vm.RateError != "") }/>
+							<input type="text" name="rate" value={ vm.Rate } x-model="rate" inputmode="decimal" class={ taskInputClass(vm.RateError != "") }/>
 						}
 						if vm.RateError != "" {
 							<div class="mt-1 text-body text-danger">{ vm.RateError }</div>
