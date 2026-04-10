@@ -147,16 +147,16 @@ func (s *Server) handleTaskBillableWorkReport(c *fiber.Ctx) error {
 	}
 
 	vm := pages.BillableWorkReportVM{
-		HasCompany:             true,
-		Customers:              customers,
-		SelectedCustomerID:     selectedCustomerID,
-		Tasks:                  report.Tasks,
-		Expenses:               report.Expenses,
-		BillLines:              report.BillLines,
-		TaskLaborTotals:        report.TaskLaborTotals,
-		BillableExpenseTotals:  report.BillableExpenseTotals,
-		TotalUnbilledTotals:    report.TotalUnbilledTotals,
-		CustomerSummaries:      summaryMap,
+		HasCompany:            true,
+		Customers:             customers,
+		SelectedCustomerID:    selectedCustomerID,
+		Tasks:                 report.Tasks,
+		Expenses:              report.Expenses,
+		BillLines:             report.BillLines,
+		TaskLaborTotals:       report.TaskLaborTotals,
+		BillableExpenseTotals: report.BillableExpenseTotals,
+		TotalUnbilledTotals:   report.TotalUnbilledTotals,
+		CustomerSummaries:     summaryMap,
 	}
 	return pages.TaskBillableWorkReport(vm).Render(c.Context(), c)
 }
@@ -425,6 +425,25 @@ func stringifyUintIDs(ids []uint) []string {
 	return out
 }
 
+func taskServiceItemSmartPickerContext(companyID uint) SmartPickerContext {
+	return SmartPickerContext{CompanyID: companyID, Context: "task_form_service_item"}
+}
+
+func (s *Server) rehydrateTaskServiceItemLabel(companyID uint, idStr string) string {
+	if idStr == "" {
+		return ""
+	}
+	p, ok := defaultSmartPickerRegistry.get("product_service")
+	if !ok {
+		return ""
+	}
+	item, err := p.GetByID(s.DB, taskServiceItemSmartPickerContext(companyID), idStr)
+	if err != nil || item == nil {
+		return ""
+	}
+	return item.Primary
+}
+
 func (s *Server) newTaskFormVM(companyID uint) (pages.TaskFormVM, error) {
 	vm := pages.TaskFormVM{
 		HasCompany: true,
@@ -462,7 +481,16 @@ func (s *Server) taskFormVMFromTask(companyID uint, task *models.Task) (pages.Ta
 		Notes:        task.Notes,
 	}
 	if task.ProductServiceID != nil {
-		vm.ServiceItemID = strconv.FormatUint(uint64(*task.ProductServiceID), 10)
+		idStr := strconv.FormatUint(uint64(*task.ProductServiceID), 10)
+		label := s.rehydrateTaskServiceItemLabel(companyID, idStr)
+		if label != "" {
+			vm.ServiceItemID = idStr
+			vm.ServiceItemLabel = label
+		} else {
+			vm.ServiceItemID = ""
+			vm.ServiceItemLabel = ""
+			vm.ServiceItemError = "Previously selected service item is no longer available. Please choose a new one."
+		}
 	}
 	if err := s.loadTaskFormContext(companyID, &vm); err != nil {
 		return vm, err
@@ -480,6 +508,43 @@ func (s *Server) buildTaskFormVMFromRequest(c *fiber.Ctx, companyID uint, existi
 		vm.CanCancel = existing.Status == models.TaskStatusOpen || existing.Status == models.TaskStatusCompleted
 	}
 	_ = s.loadTaskFormContext(companyID, &vm)
+
+	if existing != nil && existing.Status == models.TaskStatusCompleted {
+		vm.CustomerID = strconv.FormatUint(uint64(existing.CustomerID), 10)
+		vm.Title = existing.Title
+		vm.TaskDate = existing.TaskDate.Format("2006-01-02")
+		vm.Quantity = existing.Quantity.String()
+		vm.UnitType = existing.UnitType
+		vm.Rate = existing.Rate.StringFixed(2)
+		vm.CurrencyCode = existing.CurrencyCode
+		vm.IsBillable = existing.IsBillable
+		vm.Notes = strings.TrimSpace(c.FormValue("notes"))
+		if existing.ProductServiceID != nil {
+			idStr := strconv.FormatUint(uint64(*existing.ProductServiceID), 10)
+			label := s.rehydrateTaskServiceItemLabel(companyID, idStr)
+			if label != "" {
+				vm.ServiceItemID = idStr
+				vm.ServiceItemLabel = label
+			} else {
+				vm.ServiceItemID = ""
+				vm.ServiceItemLabel = ""
+				vm.ServiceItemError = "Previously selected service item is no longer available. Please choose a new one."
+			}
+		}
+		return vm, services.TaskInput{
+			CompanyID:        companyID,
+			CustomerID:       existing.CustomerID,
+			Title:            existing.Title,
+			TaskDate:         existing.TaskDate,
+			Quantity:         existing.Quantity,
+			UnitType:         existing.UnitType,
+			Rate:             existing.Rate,
+			CurrencyCode:     existing.CurrencyCode,
+			IsBillable:       existing.IsBillable,
+			Notes:            vm.Notes,
+			ProductServiceID: existing.ProductServiceID,
+		}, false
+	}
 
 	vm.CustomerID = strings.TrimSpace(c.FormValue("customer_id"))
 	vm.Title = strings.TrimSpace(c.FormValue("title"))
@@ -516,9 +581,20 @@ func (s *Server) buildTaskFormVMFromRequest(c *fiber.Ctx, companyID uint, existi
 	var hasErr bool
 	if vm.ServiceItemID != "" {
 		if id64, err := services.ParseUint(vm.ServiceItemID); err == nil && id64 > 0 {
-			id := uint(id64)
-			input.ProductServiceID = &id
+			label := s.rehydrateTaskServiceItemLabel(companyID, vm.ServiceItemID)
+			if label != "" {
+				id := uint(id64)
+				input.ProductServiceID = &id
+				vm.ServiceItemLabel = label
+			} else {
+				vm.ServiceItemID = ""
+				vm.ServiceItemLabel = ""
+				vm.ServiceItemError = services.ErrTaskServiceItemInvalid.Error()
+				hasErr = true
+			}
 		} else {
+			vm.ServiceItemID = ""
+			vm.ServiceItemLabel = ""
 			vm.ServiceItemError = "Service item is invalid."
 			hasErr = true
 		}
@@ -670,6 +746,8 @@ func (s *Server) applyTaskServiceError(vm *pages.TaskFormVM, err error) {
 	case errors.Is(err, services.ErrTaskCurrencyRequired):
 		vm.CurrencyError = err.Error()
 	case errors.Is(err, services.ErrTaskServiceItemInvalid):
+		vm.ServiceItemID = ""
+		vm.ServiceItemLabel = ""
 		vm.ServiceItemError = err.Error()
 	default:
 		vm.FormError = err.Error()

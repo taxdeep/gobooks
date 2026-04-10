@@ -170,7 +170,8 @@ func validateExpenseInput(db *gorm.DB, in ExpenseInput) error {
 
 	var count int64
 	if err := db.Model(&models.Account{}).
-		Where("id = ? AND company_id = ? AND is_active = true", *in.ExpenseAccountID, in.CompanyID).
+		Where("id = ? AND company_id = ? AND root_account_type = ? AND is_active = true",
+			*in.ExpenseAccountID, in.CompanyID, models.RootExpense).
 		Count(&count).Error; err != nil {
 		return err
 	}

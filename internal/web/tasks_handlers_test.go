@@ -195,6 +195,19 @@ func TestTaskFormServiceItemHandlerIntegration(t *testing.T) {
 		t.Fatalf("expected %d, got %d", http.StatusOK, newResp.StatusCode)
 	}
 	newBody := readResponseBody(t, newResp)
+	for _, want := range []string{
+		`data-entity="product_service"`,
+		`data-context="task_form_service_item"`,
+		`data-field-name="product_service_id"`,
+		`name="product_service_id"`,
+	} {
+		if !strings.Contains(newBody, want) {
+			t.Fatalf("expected new task SmartPicker/fallback HTML to contain %q, got %q", want, newBody)
+		}
+	}
+	if strings.Contains(newBody, `<input type="hidden" name="product_service_id"`) {
+		t.Fatalf("interactive SmartPicker hidden input must not have a static product_service_id name, got %q", newBody)
+	}
 	if !strings.Contains(newBody, "Task Service A") {
 		t.Fatalf("expected active same-company service item on new task page, got %q", newBody)
 	}
@@ -248,9 +261,14 @@ func TestTaskFormServiceItemHandlerIntegration(t *testing.T) {
 		t.Fatalf("expected %d, got %d", http.StatusOK, editResp.StatusCode)
 	}
 	editBody := readResponseBody(t, editResp)
-	if !strings.Contains(editBody, fmt.Sprintf("value=\"%d\" selected", validServiceID)) ||
-		!strings.Contains(editBody, "Task Service A") {
-		t.Fatalf("expected edit page to show selected service item, got %q", editBody)
+	if !strings.Contains(editBody, fmt.Sprintf(`data-value="%d"`, validServiceID)) {
+		t.Fatalf("expected edit page data-value to rehydrate service item %d, got %q", validServiceID, editBody)
+	}
+	if !strings.Contains(editBody, `data-selected-label="Task Service A"`) {
+		t.Fatalf("expected edit page data-selected-label to rehydrate service item, got %q", editBody)
+	}
+	if strings.Contains(editBody, fmt.Sprintf(">%d<", validServiceID)) {
+		t.Fatalf("raw service item ID %d must not appear as visible text, got %q", validServiceID, editBody)
 	}
 
 	for _, tc := range []struct {
@@ -271,6 +289,12 @@ func TestTaskFormServiceItemHandlerIntegration(t *testing.T) {
 			if !strings.Contains(body, services.ErrTaskServiceItemInvalid.Error()) {
 				t.Fatalf("expected service item error, got %q", body)
 			}
+			if !strings.Contains(body, `data-value=""`) {
+				t.Fatalf("expected rejected service item to clear SmartPicker data-value, got %q", body)
+			}
+			if strings.Contains(body, fmt.Sprintf(`data-value="%d"`, tc.productServiceID)) {
+				t.Fatalf("illegal service item ID %d must not be retained in data-value, got %q", tc.productServiceID, body)
+			}
 			var count int64
 			if err := db.Model(&models.Task{}).Where("company_id = ? AND title = ?", companyID, tc.title).Count(&count).Error; err != nil {
 				t.Fatal(err)
@@ -279,6 +303,145 @@ func TestTaskFormServiceItemHandlerIntegration(t *testing.T) {
 				t.Fatalf("expected rejected task not to be saved, found %d rows", count)
 			}
 		})
+	}
+
+	csrf := newCSRFToken(t)
+	badTitleForm := url.Values{
+		"customer_id":        {fmt.Sprintf("%d", customerID)},
+		"title":              {""},
+		"task_date":          {"2026-04-09"},
+		"quantity":           {"1.00"},
+		"unit_type":          {models.TaskUnitTypeHour},
+		"rate":               {"125.00"},
+		"currency_code":      {"CAD"},
+		"is_billable":        {"1"},
+		"product_service_id": {fmt.Sprintf("%d", validServiceID)},
+	}
+	badTitleForm.Set(CSRFFormField, csrf)
+	badTitleResp := performSecurityRequest(
+		t,
+		app,
+		http.MethodPost,
+		"/tasks",
+		[]byte(badTitleForm.Encode()),
+		"application/x-www-form-urlencoded",
+		&http.Cookie{Name: SessionCookieName, Value: rawToken, Path: "/"},
+		&http.Cookie{Name: CSRFCookieName, Value: csrf, Path: "/"},
+	)
+	if badTitleResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected other-field error re-render %d, got %d", http.StatusOK, badTitleResp.StatusCode)
+	}
+	badTitleBody := readResponseBody(t, badTitleResp)
+	if !strings.Contains(badTitleBody, fmt.Sprintf(`data-value="%d"`, validServiceID)) {
+		t.Fatalf("valid service item data-value must be preserved on other-field error, got %q", badTitleBody)
+	}
+	if !strings.Contains(badTitleBody, `data-selected-label="Task Service A"`) {
+		t.Fatalf("valid service item label must be preserved on other-field error, got %q", badTitleBody)
+	}
+
+	if err := db.Model(&models.ProductService{}).Where("id = ?", validServiceID).Update("is_active", false).Error; err != nil {
+		t.Fatal(err)
+	}
+	staleEditResp := performRequest(t, app, fmt.Sprintf("/tasks/%d/edit", created.ID), rawToken)
+	if staleEditResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected stale edit form %d, got %d", http.StatusOK, staleEditResp.StatusCode)
+	}
+	staleEditBody := readResponseBody(t, staleEditResp)
+	if !strings.Contains(staleEditBody, `data-value=""`) {
+		t.Fatalf("stale service item must clear SmartPicker data-value, got %q", staleEditBody)
+	}
+	if strings.Contains(staleEditBody, fmt.Sprintf(`data-value="%d"`, validServiceID)) {
+		t.Fatalf("stale service item ID %d must not be retained in data-value, got %q", validServiceID, staleEditBody)
+	}
+	if !strings.Contains(staleEditBody, "Previously selected service item is no longer available") {
+		t.Fatalf("expected stale service item error, got %q", staleEditBody)
+	}
+}
+
+func TestTaskReadOnlyCore_StaleServiceItemNotesUpdateDoesNotDependOnHiddenID(t *testing.T) {
+	db := testRouteDB(t)
+	companyID := seedCompany(t, db, "Task ReadOnly Stale Co")
+	user, rawToken := seedUserSession(t, db, &companyID)
+	seedMembership(t, db, user.ID, companyID)
+	customerID := seedValidationCustomer(t, db, companyID, "ReadOnly Customer")
+	revenueID := seedValidationAccount(t, db, companyID, "4000", models.RootRevenue, models.DetailServiceRevenue)
+	serviceID := seedTaskWebServiceItem(t, db, companyID, revenueID, "Retired Consulting", models.ProductServiceTypeService, true)
+
+	input := services.TaskInput{
+		CompanyID:        companyID,
+		CustomerID:       customerID,
+		Title:            "Completed stale service task",
+		TaskDate:         time.Date(2026, 4, 9, 0, 0, 0, 0, time.UTC),
+		Quantity:         decimal.RequireFromString("1.00"),
+		UnitType:         models.TaskUnitTypeHour,
+		Rate:             decimal.RequireFromString("125.00"),
+		CurrencyCode:     "CAD",
+		IsBillable:       true,
+		Notes:            "Before",
+		ProductServiceID: &serviceID,
+	}
+	task, err := services.CreateTask(db, input)
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	if _, err := services.CompleteTask(db, companyID, task.ID); err != nil {
+		t.Fatalf("CompleteTask: %v", err)
+	}
+	if err := db.Model(&models.ProductService{}).Where("id = ?", serviceID).Update("is_active", false).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	app := testRouteApp(t, db)
+	editResp := performRequest(t, app, fmt.Sprintf("/tasks/%d/edit", task.ID), rawToken)
+	if editResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected completed edit page %d, got %d", http.StatusOK, editResp.StatusCode)
+	}
+	editBody := readResponseBody(t, editResp)
+	if !strings.Contains(editBody, "Completed tasks keep billing snapshot fields locked") {
+		t.Fatalf("expected read-only core banner, got %q", editBody)
+	}
+	if !strings.Contains(editBody, "Previously selected service item is no longer available") {
+		t.Fatalf("expected stale service item error, got %q", editBody)
+	}
+	if strings.Contains(editBody, `name="product_service_id"`) {
+		t.Fatalf("read-only core form must not submit product_service_id hidden/select field, got %q", editBody)
+	}
+	if strings.Contains(editBody, fmt.Sprintf(`data-value="%d"`, serviceID)) {
+		t.Fatalf("read-only stale service item must not retain data-value %d, got %q", serviceID, editBody)
+	}
+
+	csrf := newCSRFToken(t)
+	form := url.Values{
+		"notes": {"Updated notes without hidden service item"},
+	}
+	form.Set(CSRFFormField, csrf)
+	updateResp := performSecurityRequest(
+		t,
+		app,
+		http.MethodPost,
+		fmt.Sprintf("/tasks/%d/edit", task.ID),
+		[]byte(form.Encode()),
+		"application/x-www-form-urlencoded",
+		&http.Cookie{Name: SessionCookieName, Value: rawToken, Path: "/"},
+		&http.Cookie{Name: CSRFCookieName, Value: csrf, Path: "/"},
+	)
+	if updateResp.StatusCode != http.StatusSeeOther {
+		body := readResponseBody(t, updateResp)
+		t.Fatalf("expected notes-only update redirect %d, got %d: %q", http.StatusSeeOther, updateResp.StatusCode, body)
+	}
+
+	var reloaded models.Task
+	if err := db.Where("id = ? AND company_id = ?", task.ID, companyID).First(&reloaded).Error; err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.Status != models.TaskStatusCompleted {
+		t.Fatalf("expected completed status to remain, got %q", reloaded.Status)
+	}
+	if reloaded.ProductServiceID == nil || *reloaded.ProductServiceID != serviceID {
+		t.Fatalf("expected existing stale ProductServiceID %d to remain in DB, got %+v", serviceID, reloaded.ProductServiceID)
+	}
+	if reloaded.Notes != "Updated notes without hidden service item" {
+		t.Fatalf("expected notes update, got %q", reloaded.Notes)
 	}
 }
 

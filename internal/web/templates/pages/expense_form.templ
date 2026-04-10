@@ -65,16 +65,28 @@ templ bodyExpenseForm(vm ExpenseFormVM) {
 					</div>
 
 					<div>
-						<label class="block text-body font-medium text-text">Expense Account *</label>
-						<select name="expense_account_id" class={ taskInputClass(vm.ExpenseAccountError != "") }>
-							<option value="">-- Select account --</option>
-							for _, acc := range vm.ExpenseAccounts {
-								<option value={ Uitoa(acc.ID) } selected?={ Uitoa(acc.ID) == vm.ExpenseAccountID }>{ acc.Code } { acc.Name }</option>
-							}
-						</select>
-						if vm.ExpenseAccountError != "" {
-							<div class="mt-1 text-body text-danger">{ vm.ExpenseAccountError }</div>
-						}
+						<!-- No-JS fallback: Alpine disables this select and removes its name
+						     on init, so only the SmartPicker hidden input submits when JS is
+						     active. Without JS the select retains name="expense_account_id"
+						     and is the sole submitter. -->
+						<div x-data="{}" x-init="var s=$el.querySelector('select');if(s){s.removeAttribute('name');s.disabled=true;}$el.style.display='none';">
+							<select name="expense_account_id" class={ taskInputClass(vm.ExpenseAccountError != "") }>
+								<option value="">-- Select account --</option>
+								for _, acc := range vm.ExpenseAccounts {
+									<option value={ Uitoa(acc.ID) } selected?={ Uitoa(acc.ID) == vm.ExpenseAccountID }>{ acc.Code } { " " } { acc.Name }</option>
+								}
+							</select>
+						</div>
+						@ui.SmartPicker(ui.SmartPickerVM{
+							Label:         "Expense Account *",
+							FieldName:     "expense_account_id",
+							Entity:        "account",
+							Context:       "expense_form_category",
+							Value:         vm.ExpenseAccountID,
+							SelectedLabel: vm.ExpenseAccountLabel,
+							Required:      true,
+							Error:         vm.ExpenseAccountError,
+						})
 					</div>
 
 					<div>

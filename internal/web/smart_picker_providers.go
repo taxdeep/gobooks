@@ -1,0 +1,344 @@
+// 遵循project_guide.md
+package web
+
+import (
+	"fmt"
+	"strings"
+
+	"gorm.io/gorm"
+
+	"gobooks/internal/models"
+)
+
+// SmartPickerItem is the canonical response shape for a single entity in the picker.
+// Primary: the main display label (e.g. account name).
+// Secondary: supplementary info shown below/beside primary (e.g. account code).
+// Meta: reserved for future extensibility (e.g. tags, icons); nil unless populated.
+type SmartPickerItem struct {
+	ID        string            `json:"id"`
+	Primary   string            `json:"primary"`
+	Secondary string            `json:"secondary"`
+	Meta      map[string]string `json:"meta,omitempty"`
+}
+
+// SmartPickerResult is the top-level JSON response from the search endpoint.
+type SmartPickerResult struct {
+	Items       []SmartPickerItem `json:"items"`
+	CanCreate   bool              `json:"can_create"`
+	CreateLabel string            `json:"create_label,omitempty"`
+	CreateURL   string            `json:"create_url,omitempty"`
+}
+
+// SmartPickerContext carries per-request scope that providers receive.
+// CompanyID is always sourced from the authenticated session — never from query params.
+type SmartPickerContext struct {
+	CompanyID uint
+	Context   string // discriminates purpose within an entity type (e.g. "expense_form_category")
+	Limit     int
+}
+
+// SmartPickerProvider is the interface each entity domain must implement.
+type SmartPickerProvider interface {
+	// EntityType returns the stable string key used in API requests (e.g. "account").
+	EntityType() string
+
+	// Search returns matching items for the given query string.
+	// An empty query may return a default set (e.g. top N most-used).
+	Search(db *gorm.DB, ctx SmartPickerContext, query string) (*SmartPickerResult, error)
+
+	// GetByID rehydrates a single item by its string ID for edit-page pre-population.
+	// Returns nil, nil when the ID is not found or not accessible to companyID.
+	GetByID(db *gorm.DB, ctx SmartPickerContext, id string) (*SmartPickerItem, error)
+}
+
+// ── Registry ─────────────────────────────────────────────────────────────────
+
+// SmartPickerRegistry maps entity type strings to their provider implementations.
+type SmartPickerRegistry struct {
+	providers map[string]SmartPickerProvider
+}
+
+func newSmartPickerRegistry(providers ...SmartPickerProvider) *SmartPickerRegistry {
+	r := &SmartPickerRegistry{providers: make(map[string]SmartPickerProvider, len(providers))}
+	for _, p := range providers {
+		r.providers[p.EntityType()] = p
+	}
+	return r
+}
+
+func (r *SmartPickerRegistry) get(entity string) (SmartPickerProvider, bool) {
+	p, ok := r.providers[entity]
+	return p, ok
+}
+
+// defaultRegistry is the application-wide registry, initialized at startup.
+var defaultSmartPickerRegistry = newSmartPickerRegistry(
+	&ExpenseAccountProvider{},
+	&CustomerProvider{},
+	&VendorProvider{},
+	&ProductServiceProvider{},
+)
+
+func smartPickerLimit(ctx SmartPickerContext) int {
+	limit := ctx.Limit
+	if limit <= 0 || limit > 50 {
+		return 20
+	}
+	return limit
+}
+
+func applySmartPickerTextSearch(db *gorm.DB, dialect string, query string, fields ...string) *gorm.DB {
+	query = strings.TrimSpace(query)
+	if query == "" || len(fields) == 0 {
+		return db
+	}
+	operator := "LIKE"
+	if dialect == "postgres" {
+		operator = "ILIKE"
+	}
+	clauses := make([]string, 0, len(fields))
+	args := make([]any, 0, len(fields))
+	for _, field := range fields {
+		clauses = append(clauses, field+" "+operator+" ?")
+		args = append(args, "%"+query+"%")
+	}
+	return db.Where("("+strings.Join(clauses, " OR ")+")", args...)
+}
+
+// ── ExpenseAccountProvider ───────────────────────────────────────────────────
+
+// ExpenseAccountProvider handles entity="account", context="expense_form_category".
+// It returns active expense-type accounts scoped to the authenticated company.
+type ExpenseAccountProvider struct{}
+
+func (p *ExpenseAccountProvider) EntityType() string { return "account" }
+
+func (p *ExpenseAccountProvider) Search(db *gorm.DB, ctx SmartPickerContext, query string) (*SmartPickerResult, error) {
+	var accounts []models.Account
+	q := db.
+		Where("company_id = ? AND root_account_type = ? AND is_active = true",
+			ctx.CompanyID, models.RootExpense).
+		Order("code ASC").
+		Limit(smartPickerLimit(ctx))
+	q = applySmartPickerTextSearch(q, db.Dialector.Name(), query, "name", "code")
+
+	if err := q.Find(&accounts).Error; err != nil {
+		return nil, fmt.Errorf("expense account search: %w", err)
+	}
+
+	items := make([]SmartPickerItem, 0, len(accounts))
+	for _, a := range accounts {
+		items = append(items, SmartPickerItem{
+			ID:        fmt.Sprintf("%d", a.ID),
+			Primary:   a.Name,
+			Secondary: a.Code,
+		})
+	}
+
+	return &SmartPickerResult{
+		Items:       items,
+		CanCreate:   false, // Accounts are created via the full Chart of Accounts flow.
+		CreateLabel: "",
+		CreateURL:   "",
+	}, nil
+}
+
+func (p *ExpenseAccountProvider) GetByID(db *gorm.DB, ctx SmartPickerContext, id string) (*SmartPickerItem, error) {
+	var account models.Account
+	err := db.
+		Where("id = ? AND company_id = ? AND root_account_type = ? AND is_active = true",
+			id, ctx.CompanyID, models.RootExpense).
+		First(&account).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("expense account get by id: %w", err)
+	}
+	return &SmartPickerItem{
+		ID:        fmt.Sprintf("%d", account.ID),
+		Primary:   account.Name,
+		Secondary: account.Code,
+	}, nil
+}
+
+// ── CustomerProvider ─────────────────────────────────────────────────────────
+
+// CustomerProvider handles entity="customer". Customers are company-scoped; the
+// current Customer model has no IsActive field, so this provider does not invent
+// an active filter.
+type CustomerProvider struct{}
+
+func (p *CustomerProvider) EntityType() string { return "customer" }
+
+func (p *CustomerProvider) Search(db *gorm.DB, ctx SmartPickerContext, query string) (*SmartPickerResult, error) {
+	var customers []models.Customer
+	q := db.
+		Where("company_id = ?", ctx.CompanyID).
+		Order("name ASC").
+		Limit(smartPickerLimit(ctx))
+	q = applySmartPickerTextSearch(q, db.Dialector.Name(), query,
+		"name", "email", "addr_city", "addr_province", "addr_postal_code", "addr_country")
+
+	if err := q.Find(&customers).Error; err != nil {
+		return nil, fmt.Errorf("customer search: %w", err)
+	}
+
+	items := make([]SmartPickerItem, 0, len(customers))
+	for _, c := range customers {
+		items = append(items, SmartPickerItem{
+			ID:        fmt.Sprintf("%d", c.ID),
+			Primary:   c.Name,
+			Secondary: c.Email,
+		})
+	}
+	return &SmartPickerResult{Items: items, CanCreate: false}, nil
+}
+
+func (p *CustomerProvider) GetByID(db *gorm.DB, ctx SmartPickerContext, id string) (*SmartPickerItem, error) {
+	var customer models.Customer
+	err := db.
+		Where("id = ? AND company_id = ?", id, ctx.CompanyID).
+		First(&customer).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("customer get by id: %w", err)
+	}
+	return &SmartPickerItem{
+		ID:        fmt.Sprintf("%d", customer.ID),
+		Primary:   customer.Name,
+		Secondary: customer.Email,
+	}, nil
+}
+
+// ── VendorProvider ───────────────────────────────────────────────────────────
+
+// VendorProvider handles entity="vendor". Vendors are company-scoped; the
+// current Vendor model has no IsActive field, so this provider does not invent
+// an active filter.
+type VendorProvider struct{}
+
+func (p *VendorProvider) EntityType() string { return "vendor" }
+
+func (p *VendorProvider) Search(db *gorm.DB, ctx SmartPickerContext, query string) (*SmartPickerResult, error) {
+	var vendors []models.Vendor
+	q := db.
+		Where("company_id = ?", ctx.CompanyID).
+		Order("name ASC").
+		Limit(smartPickerLimit(ctx))
+	q = applySmartPickerTextSearch(q, db.Dialector.Name(), query,
+		"name", "email", "phone", "currency_code")
+
+	if err := q.Find(&vendors).Error; err != nil {
+		return nil, fmt.Errorf("vendor search: %w", err)
+	}
+
+	items := make([]SmartPickerItem, 0, len(vendors))
+	for _, v := range vendors {
+		items = append(items, SmartPickerItem{
+			ID:        fmt.Sprintf("%d", v.ID),
+			Primary:   v.Name,
+			Secondary: vendorSmartPickerSecondary(v),
+		})
+	}
+	return &SmartPickerResult{Items: items, CanCreate: false}, nil
+}
+
+func (p *VendorProvider) GetByID(db *gorm.DB, ctx SmartPickerContext, id string) (*SmartPickerItem, error) {
+	var vendor models.Vendor
+	err := db.
+		Where("id = ? AND company_id = ?", id, ctx.CompanyID).
+		First(&vendor).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("vendor get by id: %w", err)
+	}
+	return &SmartPickerItem{
+		ID:        fmt.Sprintf("%d", vendor.ID),
+		Primary:   vendor.Name,
+		Secondary: vendorSmartPickerSecondary(vendor),
+	}, nil
+}
+
+func vendorSmartPickerSecondary(v models.Vendor) string {
+	if strings.TrimSpace(v.Email) != "" {
+		return strings.TrimSpace(v.Email)
+	}
+	if strings.TrimSpace(v.Phone) != "" {
+		return strings.TrimSpace(v.Phone)
+	}
+	return strings.TrimSpace(v.CurrencyCode)
+}
+
+// ── ProductServiceProvider ──────────────────────────────────────────────────
+
+// ProductServiceProvider handles entity="product_service". The context controls
+// the subset. context="task_form_service_item" returns only active service-type
+// items for the authenticated company.
+type ProductServiceProvider struct{}
+
+func (p *ProductServiceProvider) EntityType() string { return "product_service" }
+
+func (p *ProductServiceProvider) Search(db *gorm.DB, ctx SmartPickerContext, query string) (*SmartPickerResult, error) {
+	var items []models.ProductService
+	q := p.scopedQuery(db, ctx).
+		Order("name ASC").
+		Limit(smartPickerLimit(ctx))
+	q = applySmartPickerTextSearch(q, db.Dialector.Name(), query, "name", "sku", "description")
+
+	if err := q.Find(&items).Error; err != nil {
+		return nil, fmt.Errorf("product service search: %w", err)
+	}
+
+	out := make([]SmartPickerItem, 0, len(items))
+	for _, item := range items {
+		out = append(out, productServiceSmartPickerItem(item))
+	}
+	return &SmartPickerResult{Items: out, CanCreate: false}, nil
+}
+
+func (p *ProductServiceProvider) GetByID(db *gorm.DB, ctx SmartPickerContext, id string) (*SmartPickerItem, error) {
+	var item models.ProductService
+	err := p.scopedQuery(db, ctx).
+		Where("id = ?", id).
+		First(&item).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("product service get by id: %w", err)
+	}
+	spItem := productServiceSmartPickerItem(item)
+	return &spItem, nil
+}
+
+func (p *ProductServiceProvider) scopedQuery(db *gorm.DB, ctx SmartPickerContext) *gorm.DB {
+	q := db.Where("company_id = ? AND is_active = true", ctx.CompanyID)
+	if ctx.Context == "task_form_service_item" {
+		q = q.Where("type = ?", models.ProductServiceTypeService)
+	}
+	return q
+}
+
+func productServiceSmartPickerItem(item models.ProductService) SmartPickerItem {
+	spItem := SmartPickerItem{
+		ID:        fmt.Sprintf("%d", item.ID),
+		Primary:   item.Name,
+		Secondary: productServiceSmartPickerSecondary(item),
+	}
+	if strings.TrimSpace(item.SKU) != "" {
+		spItem.Meta = map[string]string{"type": models.ProductServiceTypeLabel(item.Type)}
+	}
+	return spItem
+}
+
+func productServiceSmartPickerSecondary(item models.ProductService) string {
+	if strings.TrimSpace(item.SKU) != "" {
+		return "SKU: " + strings.TrimSpace(item.SKU)
+	}
+	return models.ProductServiceTypeLabel(item.Type)
+}

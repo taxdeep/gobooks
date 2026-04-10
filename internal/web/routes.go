@@ -149,6 +149,9 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Post("/api/ai/recommend/account", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleAIRecommendAccount)
 	app.Post("/api/accounts/recommendations", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleAccountRecommendations)
 
+	// SmartPicker 通用实体搜索 API（只读，仅需成员资格）
+	app.Get("/api/smart-picker/search", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleSmartPickerSearch)
+
 	// ── 日记账 ──────────────────────────────────────────────────────────────────
 	// 新建 / 冲销属于 AR 操作，bookkeeper 及以上可执行（ar_access）
 	app.Get("/journal-entry", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleJournalEntryForm)

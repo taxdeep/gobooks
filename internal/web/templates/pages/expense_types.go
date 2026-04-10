@@ -25,7 +25,8 @@ type ExpenseFormVM struct {
 	Amount           string
 	CurrencyCode     string
 	VendorID         string
-	ExpenseAccountID string
+	ExpenseAccountID    string
+	ExpenseAccountLabel string // human-readable label for SmartPicker rehydration; never a raw DB ID
 	TaskID           string
 	IsBillable       bool
 	Notes            string

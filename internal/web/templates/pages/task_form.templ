@@ -39,10 +39,6 @@ templ bodyTaskForm(vm TaskFormVM) {
 		}
 
 		<form method="post" action={ taskFormAction(vm) } class="mt-6 space-y-6">
-			if vm.ReadOnlyCore {
-				@taskHiddenCoreFields(vm)
-			}
-
 			<div class="rounded-lg border border-border bg-surface p-6">
 				<h2 class="text-section font-semibold text-text">Task Details</h2>
 				<div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -79,16 +75,32 @@ templ bodyTaskForm(vm TaskFormVM) {
 						<label class="block text-body font-medium text-text">Service Item</label>
 						if vm.ReadOnlyCore {
 							<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">{ taskSelectedServiceItemName(vm) }</div>
+							if vm.ServiceItemError != "" {
+								<div class="mt-1 text-body text-danger">{ vm.ServiceItemError }</div>
+							}
 						} else {
-							<select name="product_service_id" class={ taskInputClass(vm.ServiceItemError != "") }>
-								<option value="">-- None --</option>
-								for _, item := range vm.ServiceItems {
-									<option value={ Uitoa(item.ID) } selected?={ Uitoa(item.ID) == vm.ServiceItemID }>{ item.Name }</option>
-								}
-							</select>
-						}
-						if vm.ServiceItemError != "" {
-							<div class="mt-1 text-body text-danger">{ vm.ServiceItemError }</div>
+							<!-- No-JS fallback: Alpine disables this select and removes its name
+							     on init, so only the SmartPicker hidden input submits when JS is
+							     active. Without JS the select retains name="product_service_id"
+							     and is the sole submitter. -->
+							<div x-data="{}" x-init="var s=$el.querySelector('select');if(s){s.removeAttribute('name');s.disabled=true;}$el.style.display='none';">
+								<select name="product_service_id" class={ taskInputClass(vm.ServiceItemError != "") }>
+									<option value="">-- None --</option>
+									for _, item := range vm.ServiceItems {
+										<option value={ Uitoa(item.ID) } selected?={ Uitoa(item.ID) == vm.ServiceItemID }>{ item.Name }</option>
+									}
+								</select>
+							</div>
+							@ui.SmartPicker(ui.SmartPickerVM{
+								Label:         "",
+								FieldName:     "product_service_id",
+								Entity:        "product_service",
+								Context:       "task_form_service_item",
+								Value:         vm.ServiceItemID,
+								SelectedLabel: vm.ServiceItemLabel,
+								Placeholder:   "Search service items...",
+								Error:         vm.ServiceItemError,
+							})
 						}
 					</div>
 
@@ -176,7 +188,9 @@ templ bodyTaskForm(vm TaskFormVM) {
 							}
 						} else {
 							<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">{ vm.BaseCurrencyCode }</div>
-							<input type="hidden" name="currency_code" value={ vm.BaseCurrencyCode }/>
+							if !vm.ReadOnlyCore {
+								<input type="hidden" name="currency_code" value={ vm.BaseCurrencyCode }/>
+							}
 						}
 						if vm.CurrencyError != "" {
 							<div class="mt-1 text-body text-danger">{ vm.CurrencyError }</div>
@@ -202,20 +216,6 @@ templ bodyTaskForm(vm TaskFormVM) {
 			</div>
 		</form>
 	</div>
-}
-
-templ taskHiddenCoreFields(vm TaskFormVM) {
-	<input type="hidden" name="customer_id" value={ vm.CustomerID }/>
-	<input type="hidden" name="title" value={ vm.Title }/>
-	<input type="hidden" name="task_date" value={ vm.TaskDate }/>
-	<input type="hidden" name="quantity" value={ vm.Quantity }/>
-	<input type="hidden" name="unit_type" value={ vm.UnitType }/>
-	<input type="hidden" name="rate" value={ vm.Rate }/>
-	<input type="hidden" name="currency_code" value={ vm.CurrencyCode }/>
-	<input type="hidden" name="product_service_id" value={ vm.ServiceItemID }/>
-	if vm.IsBillable {
-		<input type="hidden" name="is_billable" value="1"/>
-	}
 }
 
 func taskFormTitle(vm TaskFormVM) string {
@@ -259,6 +259,9 @@ func taskSelectedCustomerName(vm TaskFormVM) string {
 }
 
 func taskSelectedServiceItemName(vm TaskFormVM) string {
+	if vm.ServiceItemLabel != "" {
+		return vm.ServiceItemLabel
+	}
 	if vm.ServiceItemID == "" {
 		return "—"
 	}

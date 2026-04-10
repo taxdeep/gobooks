@@ -1,0 +1,161 @@
+// 遵循project_guide.md
+package ui
+
+// SmartPicker is a universal search-select component backed by GET /api/smart-picker/search.
+//
+// Progressive enhancement: the hidden input is always server-rendered with the committed
+// value, so the form submits correctly even without JavaScript. The visible input and
+// dropdown are Alpine-controlled enhancement layers that activate when JS is present.
+//
+// entity/context: these values are passed verbatim to the backend. entity="account"
+// maps to the ExpenseAccountProvider (expense-root accounts only in Phase 1). The
+// frontend never interprets these strings; the backend provider controls result scope.
+templ SmartPicker(vm SmartPickerVM) {
+	<div class="space-y-1">
+		if vm.Label != "" {
+			<label class="block text-body font-medium text-text">{ vm.Label }</label>
+		}
+		if vm.Disabled {
+			@smartPickerDisabled(vm)
+		} else {
+			@smartPickerInteractive(vm)
+		}
+		if vm.Error != "" {
+			<div class="mt-1 text-body text-danger">{ vm.Error }</div>
+		}
+		if vm.HelpText != "" {
+			<p class="mt-1 text-small text-text-muted2">{ vm.HelpText }</p>
+		}
+	</div>
+}
+
+// smartPickerDisabled renders a static read-only display. Hidden input preserves value.
+templ smartPickerDisabled(vm SmartPickerVM) {
+	<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">
+		if vm.SelectedLabel != "" {
+			{ vm.SelectedLabel }
+		} else {
+			<span class="text-text-muted2">—</span>
+		}
+	</div>
+	<input type="hidden" name={ vm.FieldName } value={ vm.Value }/>
+}
+
+// smartPickerInteractive renders the full Alpine-powered picker.
+//
+// Config is passed via data-* attributes; the Alpine component reads them in init().
+// This avoids passing complex objects through Alpine's x-data initialiser and matches
+// the pattern used by gobooksAccountDrawerSuggest() and gobooksJournalEntryDraft().
+templ smartPickerInteractive(vm SmartPickerVM) {
+	<div
+		x-data="gobooksSmartPicker()"
+		data-entity={ vm.Entity }
+		data-context={ vm.Context }
+		data-field-name={ vm.FieldName }
+		data-value={ vm.Value }
+		data-selected-label={ vm.SelectedLabel }
+		data-placeholder={ smartPickerPlaceholder(vm) }
+		data-required={ smartPickerBool(vm.Required) }
+		data-create-url={ vm.CreateURL }
+		data-create-label={ vm.CreateLabel }
+		data-limit={ smartPickerLimit(vm) }
+		data-has-error={ smartPickerBool(vm.Error != "") }
+		class="relative mt-2"
+		@keydown="onKeydown($event)"
+		@click.outside="close()"
+	>
+		<!-- Hidden input: no static name attribute. Alpine init() assigns name
+		     dynamically so a no-JS fallback select with the same field name
+		     does not cause a double-submit. Alpine keeps value in sync via
+		     :value="selectedId". -->
+		<input
+			type="hidden"
+			value={ vm.Value }
+			:value="selectedId"
+		/>
+
+		<!-- Visible search input + optional clear button (required fields omit clear) -->
+		<div class="relative">
+			<input
+				type="text"
+				autocomplete="off"
+				:placeholder="placeholder"
+				x-model="query"
+				:class="inputClass()"
+				@focus="onFocus()"
+				@input.debounce.250ms="onInput()"
+				aria-autocomplete="list"
+				:aria-expanded="open"
+				role="combobox"
+			/>
+			if !vm.Required {
+				<button
+					type="button"
+					x-show="selectedId !== ''"
+					x-cloak
+					@click.stop="clear()"
+					class="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-text-muted3 hover:text-text"
+					aria-label="Clear selection"
+					style="display:none"
+				>
+					<svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+						<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+					</svg>
+				</button>
+			}
+		</div>
+
+		<!-- Dropdown panel -->
+		<div
+			x-show="open"
+			x-cloak
+			class="absolute z-50 mt-1 w-full rounded-md border border-border bg-surface shadow-lg"
+			style="display:none"
+			role="listbox"
+		>
+			<!-- Loading state -->
+			<div x-show="loading" class="px-3 py-2 text-body text-text-muted2">Searching…</div>
+
+			<!-- Error state -->
+			<div x-show="!loading && failed" class="px-3 py-2 text-body text-danger">Search failed. Try again.</div>
+
+			<!-- Results list -->
+			<ul x-show="!loading && !failed && items.length > 0" class="max-h-60 overflow-y-auto py-1">
+				<template x-for="(item, idx) in items" :key="item.id">
+					<li
+						role="option"
+						:aria-selected="selectedId === item.id"
+						@click="select(item)"
+						@mouseenter="highlighted = idx"
+						:class="highlighted === idx
+							? 'flex flex-col px-3 py-2 cursor-pointer bg-background'
+							: 'flex flex-col px-3 py-2 cursor-pointer hover:bg-background'"
+					>
+						<!-- Primary label: main display text (e.g. account name) -->
+						<span class="text-body text-text" x-text="item.primary"></span>
+						<!-- Secondary label: code / rate / identifier (e.g. account code) -->
+						<span x-show="item.secondary" class="text-small text-text-muted2" x-text="item.secondary"></span>
+						<!-- Meta slot: key-value bag reserved for Batch C+ contexts
+						     (e.g. customer email, vendor type, product sku, tax rate detail).
+						     Rendered as a row of plain text values when present. -->
+						<template x-if="item.meta && Object.keys(item.meta).length > 0">
+							<span class="mt-0.5 flex flex-wrap gap-2">
+								<template x-for="[k, v] in Object.entries(item.meta)" :key="k">
+									<span class="text-small text-text-muted3" x-text="v"></span>
+								</template>
+							</span>
+						</template>
+					</li>
+				</template>
+			</ul>
+
+			<!-- Empty state -->
+			<div x-show="!loading && !failed && items.length === 0" class="px-3 py-2">
+				<span class="text-body text-text-muted2">No results.</span>
+				<template x-if="createUrl !== ''">
+					<a :href="createUrl" class="ml-2 text-body text-primary hover:underline" x-text="createLabel"></a>
+				</template>
+			</div>
+		</div>
+	</div>
+}

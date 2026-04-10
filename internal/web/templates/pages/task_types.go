@@ -35,27 +35,29 @@ type TaskFormVM struct {
 	ReadOnlyCore bool
 	CanCancel    bool
 
-	CustomerID       string
-	Title            string
-	TaskDate         string
-	Quantity         string
-	UnitType         string
-	Rate             string
-	CurrencyCode     string
-	IsBillable       bool
-	Notes            string
+	CustomerID   string
+	Title        string
+	TaskDate     string
+	Quantity     string
+	UnitType     string
+	Rate         string
+	CurrencyCode string
+	IsBillable   bool
+	Notes        string
 	// ServiceItemID is the string form of ProductServiceID (empty = none selected).
 	ServiceItemID string
+	// ServiceItemLabel is the human-readable ProductService label for SmartPicker rehydration.
+	ServiceItemLabel string
 
-	CustomerError     string
-	TitleError        string
-	TaskDateError     string
-	QuantityError     string
-	UnitTypeError     string
-	RateError         string
-	CurrencyError     string
-	ServiceItemError  string
-	FormError         string
+	CustomerError    string
+	TitleError       string
+	TaskDateError    string
+	QuantityError    string
+	UnitTypeError    string
+	RateError        string
+	CurrencyError    string
+	ServiceItemError string
+	FormError        string
 
 	BaseCurrencyCode string
 	MultiCurrency    bool

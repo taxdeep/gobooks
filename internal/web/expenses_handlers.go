@@ -15,6 +15,25 @@ import (
 	"gobooks/internal/web/templates/pages"
 )
 
+// rehydrateExpenseAccountLabel uses the SmartPicker registry to look up the
+// human-readable label for the given account ID, enforcing the same company /
+// active / expense-type guards as the search provider. Returns "" if the ID
+// is empty or the account is no longer valid under current guards.
+func (s *Server) rehydrateExpenseAccountLabel(companyID uint, idStr string) string {
+	if idStr == "" {
+		return ""
+	}
+	p, ok := defaultSmartPickerRegistry.get("account")
+	if !ok {
+		return ""
+	}
+	item, err := p.GetByID(s.DB, SmartPickerContext{CompanyID: companyID, Context: "expense_form_category"}, idStr)
+	if err != nil || item == nil {
+		return ""
+	}
+	return item.Primary
+}
+
 func (s *Server) handleExpenses(c *fiber.Ctx) error {
 	companyID, ok := ActiveCompanyIDFromCtx(c)
 	if !ok {
@@ -155,19 +174,37 @@ func (s *Server) newExpenseFormVM(companyID uint) (pages.ExpenseFormVM, error) {
 
 func (s *Server) expenseFormVMFromExpense(companyID uint, exp *models.Expense) (pages.ExpenseFormVM, error) {
 	vm := pages.ExpenseFormVM{
-		HasCompany:       true,
-		IsEdit:           true,
-		EditingID:        exp.ID,
-		ExpenseDate:      exp.ExpenseDate.Format("2006-01-02"),
-		Description:      exp.Description,
-		Amount:           exp.Amount.StringFixed(2),
-		CurrencyCode:     exp.CurrencyCode,
-		VendorID:         optUintStr(exp.VendorID),
-		ExpenseAccountID: optUintStr(exp.ExpenseAccountID),
-		TaskID:           optUintStr(exp.TaskID),
-		IsBillable:       exp.IsBillable,
-		Notes:            exp.Notes,
+		HasCompany:   true,
+		IsEdit:       true,
+		EditingID:    exp.ID,
+		ExpenseDate:  exp.ExpenseDate.Format("2006-01-02"),
+		Description:  exp.Description,
+		Amount:       exp.Amount.StringFixed(2),
+		CurrencyCode: exp.CurrencyCode,
+		VendorID:     optUintStr(exp.VendorID),
+		TaskID:       optUintStr(exp.TaskID),
+		IsBillable:   exp.IsBillable,
+		Notes:        exp.Notes,
 	}
+
+	// Rehydrate expense account for SmartPicker. GetByID enforces the same
+	// company / active / expense-type guards as the search provider.
+	if exp.ExpenseAccountID != nil {
+		idStr := fmt.Sprintf("%d", *exp.ExpenseAccountID)
+		label := s.rehydrateExpenseAccountLabel(companyID, idStr)
+		if label != "" {
+			vm.ExpenseAccountID = idStr
+			vm.ExpenseAccountLabel = label
+		} else {
+			// Account existed but is no longer valid under current provider guards.
+			// Clear both fields so the picker shows blank and the user must re-select.
+			// Hidden input will submit "" which the backend correctly rejects with a clear error.
+			vm.ExpenseAccountID = ""
+			vm.ExpenseAccountLabel = ""
+			vm.ExpenseAccountError = "Previously selected expense account is no longer available. Please choose a new one."
+		}
+	}
+
 	if err := s.loadExpenseFormContext(companyID, &vm); err != nil {
 		return vm, err
 	}
@@ -189,6 +226,18 @@ func (s *Server) buildExpenseFormVMFromRequest(c *fiber.Ctx, companyID uint, exi
 	vm.VendorID = strings.TrimSpace(c.FormValue("vendor_id"))
 	vm.ExpenseAccountID = strings.TrimSpace(c.FormValue("expense_account_id"))
 	vm.TaskID = strings.TrimSpace(c.FormValue("task_id"))
+
+	// Rehydrate SmartPicker label for error re-render: if the submitted account ID is
+	// still valid, show its label so the user sees their selection. If invalid (cross-company,
+	// inactive, wrong type), label stays "" — the picker shows blank, matching the empty
+	// submission that the backend is about to reject.
+	vm.ExpenseAccountLabel = s.rehydrateExpenseAccountLabel(companyID, vm.ExpenseAccountID)
+	// If the submitted account ID fails the provider's guards (inactive, cross-company,
+	// wrong root type), rehydrate returns "". Clear the ID too so the hidden input and
+	// visible picker are consistent — both blank — matching GET invalid-account behaviour.
+	if vm.ExpenseAccountID != "" && vm.ExpenseAccountLabel == "" {
+		vm.ExpenseAccountID = ""
+	}
 	vm.IsBillable = c.FormValue("is_billable") == "1"
 	vm.Notes = strings.TrimSpace(c.FormValue("notes"))
 
