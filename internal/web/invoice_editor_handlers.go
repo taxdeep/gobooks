@@ -217,6 +217,7 @@ func (s *Server) handleInvoiceEdit(c *fiber.Ctx) error {
 	}
 	if taskGeneratedReadOnly {
 		vm.ReviewLocked = true
+		vm.SaveTaskDraftPath = fmt.Sprintf("/invoices/%d/save-task-draft", invoiceID)
 		if CanFromCtx(c, ActionInvoiceDelete) {
 			vm.DeletePath = fmt.Sprintf("/invoices/%d/delete", invoiceID)
 		}
@@ -228,6 +229,7 @@ func (s *Server) handleInvoiceEdit(c *fiber.Ctx) error {
 	// Build line form rows from existing lines.
 	for _, l := range inv.Lines {
 		vm.Lines = append(vm.Lines, pages.InvoiceLineFormRow{
+			LineID:           strconv.FormatUint(uint64(l.ID), 10),
 			ProductServiceID: optUintStr(l.ProductServiceID),
 			Description:      l.Description,
 			Qty:              l.Qty.String(),
@@ -898,6 +900,10 @@ func buildCustomersTermsJSON(customers []models.Customer) string {
 // buildInitialLinesJSON serialises InvoiceLineFormRow slice for Alpine's data-initial-lines.
 func buildInitialLinesJSON(rows []pages.InvoiceLineFormRow) string {
 	type alpineLine struct {
+		// InvoiceLineID is the DB primary key, non-empty for existing lines.
+		// Alpine uses it as line.invoice_line_id; the task-draft save handler
+		// submits it as line_invoice_line_id[i] to match locked lines.
+		InvoiceLineID    string `json:"invoice_line_id"`
 		ProductServiceID string `json:"product_service_id"`
 		Description      string `json:"description"`
 		Qty              string `json:"qty"`
@@ -913,6 +919,7 @@ func buildInitialLinesJSON(rows []pages.InvoiceLineFormRow) string {
 			net = "0.00"
 		}
 		items = append(items, alpineLine{
+			InvoiceLineID:    r.LineID,
 			ProductServiceID: r.ProductServiceID,
 			Description:      r.Description,
 			Qty:              r.Qty,
@@ -924,6 +931,351 @@ func buildInitialLinesJSON(rows []pages.InvoiceLineFormRow) string {
 	}
 	b, _ := json.Marshal(items)
 	return string(b)
+}
+
+// handleInvoiceSaveTaskDraft handles POST /invoices/:id/save-task-draft.
+//
+// Only task-generated draft invoices may use this endpoint. It accepts a
+// limited set of changes that are permitted on task-generated drafts:
+//   - Invoice Memo (free-text header field)
+//   - Tax code per existing line (identified by line_invoice_line_id[i])
+//   - Tax adjustment overrides
+//   - New ad-hoc lines added beyond the task-generated set
+//
+// All locked header fields (invoice number, customer, date, terms, currency,
+// exchange rate) and locked line fields (description, qty, unit price) are
+// loaded from the database and never taken from the form — so no hidden-input
+// spoofing can change them.
+func (s *Server) handleInvoiceSaveTaskDraft(c *fiber.Ctx) error {
+	user := UserFromCtx(c)
+	if user == nil {
+		return c.Redirect("/login", fiber.StatusSeeOther)
+	}
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/select-company", fiber.StatusSeeOther)
+	}
+
+	idRaw := strings.TrimSpace(c.Params("id"))
+	id64, idErr := strconv.ParseUint(idRaw, 10, 64)
+	if idErr != nil || id64 == 0 {
+		return c.Redirect("/invoices", fiber.StatusSeeOther)
+	}
+	invoiceID := uint(id64)
+
+	// Verify the invoice is a task-generated draft belonging to this company.
+	var inv models.Invoice
+	if err := s.DB.Preload("Lines").
+		Where("id = ? AND company_id = ?", invoiceID, companyID).
+		First(&inv).Error; err != nil {
+		return c.Redirect("/invoices", fiber.StatusSeeOther)
+	}
+	if inv.Status != models.InvoiceStatusDraft {
+		return redirectErr(c, "/invoices", "only draft invoices can be edited")
+	}
+	isTaskGenerated, err := services.HasActiveTaskInvoiceSources(s.DB, companyID, invoiceID)
+	if err != nil || !isTaskGenerated {
+		return redirectErr(c, fmt.Sprintf("/invoices/%d/edit", invoiceID), "invoice is not a task-generated draft")
+	}
+
+	// ── Parse allowed fields ──────────────────────────────────────────────────
+	memo := strings.TrimSpace(c.FormValue("memo"))
+	lineCountRaw := strings.TrimSpace(c.FormValue("line_count"))
+	taxAdjCountRaw := strings.TrimSpace(c.FormValue("tax_adj_count"))
+	lineCount, _ := strconv.Atoi(lineCountRaw)
+	if lineCount < 0 {
+		lineCount = 0
+	}
+
+	// ── Build a map of existing lines by their DB id for fast lookup ──────────
+	existingByID := make(map[uint]*models.InvoiceLine, len(inv.Lines))
+	for i := range inv.Lines {
+		existingByID[inv.Lines[i].ID] = &inv.Lines[i]
+	}
+
+	// ── Parse line_is_locked + line_invoice_line_id + line_tax_code_id ────────
+	// For locked lines we update only TaxCodeID on the existing DB row.
+	// For new (unlocked) lines we insert a fresh InvoiceLine.
+	type newLine struct {
+		ProductServiceID *uint
+		Description      string
+		Qty              decimal.Decimal
+		UnitPrice        decimal.Decimal
+		TaxCodeID        *uint
+	}
+	var updatedTaxCodes []struct {
+		line      *models.InvoiceLine
+		taxCodeID *uint
+	}
+	var newLines []newLine
+
+	for i := 0; i < lineCount; i++ {
+		key := func(field string) string { return fmt.Sprintf("%s[%d]", field, i) }
+		isLocked := strings.TrimSpace(c.FormValue(key("line_is_locked"))) == "1"
+		taxCodeRaw := strings.TrimSpace(c.FormValue(key("line_tax_code_id")))
+
+		var tcID *uint
+		if taxCodeRaw != "" {
+			id64, err := strconv.ParseUint(taxCodeRaw, 10, 64)
+			if err == nil && id64 > 0 {
+				id := uint(id64)
+				tcID = &id
+			}
+		}
+
+		if isLocked {
+			lineIDRaw := strings.TrimSpace(c.FormValue(key("line_invoice_line_id")))
+			lineID64, err := strconv.ParseUint(lineIDRaw, 10, 64)
+			if err != nil || lineID64 == 0 {
+				continue
+			}
+			existing, ok := existingByID[uint(lineID64)]
+			if !ok {
+				continue // not a line belonging to this invoice
+			}
+			updatedTaxCodes = append(updatedTaxCodes, struct {
+				line      *models.InvoiceLine
+				taxCodeID *uint
+			}{existing, tcID})
+		} else {
+			// New user-added line — parse full fields.
+			desc := strings.TrimSpace(c.FormValue(key("line_description")))
+			qtyRaw := strings.TrimSpace(c.FormValue(key("line_qty")))
+			priceRaw := strings.TrimSpace(c.FormValue(key("line_unit_price")))
+			psIDRaw := strings.TrimSpace(c.FormValue(key("line_product_service_id")))
+
+			if isInvoicePlaceholderLine(desc, qtyRaw, priceRaw, psIDRaw, taxCodeRaw) {
+				continue
+			}
+			if desc == "" {
+				continue
+			}
+
+			qty, qErr := decimal.NewFromString(qtyRaw)
+			if qErr != nil || qty.IsZero() || qty.IsNegative() {
+				qty = decimal.NewFromInt(1)
+			}
+			price, pErr := decimal.NewFromString(priceRaw)
+			if pErr != nil || price.IsNegative() {
+				price = decimal.Zero
+			}
+
+			var psID *uint
+			if psIDRaw != "" {
+				id64, err := strconv.ParseUint(psIDRaw, 10, 64)
+				if err == nil && id64 > 0 {
+					id := uint(id64)
+					psID = &id
+				}
+			}
+
+			newLines = append(newLines, newLine{
+				ProductServiceID: psID,
+				Description:      desc,
+				Qty:              qty,
+				UnitPrice:        price,
+				TaxCodeID:        tcID,
+			})
+		}
+	}
+
+	// ── Parse tax adjustments ─────────────────────────────────────────────────
+	taxAdjCount, _ := strconv.Atoi(taxAdjCountRaw)
+	taxAdjMap := map[uint]decimal.Decimal{}
+	for i := 0; i < taxAdjCount; i++ {
+		key := func(f string) string { return fmt.Sprintf("%s[%d]", f, i) }
+		idRaw := strings.TrimSpace(c.FormValue(key("tax_adj_id")))
+		amtRaw := strings.TrimSpace(c.FormValue(key("tax_adj_amount")))
+		if idRaw == "" || amtRaw == "" {
+			continue
+		}
+		codeID64, err := strconv.ParseUint(idRaw, 10, 64)
+		if err != nil || codeID64 == 0 {
+			continue
+		}
+		amt, err := decimal.NewFromString(amtRaw)
+		if err != nil || amt.IsNegative() {
+			continue
+		}
+		taxAdjMap[uint(codeID64)] = amt.RoundBank(2)
+	}
+
+	// ── Load tax codes needed for recalculation ───────────────────────────────
+	taxCodeCache := map[uint]*models.TaxCode{}
+	loadTaxCode := func(id *uint) {
+		if id == nil {
+			return
+		}
+		if _, ok := taxCodeCache[*id]; ok {
+			return
+		}
+		var tc models.TaxCode
+		if err := s.DB.
+			Where("id = ? AND company_id = ? AND is_active = true AND scope != ?",
+				*id, companyID, models.TaxScopePurchase).
+			First(&tc).Error; err == nil {
+			taxCodeCache[*id] = &tc
+		}
+	}
+
+	// Pre-load existing-line tax codes (may have been changed in form).
+	for _, u := range updatedTaxCodes {
+		loadTaxCode(u.taxCodeID)
+	}
+	for i := range inv.Lines {
+		// Also load current DB tax code in case it wasn't changed.
+		loadTaxCode(inv.Lines[i].TaxCodeID)
+	}
+	for _, nl := range newLines {
+		loadTaxCode(nl.TaxCodeID)
+	}
+
+	// ── DB transaction ────────────────────────────────────────────────────────
+	cid := companyID
+	uid := user.ID
+	actor := user.Email
+	if actor == "" {
+		actor = "user"
+	}
+
+	err = s.DB.Transaction(func(tx *gorm.DB) error {
+		// Apply updated tax codes to locked lines.
+		for _, u := range updatedTaxCodes {
+			if err := tx.Model(u.line).Update("tax_code_id", u.taxCodeID).Error; err != nil {
+				return fmt.Errorf("update line tax code: %w", err)
+			}
+			u.line.TaxCodeID = u.taxCodeID
+		}
+
+		// Insert new user-added lines.
+		nextSort := uint(len(inv.Lines) + 1)
+		for _, nl := range newLines {
+			lineNet := nl.Qty.Mul(nl.UnitPrice).RoundBank(2)
+			var lineTax decimal.Decimal
+			if nl.TaxCodeID != nil {
+				if tc, ok := taxCodeCache[*nl.TaxCodeID]; ok {
+					results := services.CalculateTax(lineNet, *tc)
+					lineTax = services.SumTaxResults(results)
+				}
+			}
+			newL := models.InvoiceLine{
+				CompanyID:        companyID,
+				InvoiceID:        inv.ID,
+				SortOrder:        nextSort,
+				Description:      nl.Description,
+				Qty:              nl.Qty,
+				UnitPrice:        nl.UnitPrice,
+				LineNet:          lineNet,
+				LineTax:          lineTax,
+				LineTotal:        lineNet.Add(lineTax),
+				ProductServiceID: nl.ProductServiceID,
+				TaxCodeID:        nl.TaxCodeID,
+			}
+			if err := tx.Create(&newL).Error; err != nil {
+				return fmt.Errorf("insert new line: %w", err)
+			}
+			inv.Lines = append(inv.Lines, newL)
+			nextSort++
+		}
+
+		// Recalculate invoice totals across all lines (existing + new).
+		// Build per-code calculated totals from all lines.
+		type perCodeData struct {
+			calcTotal decimal.Decimal
+			lineIdxs  []int
+		}
+		allLines := inv.Lines
+		codeData := map[uint]*perCodeData{}
+		subtotal := decimal.Zero
+		type lineComputed struct {
+			net decimal.Decimal
+			tax decimal.Decimal
+		}
+		lineCmp := make([]lineComputed, len(allLines))
+
+		for i, l := range allLines {
+			net := l.Qty.Mul(l.UnitPrice).RoundBank(2)
+			subtotal = subtotal.Add(net)
+			var tax decimal.Decimal
+			if l.TaxCodeID != nil {
+				if tc, ok := taxCodeCache[*l.TaxCodeID]; ok {
+					results := services.CalculateTax(net, *tc)
+					tax = services.SumTaxResults(results)
+					cd := codeData[*l.TaxCodeID]
+					if cd == nil {
+						cd = &perCodeData{}
+						codeData[*l.TaxCodeID] = cd
+					}
+					cd.calcTotal = cd.calcTotal.Add(tax)
+					cd.lineIdxs = append(cd.lineIdxs, i)
+				}
+			}
+			lineCmp[i] = lineComputed{net: net, tax: tax}
+		}
+
+		// Apply tax adjustments (user overrides).
+		taxTotal := decimal.Zero
+		for codeID, cd := range codeData {
+			adj, hasAdj := taxAdjMap[codeID]
+			if !hasAdj || adj.Equal(cd.calcTotal) {
+				taxTotal = taxTotal.Add(cd.calcTotal)
+				continue
+			}
+			// Distribute override proportionally — same logic as main save handler.
+			if cd.calcTotal.IsZero() {
+				each := adj.Div(decimal.NewFromInt(int64(len(cd.lineIdxs)))).RoundBank(2)
+				remaining := adj
+				for j, li := range cd.lineIdxs {
+					t := each
+					if j == len(cd.lineIdxs)-1 {
+						t = remaining
+					}
+					lineCmp[li].tax = t
+					remaining = remaining.Sub(t)
+				}
+			} else {
+				remaining := adj
+				for j, li := range cd.lineIdxs {
+					var t decimal.Decimal
+					if j == len(cd.lineIdxs)-1 {
+						t = remaining
+					} else {
+						t = lineCmp[li].tax.Mul(adj).Div(cd.calcTotal).RoundBank(2)
+					}
+					lineCmp[li].tax = t
+					remaining = remaining.Sub(t)
+				}
+			}
+			taxTotal = taxTotal.Add(adj)
+		}
+
+		grandTotal := subtotal.Add(taxTotal)
+
+		// Update the invoice header.
+		if err := tx.Model(&inv).Updates(map[string]any{
+			"memo":        memo,
+			"subtotal":    subtotal,
+			"tax_total":   taxTotal,
+			"amount":      grandTotal,
+			"balance_due": grandTotal,
+		}).Error; err != nil {
+			return fmt.Errorf("update invoice: %w", err)
+		}
+
+		return services.WriteAuditLogWithContextDetails(tx, "invoice.task_draft_saved", "invoice", inv.ID, actor,
+			map[string]any{"company_id": companyID},
+			&cid, &uid, nil,
+			map[string]any{
+				"invoice_id": inv.ID,
+				"new_lines":  len(newLines),
+			},
+		)
+	})
+	if err != nil {
+		return redirectErr(c, fmt.Sprintf("/invoices/%d/edit", invoiceID), "could not save changes: "+err.Error())
+	}
+
+	return redirectTo(c, fmt.Sprintf("/invoices/%d/edit?saved=1", invoiceID))
 }
 
 func isInvoicePlaceholderLine(desc, qtyRaw, priceRaw, productServiceIDRaw, taxCodeIDRaw string) bool {

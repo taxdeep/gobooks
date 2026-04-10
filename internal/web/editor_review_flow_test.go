@@ -436,8 +436,8 @@ func TestInvoiceEditorTaskGeneratedDraftIsReadOnlyAndDeleteStillReleasesSources(
 		t.Fatalf("expected %d, got %d", http.StatusOK, editResp.StatusCode)
 	}
 	editBody := readResponseBody(t, editResp)
-	if !strings.Contains(editBody, "This draft is read-only in the editor.") {
-		t.Fatalf("expected read-only banner, got %q", editBody)
+	if !strings.Contains(editBody, "Task-generated draft") {
+		t.Fatalf("expected task-generated draft banner, got %q", editBody)
 	}
 	if !strings.Contains(editBody, "Delete Draft") {
 		t.Fatalf("expected delete action for task-generated draft, got %q", editBody)

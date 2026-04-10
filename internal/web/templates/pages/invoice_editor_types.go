@@ -22,6 +22,9 @@ type InvoiceEditorVM struct {
 	// DeletePath is used by read-only task-generated drafts so users can delete
 	// the whole draft and regenerate from Billable Work.
 	DeletePath string
+	// SaveTaskDraftPath is used by task-generated drafts to save the limited
+	// editable fields (memo, tax codes, extra lines) without touching locked fields.
+	SaveTaskDraftPath string
 
 	// Header fields (form values).
 	InvoiceNumber string
@@ -86,6 +89,10 @@ type InvoiceEditorVM struct {
 // InvoiceLineFormRow carries one line's form values (and optional error) for
 // re-rendering after a validation failure or after a successful save.
 type InvoiceLineFormRow struct {
+	// LineID is the DB primary key of an existing InvoiceLine; empty for new lines.
+	// Populated only when loading an existing draft for the edit page.
+	// Used by the task-draft save handler to match locked lines for tax-code updates.
+	LineID           string
 	ProductServiceID string
 	Description      string
 	Qty              string

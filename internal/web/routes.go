@@ -175,6 +175,7 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Get("/invoices/:id/pdf", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoicePDF)
 
 	// Invoice lifecycle management (issue → send → mark paid / void)
+	app.Post("/invoices/:id/save-task-draft", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceSaveTaskDraft)
 	app.Post("/invoices/:id/issue", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceApprove), s.handleInvoiceIssue)
 	app.Post("/invoices/:id/send", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceSend)
 	app.Post("/invoices/:id/send-email", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceSendEmail)

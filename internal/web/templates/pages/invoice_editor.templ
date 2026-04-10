@@ -43,10 +43,10 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 		if vm.TaskGeneratedReadOnly {
 			<div class="mt-4 rounded-md border border-border bg-background p-4 text-body text-text-muted2">
 				if vm.Saved {
-					<span class="font-semibold text-text">Draft generated from Billable Work.</span>
+					<span class="font-semibold text-text">Changes saved.</span>
 					<span> </span>
 				}
-				This draft is read-only in the editor. To change the included work, delete the draft and regenerate it from Billable Work.
+				Task-generated draft: memo, tax codes, GST, and extra lines are editable. All other fields are locked. To change the core line items, delete the draft and regenerate from Billable Work.
 			</div>
 		}
 
@@ -64,13 +64,20 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 			data-initial-terms={ vm.TermCode }
 			data-initial-date={ vm.InvoiceDate }
 			data-initial-due-date={ vm.DueDate }
+			if vm.TaskGeneratedReadOnly {
+				data-task-readonly="true"
+			} else {
+				data-task-readonly="false"
+			}
 		>
 			if vm.IsEdit {
 				<input type="hidden" name="invoice_id" value={ Uitoa(vm.EditingID) }/>
 			}
 
-			// Wrapper div — JS adds 'ie-reviewing' class to lock fields
-			<fieldset id="ie-fields" disabled?={ vm.ReviewLocked || vm.TaskGeneratedReadOnly }>
+			// Wrapper div — JS adds 'ie-reviewing' class to lock fields.
+			// TaskGeneratedReadOnly uses field-level disabled?= instead of the fieldset,
+			// so we can exempt Memo, Tax Code, and GST inputs from the lock.
+			<fieldset id="ie-fields" disabled?={ vm.ReviewLocked && !vm.TaskGeneratedReadOnly }>
 
 			// ── Header ──────────────────────────────────────────────────────
 			<div class="rounded-lg border border-border bg-surface p-6">
@@ -86,7 +93,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 								value={ vm.InvoiceNumber }
 								placeholder="e.g. IN001"
 								autocomplete="off"
-								class="mt-2 block w-full rounded-md border border-danger px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+								disabled?={ vm.TaskGeneratedReadOnly }
+								class="mt-2 block w-full rounded-md border border-danger px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus disabled:opacity-60 disabled:cursor-not-allowed"
 							/>
 							<div class="mt-1 text-body text-danger">{ vm.InvoiceNumberError }</div>
 						} else {
@@ -96,7 +104,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 								value={ vm.InvoiceNumber }
 								placeholder="e.g. IN001"
 								autocomplete="off"
-								class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+								disabled?={ vm.TaskGeneratedReadOnly }
+								class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
 							/>
 						}
 					</div>
@@ -108,7 +117,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 							<select
 								name="customer_id"
 								@change="onContactChange($event.target.value)"
-								class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+								disabled?={ vm.TaskGeneratedReadOnly }
+								class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus disabled:opacity-60 disabled:cursor-not-allowed"
 							>
 								<option value="">-- Select --</option>
 								for _, c := range vm.Customers {
@@ -120,7 +130,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 							<select
 								name="customer_id"
 								@change="onContactChange($event.target.value)"
-								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+								disabled?={ vm.TaskGeneratedReadOnly }
+								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
 							>
 								<option value="">-- Select --</option>
 								for _, c := range vm.Customers {
@@ -140,7 +151,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 								value={ vm.InvoiceDate }
 								x-model="invoiceDate"
 								@change="onDateChange($event.target.value)"
-								class="mt-2 block w-full rounded-md border border-danger px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+								disabled?={ vm.TaskGeneratedReadOnly }
+								class="mt-2 block w-full rounded-md border border-danger px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus disabled:opacity-60 disabled:cursor-not-allowed"
 							/>
 							<div class="mt-1 text-body text-danger">{ vm.DateError }</div>
 						} else {
@@ -150,7 +162,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 								value={ vm.InvoiceDate }
 								x-model="invoiceDate"
 								@change="onDateChange($event.target.value)"
-								class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+								disabled?={ vm.TaskGeneratedReadOnly }
+								class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
 							/>
 						}
 					</div>
@@ -162,7 +175,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 							name="terms"
 							x-model="terms"
 							@change="onTermsChange($event.target.value)"
-							class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+							disabled?={ vm.TaskGeneratedReadOnly }
+							class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
 						>
 							<option value="">-- Select --</option>
 							for _, pt := range vm.PaymentTerms {
@@ -178,6 +192,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 							type="date"
 							name="due_date"
 							x-model="dueDate"
+							disabled?={ vm.TaskGeneratedReadOnly }
 							:readonly="!dueDateEditable"
 							:class="dueDateEditable
 								? 'mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus'
@@ -207,7 +222,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 							if vm.CurrencyError != "" {
 								<select
 									name="currency_code"
-									class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+									disabled?={ vm.TaskGeneratedReadOnly }
+									class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus disabled:opacity-60 disabled:cursor-not-allowed"
 								>
 									<option value="">{ vm.BaseCurrencyCode } (base)</option>
 									for _, cc := range vm.CompanyCurrencies {
@@ -218,7 +234,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 							} else {
 								<select
 									name="currency_code"
-									class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+									disabled?={ vm.TaskGeneratedReadOnly }
+									class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
 								>
 									<option value="">{ vm.BaseCurrencyCode } (base)</option>
 									for _, cc := range vm.CompanyCurrencies {
@@ -239,7 +256,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 									placeholder="e.g. 1.3500 (leave blank to auto-lookup)"
 									autocomplete="off"
 									inputmode="decimal"
-									class="mt-2 block w-full rounded-md border border-danger px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+									disabled?={ vm.TaskGeneratedReadOnly }
+									class="mt-2 block w-full rounded-md border border-danger px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus disabled:opacity-60 disabled:cursor-not-allowed"
 								/>
 								<div class="mt-1 text-body text-danger">{ vm.ExchangeRateError }</div>
 							} else {
@@ -250,7 +268,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 									placeholder="e.g. 1.3500 (leave blank to auto-lookup)"
 									autocomplete="off"
 									inputmode="decimal"
-									class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+									disabled?={ vm.TaskGeneratedReadOnly }
+									class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
 								/>
 							}
 							<p class="mt-1 text-small text-text-muted2">Base units per 1 foreign unit. Leave blank to auto-lookup from exchange rates.</p>
@@ -296,7 +315,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 											:name="'line_product_service_id[' + idx + ']'"
 											x-model="line.product_service_id"
 											@change="onProductChange(idx, $event.target.value)"
-											class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+											:disabled="taskReadOnly && line.locked"
+											class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
 										>
 											<option value="">-- None --</option>
 											<template x-for="p in products" :key="p.id">
@@ -313,7 +333,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 											placeholder="Description"
 											autocomplete="off"
 											@input="calcLine(idx)"
-											class="block w-full rounded-md px-2 py-1.5 text-body outline-none"
+											:disabled="taskReadOnly && line.locked"
+											class="block w-full rounded-md px-2 py-1.5 text-body outline-none disabled:opacity-60 disabled:cursor-not-allowed"
 											:class="line.error
 												? 'border border-danger focus:ring-2 focus:ring-danger-focus'
 												: 'border border-border-input focus:ring-2 focus:ring-primary-focus'"
@@ -334,7 +355,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 											@input="calcLine(idx)"
 											@blur="onQtyBlur(idx)"
 											inputmode="decimal"
-											class="block w-full rounded-md border border-border-input px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+											:disabled="taskReadOnly && line.locked"
+											class="block w-full rounded-md border border-border-input px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
 										/>
 									</td>
 									// Unit Price
@@ -346,7 +368,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 											@input="calcLine(idx)"
 											@blur="onPriceBlur(idx)"
 											inputmode="decimal"
-											class="block w-full rounded-md border border-border-input px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+											:disabled="taskReadOnly && line.locked"
+											class="block w-full rounded-md border border-border-input px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
 										/>
 									</td>
 									// Tax Code
@@ -372,7 +395,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 										<button
 											type="button"
 											@click="removeLine(idx)"
-											:disabled="lines.length === 1"
+											:disabled="lines.length === 1 || (taskReadOnly && line.locked)"
 											class="rounded p-1 text-text-muted3 hover:text-danger disabled:opacity-30"
 											title="Remove line"
 										>
@@ -380,6 +403,10 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 												<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
 											</svg>
 										</button>
+										// Hidden: DB id of existing line + locked flag.
+										// Used by the task-draft save handler to match lines for tax-code updates.
+										<input type="hidden" :name="'line_invoice_line_id[' + idx + ']'" :value="line.invoice_line_id || ''"/>
+										<input type="hidden" :name="'line_is_locked[' + idx + ']'" :value="line.locked ? '1' : '0'"/>
 									</td>
 								</tr>
 							</template>
@@ -436,7 +463,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 					</div>
 				</div>
 
-				<script src="/static/invoice_editor.js?v=6"></script>
+				<script src="/static/invoice_editor.js?v=7"></script>
 			</div>
 
 			</fieldset>
@@ -479,6 +506,18 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 								Delete Draft
 							</button>
 						</form>
+					}
+					// Save Changes: persists memo, tax-code edits, and extra lines.
+					// Uses a dedicated endpoint that only touches the allowed fields.
+					if vm.SaveTaskDraftPath != "" {
+						<button
+							type="submit"
+							formmethod="post"
+							formaction={ vm.SaveTaskDraftPath }
+							class="rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text"
+						>
+							Save Changes
+						</button>
 					}
 					if vm.SubmitPath != "" {
 						<button

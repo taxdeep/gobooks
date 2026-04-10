@@ -1,5 +1,5 @@
 // invoice_editor.js — Alpine component for the invoice line-items editor.
-// v=6
+// v=7
 function invoiceEditor() {
   return {
     lines: [],
@@ -12,6 +12,10 @@ function invoiceEditor() {
     invoiceDate: "",
     dueDate: "",
     dueDateEditable: false,
+    // taskReadOnly: true when this is a task-generated draft (set from data-task-readonly).
+    // Lines loaded from initial data are marked locked=true in this mode; lines the user
+    // adds via addLine() are always locked=false.
+    taskReadOnly: false,
 
     init() {
       const el = this.$el;
@@ -23,11 +27,24 @@ function invoiceEditor() {
       this.invoiceDate  = el.dataset.initialDate    || "";
       this.dueDate      = el.dataset.initialDueDate || "";
       this.dueDateEditable = this._isEditable(this.terms);
+      this.taskReadOnly = el.dataset.taskReadonly === "true";
 
       const initial = JSON.parse(el.dataset.initialLines || "[]");
       if (initial.length > 0) {
-        this.lines = initial.map(l => Object.assign({ line_tax: "0.00", error: "" }, l));
+        // Mark initial lines as locked when in task-readonly mode so the template
+        // can disable their product/description/qty/price cells individually while
+        // still allowing tax-code and GST edits.
+        this.lines = initial.map(l => Object.assign(
+          { line_tax: "0.00", error: "", locked: this.taskReadOnly },
+          l,
+        ));
       } else {
+        this.addLine();
+      }
+      // In task-readonly mode, always append one blank unlocked row so the user
+      // can enter ad-hoc line items without clicking "+ Add Line" first.
+      // isInvoicePlaceholderLine() on the server skips this row if left empty.
+      if (this.taskReadOnly) {
         this.addLine();
       }
       this._recalcAll();
@@ -45,6 +62,7 @@ function invoiceEditor() {
         line_net: "0.00",
         line_tax: "0.00",
         error: "",
+        locked: false,  // user-added lines are always fully editable
       });
       this._recalcAll();
     },
