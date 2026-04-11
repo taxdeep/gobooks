@@ -57,6 +57,43 @@ function testInvoiceEditorInitializesWithSingleBlankLine() {
   );
 }
 
+function testBillEditorInitializesWithSingleBlankLine() {
+  const context = loadBrowserScript('bill_editor.js', {});
+  const editor = context.billEditor();
+
+  editor.$el = {
+    dataset: {
+      accounts: '[]',
+      taxCodes: '[]',
+      tasks: '[]',
+      paymentTerms: '[]',
+      contactTerms: '{}',
+      initialTerms: '',
+      initialDate: '2026-04-10',
+      initialDueDate: '',
+      initialLines: '[]',
+    },
+  };
+
+  editor.init();
+
+  assert.equal(editor.lines.length, 1);
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(editor.lines[0])),
+    {
+      expense_account_id: '',
+      description: '',
+      task_id: '',
+      is_billable: false,
+      amount: '0.00',
+      tax_code_id: '',
+      line_net: '0.00',
+      line_tax: '0.00',
+      error: '',
+    },
+  );
+}
+
 async function testVendorSmartPickerRequestCarriesContext() {
   const fetchCalls = [];
   const gobooksFetch = async (url, options) => {
@@ -122,6 +159,66 @@ async function testVendorSmartPickerRequestCarriesContext() {
   assert.equal(fetchCalls[0].options.method, 'GET');
 }
 
+function testBillDateFilterInputSanitizesAndNormalizes() {
+  const documentListeners = {};
+  const context = loadBrowserScript('date_filter_input.js', {
+    document: {
+      addEventListener(name, handler) {
+        documentListeners[name] = handler;
+      },
+      querySelectorAll() {
+        return [];
+      },
+    },
+    window: {},
+  });
+
+  const submitListeners = {};
+  const inputListeners = {};
+  const form = {
+    addEventListener(name, handler) {
+      submitListeners[name] = handler;
+    },
+    querySelectorAll() {
+      return [input];
+    },
+  };
+  const input = {
+    value: '',
+    form,
+    addEventListener(name, handler) {
+      inputListeners[name] = handler;
+    },
+  };
+
+  context.window.gobooksDateFilterInput.bindInput(input);
+
+  input.value = 'Abc2026/01-04##';
+  inputListeners.input({ target: input });
+  assert.equal(input.value, '202601-04');
+
+  inputListeners.blur({ target: input });
+  assert.equal(input.value, '2026-01-04');
+
+  input.value = 'ddd';
+  inputListeners.input({ target: input });
+  assert.equal(input.value, '');
+
+  input.value = '20260131';
+  submitListeners.submit();
+  assert.equal(input.value, '2026-01-31');
+
+  assert.equal(
+    context.window.gobooksDateFilterInput.normalizeDateInput('2026-01-04'),
+    '2026-01-04',
+  );
+  assert.equal(
+    context.window.gobooksDateFilterInput.normalizeDateInput('20260104'),
+    '2026-01-04',
+  );
+  assert.ok(documentListeners.DOMContentLoaded, 'expected DOMContentLoaded hook to be registered');
+}
+
 async function run() {
   const tests = [
     {
@@ -129,8 +226,16 @@ async function run() {
       fn: testInvoiceEditorInitializesWithSingleBlankLine,
     },
     {
+      name: 'billEditor init creates exactly one blank line for a new bill',
+      fn: testBillEditorInitializesWithSingleBlankLine,
+    },
+    {
       name: 'vendor smart picker search request includes expense_form_vendor context',
       fn: testVendorSmartPickerRequestCarriesContext,
+    },
+    {
+      name: 'bill date filter input strips letters and normalizes 8-digit dates',
+      fn: testBillDateFilterInputSanitizesAndNormalizes,
     },
   ];
 
