@@ -1,10 +1,18 @@
-# Gobooks Project Guide v4
-## Execution Summary for Claude / Cursor / Codex
+# Gobooks Execution Summary v1
 
-This file is the implementation summary of Gobooks Project Guide v4.
-Use it as an execution contract when generating code, migrations, UI, APIs, reports, or tests.
+## For Claude / Cursor / Codex
 
-If anything conflicts with this summary, defer to the full `PROJECT_GUIDE.md`.
+## 0. Purpose
+
+This document is the short execution companion to the Project Guide.
+
+Use it when implementing, reviewing, or refactoring Gobooks features.
+
+Priority order:
+
+**Project Guide v5 > this Execution Summary > feature-specific task notes > temporary implementation habits**
+
+This summary does not replace the Project Guide. It compresses the most important implementation rules into an execution-ready format.
 
 ---
 
@@ -12,417 +20,517 @@ If anything conflicts with this summary, defer to the full `PROJECT_GUIDE.md`.
 
 Gobooks is:
 
-- a **strict multi-company accounting system**
-- a **correctness-first accounting engine**
-- a **control-oriented financial platform**
-- an **AI suggestion layer**, not an AI execution layer
-- a **modular, engine-centric architecture**
+* a strictly isolated multi-company accounting system
+* a correctness-first accounting engine
+* a control-oriented financial system
+* a modular, engine-centric business platform
+* an AI suggestion system, not an AI execution system
 
-Do not treat Gobooks as a loose CRUD app.
-
----
-
-# 2. Absolute Non-Negotiables
-
-Always obey:
-
-- **Correctness > Flexibility**
-- **Backend Authority > Frontend**
-- **Structure > Convenience**
-- **Auditability > Shortcuts**
-- **Company Isolation > Everything**
-- **AI = Suggestion Layer ONLY**
-
-Never let frontend, temporary UI state, or AI become accounting truth.
+Do not treat Gobooks as a loose CRUD app or a feature pile.
 
 ---
 
-# 3. Multi-Company Rules
+# 2. Non-Negotiable Rules
 
-Required:
+## 2.1 Always preserve
 
-- every core business/accounting object must have `company_id NOT NULL`
-- session must contain `active_company_id`
-- all reads/writes/reports/exports must be company-scoped
+* Correctness > Flexibility
+* Backend Authority > Frontend Assumptions
+* Structure > Convenience
+* Auditability > Performance Tricks
+* Company Isolation > Everything
+* Engine Truth > UI Presentation
+* Historical Honesty > Cosmetic Neatness
+* Cache = Acceleration ONLY
+* AI = Suggestion Layer ONLY
 
-Must validate on writes:
+## 2.2 Never allowed
 
-- document.company_id == active_company_id
-- account.company_id == active_company_id
-- tax.company_id == active_company_id
-- customer/vendor.company_id == active_company_id
-- JE.company_id == source.company_id
-
-Forbidden:
-
-- cross-company JE
-- cross-company ledger
-- shared COA
-- shared customers/vendors/tax objects
-- cross-company document/account references
+* cross-company accounting contamination
+* frontend becoming accounting truth
+* direct ledger writing that bypasses the Posting Engine
+* AI changing books
+* cache becoming accounting truth or authorization truth
+* cosmetically rewriting uncertain historical truth into false certainty
+* provider data being treated as accounting truth
 
 ---
 
-# 4. Architecture Rules
+# 3. Default Build Order
 
-Business App:
-- accounting
-- reporting
-- invoices
-- bills
-- customers/vendors
-- reconciliation
-- settings
+Always implement in this order unless there is a very strong reason not to:
 
-SysAdmin:
-- separate auth
-- company lifecycle
-- user management
-- maintenance mode
-- system-level observability
+**Data model → Validation → Engine / Service → Handler / API → View model → UI → Tests**
 
-Core truth belongs to engines.  
-Business workflows belong to modules.  
-AI belongs to the suggestion layer.
+Do not start from UI-first if the feature affects accounting truth.
+
+---
+
+# 4. Company Isolation Checklist
+
+Every feature must answer YES to all of these before it is considered complete:
+
+1. Are all core reads scoped by `company_id`?
+2. Are all writes scoped by `active_company_id` or equivalent trusted backend context?
+3. Are all related objects validated against the same company?
+4. Are all reports, exports, caches, and AI contexts company-scoped?
+5. Are all customer/vendor/account/tax/party references rejected when cross-company?
+
+If any answer is NO, the implementation is incomplete.
 
 ---
 
 # 5. Posting Engine Rules
 
-All formal accounting must go through:
+All formal accounting must go through the Posting Engine.
 
-**Document → Validation → Tax → Posting Fragments → Aggregation → Journal Entry → Ledger Entries**
+Official flow:
+
+**Document → Validation → Tax Calculation → FX / Currency Resolution → Posting Fragments → Aggregation → Journal Entry → Ledger Entries**
+
+Required guarantees:
+
+* DB transaction
+* row locking where needed
+* duplicate-post prevention
+* atomic source status / JE / ledger creation
+* rollback on failure
 
 Never:
 
-- bypass Posting Engine
-- write ledger directly
-- create formal JE without source
-- allow source change without JE synchronization
-
-JE must include:
-
-- company_id
-- status
-- source_type
-- source_id
-- totals
-- posting metadata
-
-JE status:
-- draft
-- posted
-- voided
-- reversed
-
-Posting must be transactional and atomic.
+* bypass the Posting Engine
+* write ledger truth directly from handlers/UI
+* let source lifecycle diverge from JE lifecycle
 
 ---
 
-# 6. Identity and Numbering
+# 6. Module Boundary Rules
 
-Entity identity:
-- `ENYYYY########`
-- globally unique
-- immutable
-- backend-generated
+## 6.1 Core engines
 
-Display number:
-- configurable
-- human-facing
-- duplicate-detectable
-- not identity truth
+### Posting Engine
 
-Never confuse display number with entity identity.
+Owns formal accounting production.
 
----
+### Tax Engine
 
-# 7. Chart of Accounts Rules
+Owns line-level tax truth and aggregation behavior.
 
-Root types are fixed:
+### FX Conversion Engine
 
-- asset
-- liability
-- equity
-- revenue
-- cost_of_sales
-- expense
+Owns tx → base conversion, line conversion, totals conversion, precision, and rounding policy.
 
-Code direction:
+### Numbering Engine
 
-- 1xxxx asset
-- 2xxxx liability
-- 3xxxx equity
-- 4xxxx revenue
-- 5xxxx cost_of_sales
-- 6xxxx expense
+Owns backend numbering truth and identity-safe numbering behavior.
 
-Historical accounting accounts:
-- do not hard-delete
-- use inactive
+### Reconciliation Control Engine
 
-System default COA template is allowed and encouraged.
+Owns reconciliation control states and completion rules.
 
----
+## 6.2 Reusable modules
 
-# 8. Tax Rules
+### MultiCurrencyModule
 
-Tax truth must be:
+Owns:
 
-**line-level calculation → account-level aggregation**
+* company base currency
+* multi-currency enablement
+* allowed transaction currencies
+* base vs foreign determination
+* reusable FX context for forms and read paths
 
-Sales:
-- revenue → revenue
-- tax → tax payable
+### ExchangeRateModule
 
-Purchases:
-- recoverable → tax receivable
-- partially recoverable → split
-- non-recoverable → expense/inventory absorption
+Owns:
 
-Never let UI invent tax truth.
+* local-first rate lookup
+* company override vs system precedence
+* provider fetch/store lifecycle
+* source semantics
+* refresh behavior
+* fallback behavior
 
----
+### SmartPickerModule
 
-# 9. Journal Entry Rules
+Owns:
 
-JE must be:
+* legal-candidate resolution
+* entity/provider resolution
+* company scope enforcement
+* context filtering
+* Search / GetByID legality semantics
 
-- source-linked
-- company-consistent
-- lifecycle-synchronized
-- reviewable
-- traceable
+### SmartPickerAccelerationModule
 
-Prefer account-level aggregation for formal JE presentation.
+Owns:
 
-Never allow:
-- JE without source
-- source mutated but JE unchanged
-- posted truth hard-deleted
+* recent/hot retrieval
+* short TTL query cache
+* usage signals
+* ranking
+* picker metrics
 
----
+Rules:
 
-# 10. Navigation Rules
+* rank only within backend-supplied legal candidates
+* acceleration only, never legality truth
 
-Official sidebar structure:
+### ReportAccelerationModule
 
-## Core
-- Dashboard
-- Journal Entry
-- Invoices
-- Bills
+Owns:
 
-## Sales & Get Paid
-- Customers
-- Receive Payment
+* result cache
+* aggregate/export/drill-down cache
+* invalidation hooks
+* freshness/source semantics
+* optional warmup scaffolding
 
-## Expense & Bills
-- Vendors
-- Pay Bills
+Rules:
 
-## Accounting
-- Chart of Accounts
-- Reconciliation
-- Reports
+* cache never replaces report truth
+* relevant writes must invalidate report cache
 
-## Settings
-- structured internal settings domains
+### AIAssistPlatform
 
-Forbidden:
-- top-level Contacts
-- top-level Banking
-- moving Reports elsewhere
+Owns:
 
----
+* provider abstraction
+* prompt registry
+* safety rules
+* audit logging
+* fallback / timeout / retry governance
 
-# 11. Settings and Security Rules
+## 6.3 Page-level rules
 
-Company settings direction:
+Pages may own:
 
-- Profile
-- Templates
-- Sales Tax
-- Numbering
-- Notifications
-- Security
+* local state
+* row add/remove
+* local draft persistence
+* UI previews
+* warnings and dialogs
 
-User menu:
-- Profile
-- Log out
+Pages may not own:
 
-Email/password changes:
-- verification required
-
-Verification codes:
-- 6 chars
-- case-insensitive
-- single-use
-- time-limited
-- backend-validated
-
-SMTP:
-- must be verified before verification sending is allowed
+* accounting truth
+* FX source truth
+* posting truth
+* legality truth
+* tax truth
+* cross-company validity
 
 ---
 
-# 12. Reconciliation Rules
+# 7. SmartPicker Execution Rules
 
-Reconciliation is an **accounting control layer**.
+When implementing SmartPicker:
 
-Status direction:
-- draft
-- in_progress
-- completed
-- reopened
-- cancelled
+* SmartPicker decides legal candidates
+* SmartPickerAcceleration improves speed/ranking only
+* backend revalidation remains mandatory
+* usage/ranking must never bypass legality checks
+* write-side invalidation is required after relevant master-data mutations
 
-Must support:
-- one-to-one
-- one-to-many
-- many-to-one
-- split
+Required continuity:
 
-Can only complete when:
-- difference == 0
-
-Void:
-- only latest completed reconciliation
-- never delete history
-- preserve void metadata
-
-AI auto-match:
-- Rules → Scoring → AI Enhancement
-- explainable suggestions only
-- user accept/reject required
+* open
+* search
+* loading
+* empty state
+* stale-response handling
+* selection
+* backend validation
+* error state
+* tests
 
 ---
 
-# 13. AI Rules
+# 8. Report Execution Rules
 
-AI is an advisor, not an executor.
+When implementing ReportAcceleration:
+
+* backend services still compute report truth
+* cache may accelerate only
+* source/freshness semantics must be visible on supported report surfaces
+* all relevant write paths must invalidate
+* report HTML/print/CSV/export must remain semantically aligned
+
+Required tests:
+
+* cache hit path
+* cache miss path
+* invalidation after write
+* HTML/export consistency
+
+---
+
+# 9. AI Execution Rules
+
+AI is advisory only.
 
 Allowed:
-- suggestions
-- ranking
-- explanation
-- anomaly hints
-- report interpretation
-- tax/account hints
+
+* suggestions
+* ranking
+* explanations
+* anomaly hints
+* writing assistance
+* report interpretation
 
 Forbidden:
-- AI posting
-- AI changing books
-- AI finalizing reconciliation
-- AI bypassing validation
 
-Long-term direction:
-- AI CFO / external accountant style support
+* posting books
+* reconciling books automatically
+* mutating accounting truth
+* bypassing validation
+* becoming source of truth
 
----
+When adding AI features:
 
-# 14. Reporting Rules
-
-Reports are product outputs, not temporary pages.
-
-Must preserve:
-- backend-generated truth
-- HTML / print / CSV consistency
-- business-status consistency
-- stable ordering
-- nil safety
-
-A/R Aging direction:
-- summary/detail consistency
-- product-grade export
-- customer finance visibility support
-
-Templates render only.  
-They must not create accounting truth.
+* route through AIAssistPlatform
+* make suggestion acceptance explicit
+* preserve auditability
+* add fallback or explicit disabled behavior
+* test success path, disabled path, and isolation path
 
 ---
 
-# 15. Current Product State and Planning Context
+# 10. Multi-Currency Execution Rules
 
-Already substantially advanced:
-- Task + Billable Expense core loop
-- Customer Workspace
-- Payment visibility
-- formal AR Aging
-- AR Aging detail rows
+## 10.1 Core rules
 
-Task module status:
-- main flow is basically complete
-- future Task / Quote overlap must be reconsidered later
+* one JE = one transaction currency
+* always persist explicit `transaction_currency_code`
+* base-currency JE still stores explicit base ISO code
+* provider is lookup-only, never accounting truth
+* save/post must not call live provider
+* backend derives base amounts from tx amounts
+* posted FX snapshot is immutable
 
-Next planning priority:
-- continue strengthening Invoice / AR mainline
-- improve invoice template/sending/product-service-tax linkage
-- continue report/export consistency
-- begin long-term UI theme work including low-glare dark mode
+## 10.2 JE persistence
+
+JE header must persist:
+
+* `transaction_currency_code`
+* `exchange_rate`
+* `exchange_rate_date`
+* `exchange_rate_source`
+
+JE lines must persist:
+
+* `tx_debit`
+* `tx_credit`
+* `debit`
+* `credit`
+
+Meaning:
+
+* `debit/credit` = ledger truth in base currency
+* `tx_debit/tx_credit` = source amounts in transaction currency
+
+## 10.3 FX source semantics
+
+Keep storage semantics separate from UI labels.
+
+Suggested exchange-rate row origin semantics:
+
+* `manual`
+* `provider_fetched`
+* `legacy_unknown`
+
+Suggested JE snapshot source semantics:
+
+* `identity`
+* `manual`
+* `company_override`
+* `system_stored`
+* `provider_fetched`
+
+UI labels such as “Latest” or “Manual” are presentation-only.
+
+## 10.4 Save-time validation
+
+For non-manual foreign-currency saves:
+
+* validate the exact locally shown/accepted snapshot identity
+* do not compare only to “latest current rate”
+* do not call live provider
+
+## 10.5 Rounding policy
+
+Phase 1:
+
+* line-by-line banker’s rounding to 2 decimals
+* if base totals do not balance exactly, block save
+
+Do not auto-round into a synthetic JE line until a governed system-owned FX rounding account exists.
+
+## 10.6 Historical honesty
+
+If old FX truth can be reconstructed confidently, show resolved truth.
+If it cannot, show unavailable / unknown / legacy-unavailable.
+
+Do not relabel uncertain legacy truth as identity/base truth.
+
+## 10.7 Read-path consistency
+
+Detail, list, and reversal flows must not disagree about FX truth.
+If legacy FX uses a resolver, all supported read/reversal surfaces should use that same resolver.
 
 ---
 
-# 16. UI / UX Direction
+# 11. AR/AP Foreign-Currency Routing Rules
 
-Gobooks should feel:
+## 11.1 Single-currency mode
 
-- clean
-- stable
-- business-first
-- professional
-- restrained
+* Sales / Invoices → default `AR`
+* Bills → default `AP`
 
-Dashboard:
-- operational overview, not complex BI
+## 11.2 Foreign-currency mode
 
-Tables/forms/reports:
-- must support long-duration work
+When a foreign currency like USD is enabled:
 
-Dark mode direction:
-- not simple inversion
-- low-glare
-- soft dark surfaces
-- readable tables/reports/forms
-- suitable for accounting workflows
+* system auto-creates `AR-USD`
+* system auto-creates `AP-USD`
 
----
+These are system-owned control accounts.
 
-# 17. Implementation Order
+## 11.3 Customer/Vendor currency rules
 
-Default implementation order:
+* each customer has exactly one default transaction currency
+* each vendor has exactly one default transaction currency
+* customer USD → invoices route to `AR-USD`
+* vendor USD → bills route to `AP-USD`
 
-**Data model → Validation → Engine/service → Handler/API → View model → UI → Tests**
+## 11.4 Edit restrictions
 
-Do not start from UI-first assumptions.
+* if customer/vendor has no historical transactions, default currency may change
+* if history exists, default currency is locked
 
----
+## 11.5 System-owned account rules
 
-# 18. Required Review Checklist
+System-owned foreign-currency control accounts:
 
-Before finalizing any change, check:
-
-1. company isolation preserved
-2. posting path preserved
-3. backend remains source of truth
-4. auditability preserved
-5. UI did not become truth source
-6. no unrelated module pollution
-7. export / HTML / CSV stay consistent
-8. ordering and nil-safety are covered
-9. AI did not cross into execution
-10. tests cover actual business truth, not only happy-path text
+* are auto-created by backend workflow
+* are mapped by backend control-account mapping
+* are not user-deletable
+* are not user-repurposable
+* must respect reserved account-code namespaces
 
 ---
 
-# 19. Final Instruction to Coding Agents
+# 12. Historical Honesty Rules
 
-When implementing Gobooks:
+This is a formal product rule.
 
-- think like a product engineer, not a page builder
-- protect accounting truth first
-- protect company isolation first
-- keep source/business/accounting/reporting logic aligned
-- prefer minimal necessary changes
-- avoid scope creep
-- keep the system engine-centric and modular
+When old data is incomplete or partially reconstructable:
+
+* prefer honest uncertainty over false clarity
+* do not overwrite history into cleaner but incorrect semantics
+* do not let detail/read/list/reversal disagree
+
+If a legacy action cannot be safely performed because FX truth is unavailable:
+
+* block the action
+* return a stable product-facing explanation
+* preserve auditability
+
+---
+
+# 13. UI / UX Rules
+
+UI must be:
+
+* clean
+* stable
+* business-first
+* professional
+* low-glare in dark mode
+
+Dark mode must not be simple inversion.
+
+For accounting-heavy pages:
+
+* no inconsistent white controls in dark mode
+* numeric inputs right-aligned with tabular numerals
+* transaction currency vs base currency must be clearly distinguishable
+* do not hide critical FX semantics in ambiguous labels
+
+---
+
+# 14. Testing Checklist for Claude / Cursor / Codex
+
+Before calling a feature “done”, confirm tests exist for the relevant risks.
+
+## 14.1 Core
+
+* happy path
+* cross-company rejection
+* nil / empty safety
+* ordering stability
+
+## 14.2 Posting / accounting
+
+* source lifecycle alignment
+* posted / reversed / voided transitions
+* partial payment or partial state where applicable
+
+## 14.3 FX / multi-currency
+
+* provider contract correctness
+* no-live-provider-at-save
+* explicit base-currency snapshot behavior
+* foreign snapshot persistence
+* exact local snapshot validation
+* rounding block behavior
+* reversal snapshot continuity
+* honest legacy read semantics
+
+## 14.4 Reports / acceleration
+
+* cache hit
+* cache miss
+* invalidation after relevant write
+* source/freshness semantics
+* export consistency
+
+## 14.5 AI
+
+* success path
+* disabled path
+* company isolation path
+* explicit user acceptance flow where applicable
+
+---
+
+# 15. Execution Checklist Before Merge
+
+Before merge, verify all of the following:
+
+1. Company isolation is preserved
+2. Backend remains source of truth
+3. Posting Engine is not bypassed
+4. Historical honesty is preserved
+5. Cache is acceleration only
+6. Provider is not accounting truth
+7. AI is suggestion only
+8. Read surfaces agree on the same truth model
+9. System-owned accounts and reserved code rules are preserved
+10. Tests cover the highest-risk logic, not just happy paths
+
+---
+
+# 16. Final Summary
+
+Gobooks is a strictly isolated, correctness-first, engine-centered accounting platform.
+
+When implementing any feature:
+
+* protect accounting truth
+* protect company isolation
+* protect auditability
+* protect historical honesty
+* keep engines reusable
+* keep modules clean
+* keep cache, AI, and providers subordinate to backend truth

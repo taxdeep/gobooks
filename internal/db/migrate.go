@@ -70,6 +70,11 @@ func Migrate(db *gorm.DB) error {
 	if err := migrateHostedInvoicePhase1(db); err != nil {
 		return err
 	}
+	// FX Phase: add tx_debit / tx_credit to journal_lines with safe backfill before
+	// AutoMigrate enforces NOT NULL. Fresh installs skip (table doesn't exist yet).
+	if err := migrateJournalLinesTxAmounts(db); err != nil {
+		return err
+	}
 	if err := db.AutoMigrate(
 		&models.Company{},
 		&models.User{},
@@ -1078,6 +1083,65 @@ CREATE TABLE IF NOT EXISTS invoice_hosted_links (
 				continue
 			}
 			return fmt.Errorf("migrateHostedInvoicePhase1: %w", err)
+		}
+	}
+	return nil
+}
+
+// migrateJournalLinesTxAmounts adds tx_debit and tx_credit to journal_lines with a
+// safe three-step approach for existing databases:
+//  1. Add columns as nullable (no DEFAULT needed; we backfill immediately).
+//  2. Backfill existing rows from debit / credit (base-currency truth → tx amounts).
+//  3. Set NOT NULL now that every row has a value.
+//
+// Fresh installs skip this entirely (42P01 undefined table) — AutoMigrate creates the
+// columns correctly from the model definition.
+func migrateJournalLinesTxAmounts(db *gorm.DB) error {
+	steps := []string{
+		// Step 1 + 2: add nullable, backfill immediately in one transaction block.
+		`
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = CURRENT_SCHEMA()
+      AND table_name   = 'journal_lines'
+      AND column_name  = 'tx_debit'
+  ) THEN
+    ALTER TABLE journal_lines
+      ADD COLUMN tx_debit  NUMERIC(18,2),
+      ADD COLUMN tx_credit NUMERIC(18,2);
+    -- Backfill: for all existing base-currency lines, tx amounts equal base amounts.
+    UPDATE journal_lines SET tx_debit = debit, tx_credit = credit;
+  END IF;
+END $$;
+`,
+		// Step 3: enforce NOT NULL now that every row is populated.
+		`
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = CURRENT_SCHEMA()
+      AND table_name   = 'journal_lines'
+      AND column_name  = 'tx_debit'
+      AND is_nullable  = 'YES'
+  ) THEN
+    ALTER TABLE journal_lines
+      ALTER COLUMN tx_debit  SET NOT NULL,
+      ALTER COLUMN tx_credit SET NOT NULL;
+  END IF;
+END $$;
+`,
+	}
+
+	for i, stmt := range steps {
+		if err := db.Exec(stmt).Error; err != nil {
+			if strings.Contains(err.Error(), "42P01") {
+				// Table doesn't exist yet — fresh install; AutoMigrate will handle it.
+				return nil
+			}
+			return fmt.Errorf("migrateJournalLinesTxAmounts step %d: %w", i+1, err)
 		}
 	}
 	return nil
