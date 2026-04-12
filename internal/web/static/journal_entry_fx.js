@@ -550,6 +550,17 @@ function gobooksJournalEntryDraft() {
       return `1 ${this.header.transaction_currency_code} = ${rate} ${this.baseCurrencyCode}`;
     },
 
+    // onRateInput — called when the user edits the inline rate field directly.
+    // Marks the rate as manual and suppresses future auto-fetches until Refresh.
+    onRateInput() {
+      this.fx.manual = true;
+      this.fx.source = "manual";
+      this.fx.sourceLabel = "Manual";
+      this.fx.snapshot_id = "";
+      this.recalc();
+      this.persist();
+    },
+
     toggleManualFX() {
       if (!this.showFXBlock) {
         return;

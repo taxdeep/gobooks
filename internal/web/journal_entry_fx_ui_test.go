@@ -31,10 +31,10 @@ func TestJournalEntryPage_UsesFXBlockDarkControlsAndSingleInitPath(t *testing.T)
 		`data-base-currency="CAD"`,
 		`name="transaction_currency_code"`,
 		`name="exchange_rate_snapshot_id"`,
-		`x-text="fxSummary()"`,
+		`@input="onRateInput()"`,
 		`Transaction Difference`,
 		`Base Difference`,
-		`/static/journal_entry_fx.js?v=2`,
+		`/static/journal_entry_fx.js?v=3`,
 		`text-right font-mono tabular-nums`,
 		`bg-surface px-3 py-2 text-body text-text`,
 		// JE Date drives FX date: @change handler must be wired on the date input.
@@ -82,13 +82,12 @@ func TestJournalEntryPage_CompactFXStrip(t *testing.T) {
 		}
 	}
 
-	// The strip renders the compact summary via fxSummary() and exposes
-	// Override / Use stored rate toggle actions.
+	// Inline FX rate: always-editable input with onRateInput handler and Refresh link.
 	for _, want := range []string{
-		`x-text="fxSummary()"`,
-		`x-text="fx.manual ? 'Use stored rate' : 'Override'"`,
+		`@input="onRateInput()"`,
 		`@click="refreshFX()"`,
-		`@click="toggleManualFX()"`,
+		`x-text="header.transaction_currency_code"`,
+		`x-text="baseCurrencyCode"`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("compact FX strip: expected attribute/expression %q", want)
