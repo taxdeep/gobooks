@@ -181,54 +181,38 @@ templ expenseFXStrip(vm ExpenseFormVM) {
 	</div>
 }
 
-// expenseLinesSection renders the dynamic line-item grid managed by Alpine.
-// Each line: Category | Description | Amount | Tax | Remove
-// Sub-row: Task | Billable
-// Footer:  subtotal + per-code tax adjustment + grand total
+// expenseLinesSection renders the compact line-item rows managed by Alpine.
+// Each line is 3 rows:
+//   Row 1 (flex, never stacks): [Category (flex)] [Amount (w-28)] [Tax (w-36)] [×]
+//   Row 2: [Description (full width)]
+//   Row 3 (flex): [Task (flex)] [Billable]
+// Footer: subtotal + per-code tax adjustment + grand total
 templ expenseLinesSection(vm ExpenseFormVM) {
 	<div>
-		<!-- Column headers (desktop only) -->
-		<div class="mb-1 hidden gap-2 text-small font-medium text-text-muted2 sm:grid sm:grid-cols-[1fr_2fr_8rem_8rem_2rem]">
-			<span>Category *</span>
-			<span>Description</span>
-			<span class="text-right">Amount *</span>
-			<span>Tax</span>
-			<span></span>
-		</div>
-
 		<!-- Dynamic line rows -->
-		<div class="space-y-3">
+		<div class="space-y-2">
 			<template x-for="(line, idx) in lines" :key="idx">
-				<div class="rounded-md border border-border bg-surface/30 p-2 space-y-1.5 sm:border-0 sm:bg-transparent sm:p-0">
+				<div class="rounded-md border border-border bg-surface/30 px-2 py-2 space-y-1.5">
 
-					<!-- Main row: Category | Description | Amount | Tax | Remove -->
-					<div class="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_2fr_8rem_8rem_2rem]">
+					<!-- Row 1: Category | Amount | Tax | Remove (always one line, flex) -->
+					<div class="flex items-center gap-2">
+						<!-- Category select (grows to fill) -->
+						<div class="min-w-0 flex-1">
+							<select
+								:name="'line_expense_account_id[' + idx + ']'"
+								x-model="line.expense_account_id"
+								@change="onAccountChange(idx)"
+								class="block w-full rounded border border-border-input bg-surface px-2 py-1.5 text-small text-text outline-none focus:ring-2 focus:ring-primary-focus"
+								:class="line.error ? 'border-danger focus:ring-danger-focus' : ''"
+							>
+								<option value="">— Category —</option>
+								<template x-for="a in accounts" :key="a.id">
+									<option :value="String(a.id)" :selected="String(line.expense_account_id) === String(a.id)" x-text="a.code + ' ' + a.name"></option>
+								</template>
+							</select>
+						</div>
 
-						<!-- Category select -->
-						<select
-							:name="'line_expense_account_id[' + idx + ']'"
-							x-model="line.expense_account_id"
-							@change="onAccountChange(idx)"
-							class="block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
-							:class="line.error ? 'border-danger focus:ring-danger-focus' : ''"
-						>
-							<option value="">— Select category —</option>
-							<template x-for="a in accounts" :key="a.id">
-								<option :value="String(a.id)" :selected="String(line.expense_account_id) === String(a.id)" x-text="a.code + ' ' + a.name"></option>
-							</template>
-						</select>
-
-						<!-- Description -->
-						<input
-							type="text"
-							:name="'line_description[' + idx + ']'"
-							x-model="line.description"
-							maxlength="255"
-							placeholder="e.g. Courier charge"
-							class="block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus"
-						/>
-
-						<!-- Amount (pre-tax) -->
+						<!-- Amount -->
 						<input
 							type="text"
 							:name="'line_amount[' + idx + ']'"
@@ -237,28 +221,30 @@ templ expenseLinesSection(vm ExpenseFormVM) {
 							placeholder="0.00"
 							@blur="onAmountBlur(idx)"
 							@input="onAmountInput(idx)"
-							class="block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-right font-mono text-body text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus tabular-nums"
+							class="w-28 shrink-0 rounded border border-border-input bg-surface px-2 py-1.5 text-right font-mono text-small text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus tabular-nums"
 						/>
 
-						<!-- Tax code select -->
-						<select
-							:name="'line_tax_code_id[' + idx + ']'"
-							x-model="line.tax_code_id"
-							@change="onTaxCodeChange(idx)"
-							class="block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
-						>
-							<option value="">— No tax —</option>
-							<template x-for="tc in taxCodes" :key="tc.id">
-								<option :value="String(tc.id)" :selected="String(line.tax_code_id) === String(tc.id)" x-text="tc.code + ' — ' + tc.name"></option>
-							</template>
-						</select>
+						<!-- Tax code -->
+						<div class="w-36 shrink-0">
+							<select
+								:name="'line_tax_code_id[' + idx + ']'"
+								x-model="line.tax_code_id"
+								@change="onTaxCodeChange(idx)"
+								class="block w-full rounded border border-border-input bg-surface px-2 py-1.5 text-small text-text outline-none focus:ring-2 focus:ring-primary-focus"
+							>
+								<option value="">— No tax —</option>
+								<template x-for="tc in taxCodes" :key="tc.id">
+									<option :value="String(tc.id)" :selected="String(line.tax_code_id) === String(tc.id)" x-text="tc.code + ' — ' + tc.name"></option>
+								</template>
+							</select>
+						</div>
 
-						<!-- Remove button -->
+						<!-- Remove -->
 						<button
 							type="button"
 							@click="removeLine(idx)"
 							:disabled="lines.length <= 1"
-							class="flex items-center justify-center rounded-md border border-transparent p-1.5 text-text-muted3 hover:border-border hover:text-danger disabled:cursor-not-allowed disabled:opacity-30"
+							class="shrink-0 flex items-center justify-center rounded p-1 text-text-muted3 hover:text-danger disabled:cursor-not-allowed disabled:opacity-30"
 							aria-label="Remove line"
 						>
 							<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -267,14 +253,24 @@ templ expenseLinesSection(vm ExpenseFormVM) {
 						</button>
 					</div>
 
-					<!-- Task & Billing sub-row -->
-					<div class="flex flex-wrap items-center gap-3">
+					<!-- Row 2: Description -->
+					<input
+						type="text"
+						:name="'line_description[' + idx + ']'"
+						x-model="line.description"
+						maxlength="255"
+						placeholder="Description (optional)"
+						class="block w-full rounded border border-border-input bg-surface px-2 py-1.5 text-small text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus"
+					/>
+
+					<!-- Row 3: Task + Billable (flex) -->
+					<div class="flex items-center gap-3">
 						<div class="min-w-0 flex-1">
 							<select
 								:name="'line_task_id[' + idx + ']'"
 								x-model="line.task_id"
 								@change="onLineTaskChange(idx, $event.target.value)"
-								class="block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-small text-text outline-none focus:ring-2 focus:ring-primary-focus"
+								class="block w-full rounded border border-border-input bg-surface px-2 py-1.5 text-small text-text outline-none focus:ring-2 focus:ring-primary-focus"
 							>
 								<option value="">— No task —</option>
 								<template x-for="t in tasks" :key="t.id">
@@ -283,7 +279,7 @@ templ expenseLinesSection(vm ExpenseFormVM) {
 							</select>
 						</div>
 						<label
-							class="inline-flex shrink-0 items-center gap-2 text-small"
+							class="inline-flex shrink-0 items-center gap-1.5 text-small"
 							:class="line.task_id ? 'text-text' : 'text-text-muted3 cursor-not-allowed'"
 						>
 							<input
@@ -292,7 +288,7 @@ templ expenseLinesSection(vm ExpenseFormVM) {
 								value="1"
 								x-model="line.is_billable"
 								:disabled="!line.task_id"
-								class="h-4 w-4 rounded border-border-input accent-primary focus:ring-primary-focus disabled:opacity-40"
+								class="h-3.5 w-3.5 rounded border-border-input accent-primary focus:ring-primary-focus disabled:opacity-40"
 							/>
 							<span>Billable</span>
 						</label>
