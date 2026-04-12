@@ -3,6 +3,7 @@ package web
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -370,7 +371,8 @@ func (s *Server) handleJournalEntryDetail(c *fiber.Ctx) error {
 		}
 	}
 
-	fxState, err := services.BuildJournalEntryReadFXState(s.DB, company.BaseCurrencyCode, je)
+	fxResolver := services.NewJournalEntryFXResolver(s.DB, company.BaseCurrencyCode)
+	fxState, err := fxResolver.BuildReadState(je)
 	if err != nil {
 		return c.Redirect("/journal-entry/list", fiber.StatusSeeOther)
 	}
@@ -430,25 +432,26 @@ func (s *Server) handleJournalEntryDetail(c *fiber.Ctx) error {
 	}
 
 	return pages.JournalEntryDetailPage(pages.JournalEntryDetailVM{
-		HasCompany:                true,
-		ID:                        je.ID,
-		JournalNo:                 je.JournalNo,
-		EntryDate:                 je.EntryDate.Format("2006-01-02"),
-		Status:                    string(je.Status),
-		BaseCurrencyCode:          company.BaseCurrencyCode,
-		TransactionCurrencyCode:   fxState.TransactionCurrencyCode,
-		ExchangeRate:              exchangeRateLabel,
-		ExchangeRateDate:          exchangeRateDateLabel,
-		ExchangeRateSource:        fxState.ExchangeRateSource,
-		ExchangeRateSourceLabel:   fxState.ExchangeRateSourceLabel,
-		IsForeignCurrency:         fxState.IsForeignCurrency,
-		TransactionAmountsPresent: fxState.TransactionAmountsPresent,
-		FXSnapshotNote:            fxState.SnapshotNote,
-		Lines:                     lines,
-		TxDebitTotal:              txDebitTotalLabel,
-		TxCreditTotal:             txCreditTotalLabel,
-		BaseDebitTotal:            pages.Money(baseDebitTotal),
-		BaseCreditTotal:           pages.Money(baseCreditTotal),
+		HasCompany:                 true,
+		ID:                         je.ID,
+		JournalNo:                  je.JournalNo,
+		EntryDate:                  je.EntryDate.Format("2006-01-02"),
+		Status:                     string(je.Status),
+		BaseCurrencyCode:           company.BaseCurrencyCode,
+		TransactionCurrencyCode:    fxState.TransactionCurrencyCode,
+		TransactionCurrencyDisplay: fxState.TransactionCurrencyDisplay,
+		ExchangeRate:               exchangeRateLabel,
+		ExchangeRateDate:           exchangeRateDateLabel,
+		ExchangeRateSource:         fxState.ExchangeRateSource,
+		ExchangeRateSourceLabel:    fxState.ExchangeRateSourceLabel,
+		IsForeignCurrency:          fxState.IsForeignCurrency,
+		TransactionAmountsPresent:  fxState.TransactionAmountsPresent,
+		FXSnapshotNote:             fxState.SnapshotNote,
+		Lines:                      lines,
+		TxDebitTotal:               txDebitTotalLabel,
+		TxCreditTotal:              txCreditTotalLabel,
+		BaseDebitTotal:             pages.Money(baseDebitTotal),
+		BaseCreditTotal:            pages.Money(baseCreditTotal),
 	}).Render(c.Context(), c)
 }
 
@@ -459,8 +462,23 @@ func (s *Server) handleJournalEntryList(c *fiber.Ctx) error {
 	}
 
 	formError := ""
-	if c.Query("error") == "already-reversed" {
+	switch c.Query("error") {
+	case "already-reversed":
 		formError = "This journal entry is already reversed."
+	case "legacy-fx-unavailable":
+		formError = services.LegacyForeignJournalEntryReversalBlockedMessage
+	case "reverse-failed":
+		formError = "Could not reverse this journal entry."
+	}
+
+	var company models.Company
+	if err := s.DB.Select("id", "base_currency_code").First(&company, companyID).Error; err != nil {
+		return pages.JournalEntryListPage(pages.JournalEntryListVM{
+			HasCompany: true,
+			Active:     "Journal Entry",
+			Items:      []pages.JournalEntryListItem{},
+			FormError:  "Could not load company currency settings.",
+		}).Render(c.Context(), c)
 	}
 
 	var entries []models.JournalEntry
@@ -480,6 +498,7 @@ func (s *Server) handleJournalEntryList(c *fiber.Ctx) error {
 		}
 	}
 
+	fxResolver := services.NewJournalEntryFXResolver(s.DB, company.BaseCurrencyCode)
 	items := make([]pages.JournalEntryListItem, 0, len(entries))
 	for _, e := range entries {
 		totalDebit := decimal.Zero
@@ -495,16 +514,30 @@ func (s *Server) handleJournalEntryList(c *fiber.Ctx) error {
 		} else if reversedFromSet[e.ID] {
 			reverseHint = "Already reversed."
 		}
+		fxState, err := fxResolver.BuildReadState(e)
+		if err != nil {
+			return pages.JournalEntryListPage(pages.JournalEntryListVM{
+				HasCompany: true,
+				Active:     "Journal Entry",
+				Items:      []pages.JournalEntryListItem{},
+				FormError:  "Could not resolve journal-entry FX summaries.",
+			}).Render(c.Context(), c)
+		}
+		if canReverse && !fxState.ReversalAllowed {
+			canReverse = false
+			reverseHint = fxState.ReversalBlockedReason
+		}
 		items = append(items, pages.JournalEntryListItem{
-			ID:                      e.ID,
-			EntryDate:               e.EntryDate.Format("2006-01-02"),
-			JournalNo:               e.JournalNo,
-			LineCount:               len(e.Lines),
-			TotalDebit:              pages.Money(totalDebit),
-			TotalCredit:             pages.Money(totalCredit),
-			TransactionCurrencyCode: strings.TrimSpace(e.TransactionCurrencyCode),
-			CanReverse:              canReverse,
-			ReverseHint:             reverseHint,
+			ID:                         e.ID,
+			EntryDate:                  e.EntryDate.Format("2006-01-02"),
+			JournalNo:                  e.JournalNo,
+			LineCount:                  len(e.Lines),
+			TotalDebit:                 pages.Money(totalDebit),
+			TotalCredit:                pages.Money(totalCredit),
+			TransactionCurrencyDisplay: fxState.TransactionCurrencyDisplay,
+			ExchangeRateSourceLabel:    fxState.ExchangeRateSourceLabel,
+			CanReverse:                 canReverse,
+			ReverseHint:                reverseHint,
 		})
 	}
 
@@ -550,7 +583,14 @@ func (s *Server) handleJournalEntryReverse(c *fiber.Ctx) error {
 		reversedID = newID
 		return nil
 	}); err != nil {
-		return c.Redirect("/journal-entry/list?error=already-reversed", fiber.StatusSeeOther)
+		switch {
+		case errors.Is(err, services.ErrJournalEntryAlreadyReversed):
+			return c.Redirect("/journal-entry/list?error=already-reversed", fiber.StatusSeeOther)
+		case errors.Is(err, services.ErrJournalEntryLegacyFXUnavailable):
+			return c.Redirect("/journal-entry/list?error=legacy-fx-unavailable", fiber.StatusSeeOther)
+		default:
+			return c.Redirect("/journal-entry/list?error=reverse-failed", fiber.StatusSeeOther)
+		}
 	}
 
 	actor := user.Email

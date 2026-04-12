@@ -15,15 +15,35 @@ import (
 const journalEntryFXMigrationVersion = "048_journal_entry_fx_support.sql"
 
 type JournalEntryReadFXState struct {
-	TransactionCurrencyCode   string
-	BaseCurrencyCode          string
-	ExchangeRate              decimal.Decimal
-	ExchangeRateDate          time.Time
-	ExchangeRateSource        string
-	ExchangeRateSourceLabel   string
-	IsForeignCurrency         bool
-	TransactionAmountsPresent bool
-	SnapshotNote              string
+	TransactionCurrencyCode    string
+	TransactionCurrencyDisplay string
+	BaseCurrencyCode           string
+	ExchangeRate               decimal.Decimal
+	ExchangeRateDate           time.Time
+	ExchangeRateSource         string
+	ExchangeRateSourceLabel    string
+	IsForeignCurrency          bool
+	SnapshotResolved           bool
+	TransactionAmountsPresent  bool
+	SnapshotNote               string
+	ReversalAllowed            bool
+	ReversalBlockedReason      string
+}
+
+const LegacyForeignJournalEntryReversalBlockedMessage = "This legacy foreign-currency journal entry cannot be reversed automatically because Gobooks could not reconstruct a reliable historical FX snapshot."
+
+type JournalEntryFXResolver struct {
+	db                 *gorm.DB
+	baseCurrencyCode   string
+	migrationChecked   bool
+	migrationAppliedAt *time.Time
+}
+
+func NewJournalEntryFXResolver(db *gorm.DB, baseCurrencyCode string) *JournalEntryFXResolver {
+	return &JournalEntryFXResolver{
+		db:               db,
+		baseCurrencyCode: normalizeCurrencyCode(baseCurrencyCode),
+	}
 }
 
 // BuildJournalEntryReadFXState returns the immutable FX read model for a posted
@@ -32,7 +52,11 @@ type JournalEntryReadFXState struct {
 // foreign-source documents are reconstructed when possible, and otherwise the
 // read path marks FX details unavailable instead of fabricating identity state.
 func BuildJournalEntryReadFXState(db *gorm.DB, baseCurrencyCode string, je models.JournalEntry) (JournalEntryReadFXState, error) {
-	baseCurrencyCode = normalizeCurrencyCode(baseCurrencyCode)
+	return NewJournalEntryFXResolver(db, baseCurrencyCode).BuildReadState(je)
+}
+
+func (r *JournalEntryFXResolver) BuildReadState(je models.JournalEntry) (JournalEntryReadFXState, error) {
+	baseCurrencyCode := r.baseCurrencyCode
 	if baseCurrencyCode == "" {
 		baseCurrencyCode = normalizeCurrencyCode(je.TransactionCurrencyCode)
 	}
@@ -43,7 +67,9 @@ func BuildJournalEntryReadFXState(db *gorm.DB, baseCurrencyCode string, je model
 		ExchangeRate:              je.ExchangeRate.RoundBank(8),
 		ExchangeRateDate:          je.ExchangeRateDate,
 		ExchangeRateSource:        strings.TrimSpace(je.ExchangeRateSource),
+		SnapshotResolved:          true,
 		TransactionAmountsPresent: true,
+		ReversalAllowed:           true,
 	}
 	if state.TransactionCurrencyCode == "" {
 		state.TransactionCurrencyCode = baseCurrencyCode
@@ -61,53 +87,64 @@ func BuildJournalEntryReadFXState(db *gorm.DB, baseCurrencyCode string, je model
 	state.ExchangeRateSourceLabel = ExchangeRateSourceLabel(state.ExchangeRateSource)
 	state.IsForeignCurrency = state.TransactionCurrencyCode != "" && state.TransactionCurrencyCode != baseCurrencyCode
 
-	legacy, err := journalEntryPredatesFXMigration(db, je)
+	legacy, err := r.journalEntryPredatesFXMigration(je)
 	if err != nil {
 		return JournalEntryReadFXState{}, err
 	}
-	if !legacy {
-		return state, nil
+	if legacy && strings.TrimSpace(string(je.SourceType)) != "" {
+		legacyState, err := buildLegacyJournalEntryReadFXState(r.db, je, baseCurrencyCode)
+		if err != nil {
+			return JournalEntryReadFXState{}, err
+		}
+		if legacyState != nil {
+			state = *legacyState
+		}
 	}
 
-	if strings.TrimSpace(string(je.SourceType)) == "" {
-		// Manual legacy JEs predate foreign-currency JE support and are base-only.
-		return state, nil
-	}
-
-	legacyState, err := buildLegacyJournalEntryReadFXState(db, je, baseCurrencyCode)
-	if err != nil {
-		return JournalEntryReadFXState{}, err
-	}
-	if legacyState != nil {
-		return *legacyState, nil
-	}
+	finalizeJournalEntryReadFXState(&state)
 	return state, nil
 }
 
-func journalEntryPredatesFXMigration(db *gorm.DB, je models.JournalEntry) (bool, error) {
+func (r *JournalEntryFXResolver) journalEntryPredatesFXMigration(je models.JournalEntry) (bool, error) {
 	if je.CreatedAt.IsZero() {
 		return false, nil
 	}
+	appliedAt, err := r.fxMigrationAppliedAt()
+	if err != nil || appliedAt == nil {
+		return false, err
+	}
+	return je.CreatedAt.Before(*appliedAt), nil
+}
+
+func (r *JournalEntryFXResolver) fxMigrationAppliedAt() (*time.Time, error) {
+	if r.migrationChecked {
+		return r.migrationAppliedAt, nil
+	}
+	r.migrationChecked = true
+	if r.db == nil {
+		return nil, nil
+	}
 	var appliedAtRaw string
-	err := db.Raw(
+	err := r.db.Raw(
 		`SELECT applied_at FROM schema_migrations WHERE version = ? LIMIT 1`,
 		journalEntryFXMigrationVersion,
 	).Scan(&appliedAtRaw).Error
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "schema_migrations") {
-			return false, nil
+			return nil, nil
 		}
-		return false, err
+		return nil, err
 	}
 	appliedAtRaw = strings.TrimSpace(appliedAtRaw)
 	if appliedAtRaw == "" {
-		return false, nil
+		return nil, nil
 	}
 	appliedAt, err := parseSchemaMigrationAppliedAt(appliedAtRaw)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	return je.CreatedAt.Before(appliedAt), nil
+	r.migrationAppliedAt = &appliedAt
+	return r.migrationAppliedAt, nil
 }
 
 func buildLegacyJournalEntryReadFXState(db *gorm.DB, je models.JournalEntry, baseCurrencyCode string) (*JournalEntryReadFXState, error) {
@@ -206,6 +243,7 @@ func buildLegacyDocumentJournalEntryReadFXState(baseCurrencyCode, transactionCur
 		ExchangeRateSource:        JournalEntryExchangeRateSourceLegacyUnavailable,
 		ExchangeRateSourceLabel:   ExchangeRateSourceLabel(JournalEntryExchangeRateSourceLegacyUnavailable),
 		IsForeignCurrency:         true,
+		SnapshotResolved:          true,
 		TransactionAmountsPresent: false,
 		SnapshotNote:              note,
 	}
@@ -217,8 +255,52 @@ func legacyUnavailableJournalEntryReadFXState(baseCurrencyCode, note string) Jou
 		BaseCurrencyCode:          baseCurrencyCode,
 		ExchangeRateSource:        JournalEntryExchangeRateSourceLegacyUnavailable,
 		ExchangeRateSourceLabel:   ExchangeRateSourceLabel(JournalEntryExchangeRateSourceLegacyUnavailable),
+		SnapshotResolved:          false,
 		TransactionAmountsPresent: false,
+		ReversalAllowed:           false,
 		SnapshotNote:              note,
+	}
+}
+
+func finalizeJournalEntryReadFXState(state *JournalEntryReadFXState) {
+	if state == nil {
+		return
+	}
+	state.BaseCurrencyCode = normalizeCurrencyCode(state.BaseCurrencyCode)
+	state.TransactionCurrencyCode = normalizeCurrencyCode(state.TransactionCurrencyCode)
+	if state.ExchangeRate.IsZero() {
+		state.ExchangeRate = decimal.NewFromInt(1)
+	}
+	if state.ExchangeRateSource == "" {
+		state.ExchangeRateSource = JournalEntryExchangeRateSourceIdentity
+	}
+	state.ExchangeRateSourceLabel = ExchangeRateSourceLabel(state.ExchangeRateSource)
+	state.IsForeignCurrency = state.TransactionCurrencyCode != "" && state.TransactionCurrencyCode != state.BaseCurrencyCode
+	state.ReversalAllowed = true
+	state.ReversalBlockedReason = ""
+	if state.IsForeignCurrency && state.ExchangeRateSource == JournalEntryExchangeRateSourceLegacyUnavailable {
+		state.TransactionAmountsPresent = false
+		if strings.TrimSpace(state.SnapshotNote) == "" {
+			state.SnapshotNote = "This journal entry preserves a legacy FX snapshot. Original transaction-currency line amounts were unavailable, so only base-currency line amounts are shown."
+		}
+	}
+	if state.TransactionCurrencyCode != "" {
+		state.TransactionCurrencyDisplay = state.TransactionCurrencyCode
+	} else {
+		state.TransactionCurrencyDisplay = ExchangeRateSourceLabel(JournalEntryExchangeRateSourceLegacyUnavailable)
+	}
+	if !state.SnapshotResolved {
+		state.ReversalAllowed = false
+		state.ReversalBlockedReason = LegacyForeignJournalEntryReversalBlockedMessage
+	}
+	if state.IsForeignCurrency && !state.TransactionAmountsPresent {
+		if state.SnapshotResolved {
+			state.ReversalAllowed = true
+			state.ReversalBlockedReason = ""
+		} else {
+			state.ReversalAllowed = false
+			state.ReversalBlockedReason = LegacyForeignJournalEntryReversalBlockedMessage
+		}
 	}
 }
 

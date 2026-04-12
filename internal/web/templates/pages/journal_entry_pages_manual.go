@@ -142,7 +142,11 @@ func renderJournalEntryListHTML(vm JournalEntryListVM) string {
 	}
 	b.WriteString(`<div class="mt-6 rounded-lg border border-border bg-surface p-6"><div class="overflow-x-auto"><table class="w-full text-left text-body"><thead class="text-small uppercase tracking-wider text-text-muted"><tr class="border-b border-border"><th class="py-3 pr-4">ID</th><th class="py-3 pr-4">Date</th><th class="py-3 pr-4">Journal No.</th><th class="py-3 pr-4">Tx Currency</th><th class="py-3 pr-4">Lines</th><th class="py-3 pr-4">Debits</th><th class="py-3 pr-4">Credits</th><th class="py-3 pr-0">Actions</th></tr></thead><tbody class="text-text">`)
 	for _, item := range vm.Items {
-		b.WriteString(`<tr class="border-b border-border-subtle align-top"><td class="py-3 pr-4">` + esc(Uitoa(item.ID)) + `</td><td class="py-3 pr-4 whitespace-nowrap">` + esc(item.EntryDate) + `</td><td class="py-3 pr-4"><a href="/journal-entry/` + esc(Uitoa(item.ID)) + `" class="font-medium text-primary hover:text-primary-hover">` + esc(item.JournalNo) + `</a></td><td class="py-3 pr-4">` + esc(item.TransactionCurrencyCode) + `</td><td class="py-3 pr-4">` + esc(Itoa(item.LineCount)) + `</td><td class="py-3 pr-4 font-mono tabular-nums">` + esc(item.TotalDebit) + `</td><td class="py-3 pr-4 font-mono tabular-nums">` + esc(item.TotalCredit) + `</td><td class="py-3 pr-0"><div class="flex flex-wrap items-center gap-2"><a href="/journal-entry/` + esc(Uitoa(item.ID)) + `" class="rounded-md border border-border-input px-3 py-2 text-body font-medium text-text hover:bg-background">View</a><form method="post" action="/journal-entry/` + esc(Uitoa(item.ID)) + `/reverse" class="flex items-center gap-2"><input type="date" name="reverse_date" class="rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text"`)
+		b.WriteString(`<tr class="border-b border-border-subtle align-top"><td class="py-3 pr-4">` + esc(Uitoa(item.ID)) + `</td><td class="py-3 pr-4 whitespace-nowrap">` + esc(item.EntryDate) + `</td><td class="py-3 pr-4"><a href="/journal-entry/` + esc(Uitoa(item.ID)) + `" class="font-medium text-primary hover:text-primary-hover">` + esc(item.JournalNo) + `</a></td><td class="py-3 pr-4"><div class="font-medium text-text">` + esc(item.TransactionCurrencyDisplay) + `</div>`)
+		if strings.TrimSpace(item.ExchangeRateSourceLabel) != "" {
+			b.WriteString(`<div class="mt-1 text-small text-text-muted2">` + esc(item.ExchangeRateSourceLabel) + `</div>`)
+		}
+		b.WriteString(`</td><td class="py-3 pr-4">` + esc(Itoa(item.LineCount)) + `</td><td class="py-3 pr-4 font-mono tabular-nums">` + esc(item.TotalDebit) + `</td><td class="py-3 pr-4 font-mono tabular-nums">` + esc(item.TotalCredit) + `</td><td class="py-3 pr-0"><div class="flex flex-wrap items-center gap-2"><a href="/journal-entry/` + esc(Uitoa(item.ID)) + `" class="rounded-md border border-border-input px-3 py-2 text-body font-medium text-text hover:bg-background">View</a><form method="post" action="/journal-entry/` + esc(Uitoa(item.ID)) + `/reverse" class="flex items-center gap-2"><input type="date" name="reverse_date" class="rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text"`)
 		if !item.CanReverse {
 			b.WriteString(` disabled`)
 		}
@@ -167,7 +171,7 @@ func renderJournalEntryDetailHTML(vm JournalEntryDetailVM) string {
 	if strings.TrimSpace(title) == "" {
 		title = fmt.Sprintf("Journal Entry #%d", vm.ID)
 	}
-	transactionCurrencyLabel := strings.TrimSpace(vm.TransactionCurrencyCode)
+	transactionCurrencyLabel := strings.TrimSpace(vm.TransactionCurrencyDisplay)
 	if transactionCurrencyLabel == "" {
 		transactionCurrencyLabel = "Unavailable (legacy)"
 	}

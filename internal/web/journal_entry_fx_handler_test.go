@@ -61,6 +61,18 @@ func seedJournalCompanyContext(t *testing.T, db *gorm.DB) (uint, string) {
 	return companyID, token
 }
 
+func snippetAround(body, marker string, span int) string {
+	idx := strings.Index(body, marker)
+	if idx < 0 {
+		return ""
+	}
+	end := idx + span
+	if end > len(body) {
+		end = len(body)
+	}
+	return body[idx:end]
+}
+
 func seedJournalAccount(t *testing.T, db *gorm.DB, companyID uint, code, name string, root models.RootAccountType, detail models.DetailAccountType) uint {
 	t.Helper()
 	acc := models.Account{
@@ -410,6 +422,53 @@ func TestJournalEntryPost_ManualOverridePersistsWithoutMutatingSharedRates(t *te
 	}
 	if rateCount != 0 {
 		t.Fatalf("expected manual JE override to avoid mutating shared exchange-rate rows, got %d rows", rateCount)
+	}
+}
+
+func TestJournalEntryPost_SavePathNeverBuildsProvider(t *testing.T) {
+	db := testJournalRouteDB(t)
+	app := testRouteApp(t, db)
+	companyID, token := seedJournalCompanyContext(t, db)
+	cashID := seedJournalAccount(t, db, companyID, "1000", "Cash", models.RootAsset, models.DetailBank)
+	revenueID := seedJournalAccount(t, db, companyID, "4000", "Revenue", models.RootRevenue, models.DetailServiceRevenue)
+	rateRow, err := services.UpsertExchangeRate(db, services.UpsertExchangeRateInput{
+		Base:     "USD",
+		Target:   "CAD",
+		Rate:     decimal.RequireFromString("1.33000000"),
+		RateType: "spot",
+		Source:   services.ExchangeRateRowSourceProviderFetched,
+		Date:     time.Date(2026, 4, 10, 0, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	prevBuilder := buildExchangeRateProvider
+	defer func() { buildExchangeRateProvider = prevBuilder }()
+	providerBuilt := false
+	buildExchangeRateProvider = func() services.ExchangeRateProvider {
+		providerBuilt = true
+		return &stubProviderForEndpoint{}
+	}
+
+	resp := performJournalFormRequest(t, app, "/journal-entry", url.Values{
+		"entry_date":                {"2026-04-10"},
+		"journal_no":                {"JE-NO-PROVIDER-SAVE"},
+		"transaction_currency_code": {"USD"},
+		"exchange_rate_source":      {services.JournalEntryExchangeRateSourceProviderFetched},
+		"exchange_rate":             {"1.33000000"},
+		"exchange_rate_date":        {"2026-04-10"},
+		"exchange_rate_snapshot_id": {decimal.NewFromInt(int64(rateRow.ID)).String()},
+		"lines[0][account_id]":      {decimal.NewFromInt(int64(cashID)).String()},
+		"lines[0][debit]":           {"100.00"},
+		"lines[1][account_id]":      {decimal.NewFromInt(int64(revenueID)).String()},
+		"lines[1][credit]":          {"100.00"},
+	}, token)
+	if resp.StatusCode != fiber.StatusSeeOther {
+		t.Fatalf("expected redirect, got %d", resp.StatusCode)
+	}
+	if providerBuilt {
+		t.Fatal("expected JE save path to avoid constructing the live exchange-rate provider")
 	}
 }
 
@@ -808,6 +867,277 @@ func TestJournalEntryDetail_LegacyForeignJournalEntryWithoutLinkedSourceShowsUna
 	}
 	if strings.Contains(body, "1 CAD = 1 CAD") {
 		t.Fatalf("legacy foreign JE without source should not be falsified as identity, got %q", body)
+	}
+}
+
+func TestJournalEntryList_LegacyForeignJournalEntriesRenderHonestFXSummaries(t *testing.T) {
+	db := testJournalRouteDB(t)
+	app := testRouteApp(t, db)
+	companyID, token := seedJournalCompanyContext(t, db)
+	seedJournalFXMigrationAppliedAt(t, db, time.Date(2026, 4, 15, 12, 0, 0, 0, time.UTC))
+	cashID := seedJournalAccount(t, db, companyID, "1000", "Cash", models.RootAsset, models.DetailBank)
+	revenueID := seedJournalAccount(t, db, companyID, "4000", "Revenue", models.RootRevenue, models.DetailServiceRevenue)
+	customerID := seedJournalCustomer(t, db, companyID, "Legacy Customer")
+	invoice := models.Invoice{
+		CompanyID:      companyID,
+		InvoiceNumber:  "INV-LIST-LEGACY-USD",
+		CustomerID:     customerID,
+		InvoiceDate:    time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		Status:         models.InvoiceStatusIssued,
+		CurrencyCode:   "USD",
+		ExchangeRate:   decimal.RequireFromString("1.25000000"),
+		Amount:         decimal.RequireFromString("100.00"),
+		AmountBase:     decimal.RequireFromString("125.00"),
+		BalanceDue:     decimal.RequireFromString("100.00"),
+		BalanceDueBase: decimal.RequireFromString("125.00"),
+	}
+	if err := db.Create(&invoice).Error; err != nil {
+		t.Fatal(err)
+	}
+	reconstructable := models.JournalEntry{
+		CompanyID:               companyID,
+		EntryDate:               invoice.InvoiceDate,
+		JournalNo:               "JE-LIST-LEGACY-USD",
+		Status:                  models.JournalEntryStatusPosted,
+		SourceType:              models.LedgerSourceInvoice,
+		SourceID:                invoice.ID,
+		TransactionCurrencyCode: "CAD",
+		ExchangeRate:            decimal.NewFromInt(1),
+		ExchangeRateDate:        invoice.InvoiceDate,
+		ExchangeRateSource:      services.JournalEntryExchangeRateSourceIdentity,
+		CreatedAt:               time.Date(2026, 4, 2, 0, 0, 0, 0, time.UTC),
+	}
+	if err := db.Create(&reconstructable).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create([]models.JournalLine{
+		{CompanyID: companyID, JournalEntryID: reconstructable.ID, AccountID: cashID, TxDebit: decimal.RequireFromString("125.00"), Debit: decimal.RequireFromString("125.00")},
+		{CompanyID: companyID, JournalEntryID: reconstructable.ID, AccountID: revenueID, TxCredit: decimal.RequireFromString("125.00"), Credit: decimal.RequireFromString("125.00")},
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	unavailable := models.JournalEntry{
+		CompanyID:               companyID,
+		EntryDate:               time.Date(2026, 4, 2, 0, 0, 0, 0, time.UTC),
+		JournalNo:               "JE-LIST-LEGACY-MISSING",
+		Status:                  models.JournalEntryStatusPosted,
+		SourceType:              models.LedgerSourceInvoice,
+		SourceID:                999999,
+		TransactionCurrencyCode: "CAD",
+		ExchangeRate:            decimal.NewFromInt(1),
+		ExchangeRateDate:        time.Date(2026, 4, 2, 0, 0, 0, 0, time.UTC),
+		ExchangeRateSource:      services.JournalEntryExchangeRateSourceIdentity,
+		CreatedAt:               time.Date(2026, 4, 3, 0, 0, 0, 0, time.UTC),
+	}
+	if err := db.Create(&unavailable).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create([]models.JournalLine{
+		{CompanyID: companyID, JournalEntryID: unavailable.ID, AccountID: cashID, TxDebit: decimal.RequireFromString("125.00"), Debit: decimal.RequireFromString("125.00")},
+		{CompanyID: companyID, JournalEntryID: unavailable.ID, AccountID: revenueID, TxCredit: decimal.RequireFromString("125.00"), Credit: decimal.RequireFromString("125.00")},
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	resp := performRequest(t, app, "/journal-entry/list", token)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("expected list page, got %d", resp.StatusCode)
+	}
+	defer resp.Body.Close()
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(bodyBytes)
+	reconstructableSnippet := snippetAround(body, "JE-LIST-LEGACY-USD", 1800)
+	if reconstructableSnippet == "" {
+		t.Fatalf("expected reconstructable legacy JE in list, got %q", body)
+	}
+	if !strings.Contains(reconstructableSnippet, ">USD</div>") {
+		t.Fatalf("expected reconstructable legacy JE to show resolved USD currency, got %q", reconstructableSnippet)
+	}
+	if strings.Contains(reconstructableSnippet, ">CAD</div>") {
+		t.Fatalf("legacy list row should not surface raw backfilled CAD semantics, got %q", reconstructableSnippet)
+	}
+	if !strings.Contains(reconstructableSnippet, "Unavailable (legacy)") {
+		t.Fatalf("expected reconstructable legacy JE to carry honest legacy source label, got %q", reconstructableSnippet)
+	}
+	if strings.Contains(reconstructableSnippet, services.LegacyForeignJournalEntryReversalBlockedMessage) {
+		t.Fatalf("reconstructable legacy JE should remain reversible once the shared resolver reconstructs header truth, got %q", reconstructableSnippet)
+	}
+
+	unavailableSnippet := snippetAround(body, "JE-LIST-LEGACY-MISSING", 1800)
+	if unavailableSnippet == "" {
+		t.Fatalf("expected unavailable legacy JE in list, got %q", body)
+	}
+	if strings.Contains(unavailableSnippet, ">CAD</div>") {
+		t.Fatalf("legacy missing-source JE should not show backfilled CAD as trustworthy tx currency, got %q", unavailableSnippet)
+	}
+	if !strings.Contains(unavailableSnippet, "Unavailable (legacy)") {
+		t.Fatalf("expected unavailable legacy JE to show explicit unavailable label, got %q", unavailableSnippet)
+	}
+	if !strings.Contains(unavailableSnippet, services.LegacyForeignJournalEntryReversalBlockedMessage) {
+		t.Fatalf("unreconstructable legacy JE should share the stable reversal block reason, got %q", unavailableSnippet)
+	}
+}
+
+func TestJournalEntryReverse_LegacyForeignJournalEntryUsesResolvedSnapshotAndHonestUnavailableTxAmounts(t *testing.T) {
+	db := testJournalRouteDB(t)
+	app := testRouteApp(t, db)
+	companyID, token := seedJournalCompanyContext(t, db)
+	seedJournalFXMigrationAppliedAt(t, db, time.Date(2026, 4, 10, 12, 0, 0, 0, time.UTC))
+	cashID := seedJournalAccount(t, db, companyID, "1000", "Cash", models.RootAsset, models.DetailBank)
+	revenueID := seedJournalAccount(t, db, companyID, "4000", "Revenue", models.RootRevenue, models.DetailServiceRevenue)
+	customerID := seedJournalCustomer(t, db, companyID, "Legacy Customer")
+	invoice := models.Invoice{
+		CompanyID:      companyID,
+		InvoiceNumber:  "INV-REV-LEGACY-USD",
+		CustomerID:     customerID,
+		InvoiceDate:    time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		Status:         models.InvoiceStatusIssued,
+		CurrencyCode:   "USD",
+		ExchangeRate:   decimal.RequireFromString("1.25000000"),
+		Amount:         decimal.RequireFromString("100.00"),
+		AmountBase:     decimal.RequireFromString("125.00"),
+		BalanceDue:     decimal.RequireFromString("100.00"),
+		BalanceDueBase: decimal.RequireFromString("125.00"),
+	}
+	if err := db.Create(&invoice).Error; err != nil {
+		t.Fatal(err)
+	}
+	legacyJE := models.JournalEntry{
+		CompanyID:               companyID,
+		EntryDate:               invoice.InvoiceDate,
+		JournalNo:               "JE-REV-LEGACY-USD",
+		Status:                  models.JournalEntryStatusPosted,
+		SourceType:              models.LedgerSourceInvoice,
+		SourceID:                invoice.ID,
+		TransactionCurrencyCode: "CAD",
+		ExchangeRate:            decimal.NewFromInt(1),
+		ExchangeRateDate:        invoice.InvoiceDate,
+		ExchangeRateSource:      services.JournalEntryExchangeRateSourceIdentity,
+		CreatedAt:               time.Date(2026, 4, 2, 0, 0, 0, 0, time.UTC),
+	}
+	if err := db.Create(&legacyJE).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create([]models.JournalLine{
+		{CompanyID: companyID, JournalEntryID: legacyJE.ID, AccountID: cashID, TxDebit: decimal.RequireFromString("125.00"), Debit: decimal.RequireFromString("125.00")},
+		{CompanyID: companyID, JournalEntryID: legacyJE.ID, AccountID: revenueID, TxCredit: decimal.RequireFromString("125.00"), Credit: decimal.RequireFromString("125.00")},
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	resp := performJournalFormRequest(t, app, "/journal-entry/"+decimal.NewFromInt(int64(legacyJE.ID)).String()+"/reverse", url.Values{
+		"reverse_date": {"2026-04-11"},
+	}, token)
+	if resp.StatusCode != fiber.StatusSeeOther {
+		t.Fatalf("expected reverse redirect, got %d", resp.StatusCode)
+	}
+	if !strings.Contains(resp.Header.Get("Location"), "reversed=1") {
+		t.Fatalf("expected successful reversal redirect, got %q", resp.Header.Get("Location"))
+	}
+
+	var reversal models.JournalEntry
+	if err := db.Preload("Lines").Where("reversed_from_id = ?", legacyJE.ID).First(&reversal).Error; err != nil {
+		t.Fatalf("load reversal JE: %v", err)
+	}
+	if reversal.TransactionCurrencyCode != "USD" {
+		t.Fatalf("expected reconstructed USD header on legacy reversal, got %q", reversal.TransactionCurrencyCode)
+	}
+	if !reversal.ExchangeRate.Equal(decimal.RequireFromString("1.25000000")) {
+		t.Fatalf("expected reconstructed legacy rate 1.25, got %s", reversal.ExchangeRate)
+	}
+	if reversal.ExchangeRateSource != services.JournalEntryExchangeRateSourceLegacyUnavailable {
+		t.Fatalf("expected legacy-unavailable source on honest legacy reversal, got %q", reversal.ExchangeRateSource)
+	}
+	for _, line := range reversal.Lines {
+		if !line.TxDebit.IsZero() || !line.TxCredit.IsZero() {
+			t.Fatalf("expected honest legacy reversal to leave unavailable tx line amounts as zero, got %s/%s", line.TxDebit, line.TxCredit)
+		}
+	}
+
+	detailResp := performRequest(t, app, "/journal-entry/"+decimal.NewFromInt(int64(reversal.ID)).String(), token)
+	if detailResp.StatusCode != fiber.StatusOK {
+		t.Fatalf("expected reversal detail page, got %d", detailResp.StatusCode)
+	}
+	defer detailResp.Body.Close()
+	bodyBytes, err := io.ReadAll(detailResp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(bodyBytes)
+	if !strings.Contains(body, "1 USD = 1.25 CAD") {
+		t.Fatalf("expected reversal detail to show reconstructed header truth, got %q", body)
+	}
+	if !strings.Contains(body, "Original transaction-currency line amounts were unavailable") &&
+		!strings.Contains(body, "only base-currency line amounts are shown") {
+		t.Fatalf("expected honest legacy-unavailable note on reversal detail, got %q", body)
+	}
+	if strings.Count(body, "—</td>") < 2 {
+		t.Fatalf("expected unavailable tx amount placeholders on reversal detail, got %q", body)
+	}
+}
+
+func TestJournalEntryReverse_LegacyForeignJournalEntryWithoutResolvedSnapshotBlocksWithStableMessage(t *testing.T) {
+	db := testJournalRouteDB(t)
+	app := testRouteApp(t, db)
+	companyID, token := seedJournalCompanyContext(t, db)
+	seedJournalFXMigrationAppliedAt(t, db, time.Date(2026, 4, 10, 12, 0, 0, 0, time.UTC))
+	cashID := seedJournalAccount(t, db, companyID, "1000", "Cash", models.RootAsset, models.DetailBank)
+	revenueID := seedJournalAccount(t, db, companyID, "4000", "Revenue", models.RootRevenue, models.DetailServiceRevenue)
+	legacyJE := models.JournalEntry{
+		CompanyID:               companyID,
+		EntryDate:               time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		JournalNo:               "JE-REV-LEGACY-MISSING",
+		Status:                  models.JournalEntryStatusPosted,
+		SourceType:              models.LedgerSourceInvoice,
+		SourceID:                999999,
+		TransactionCurrencyCode: "CAD",
+		ExchangeRate:            decimal.NewFromInt(1),
+		ExchangeRateDate:        time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		ExchangeRateSource:      services.JournalEntryExchangeRateSourceIdentity,
+		CreatedAt:               time.Date(2026, 4, 2, 0, 0, 0, 0, time.UTC),
+	}
+	if err := db.Create(&legacyJE).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create([]models.JournalLine{
+		{CompanyID: companyID, JournalEntryID: legacyJE.ID, AccountID: cashID, TxDebit: decimal.RequireFromString("125.00"), Debit: decimal.RequireFromString("125.00")},
+		{CompanyID: companyID, JournalEntryID: legacyJE.ID, AccountID: revenueID, TxCredit: decimal.RequireFromString("125.00"), Credit: decimal.RequireFromString("125.00")},
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	resp := performJournalFormRequest(t, app, "/journal-entry/"+decimal.NewFromInt(int64(legacyJE.ID)).String()+"/reverse", url.Values{
+		"reverse_date": {"2026-04-11"},
+	}, token)
+	if resp.StatusCode != fiber.StatusSeeOther {
+		t.Fatalf("expected reverse redirect, got %d", resp.StatusCode)
+	}
+	location := resp.Header.Get("Location")
+	if !strings.Contains(location, "error=legacy-fx-unavailable") {
+		t.Fatalf("expected stable legacy FX redirect, got %q", location)
+	}
+	var reversalCount int64
+	if err := db.Model(&models.JournalEntry{}).Where("reversed_from_id = ?", legacyJE.ID).Count(&reversalCount).Error; err != nil {
+		t.Fatal(err)
+	}
+	if reversalCount != 0 {
+		t.Fatalf("expected blocked legacy FX reversal to create no reversal JE, got %d", reversalCount)
+	}
+
+	listResp := performRequest(t, app, "/journal-entry/list?error=legacy-fx-unavailable", token)
+	if listResp.StatusCode != fiber.StatusOK {
+		t.Fatalf("expected list page after blocked reversal, got %d", listResp.StatusCode)
+	}
+	defer listResp.Body.Close()
+	bodyBytes, err := io.ReadAll(listResp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(bodyBytes), services.LegacyForeignJournalEntryReversalBlockedMessage) {
+		t.Fatalf("expected stable blocked-reversal message, got %q", string(bodyBytes))
 	}
 }
 

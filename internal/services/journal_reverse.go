@@ -2,6 +2,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -10,6 +11,11 @@ import (
 	"gobooks/internal/models"
 
 	"gorm.io/gorm"
+)
+
+var (
+	ErrJournalEntryAlreadyReversed     = errors.New("journal entry already reversed")
+	ErrJournalEntryLegacyFXUnavailable = errors.New("legacy foreign-currency journal entry reversal is unavailable")
 )
 
 // ReverseJournalEntry creates a new entry with debit/credit swapped for each line.
@@ -47,7 +53,7 @@ func ReverseJournalEntry(tx *gorm.DB, companyID uint, originalID uint, reverseDa
 
 	var existing models.JournalEntry
 	if err := tx.Where("reversed_from_id = ? AND company_id = ?", originalID, companyID).First(&existing).Error; err == nil {
-		return 0, fmt.Errorf("journal entry already reversed")
+		return 0, ErrJournalEntryAlreadyReversed
 	} else if err != nil && err != gorm.ErrRecordNotFound {
 		return 0, err
 	}
@@ -56,19 +62,28 @@ func ReverseJournalEntry(tx *gorm.DB, companyID uint, originalID uint, reverseDa
 	if err := tx.Select("id", "base_currency_code").First(&company, companyID).Error; err != nil {
 		return 0, err
 	}
-	transactionCurrencyCode := original.TransactionCurrencyCode
+
+	fxState, err := NewJournalEntryFXResolver(tx, company.BaseCurrencyCode).BuildReadState(original)
+	if err != nil {
+		return 0, err
+	}
+	if !fxState.ReversalAllowed {
+		return 0, fmt.Errorf("%w: %s", ErrJournalEntryLegacyFXUnavailable, fxState.ReversalBlockedReason)
+	}
+
+	transactionCurrencyCode := fxState.TransactionCurrencyCode
 	if strings.TrimSpace(transactionCurrencyCode) == "" {
 		transactionCurrencyCode = company.BaseCurrencyCode
 	}
-	exchangeRate := original.ExchangeRate
+	exchangeRate := fxState.ExchangeRate
 	if exchangeRate.IsZero() {
 		exchangeRate = decimal.NewFromInt(1)
 	}
-	exchangeRateDate := original.ExchangeRateDate
+	exchangeRateDate := fxState.ExchangeRateDate
 	if exchangeRateDate.IsZero() {
 		exchangeRateDate = original.EntryDate
 	}
-	exchangeRateSource := original.ExchangeRateSource
+	exchangeRateSource := fxState.ExchangeRateSource
 	if strings.TrimSpace(exchangeRateSource) == "" {
 		exchangeRateSource = JournalEntryExchangeRateSourceIdentity
 	}
@@ -99,13 +114,17 @@ func ReverseJournalEntry(tx *gorm.DB, companyID uint, originalID uint, reverseDa
 
 	lines := make([]models.JournalLine, 0, len(original.Lines))
 	for _, l := range original.Lines {
-		txDebit := l.TxCredit
-		txCredit := l.TxDebit
-		if txDebit.IsZero() && !l.Credit.IsZero() {
-			txDebit = l.Credit
-		}
-		if txCredit.IsZero() && !l.Debit.IsZero() {
-			txCredit = l.Debit
+		txDebit := decimal.Zero
+		txCredit := decimal.Zero
+		if fxState.TransactionAmountsPresent {
+			txDebit = l.TxCredit
+			txCredit = l.TxDebit
+			if txDebit.IsZero() && !l.Credit.IsZero() {
+				txDebit = l.Credit
+			}
+			if txCredit.IsZero() && !l.Debit.IsZero() {
+				txCredit = l.Debit
+			}
 		}
 		lines = append(lines, models.JournalLine{
 			CompanyID:      companyID,
@@ -123,6 +142,20 @@ func ReverseJournalEntry(tx *gorm.DB, companyID uint, originalID uint, reverseDa
 
 	if err := tx.Create(&lines).Error; err != nil {
 		return 0, err
+	}
+	if !fxState.TransactionAmountsPresent {
+		for i := range lines {
+			lines[i].TxDebit = decimal.Zero
+			lines[i].TxCredit = decimal.Zero
+		}
+		if err := tx.Model(&models.JournalLine{}).
+			Where("journal_entry_id = ? AND company_id = ?", reversed.ID, companyID).
+			Updates(map[string]any{
+				"tx_debit":  decimal.Zero,
+				"tx_credit": decimal.Zero,
+			}).Error; err != nil {
+			return 0, fmt.Errorf("zero legacy-unavailable tx line amounts: %w", err)
+		}
 	}
 
 	// Mark original JE as reversed.
