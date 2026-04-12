@@ -23,7 +23,19 @@ var (
 	ErrExpensePaymentAccountInvalid = errors.New("payment account is not valid for this company")
 	ErrExpensePaymentMethodRequired = errors.New("payment method is required when a payment account is selected")
 	ErrExpensePaymentMethodInvalid  = errors.New("payment method is not valid")
+	ErrExpenseLinesRequired         = errors.New("at least one expense line with a positive amount is required")
+	ErrExpenseLineAccountRequired   = errors.New("each expense line must have an expense category")
+	ErrExpenseLineAccountInvalid    = errors.New("one or more expense line categories are not valid for this company")
 )
+
+// ExpenseLineInput represents a single cost-category row within an expense.
+// When Lines is non-empty on ExpenseInput, the service derives the expense's
+// total Amount and primary ExpenseAccountID from the lines.
+type ExpenseLineInput struct {
+	Description      string
+	Amount           decimal.Decimal
+	ExpenseAccountID *uint
+}
 
 type ExpenseInput struct {
 	CompanyID          uint
@@ -38,6 +50,11 @@ type ExpenseInput struct {
 	VendorID         *uint
 	ExpenseAccountID *uint
 	Notes            string
+
+	// Lines replaces the single Amount/ExpenseAccountID when non-empty.
+	// The service sums line amounts → Expense.Amount and uses lines[0].ExpenseAccountID
+	// as Expense.ExpenseAccountID for backward-compat reporting joins.
+	Lines []ExpenseLineInput
 
 	// Payment settlement (all optional).
 	PaymentAccountID *uint
@@ -70,6 +87,9 @@ func GetExpenseByID(db *gorm.DB, companyID, expenseID uint) (*models.Expense, er
 		Preload("BillableCustomer").
 		Preload("Vendor").
 		Preload("ExpenseAccount").
+		Preload("Lines", func(db *gorm.DB) *gorm.DB {
+			return db.Order("line_order ASC, id ASC")
+		}).
 		Where("id = ? AND company_id = ?", expenseID, companyID).
 		First(&expense).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -99,9 +119,36 @@ func ListExpenses(db *gorm.DB, filter ExpenseListFilter) ([]models.Expense, erro
 }
 
 func upsertExpense(db *gorm.DB, expenseID uint, in ExpenseInput) (*models.Expense, error) {
+	// When lines are present, derive header Amount and ExpenseAccountID from them.
+	if len(in.Lines) > 0 {
+		total := decimal.Zero
+		for _, l := range in.Lines {
+			total = total.Add(l.Amount)
+		}
+		in.Amount = total
+		in.ExpenseAccountID = in.Lines[0].ExpenseAccountID
+		// Use first non-empty line description as header description if blank.
+		if strings.TrimSpace(in.Description) == "" {
+			for _, l := range in.Lines {
+				if d := strings.TrimSpace(l.Description); d != "" {
+					in.Description = d
+					break
+				}
+			}
+		}
+	}
+
 	if err := validateExpenseInput(db, in); err != nil {
 		return nil, err
 	}
+
+	// Validate per-line accounts when lines are present.
+	if len(in.Lines) > 0 {
+		if err := validateExpenseLines(db, in); err != nil {
+			return nil, err
+		}
+	}
+
 	linkage, err := NormalizeTaskCostLinkage(db, TaskCostLinkageInput{
 		CompanyID:          in.CompanyID,
 		TaskID:             in.TaskID,
@@ -151,12 +198,64 @@ func upsertExpense(db *gorm.DB, expenseID uint, in ExpenseInput) (*models.Expens
 			}
 		}
 		savedID = expense.ID
+
+		// Replace expense lines when the submission includes them.
+		if len(in.Lines) > 0 {
+			if err := tx.Where("expense_id = ?", savedID).Delete(&models.ExpenseLine{}).Error; err != nil {
+				return err
+			}
+			for i, l := range in.Lines {
+				line := models.ExpenseLine{
+					ExpenseID:        savedID,
+					LineOrder:        i,
+					Description:      strings.TrimSpace(l.Description),
+					Amount:           l.Amount.RoundBank(2),
+					ExpenseAccountID: l.ExpenseAccountID,
+				}
+				if err := tx.Create(&line).Error; err != nil {
+					return err
+				}
+			}
+		}
+
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	return GetExpenseByID(db, in.CompanyID, savedID)
+}
+
+// validateExpenseLines checks per-line accounts exist and belong to the company.
+func validateExpenseLines(db *gorm.DB, in ExpenseInput) error {
+	for _, l := range in.Lines {
+		if l.ExpenseAccountID == nil || *l.ExpenseAccountID == 0 {
+			return ErrExpenseLineAccountRequired
+		}
+	}
+	// Batch-check all distinct account IDs.
+	seen := map[uint]bool{}
+	ids := make([]uint, 0, len(in.Lines))
+	for _, l := range in.Lines {
+		if l.ExpenseAccountID != nil && *l.ExpenseAccountID > 0 && !seen[*l.ExpenseAccountID] {
+			seen[*l.ExpenseAccountID] = true
+			ids = append(ids, *l.ExpenseAccountID)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	var count int64
+	if err := db.Model(&models.Account{}).
+		Where("id IN ? AND company_id = ? AND root_account_type = ? AND is_active = true",
+			ids, in.CompanyID, models.RootExpense).
+		Count(&count).Error; err != nil {
+		return err
+	}
+	if int(count) != len(ids) {
+		return ErrExpenseLineAccountInvalid
+	}
+	return nil
 }
 
 func validateExpenseInput(db *gorm.DB, in ExpenseInput) error {

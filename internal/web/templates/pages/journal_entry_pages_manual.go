@@ -77,9 +77,10 @@ func renderJournalEntryPageHTML(vm JournalEntryVM) string {
 	}
 
 	write(`<form method="post" action="/journal-entry" class="mt-6 space-y-6" @submit="beforeSubmit($event)">`)
-	write(`<div class="rounded-lg border border-border bg-surface p-6"><div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">`)
+	write(`<div class="rounded-lg border border-border bg-surface p-6">`)
 
-	write(`<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">`)
+	// Header: 3-column grid — Currency | Date | Journal No.
+	write(`<div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">`)
 	write(`<div><label class="block text-body font-medium text-text">Currency</label>`)
 	write(`<select name="transaction_currency_code" x-model="header.transaction_currency_code" @change="onCurrencyChange($event)" class="` + journalControlClass + `">`)
 	for _, code := range vm.TransactionCurrencyOptions {
@@ -88,22 +89,46 @@ func renderJournalEntryPageHTML(vm JournalEntryVM) string {
 	write(`</select>`)
 	write(`<p class="mt-1 text-small text-text-muted2">Every journal entry stores an explicit transaction currency, including base-currency entries.</p></div>`)
 
-	write(`<div x-show="showFXBlock" x-cloak class="rounded-lg border border-border-subtle bg-background/70 p-4">`)
+	write(`<div><label class="block text-body font-medium text-text">Date *</label><input type="date" name="entry_date" x-model="header.entry_date" @change="onDateChange()" class="` + journalControlClass + `"/></div>`)
+
+	write(`<div><label class="block text-body font-medium text-text">Journal No.</label><input type="text" name="journal_no" x-model="header.journal_no" placeholder="Optional, e.g. JE-001" class="` + journalControlClass + `"/><p class="mt-1 text-small text-text-muted2">Used as the immutable read-only reference after posting.</p></div>`)
+	write(`</div>`)
+
+	// Compact inline FX strip — visible only when a foreign currency is selected.
+	// Hidden form inputs carry the snapshot values the backend validates on save.
+	// Manual mode exposes editable rate and date inputs inline; non-manual shows a
+	// read-only summary with Refresh and Override actions.
+	write(`<div x-show="showFXBlock" x-cloak class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-border-subtle bg-background/70 px-4 py-2.5">`)
 	write(`<input type="hidden" name="exchange_rate_snapshot_id" :value="fx.snapshot_id || ''"/>`)
 	write(`<input type="hidden" name="exchange_rate_source" :value="fx.source"/>`)
 	write(`<input type="hidden" name="exchange_rate_date" :value="fx.date"/>`)
-	write(`<div class="flex items-start justify-between gap-4"><div><div class="text-body font-medium text-text">Exchange Rate</div><p class="mt-1 text-small text-text-muted2" x-text="fxSummary()"></p></div><span class="rounded-full border border-border-input px-2.5 py-1 text-small font-medium text-text-muted2" x-text="fx.sourceLabel || 'Stored'"></span></div>`)
-	write(`<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_auto_auto]">`)
-	write(`<div><label class="block text-small font-medium text-text">Rate</label><input type="text" name="exchange_rate" x-model="fx.rate" inputmode="decimal" placeholder="0.00000000" class="` + journalNumericControlClass + `" :readonly="!fx.manual"/><p class="mt-1 text-small text-text-muted2">Backend save never calls the provider. Non-manual saves validate this exact stored snapshot.</p></div>`)
-	write(`<div><label class="block text-small font-medium text-text">Effective Date</label><input type="date" x-model="fx.date" :readonly="!fx.manual" class="` + journalControlClass + `"/></div>`)
-	write(`<div class="flex items-end gap-2"><button type="button" class="rounded-md border border-border-input px-3 py-2 text-body font-medium text-text hover:bg-background" @click="refreshFX()" :disabled="fx.loading"><span x-show="!fx.loading">Refresh</span><span x-show="fx.loading">Refreshing...</span></button><button type="button" class="rounded-md border border-border-input px-3 py-2 text-body font-medium text-text hover:bg-background" @click="toggleManualFX()" x-text="fx.manual ? 'Use Stored Rate' : 'Manual Override'"></button></div>`)
-	write(`</div></div>`)
-
-	write(`<div><label class="block text-body font-medium text-text">Date *</label><input type="date" name="entry_date" x-model="header.entry_date" class="` + journalControlClass + `"/></div>`)
+	write(`<input type="hidden" name="exchange_rate" :value="fx.rate"/>`)
+	// Loading state
+	write(`<span x-show="fx.loading" class="text-small text-text-muted2">Loading rate…</span>`)
+	// Non-manual: compact summary using fxSummary()
+	write(`<span x-show="!fx.loading && !fx.manual" class="font-mono text-body font-medium text-text" x-text="fxSummary()"></span>`)
+	// Manual: editable rate input
+	write(`<span x-show="!fx.loading && fx.manual" class="flex items-center gap-1.5">`)
+	write(`<span class="font-mono text-body text-text">1 <span x-text="header.transaction_currency_code"></span> =</span>`)
+	write(`<input type="text" x-model="fx.rate" inputmode="decimal" @input="recalc(); persist();" placeholder="0.00000000" class="w-28 rounded-md border border-border-input bg-surface px-2 py-1 text-right font-mono text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"/>`)
+	write(`<span class="font-mono text-body text-text" x-text="baseCurrencyCode"></span>`)
+	write(`</span>`)
+	// Manual: effective date override
+	write(`<span x-show="!fx.loading && fx.manual" class="flex items-center gap-1.5">`)
+	write(`<span class="text-small text-text-muted2">Date:</span>`)
+	write(`<input type="date" x-model="fx.date" @change="recalc(); persist();" class="rounded-md border border-border-input bg-surface px-2 py-1 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"/>`)
+	write(`</span>`)
+	// Source badge
+	write(`<span x-show="!fx.loading" class="rounded-full border border-border-input px-2.5 py-0.5 text-small font-medium text-text-muted2" x-text="fx.sourceLabel || 'Stored'"></span>`)
+	// Effective date display (non-manual)
+	write(`<span x-show="!fx.loading && !fx.manual" class="text-small text-text-muted3" x-text="fx.date"></span>`)
+	// Refresh (non-manual only)
+	write(`<button type="button" x-show="!fx.manual" @click="refreshFX()" :disabled="fx.loading" class="text-small font-medium text-primary hover:text-primary-hover disabled:opacity-40">Refresh</button>`)
+	// Override / Use stored rate toggle
+	write(`<button type="button" @click="toggleManualFX()" class="text-small font-medium text-text-muted3 hover:text-text" x-text="fx.manual ? 'Use stored rate' : 'Override'"></button>`)
 	write(`</div>`)
 
-	write(`<div><label class="block text-body font-medium text-text">Journal No.</label><input type="text" name="journal_no" x-model="header.journal_no" placeholder="Optional, e.g. JE-001" class="` + journalControlClass + `"/><p class="mt-1 text-small text-text-muted2">Used as the immutable read-only reference after posting.</p></div>`)
-	write(`</div></div>`)
+	write(`</div>`)
 
 	write(`<div class="rounded-lg border border-border bg-surface p-6"><div class="flex flex-wrap items-center justify-between gap-3"><div><h2 class="text-section font-semibold text-text">Lines</h2><p class="mt-1 text-small text-text-muted2">Enter debit and credit amounts in the selected transaction currency. Footer totals show both transaction and base values.</p></div><button type="button" class="inline-flex items-center gap-2 rounded-md border border-border-input px-3 py-2 text-body font-semibold text-primary hover:bg-background hover:text-primary-hover" @click="addLine()"><span>+</span><span>Add</span></button></div>`)
 	write(`<div class="mt-4 overflow-x-auto"><table class="w-full min-w-[980px] table-fixed text-left text-body"><thead class="text-small uppercase tracking-wider text-text-muted"><tr class="border-b border-border"><th class="w-[28%] py-3 pr-4">Account</th><th class="w-[12%] py-3 pr-4" x-text="'Debit (' + header.transaction_currency_code + ')'"></th><th class="w-[12%] py-3 pr-4" x-text="'Credit (' + header.transaction_currency_code + ')'"></th><th class="w-[18%] py-3 pr-4">Name</th><th class="w-[24%] py-3 pr-4">Memo</th><th class="w-[6%] py-3 text-right">Action</th></tr></thead><tbody>`)
@@ -126,7 +151,7 @@ func renderJournalEntryPageHTML(vm JournalEntryVM) string {
 
 	write(`<div class="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]"><div><div class="text-body text-danger-hover" x-show="primaryError" x-text="primaryError"></div><div class="mt-2 text-small text-text-muted2">Phase 1 FX policy converts each line individually using banker's rounding to 2 decimals and blocks save if base totals do not balance exactly.</div></div><div class="rounded-lg border border-border-subtle bg-background/70 p-4"><div class="space-y-2 text-body"><div class="flex items-center justify-between gap-4"><span class="text-text-muted2" x-text="'Transaction Debits (' + header.transaction_currency_code + ')'"></span><span class="font-mono font-semibold tabular-nums text-text" x-text="formatMoney(totals.txDebits)"></span></div><div class="flex items-center justify-between gap-4"><span class="text-text-muted2" x-text="'Transaction Credits (' + header.transaction_currency_code + ')'"></span><span class="font-mono font-semibold tabular-nums text-text" x-text="formatMoney(totals.txCredits)"></span></div><div class="flex items-center justify-between gap-4"><span class="text-text-muted2">Base Debits (` + esc(vm.BaseCurrencyCode) + `)</span><span class="font-mono font-semibold tabular-nums text-text" x-text="formatMoney(totals.baseDebits)"></span></div><div class="flex items-center justify-between gap-4"><span class="text-text-muted2">Base Credits (` + esc(vm.BaseCurrencyCode) + `)</span><span class="font-mono font-semibold tabular-nums text-text" x-text="formatMoney(totals.baseCredits)"></span></div><div class="border-t border-border-subtle pt-2"><div class="flex items-center justify-between gap-4"><span class="text-text-muted2">Transaction Difference</span><span class="font-mono font-semibold tabular-nums" :class="diffOk ? 'text-text' : 'text-danger-hover'" x-text="formatMoney(difference)"></span></div><div class="mt-2 flex items-center justify-between gap-4"><span class="text-text-muted2">Base Difference</span><span class="font-mono font-semibold tabular-nums" :class="baseDiffOk ? 'text-text' : 'text-danger-hover'" x-text="formatMoney(baseDifference)"></span></div></div></div></div></div>`)
 	write(`<div class="mt-6 flex items-center justify-end gap-3"><button type="submit" :disabled="!canSave" :class="canSave ? 'bg-primary text-onPrimary hover:bg-primary-hover' : 'bg-disabled-bg text-disabled-text cursor-not-allowed'" class="rounded-md px-4 py-2 text-body font-semibold">Save</button></div>`)
-	write(`</div></form></div><script src="/static/journal_entry_fx.js?v=1"></script>`)
+	write(`</div></form></div><script src="/static/journal_entry_fx.js?v=2"></script>`)
 	return b.String()
 }
 

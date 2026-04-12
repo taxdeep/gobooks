@@ -1,7 +1,4 @@
 // 遵循project_guide.md
-// Controls use taskInputClass() from task_form.templ (same package).
-// taskInputClass() is functionally identical to fieldClass() in form_helpers.go.
-// Future: consolidate both into fieldClass() and remove taskInputClass().
 package pages
 
 import "gobooks/internal/models"
@@ -12,8 +9,13 @@ templ ExpenseForm(vm ExpenseFormVM) {
 	@layout.Layout(
 		"GoBooks - "+expenseFormTitle(vm),
 		ui.SidebarVM{Active: "Expenses", HasCompany: vm.HasCompany},
-		bodyExpenseForm(vm),
+		expenseFormBody(vm),
 	)
+}
+
+templ expenseFormBody(vm ExpenseFormVM) {
+	@bodyExpenseForm(vm)
+	<script src="/static/expense_form.js?v=1"></script>
 }
 
 templ bodyExpenseForm(vm ExpenseFormVM) {
@@ -34,11 +36,16 @@ templ bodyExpenseForm(vm ExpenseFormVM) {
 			method="post"
 			action={ expenseFormAction(vm) }
 			class="space-y-5"
-			x-data="expenseForm()"
+			x-data="gobooksExpenseForm()"
+			data-base-currency={ vm.BaseCurrencyCode }
+			data-multi-currency={ expenseBoolAttr(vm.MultiCurrency) }
+			data-expense-accounts={ vm.ExpenseAccountsJSON }
+			data-initial-lines={ expenseInitialLinesJSON(vm) }
 			@gobooks-picker-select="onPickerSelect($event)"
 		>
-			@ui.SectionCard("Expense Details", "", expenseDetailsSection(vm))
-			@ui.SectionCard("Payment", "Record how this expense was paid. All fields are optional — leave blank if not yet known.", expensePaymentSection(vm))
+			@ui.SectionCard("Expense Header", "", expenseHeaderSection(vm))
+			@expenseFXStrip(vm)
+			@ui.SectionCard("Line Items", "Each row is one cost category. The total is the sum of all lines.", expenseLinesSection(vm))
 			@ui.SectionCard("Task & Billing", "", expenseTaskSection(vm))
 			@ui.SectionCard("Notes", "", expenseNotesSection(vm))
 
@@ -51,38 +58,16 @@ templ bodyExpenseForm(vm ExpenseFormVM) {
 				}
 			</div>
 		</form>
-
-		<script>
-			function expenseForm() {
-				return {
-					hasTask: false,
-					init() {
-						const s = this.$el.querySelector('select[name="task_id"]');
-						if (s) this.hasTask = s.value !== "";
-					},
-					onTaskChange(val) {
-						this.hasTask = val !== "";
-						if (!this.hasTask) {
-							const cb = this.$el.querySelector('input[name="is_billable"]');
-							if (cb) cb.checked = false;
-						}
-					},
-					onPickerSelect(event) {
-						// No auto-fill needed on expense form currently.
-					},
-				};
-			}
-		</script>
 	</div>
 }
 
-// expenseDetailsSection renders Expense Details: vendor, date, amount, description,
-// category (SmartPicker), and currency.
-templ expenseDetailsSection(vm ExpenseFormVM) {
+// expenseHeaderSection renders the top header row:
+// Vendor | Expense Date | Currency | Payment Account | Payment Method | Reference
+templ expenseHeaderSection(vm ExpenseFormVM) {
 	<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
 
-		<!-- Vendor -->
-		<div>
+		<!-- Vendor (SmartPicker) -->
+		<div class="sm:col-span-2 lg:col-span-1">
 			@ui.SmartPicker(ui.SmartPickerVM{
 				Label:         "Vendor",
 				FieldName:     "vendor_id",
@@ -106,63 +91,23 @@ templ expenseDetailsSection(vm ExpenseFormVM) {
 				value={ vm.ExpenseDate }
 				class={ taskInputClass(vm.ExpenseDateError != "") }
 				style="color-scheme:dark"
+				@change="onDateChange($event.target.value)"
 			/>
 			if vm.ExpenseDateError != "" {
 				<div class="mt-1 text-small text-danger">{ vm.ExpenseDateError }</div>
 			}
 		</div>
 
-		<!-- Amount -->
-		<div>
-			<label class="block text-body font-medium text-text">Amount *</label>
-			<input
-				type="text"
-				name="amount"
-				value={ vm.Amount }
-				inputmode="decimal"
-				placeholder="0.00"
-				class={ taskInputClass(vm.AmountError != "") }
-			/>
-			if vm.AmountError != "" {
-				<div class="mt-1 text-small text-danger">{ vm.AmountError }</div>
-			}
-		</div>
-
-		<!-- Description — full width -->
-		<div class="sm:col-span-2 lg:col-span-3">
-			<label class="block text-body font-medium text-text">Description *</label>
-			<input
-				type="text"
-				name="description"
-				value={ vm.Description }
-				maxlength="255"
-				placeholder="e.g. Courier charge for client samples"
-				class={ taskInputClass(vm.DescriptionError != "") }
-			/>
-			if vm.DescriptionError != "" {
-				<div class="mt-1 text-small text-danger">{ vm.DescriptionError }</div>
-			}
-		</div>
-
-		<!-- Expense Category (SmartPicker — single authoritative input surface) -->
-		<div class="sm:col-span-2">
-			@ui.SmartPicker(ui.SmartPickerVM{
-				Label:         "Expense Category *",
-				FieldName:     "expense_account_id",
-				Entity:        "account",
-				Context:       "expense_form_category",
-				Value:         vm.ExpenseAccountID,
-				SelectedLabel: vm.ExpenseAccountLabel,
-				Required:      true,
-				Error:         vm.ExpenseAccountError,
-			})
-		</div>
-
 		<!-- Currency -->
 		<div>
 			<label class="block text-body font-medium text-text">Currency</label>
 			if vm.MultiCurrency {
-				<select name="currency_code" class={ taskInputClass(vm.CurrencyError != "") }>
+				<select
+					name="currency_code"
+					x-ref="currencySelect"
+					class={ taskInputClass(vm.CurrencyError != "") }
+					@change="onCurrencyChange($event.target.value)"
+				>
 					for _, code := range vm.CurrencyOptions {
 						<option value={ code } selected?={ code == vm.CurrencyCode }>{ code }</option>
 					}
@@ -176,16 +121,8 @@ templ expenseDetailsSection(vm ExpenseFormVM) {
 			}
 		</div>
 
-	</div>
-}
-
-// expensePaymentSection renders the Payment section fields.
-templ expensePaymentSection(vm ExpenseFormVM) {
-	<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
-
-		<!-- Payment Account (SmartPicker — eligible payment-source accounts only,
-		     enforced by PaymentAccountProvider: bank, credit card, other current asset) -->
-		<div>
+		<!-- Payment Account (SmartPicker) -->
+		<div class="sm:col-span-2 lg:col-span-1">
 			@ui.SmartPicker(ui.SmartPickerVM{
 				Label:         "Payment Account",
 				FieldName:     "payment_account_id",
@@ -216,8 +153,8 @@ templ expensePaymentSection(vm ExpenseFormVM) {
 			}
 		</div>
 
-		<!-- Payment Reference — full width -->
-		<div class="sm:col-span-2">
+		<!-- Payment Reference -->
+		<div>
 			<label class="block text-body font-medium text-text">Reference</label>
 			<input
 				type="text"
@@ -232,7 +169,109 @@ templ expensePaymentSection(vm ExpenseFormVM) {
 	</div>
 }
 
-// expenseTaskSection renders the Task & Billing section.
+// expenseFXStrip renders a compact informational FX note when the selected
+// currency differs from the company base currency. It does not collect a
+// snapshot_id — FX is informational only for expenses.
+templ expenseFXStrip(vm ExpenseFormVM) {
+	<div x-show="showFX" x-cloak class="rounded-md border border-border-subtle bg-background/70 px-4 py-2.5 text-small text-text-muted2">
+		<span>
+			This expense is recorded in <strong x-text="currency" class="text-text"></strong>.
+			Reporting will apply the exchange rate at the time of processing.
+		</span>
+	</div>
+}
+
+// expenseLinesSection renders the dynamic line-item grid managed by Alpine.
+templ expenseLinesSection(vm ExpenseFormVM) {
+	<div>
+		<!-- Line-item table header -->
+		<div class="mb-1 hidden grid-cols-[1fr_2fr_9rem_2rem] gap-2 text-small font-medium text-text-muted2 sm:grid">
+			<span>Category *</span>
+			<span>Description</span>
+			<span class="text-right">Amount *</span>
+			<span></span>
+		</div>
+
+		<!-- Dynamic line rows — rendered by Alpine x-for -->
+		<div class="space-y-2">
+			<template x-for="(line, idx) in lines" :key="idx">
+				<div class="grid grid-cols-1 gap-2 rounded-md border border-border bg-surface/30 p-2 sm:grid-cols-[1fr_2fr_9rem_2rem] sm:border-0 sm:bg-transparent sm:p-0">
+
+					<!-- Category select -->
+					<select
+						:name="'line_expense_account_id[' + idx + ']'"
+						x-model="line.expense_account_id"
+						@change="onAccountChange(idx)"
+						class="block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
+						:class="line.error ? 'border-danger focus:ring-danger-focus' : ''"
+					>
+						<option value="">— Select category —</option>
+						<template x-for="a in accounts" :key="a.id">
+							<option :value="String(a.id)" :selected="String(line.expense_account_id) === String(a.id)" x-text="a.code + ' ' + a.name"></option>
+						</template>
+					</select>
+
+					<!-- Description -->
+					<input
+						type="text"
+						:name="'line_description[' + idx + ']'"
+						x-model="line.description"
+						maxlength="255"
+						placeholder="e.g. Courier charge"
+						class="block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus"
+					/>
+
+					<!-- Amount -->
+					<input
+						type="text"
+						:name="'line_amount[' + idx + ']'"
+						x-model="line.amount"
+						inputmode="decimal"
+						placeholder="0.00"
+						@blur="onAmountBlur(idx)"
+						@input="recalc()"
+						class="block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-right font-mono text-body text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus tabular-nums"
+					/>
+
+					<!-- Remove button -->
+					<button
+						type="button"
+						@click="removeLine(idx)"
+						:disabled="lines.length <= 1"
+						class="flex items-center justify-center rounded-md border border-transparent p-1.5 text-text-muted3 hover:border-border hover:text-danger disabled:cursor-not-allowed disabled:opacity-30"
+						aria-label="Remove line"
+					>
+						<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+							<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+						</svg>
+					</button>
+
+					<!-- Inline error -->
+					<div x-show="line.error" class="text-small text-danger sm:col-span-4" x-text="line.error"></div>
+				</div>
+			</template>
+		</div>
+
+		<!-- Totals row + Add line button -->
+		<div class="mt-3 flex items-center justify-between border-t border-border pt-3">
+			<button
+				type="button"
+				@click="addLine()"
+				class="text-small text-primary hover:underline"
+			>+ Add line</button>
+
+			<div class="flex items-center gap-3 text-body">
+				<span class="text-text-muted2">Total</span>
+				<span class="w-32 text-right font-mono font-medium text-text tabular-nums" x-text="totalFormatted()"></span>
+			</div>
+		</div>
+
+		<!-- Hidden line count for the server -->
+		<input type="hidden" name="line_count" :value="lines.length"/>
+	</div>
+}
+
+// expenseTaskSection renders the Task & Billing section (header-level, unchanged).
 templ expenseTaskSection(vm ExpenseFormVM) {
 	<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
 
@@ -281,12 +320,12 @@ templ expenseTaskSection(vm ExpenseFormVM) {
 	</div>
 }
 
-// expenseNotesSection renders the Notes textarea section.
+// expenseNotesSection renders the Notes textarea.
 templ expenseNotesSection(vm ExpenseFormVM) {
 	<textarea
 		name="notes"
 		rows="3"
-		placeholder="Optional notes about this cost."
+		placeholder="Optional notes about this expense."
 		class={ taskInputClass(false) }
 	>{ vm.Notes }</textarea>
 }
@@ -303,4 +342,11 @@ func expenseFormAction(vm ExpenseFormVM) string {
 		return "/expenses/" + Uitoa(vm.EditingID) + "/edit"
 	}
 	return "/expenses"
+}
+
+func expenseBoolAttr(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
 }

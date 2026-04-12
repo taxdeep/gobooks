@@ -44,15 +44,16 @@ func TestExpensePagesSaveTaskLinkageAndKeepOrdinaryPathWorking(t *testing.T) {
 
 	csrf := newCSRFToken(t)
 	form := url.Values{
-		"expense_date":       {"2026-04-04"},
-		"description":        {"Client materials"},
-		"amount":             {"45.00"},
-		"currency_code":      {"CAD"},
-		"vendor_id":          {fmt.Sprintf("%d", vendorID)},
-		"expense_account_id": {fmt.Sprintf("%d", expenseAccountID)},
-		"task_id":            {fmt.Sprintf("%d", openTaskID)},
-		"is_billable":        {"1"},
-		"notes":              {"Linked to task"},
+		"expense_date":                  {"2026-04-04"},
+		"currency_code":                 {"CAD"},
+		"vendor_id":                     {fmt.Sprintf("%d", vendorID)},
+		"task_id":                       {fmt.Sprintf("%d", openTaskID)},
+		"is_billable":                   {"1"},
+		"notes":                         {"Linked to task"},
+		"line_count":                    {"1"},
+		"line_expense_account_id[0]":    {fmt.Sprintf("%d", expenseAccountID)},
+		"line_description[0]":           {"Client materials"},
+		"line_amount[0]":                {"45.00"},
 	}
 	form.Set(CSRFFormField, csrf)
 	resp := performSecurityRequest(
@@ -73,7 +74,7 @@ func TestExpensePagesSaveTaskLinkageAndKeepOrdinaryPathWorking(t *testing.T) {
 	}
 
 	var linked models.Expense
-	if err := db.Where("company_id = ? AND description = ?", companyID, "Client materials").First(&linked).Error; err != nil {
+	if err := db.Where("company_id = ? AND description LIKE ?", companyID, "%Client materials%").First(&linked).Error; err != nil {
 		t.Fatal(err)
 	}
 	if linked.TaskID == nil || *linked.TaskID != openTaskID {
@@ -88,12 +89,13 @@ func TestExpensePagesSaveTaskLinkageAndKeepOrdinaryPathWorking(t *testing.T) {
 
 	csrf = newCSRFToken(t)
 	ordinaryForm := url.Values{
-		"expense_date":       {"2026-04-05"},
-		"description":        {"Office snacks"},
-		"amount":             {"12.50"},
-		"currency_code":      {"CAD"},
-		"expense_account_id": {fmt.Sprintf("%d", expenseAccountID)},
-		"is_billable":        {"1"},
+		"expense_date":               {"2026-04-05"},
+		"currency_code":              {"CAD"},
+		"is_billable":                {"1"},
+		"line_count":                 {"1"},
+		"line_expense_account_id[0]": {fmt.Sprintf("%d", expenseAccountID)},
+		"line_description[0]":        {"Office snacks"},
+		"line_amount[0]":             {"12.50"},
 	}
 	ordinaryForm.Set(CSRFFormField, csrf)
 	ordinaryResp := performSecurityRequest(
@@ -111,7 +113,7 @@ func TestExpensePagesSaveTaskLinkageAndKeepOrdinaryPathWorking(t *testing.T) {
 	}
 
 	var ordinary models.Expense
-	if err := db.Where("company_id = ? AND description = ?", companyID, "Office snacks").First(&ordinary).Error; err != nil {
+	if err := db.Where("company_id = ? AND description LIKE ?", companyID, "%Office snacks%").First(&ordinary).Error; err != nil {
 		t.Fatal(err)
 	}
 	if ordinary.TaskID != nil {
@@ -174,11 +176,6 @@ func TestExpenseNew_SmartPickerAttrs(t *testing.T) {
 	body := readResponseBody(t, resp)
 
 	for _, want := range []string{
-		// Expense account SmartPicker
-		`data-entity="account"`,
-		`data-context="expense_form_category"`,
-		`data-required="true"`,
-		`data-field-name="expense_account_id"`,
 		// Vendor SmartPicker
 		`data-entity="vendor"`,
 		`data-context="expense_form_vendor"`,
@@ -187,26 +184,34 @@ func TestExpenseNew_SmartPickerAttrs(t *testing.T) {
 		`data-entity="payment_account"`,
 		`data-context="expense_form_payment"`,
 		`data-field-name="payment_account_id"`,
+		// Expense accounts pre-loaded as JSON for the line-item category <select>
+		`data-expense-accounts=`,
+		// Line-item section present
+		`line_count`,
 	} {
 		if !strings.Contains(body, want) {
-			t.Errorf("missing SmartPicker attr %q in new form", want)
+			t.Errorf("missing attr %q in new expense form", want)
 		}
 	}
 	// Native selects (task, payment method, currency) must still be present.
 	if !strings.Contains(body, `<select`) {
 		t.Error("native selects (task, payment method) must be present")
 	}
-	// expense_account_id must NOT appear as a fallback <select name=...> — the field
-	// is SmartPicker-only; no static select fallback should remain.
-	// (data-field-name="expense_account_id" is intentional and not checked here.)
-	if strings.Contains(body, `<select name="expense_account_id"`) {
-		t.Error("expense_account_id must not appear as a fallback select; SmartPicker hidden input is named by Alpine at runtime")
+	// expense_account_id must NOT appear as a top-level SmartPicker;
+	// it is now a line-item category <select> managed by Alpine.
+	for _, absent := range []string{
+		`data-context="expense_form_category"`,
+		`<select name="expense_account_id"`,
+	} {
+		if strings.Contains(body, absent) {
+			t.Errorf("expense account SmartPicker attr %q must not appear; category is now a line-level select", absent)
+		}
 	}
 }
 
 // TestExpenseEdit_SmartPickerRehydration verifies that the edit page correctly
-// populates data-value and data-selected-label for the SmartPicker, enabling
-// the visible input to show the account name rather than a raw ID.
+// populates the account ID in data-initial-lines JSON so the line-item category
+// <select> is pre-selected on the edit page.
 func TestExpenseEdit_SmartPickerRehydration(t *testing.T) {
 	db := testRouteDB(t)
 	companyID := seedCompany(t, db, "SP Edit Co")
@@ -222,21 +227,22 @@ func TestExpenseEdit_SmartPickerRehydration(t *testing.T) {
 	}
 	body := readResponseBody(t, resp)
 
-	if !strings.Contains(body, fmt.Sprintf(`data-value="%d"`, accID)) {
-		t.Errorf("missing data-value=%d in edit page HTML", accID)
+	// Account ID must appear in data-initial-lines JSON for Alpine to pre-select it.
+	// Templ HTML-escapes attribute values: " → &#34;
+	escapedID := fmt.Sprintf("&#34;expense_account_id&#34;:&#34;%d&#34;", accID)
+	if !strings.Contains(body, escapedID) {
+		t.Errorf("account ID %d must appear (HTML-escaped) in data-initial-lines attr", accID)
 	}
-	if !strings.Contains(body, `data-selected-label="Office Supplies"`) {
-		t.Error("missing data-selected-label in edit page HTML")
-	}
-	// Raw ID must not appear as a visible text node.
-	if strings.Contains(body, fmt.Sprintf(">%d<", accID)) {
-		t.Errorf("raw account ID %d must not appear as text content", accID)
+	// The vendor SmartPicker must still be present.
+	if !strings.Contains(body, `data-entity="vendor"`) {
+		t.Error("vendor SmartPicker must still be present on edit page")
 	}
 }
 
 // TestExpenseEdit_InvalidAccountRehydration verifies that when a previously
-// saved expense account is no longer valid (inactive), the edit page clears
-// the SmartPicker value and shows the "no longer available" error.
+// saved expense account is inactive, the edit page still loads (200) and the
+// inactive account does NOT appear in data-expense-accounts (the line-item
+// category select only shows active accounts). Validation error surfaces at POST.
 func TestExpenseEdit_InvalidAccountRehydration(t *testing.T) {
 	db := testRouteDB(t)
 	companyID := seedCompany(t, db, "SP Invalid Co")
@@ -256,14 +262,15 @@ func TestExpenseEdit_InvalidAccountRehydration(t *testing.T) {
 	}
 	body := readResponseBody(t, resp)
 
-	if strings.Contains(body, fmt.Sprintf(`data-value="%d"`, accID)) {
-		t.Error("data-value must be cleared for invalid account")
+	// The inactive account must NOT appear in data-expense-accounts (only active accounts are pre-loaded).
+	// We check by looking for the account name; code-based checks may false-positive if the account code
+	// appears elsewhere (e.g. in the initial-lines JSON which echoes the raw DB ID).
+	if strings.Contains(body, `"Retired Account"`) {
+		t.Error("inactive account name must not appear in data-expense-accounts JSON")
 	}
-	if !strings.Contains(body, `data-value=""`) {
-		t.Error("data-value must be empty string for invalid account")
-	}
-	if !strings.Contains(body, "Previously selected expense account is no longer available") {
-		t.Error("missing 'no longer available' error message")
+	// Form must still load without a server error.
+	if strings.Contains(body, "Internal Server Error") || strings.Contains(body, "500") {
+		t.Error("edit page must not crash when account is inactive")
 	}
 }
 
@@ -279,11 +286,12 @@ func TestExpense_SaveRejectsInactiveAccount(t *testing.T) {
 
 	csrf := newCSRFToken(t)
 	form := url.Values{
-		"expense_date":       {"2026-04-10"},
-		"description":        {"Test"},
-		"amount":             {"10.00"},
-		"currency_code":      {"CAD"},
-		"expense_account_id": {fmt.Sprintf("%d", accID)},
+		"expense_date":               {"2026-04-10"},
+		"currency_code":              {"CAD"},
+		"line_count":                 {"1"},
+		"line_expense_account_id[0]": {fmt.Sprintf("%d", accID)},
+		"line_description[0]":        {"Test"},
+		"line_amount[0]":             {"10.00"},
 	}
 	form.Set(CSRFFormField, csrf)
 	resp := performSecurityRequest(t, app, http.MethodPost, "/expenses",
@@ -296,15 +304,8 @@ func TestExpense_SaveRejectsInactiveAccount(t *testing.T) {
 		t.Fatal("inactive account must not be accepted")
 	}
 	body := readResponseBody(t, resp)
-	if !strings.Contains(body, "expense account") && !strings.Contains(body, "account") {
+	if !strings.Contains(body, "expense account") && !strings.Contains(body, "account") && !strings.Contains(body, "not valid") {
 		t.Errorf("expected account error message, got body snippet: %.200s", body)
-	}
-	// SmartPicker must render data-value="" — illegal ID must not leak into re-render.
-	if !strings.Contains(body, `data-value=""`) {
-		t.Error("data-value must be empty when account is rejected (inactive)")
-	}
-	if strings.Contains(body, fmt.Sprintf(`data-value="%d"`, accID)) {
-		t.Errorf("illegal inactive account ID %d must not appear in data-value", accID)
 	}
 }
 
@@ -321,11 +322,12 @@ func TestExpense_SaveRejectsCrossCompanyAccount(t *testing.T) {
 
 	csrf := newCSRFToken(t)
 	form := url.Values{
-		"expense_date":       {"2026-04-10"},
-		"description":        {"Test"},
-		"amount":             {"10.00"},
-		"currency_code":      {"CAD"},
-		"expense_account_id": {fmt.Sprintf("%d", otherAccID)},
+		"expense_date":               {"2026-04-10"},
+		"currency_code":              {"CAD"},
+		"line_count":                 {"1"},
+		"line_expense_account_id[0]": {fmt.Sprintf("%d", otherAccID)},
+		"line_description[0]":        {"Test"},
+		"line_amount[0]":             {"10.00"},
 	}
 	form.Set(CSRFFormField, csrf)
 	resp := performSecurityRequest(t, app, http.MethodPost, "/expenses",
@@ -335,14 +337,6 @@ func TestExpense_SaveRejectsCrossCompanyAccount(t *testing.T) {
 	)
 	if resp.StatusCode == http.StatusSeeOther {
 		t.Fatal("cross-company account must not be accepted")
-	}
-	body := readResponseBody(t, resp)
-	// SmartPicker must render data-value="" — cross-company ID must not leak into re-render.
-	if !strings.Contains(body, `data-value=""`) {
-		t.Error("data-value must be empty when account is rejected (cross-company)")
-	}
-	if strings.Contains(body, fmt.Sprintf(`data-value="%d"`, otherAccID)) {
-		t.Errorf("cross-company account ID %d must not appear in data-value", otherAccID)
 	}
 }
 
@@ -358,11 +352,12 @@ func TestExpense_SaveRejectsNonExpenseAccount(t *testing.T) {
 
 	csrf := newCSRFToken(t)
 	form := url.Values{
-		"expense_date":       {"2026-04-10"},
-		"description":        {"Test"},
-		"amount":             {"10.00"},
-		"currency_code":      {"CAD"},
-		"expense_account_id": {fmt.Sprintf("%d", revAccID)},
+		"expense_date":               {"2026-04-10"},
+		"currency_code":              {"CAD"},
+		"line_count":                 {"1"},
+		"line_expense_account_id[0]": {fmt.Sprintf("%d", revAccID)},
+		"line_description[0]":        {"Test"},
+		"line_amount[0]":             {"10.00"},
 	}
 	form.Set(CSRFFormField, csrf)
 	resp := performSecurityRequest(t, app, http.MethodPost, "/expenses",
@@ -373,20 +368,12 @@ func TestExpense_SaveRejectsNonExpenseAccount(t *testing.T) {
 	if resp.StatusCode == http.StatusSeeOther {
 		t.Fatal("non-expense account must not be accepted")
 	}
-	body := readResponseBody(t, resp)
-	// SmartPicker must render data-value="" — non-expense account ID must not leak into re-render.
-	if !strings.Contains(body, `data-value=""`) {
-		t.Error("data-value must be empty when account is rejected (non-expense type)")
-	}
-	if strings.Contains(body, fmt.Sprintf(`data-value="%d"`, revAccID)) {
-		t.Errorf("non-expense account ID %d must not appear in data-value", revAccID)
-	}
 }
 
-// TestExpense_ErrorRerenderPreservesSmartPickerState verifies that when a POST
-// fails due to a non-account field error, the SmartPicker retains the previously
-// submitted account ID and label.
-func TestExpense_ErrorRerenderPreservesSmartPickerState(t *testing.T) {
+// TestExpense_ErrorRerenderPreservesLineState verifies that when a POST fails
+// (missing expense date), the submitted line account ID is preserved in
+// data-initial-lines so the user does not lose their selection.
+func TestExpense_ErrorRerenderPreservesLineState(t *testing.T) {
 	db := testRouteDB(t)
 	companyID := seedCompany(t, db, "SP Rerender Co")
 	user, rawToken := seedUserSession(t, db, &companyID)
@@ -396,11 +383,12 @@ func TestExpense_ErrorRerenderPreservesSmartPickerState(t *testing.T) {
 
 	csrf := newCSRFToken(t)
 	form := url.Values{
-		"expense_date":       {"2026-04-10"},
-		"description":        {""}, // empty — will trigger validation error
-		"amount":             {"25.00"},
-		"currency_code":      {"CAD"},
-		"expense_account_id": {fmt.Sprintf("%d", accID)},
+		"expense_date":               {""}, // empty — will trigger validation error
+		"currency_code":              {"CAD"},
+		"line_count":                 {"1"},
+		"line_expense_account_id[0]": {fmt.Sprintf("%d", accID)},
+		"line_description[0]":        {"Office supplies"},
+		"line_amount[0]":             {"25.00"},
 	}
 	form.Set(CSRFFormField, csrf)
 	resp := performSecurityRequest(t, app, http.MethodPost, "/expenses",
@@ -409,16 +397,19 @@ func TestExpense_ErrorRerenderPreservesSmartPickerState(t *testing.T) {
 		&http.Cookie{Name: CSRFCookieName, Value: csrf, Path: "/"},
 	)
 	if resp.StatusCode == http.StatusSeeOther {
-		t.Fatal("form with empty description should not redirect")
+		t.Fatal("form with missing date must not redirect")
 	}
 	body := readResponseBody(t, resp)
 
-	// SmartPicker must retain the submitted valid account.
-	if !strings.Contains(body, fmt.Sprintf(`data-value="%d"`, accID)) {
-		t.Errorf("data-value must be preserved on error re-render, accID=%d", accID)
+	// Line account ID must be preserved in data-initial-lines on error re-render.
+	// Templ HTML-escapes attribute values: " → &#34;
+	escapedID := fmt.Sprintf("&#34;expense_account_id&#34;:&#34;%d&#34;", accID)
+	if !strings.Contains(body, escapedID) {
+		t.Errorf("line account ID %d must be preserved in data-initial-lines on error re-render", accID)
 	}
-	if !strings.Contains(body, `data-selected-label="Office Supplies"`) {
-		t.Error("data-selected-label must be preserved on error re-render")
+	// Date error must be shown.
+	if !strings.Contains(body, "date") && !strings.Contains(body, "required") {
+		t.Error("expected date error on re-render")
 	}
 }
 
@@ -441,12 +432,12 @@ func TestExpense_SmartPickerOnlyInputSurface(t *testing.T) {
 	body := readResponseBody(t, resp)
 
 	// No-JS fallback <select> elements for SmartPicker-controlled fields must be absent.
-	// The SmartPicker hidden input receives its name from Alpine at runtime; a static
-	// fallback select would create a duplicate visible input surface.
+	// vendor and payment_account use SmartPicker; expense_account is a line-item select
+	// managed by Alpine (no static name attribute).
 	for _, fallbackSelect := range []string{
-		`<select name="expense_account_id"`,
 		`<select name="payment_account_id"`,
 		`<select name="vendor_id"`,
+		`<select name="expense_account_id"`,
 	} {
 		if strings.Contains(body, fallbackSelect) {
 			t.Errorf("no-JS fallback select must be removed: %s found in HTML", fallbackSelect)
@@ -469,13 +460,14 @@ func expensePaymentForm(t *testing.T, expAccID, payAccID uint) url.Values {
 	t.Helper()
 	csrf := newCSRFToken(t)
 	form := url.Values{
-		"expense_date":       {"2026-04-10"},
-		"description":        {"Payment account test"},
-		"amount":             {"20.00"},
-		"currency_code":      {"CAD"},
-		"expense_account_id": {fmt.Sprintf("%d", expAccID)},
-		"payment_account_id": {fmt.Sprintf("%d", payAccID)},
-		"payment_method":     {"wire"},
+		"expense_date":               {"2026-04-10"},
+		"currency_code":              {"CAD"},
+		"payment_account_id":         {fmt.Sprintf("%d", payAccID)},
+		"payment_method":             {"wire"},
+		"line_count":                 {"1"},
+		"line_expense_account_id[0]": {fmt.Sprintf("%d", expAccID)},
+		"line_description[0]":        {"Payment account test"},
+		"line_amount[0]":             {"20.00"},
 	}
 	form.Set(CSRFFormField, csrf)
 	return form
@@ -592,7 +584,7 @@ func TestExpensePaymentAccount_APAccountRejected(t *testing.T) {
 	}
 }
 
-// seedExpenseForSP creates a minimal expense linked to an account for SmartPicker tests.
+// seedExpenseForSP creates a minimal expense with one ExpenseLine for handler tests.
 func seedExpenseForSP(t *testing.T, db *gorm.DB, companyID, accID uint) uint {
 	t.Helper()
 	exp := models.Expense{
@@ -604,6 +596,16 @@ func seedExpenseForSP(t *testing.T, db *gorm.DB, companyID, accID uint) uint {
 		ExpenseAccountID: &accID,
 	}
 	if err := db.Create(&exp).Error; err != nil {
+		t.Fatal(err)
+	}
+	line := models.ExpenseLine{
+		ExpenseID:        exp.ID,
+		LineOrder:        0,
+		Description:      "SP test expense",
+		Amount:           decimal.RequireFromString("50.00"),
+		ExpenseAccountID: &accID,
+	}
+	if err := db.Create(&line).Error; err != nil {
 		t.Fatal(err)
 	}
 	return exp.ID

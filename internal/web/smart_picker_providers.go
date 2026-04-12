@@ -248,11 +248,7 @@ func (p *VendorProvider) Search(db *gorm.DB, ctx SmartPickerContext, query strin
 
 	items := make([]SmartPickerItem, 0, len(vendors))
 	for _, v := range vendors {
-		items = append(items, SmartPickerItem{
-			ID:        fmt.Sprintf("%d", v.ID),
-			Primary:   v.Name,
-			Secondary: vendorSmartPickerSecondary(v),
-		})
+		items = append(items, *vendorSmartPickerItem(v))
 	}
 	return &SmartPickerResult{Candidates: items}, nil
 }
@@ -268,11 +264,20 @@ func (p *VendorProvider) GetByID(db *gorm.DB, ctx SmartPickerContext, id string)
 		}
 		return nil, fmt.Errorf("vendor get by id: %w", err)
 	}
-	return &SmartPickerItem{
-		ID:        fmt.Sprintf("%d", vendor.ID),
-		Primary:   vendor.Name,
-		Secondary: vendorSmartPickerSecondary(vendor),
-	}, nil
+	return vendorSmartPickerItem(vendor), nil
+}
+
+func vendorSmartPickerItem(v models.Vendor) *SmartPickerItem {
+	item := &SmartPickerItem{
+		ID:        fmt.Sprintf("%d", v.ID),
+		Primary:   v.Name,
+		Secondary: vendorSmartPickerSecondary(v),
+	}
+	// currency_code in payload lets the expense form auto-set currency on vendor select.
+	if cc := strings.TrimSpace(v.CurrencyCode); cc != "" {
+		item.Payload = map[string]string{"currency_code": cc}
+	}
+	return item
 }
 
 func vendorSmartPickerSecondary(v models.Vendor) string {

@@ -7,6 +7,26 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+// ExpenseLine is a single cost-category row within an Expense.
+// An expense may have one or more lines; the sum of line amounts equals the
+// parent Expense.Amount (maintained by the service layer).
+type ExpenseLine struct {
+	ID        uint `gorm:"primaryKey"`
+	ExpenseID uint `gorm:"not null;index"`
+
+	// LineOrder controls display ordering (0-based).
+	LineOrder int `gorm:"not null;default:0"`
+
+	Description string          `gorm:"type:text;not null;default:''"`
+	Amount      decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
+
+	ExpenseAccountID *uint    `gorm:"index"`
+	ExpenseAccount   *Account `gorm:"foreignKey:ExpenseAccountID"`
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 // Expense is a company-scoped standalone cost record, distinct from vendor Bills.
 //
 // It represents a direct expense entry (e.g. out-of-pocket spend, credit card
@@ -82,6 +102,9 @@ type Expense struct {
 	MarkupPercent decimal.Decimal `gorm:"type:numeric(8,4);not null;default:0"`
 
 	Notes string `gorm:"type:text;not null;default:''"`
+
+	// Lines holds the individual cost-category rows. Loaded on demand via Preload.
+	Lines []ExpenseLine `gorm:"foreignKey:ExpenseID;constraint:OnDelete:CASCADE"`
 
 	CreatedAt time.Time
 	UpdatedAt time.Time

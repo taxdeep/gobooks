@@ -1197,3 +1197,61 @@ type stubProviderForEndpoint struct {
 func (p *stubProviderForEndpoint) FetchRate(ctx context.Context, baseCurrencyCode, targetCurrencyCode string, date time.Time) (services.ExchangeRateProviderQuote, error) {
 	return p.quote, nil
 }
+
+// TestExchangeRateEndpoint_TodayUnclosed_FallsBackToPreviousClosedDate tests the
+// today/unclosed-date fallback contract: when the requested date is "today" and no
+// local rate exists for that date, the provider is called and returns the most recent
+// officially closed rate (which may carry yesterday's date). The endpoint must return
+// that prior closed date — not today — and persist the row with that effective date.
+func TestExchangeRateEndpoint_TodayUnclosed_FallsBackToPreviousClosedDate(t *testing.T) {
+	db := testJournalRouteDB(t)
+	app := testRouteApp(t, db)
+	_, token := seedJournalCompanyContext(t, db)
+
+	today := time.Now().UTC().Format("2006-01-02")
+	yesterday := time.Now().UTC().AddDate(0, 0, -1)
+	yesterdayStr := yesterday.Format("2006-01-02")
+
+	// Stub provider returns yesterday's closed date regardless of the requested date —
+	// simulating Frankfurter's behaviour when today's market has not yet closed.
+	prevBuilder := buildExchangeRateProvider
+	defer func() { buildExchangeRateProvider = prevBuilder }()
+	buildExchangeRateProvider = func() services.ExchangeRateProvider {
+		return &stubProviderForEndpoint{
+			quote: services.ExchangeRateProviderQuote{
+				BaseCurrencyCode:   "USD",
+				TargetCurrencyCode: "CAD",
+				Rate:               decimal.RequireFromString("1.42000000"),
+				EffectiveDate:      yesterday,
+			},
+		}
+	}
+
+	// No local rate seeded for today or yesterday — forces provider path.
+	resp := performRequest(t, app,
+		"/api/exchange-rate?transaction_currency_code=USD&date="+today+"&allow_provider_fetch=1",
+		token,
+	)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+	payload := parseJSONBody(t, resp)
+
+	// Effective date returned must be yesterday (the actual closed date), not today.
+	if payload["exchange_rate_date"] != yesterdayStr {
+		t.Fatalf("expected exchange_rate_date=%q (prior closed date), got %q", yesterdayStr, payload["exchange_rate_date"])
+	}
+
+	// Row persisted in DB must carry yesterday's effective_date so future lookups
+	// for today (effective_date <= today) will find it without re-fetching.
+	var row models.ExchangeRate
+	if err := db.
+		Where("base_currency_code = ? AND target_currency_code = ?", "USD", "CAD").
+		Order("effective_date DESC").
+		First(&row).Error; err != nil {
+		t.Fatalf("expected persisted exchange rate row: %v", err)
+	}
+	if !row.EffectiveDate.Equal(yesterday.Truncate(24 * time.Hour)) {
+		t.Fatalf("persisted row effective_date=%q, want %q", row.EffectiveDate.Format("2006-01-02"), yesterdayStr)
+	}
+}

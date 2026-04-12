@@ -1,3 +1,5 @@
+// journal_entry_fx.js — GoBooks Journal Entry Alpine component.
+// v=2
 function gobooksJournalEntryDraft() {
   let accounts = [];
   try {
@@ -480,6 +482,29 @@ function gobooksJournalEntryDraft() {
         this.fetchFX(true);
       }
       this.recalc();
+      this.persist();
+    },
+
+    // onDateChange is called when the JE Date field changes.
+    // In non-manual FX mode the effective date tracks the entry date, so when
+    // the date changes we re-sync fx.date and re-fetch the stored rate for the
+    // new date (local-first; provider fetch on miss, same as currency change).
+    onDateChange() {
+      if (!this.showFXBlock || this.fx.manual) {
+        this.persist();
+        return;
+      }
+      // Keep FX effective date in sync with the JE date.
+      const newDate = String(this.header.entry_date || "").trim();
+      if (newDate) {
+        this.fx.date = newDate;
+      }
+      // Clear the stale snapshot so canSave is false while the fetch is in flight.
+      // This mirrors onCurrencyChange() → syncFXMode() which also clears snapshot_id.
+      this.fx.snapshot_id = "";
+      this.recalc();
+      // Re-fetch: local-first with provider fallback on miss (allow_provider_fetch=1).
+      this.fetchFX(true);
       this.persist();
     },
 

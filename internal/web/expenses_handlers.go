@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -14,25 +15,6 @@ import (
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 )
-
-// rehydrateExpenseAccountLabel uses the SmartPicker registry to look up the
-// human-readable label for the given account ID, enforcing the same company /
-// active / expense-type guards as the search provider. Returns "" if the ID
-// is empty or the account is no longer valid under current guards.
-func (s *Server) rehydrateExpenseAccountLabel(companyID uint, idStr string) string {
-	if idStr == "" {
-		return ""
-	}
-	p, ok := defaultSmartPickerRegistry.get("account")
-	if !ok {
-		return ""
-	}
-	item, err := p.GetByID(s.DB, SmartPickerContext{CompanyID: companyID, Context: "expense_form_category"}, idStr)
-	if err != nil || item == nil {
-		return ""
-	}
-	return item.Primary
-}
 
 // rehydrateVendorLabel uses the VendorProvider to look up the human-readable
 // label for the given vendor ID. Returns "" if the ID is empty or the vendor
@@ -197,7 +179,6 @@ func (s *Server) newExpenseFormVM(companyID uint) (pages.ExpenseFormVM, error) {
 	vm := pages.ExpenseFormVM{
 		HasCompany:  true,
 		ExpenseDate: time.Now().Format("2006-01-02"),
-		Amount:      "0.00",
 	}
 	if err := s.loadExpenseFormContext(companyID, &vm); err != nil {
 		return vm, err
@@ -205,46 +186,31 @@ func (s *Server) newExpenseFormVM(companyID uint) (pages.ExpenseFormVM, error) {
 	if vm.CurrencyCode == "" {
 		vm.CurrencyCode = vm.BaseCurrencyCode
 	}
+	// Seed two blank line rows for the new expense form.
+	vm.Lines = []pages.ExpenseLineFormVM{
+		{Amount: "0.00"},
+		{Amount: "0.00"},
+	}
 	return vm, nil
 }
 
 func (s *Server) expenseFormVMFromExpense(companyID uint, exp *models.Expense) (pages.ExpenseFormVM, error) {
 	vm := pages.ExpenseFormVM{
-		HasCompany:      true,
-		IsEdit:          true,
-		EditingID:       exp.ID,
-		ExpenseDate:     exp.ExpenseDate.Format("2006-01-02"),
-		Description:     exp.Description,
-		Amount:          exp.Amount.StringFixed(2),
-		CurrencyCode:    exp.CurrencyCode,
-		VendorID:        optUintStr(exp.VendorID),
-		TaskID:          optUintStr(exp.TaskID),
-		IsBillable:      exp.IsBillable,
-		Notes:           exp.Notes,
-		PaymentMethod:   string(exp.PaymentMethod),
+		HasCompany:       true,
+		IsEdit:           true,
+		EditingID:        exp.ID,
+		ExpenseDate:      exp.ExpenseDate.Format("2006-01-02"),
+		CurrencyCode:     exp.CurrencyCode,
+		VendorID:         optUintStr(exp.VendorID),
+		TaskID:           optUintStr(exp.TaskID),
+		IsBillable:       exp.IsBillable,
+		Notes:            exp.Notes,
+		PaymentMethod:    string(exp.PaymentMethod),
 		PaymentReference: exp.PaymentReference,
 	}
 
 	// Rehydrate vendor label for SmartPicker.
 	vm.VendorLabel = s.rehydrateVendorLabel(companyID, vm.VendorID)
-
-	// Rehydrate expense account for SmartPicker. GetByID enforces the same
-	// company / active / expense-type guards as the search provider.
-	if exp.ExpenseAccountID != nil {
-		idStr := fmt.Sprintf("%d", *exp.ExpenseAccountID)
-		label := s.rehydrateExpenseAccountLabel(companyID, idStr)
-		if label != "" {
-			vm.ExpenseAccountID = idStr
-			vm.ExpenseAccountLabel = label
-		} else {
-			// Account existed but is no longer valid under current provider guards.
-			// Clear both fields so the picker shows blank and the user must re-select.
-			// Hidden input will submit "" which the backend correctly rejects with a clear error.
-			vm.ExpenseAccountID = ""
-			vm.ExpenseAccountLabel = ""
-			vm.ExpenseAccountError = "Previously selected expense account is no longer available. Please choose a new one."
-		}
-	}
 
 	// Rehydrate payment account for SmartPicker.
 	if exp.PaymentAccountID != nil {
@@ -263,6 +229,32 @@ func (s *Server) expenseFormVMFromExpense(companyID uint, exp *models.Expense) (
 	if err := s.loadExpenseFormContext(companyID, &vm); err != nil {
 		return vm, err
 	}
+
+	// Rehydrate line items from the expense's Lines slice (preloaded by GetExpenseByID).
+	if len(exp.Lines) > 0 {
+		vm.Lines = make([]pages.ExpenseLineFormVM, 0, len(exp.Lines))
+		for _, l := range exp.Lines {
+			lineVM := pages.ExpenseLineFormVM{
+				Description: l.Description,
+				Amount:      l.Amount.StringFixed(2),
+			}
+			if l.ExpenseAccountID != nil {
+				lineVM.ExpenseAccountID = fmt.Sprintf("%d", *l.ExpenseAccountID)
+			}
+			vm.Lines = append(vm.Lines, lineVM)
+		}
+	} else {
+		// Fallback: single line from header fields (pre-migration data).
+		lineVM := pages.ExpenseLineFormVM{
+			Description: exp.Description,
+			Amount:      exp.Amount.StringFixed(2),
+		}
+		if exp.ExpenseAccountID != nil {
+			lineVM.ExpenseAccountID = fmt.Sprintf("%d", *exp.ExpenseAccountID)
+		}
+		vm.Lines = []pages.ExpenseLineFormVM{lineVM}
+	}
+
 	return vm, nil
 }
 
@@ -275,77 +267,109 @@ func (s *Server) buildExpenseFormVMFromRequest(c *fiber.Ctx, companyID uint, exi
 	_ = s.loadExpenseFormContext(companyID, &vm)
 
 	vm.ExpenseDate = strings.TrimSpace(c.FormValue("expense_date"))
-	vm.Description = strings.TrimSpace(c.FormValue("description"))
-	vm.Amount = strings.TrimSpace(c.FormValue("amount"))
 	vm.CurrencyCode = strings.ToUpper(strings.TrimSpace(c.FormValue("currency_code")))
 	vm.VendorID = strings.TrimSpace(c.FormValue("vendor_id"))
-	vm.ExpenseAccountID = strings.TrimSpace(c.FormValue("expense_account_id"))
 	vm.TaskID = strings.TrimSpace(c.FormValue("task_id"))
 	vm.PaymentAccountID = strings.TrimSpace(c.FormValue("payment_account_id"))
 	vm.PaymentMethod = strings.TrimSpace(c.FormValue("payment_method"))
 	vm.PaymentReference = strings.TrimSpace(c.FormValue("payment_reference"))
-
-	// Rehydrate vendor label for error re-render.
-	vm.VendorLabel = s.rehydrateVendorLabel(companyID, vm.VendorID)
-
-	// Rehydrate SmartPicker label for error re-render: if the submitted account ID is
-	// still valid, show its label so the user sees their selection. If invalid (cross-company,
-	// inactive, wrong type), label stays "" — the picker shows blank, matching the empty
-	// submission that the backend is about to reject.
-	vm.ExpenseAccountLabel = s.rehydrateExpenseAccountLabel(companyID, vm.ExpenseAccountID)
-	// If the submitted account ID fails the provider's guards (inactive, cross-company,
-	// wrong root type), rehydrate returns "". Clear the ID too so the hidden input and
-	// visible picker are consistent — both blank — matching GET invalid-account behaviour.
-	if vm.ExpenseAccountID != "" && vm.ExpenseAccountLabel == "" {
-		vm.ExpenseAccountID = ""
-	}
-
-	// Rehydrate payment account SmartPicker label for error re-render.
-	vm.PaymentAccountLabel = s.rehydratePaymentAccountLabel(companyID, vm.PaymentAccountID)
-
 	vm.IsBillable = c.FormValue("is_billable") == "1"
 	vm.Notes = strings.TrimSpace(c.FormValue("notes"))
 
-	if vm.Amount == "" {
-		vm.Amount = "0.00"
-	}
 	if vm.CurrencyCode == "" {
 		vm.CurrencyCode = vm.BaseCurrencyCode
 	}
 
+	// Rehydrate vendor label for error re-render.
+	vm.VendorLabel = s.rehydrateVendorLabel(companyID, vm.VendorID)
+
+	// Rehydrate payment account SmartPicker label for error re-render.
+	vm.PaymentAccountLabel = s.rehydratePaymentAccountLabel(companyID, vm.PaymentAccountID)
+
+	// ── Parse line items ─────────────────────────────────────────────────────
+	lineCountRaw := strings.TrimSpace(c.FormValue("line_count"))
+	lineCount, _ := strconv.Atoi(lineCountRaw)
+	if lineCount < 0 || lineCount > 50 {
+		lineCount = 0
+	}
+
+	type parsedLine struct {
+		ExpenseAccountID *uint
+		Description      string
+		Amount           decimal.Decimal
+	}
+	var parsedLines []parsedLine
+	var lineVMs []pages.ExpenseLineFormVM
+
+	for i := 0; i < lineCount; i++ {
+		key := func(field string) string { return fmt.Sprintf("%s[%d]", field, i) }
+		accIDRaw := strings.TrimSpace(c.FormValue(key("line_expense_account_id")))
+		desc := strings.TrimSpace(c.FormValue(key("line_description")))
+		amtRaw := strings.TrimSpace(c.FormValue(key("line_amount")))
+
+		amt, aErr := decimal.NewFromString(amtRaw)
+		if aErr != nil || amt.IsNegative() {
+			amt = decimal.Zero
+		}
+
+		// Skip fully blank placeholder rows (no account, no description, zero amount).
+		if accIDRaw == "" && desc == "" && (amtRaw == "" || amtRaw == "0.00" || amtRaw == "0") {
+			continue
+		}
+
+		lVM := pages.ExpenseLineFormVM{
+			ExpenseAccountID: accIDRaw,
+			Description:      desc,
+			Amount:           amt.StringFixed(2),
+		}
+
+		pl := parsedLine{Description: desc, Amount: amt}
+		if id64, err := strconv.ParseUint(accIDRaw, 10, 64); err == nil && id64 > 0 {
+			id := uint(id64)
+			pl.ExpenseAccountID = &id
+		}
+
+		parsedLines = append(parsedLines, pl)
+		lineVMs = append(lineVMs, lVM)
+	}
+
+	// Ensure at least the submitted rows are visible on error re-render.
+	if len(lineVMs) == 0 {
+		lineVMs = []pages.ExpenseLineFormVM{{Amount: "0.00"}, {Amount: "0.00"}}
+	}
+	vm.Lines = lineVMs
+
+	// ── Build service input ───────────────────────────────────────────────────
 	var input services.ExpenseInput
 	input.CompanyID = companyID
-	input.Description = vm.Description
 	input.CurrencyCode = vm.CurrencyCode
 	input.IsBillable = vm.IsBillable
 	input.Notes = vm.Notes
 
+	for _, pl := range parsedLines {
+		input.Lines = append(input.Lines, services.ExpenseLineInput{
+			Description:      pl.Description,
+			Amount:           pl.Amount,
+			ExpenseAccountID: pl.ExpenseAccountID,
+		})
+	}
+
 	var hasErr bool
-	// If the submitted payment account ID fails the provider's eligibility guards (inactive,
-	// cross-company, or ineligible account type such as revenue or A/P), surface an explicit
-	// error. Payment account is optional, so without this check the service would skip its
-	// validation and silently save without a payment account.
+
+	// Payment account eligibility guard.
 	if vm.PaymentAccountID != "" && vm.PaymentAccountLabel == "" {
 		vm.PaymentAccountError = "The selected payment account is not available or is not a valid payment source (must be a bank, credit card, or petty-cash account)."
 		vm.PaymentAccountID = ""
 		hasErr = true
 	}
+
 	if d, err := time.Parse("2006-01-02", vm.ExpenseDate); err == nil {
 		input.ExpenseDate = d
 	} else {
 		vm.ExpenseDateError = "Expense date is required."
 		hasErr = true
 	}
-	if vm.Description == "" {
-		vm.DescriptionError = "Description is required."
-		hasErr = true
-	}
-	if amt, err := decimal.NewFromString(vm.Amount); err == nil && amt.GreaterThan(decimal.Zero) {
-		input.Amount = amt
-	} else {
-		vm.AmountError = "Amount must be greater than zero."
-		hasErr = true
-	}
+
 	if vm.CurrencyCode == "" {
 		vm.CurrencyError = "Currency is required."
 		hasErr = true
@@ -354,13 +378,24 @@ func (s *Server) buildExpenseFormVMFromRequest(c *fiber.Ctx, companyID uint, exi
 		hasErr = true
 	}
 
-	if id64, err := services.ParseUint(vm.ExpenseAccountID); err == nil && id64 > 0 {
-		id := uint(id64)
-		input.ExpenseAccountID = &id
-	} else {
-		vm.ExpenseAccountError = "Expense account is required."
+	// Lines must be present and have positive amounts.
+	if len(parsedLines) == 0 {
+		vm.FormError = "At least one expense line with a positive amount is required."
 		hasErr = true
+	} else {
+		allZero := true
+		for _, pl := range parsedLines {
+			if pl.Amount.GreaterThan(decimal.Zero) {
+				allZero = false
+				break
+			}
+		}
+		if allZero {
+			vm.AmountError = "At least one line must have an amount greater than zero."
+			hasErr = true
+		}
 	}
+
 	if id64, err := services.ParseUint(vm.VendorID); err == nil && id64 > 0 {
 		id := uint(id64)
 		input.VendorID = &id
@@ -379,9 +414,8 @@ func (s *Server) buildExpenseFormVMFromRequest(c *fiber.Ctx, companyID uint, exi
 }
 
 func (s *Server) loadExpenseFormContext(companyID uint, vm *pages.ExpenseFormVM) error {
-	// Vendor and expense-account lists are no longer pre-loaded here: both fields
-	// use SmartPicker, which fetches candidates on-demand via the search API.
-	// Eligibility filtering is enforced by the respective backend providers.
+	// Vendor uses SmartPicker (on-demand search); expense accounts are pre-loaded
+	// as JSON for the line-item category <select> in the Alpine component.
 	selectableTasks, err := services.ListSelectableTasks(s.DB, companyID)
 	if err != nil {
 		return err
@@ -411,7 +445,33 @@ func (s *Server) loadExpenseFormContext(companyID uint, vm *pages.ExpenseFormVM)
 			vm.CurrencyOptions = append(vm.CurrencyOptions, code)
 		}
 	}
+
+	// Pre-load expense accounts for the line-item category <select>.
+	var expAccounts []models.Account
+	if err := s.DB.
+		Where("company_id = ? AND root_account_type = ? AND is_active = true", companyID, models.RootExpense).
+		Order("code ASC").
+		Find(&expAccounts).Error; err != nil {
+		return err
+	}
+	vm.ExpenseAccountsJSON = buildExpenseAccountsJSON(expAccounts)
+
 	return nil
+}
+
+type expenseAccountJSONItem struct {
+	ID   uint   `json:"id"`
+	Code string `json:"code"`
+	Name string `json:"name"`
+}
+
+func buildExpenseAccountsJSON(accounts []models.Account) string {
+	items := make([]expenseAccountJSONItem, 0, len(accounts))
+	for _, a := range accounts {
+		items = append(items, expenseAccountJSONItem{ID: a.ID, Code: a.Code, Name: a.Name})
+	}
+	b, _ := json.Marshal(items)
+	return string(b)
 }
 
 func (s *Server) applyExpenseServiceError(vm *pages.ExpenseFormVM, err error) {
@@ -420,11 +480,12 @@ func (s *Server) applyExpenseServiceError(vm *pages.ExpenseFormVM, err error) {
 		vm.ExpenseDateError = err.Error()
 	case errors.Is(err, services.ErrExpenseDescriptionRequired):
 		vm.DescriptionError = err.Error()
-	case errors.Is(err, services.ErrExpenseAmountInvalid):
+	case errors.Is(err, services.ErrExpenseAmountInvalid), errors.Is(err, services.ErrExpenseLinesRequired):
 		vm.AmountError = err.Error()
 	case errors.Is(err, services.ErrExpenseCurrencyRequired):
 		vm.CurrencyError = err.Error()
-	case errors.Is(err, services.ErrExpenseAccountRequired), errors.Is(err, services.ErrExpenseAccountInvalid):
+	case errors.Is(err, services.ErrExpenseAccountRequired), errors.Is(err, services.ErrExpenseAccountInvalid),
+		errors.Is(err, services.ErrExpenseLineAccountRequired), errors.Is(err, services.ErrExpenseLineAccountInvalid):
 		vm.ExpenseAccountError = err.Error()
 	case errors.Is(err, services.ErrExpenseVendorInvalid):
 		vm.VendorError = err.Error()

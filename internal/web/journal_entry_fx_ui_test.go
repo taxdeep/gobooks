@@ -34,9 +34,11 @@ func TestJournalEntryPage_UsesFXBlockDarkControlsAndSingleInitPath(t *testing.T)
 		`x-text="fxSummary()"`,
 		`Transaction Difference`,
 		`Base Difference`,
-		`/static/journal_entry_fx.js?v=1`,
+		`/static/journal_entry_fx.js?v=2`,
 		`text-right font-mono tabular-nums`,
 		`bg-surface px-3 py-2 text-body text-text`,
+		// JE Date drives FX date: @change handler must be wired on the date input.
+		`@change="onDateChange()"`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("expected journal entry HTML to contain %q", want)
@@ -47,6 +49,58 @@ func TestJournalEntryPage_UsesFXBlockDarkControlsAndSingleInitPath(t *testing.T)
 	}
 	if strings.Contains(html, `class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"`) {
 		t.Fatal("journal entry page should not use legacy white-box control classes without bg-surface/text-text tokens")
+	}
+}
+
+func TestJournalEntryPage_CompactFXStrip(t *testing.T) {
+	vm := pages.JournalEntryVM{
+		HasCompany:                 true,
+		ActiveCompanyID:            42,
+		BaseCurrencyCode:           "CAD",
+		MultiCurrencyEnabled:       true,
+		CompanyCurrencies:          []models.CompanyCurrency{{CompanyID: 42, CurrencyCode: "USD", IsActive: true}},
+		TransactionCurrencyOptions: []string{"CAD", "USD"},
+		DefaultTransactionCurrency: "CAD",
+		AccountsDataJSON:           "[]",
+	}
+
+	var sb strings.Builder
+	if err := pages.JournalEntryPage(vm).Render(context.Background(), &sb); err != nil {
+		t.Fatalf("render journal entry page: %v", err)
+	}
+	html := sb.String()
+
+	// Compact FX strip must carry all hidden form inputs the backend requires.
+	for _, want := range []string{
+		`name="exchange_rate_snapshot_id"`,
+		`name="exchange_rate_source"`,
+		`name="exchange_rate_date"`,
+		`name="exchange_rate"`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("compact FX strip: expected hidden input %q", want)
+		}
+	}
+
+	// The strip renders the compact summary via fxSummary() and exposes
+	// Override / Use stored rate toggle actions.
+	for _, want := range []string{
+		`x-text="fxSummary()"`,
+		`x-text="fx.manual ? 'Use stored rate' : 'Override'"`,
+		`@click="refreshFX()"`,
+		`@click="toggleManualFX()"`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("compact FX strip: expected attribute/expression %q", want)
+		}
+	}
+
+	// The old heavy panel heading and the old full Rate label/input pair must be gone.
+	if strings.Contains(html, `>Exchange Rate<`) {
+		t.Fatal("compact FX strip: old heavy 'Exchange Rate' section heading must not appear")
+	}
+	if strings.Contains(html, `Manual Override`) {
+		t.Fatal("compact FX strip: old 'Manual Override' button label must not appear; use 'Override'")
 	}
 }
 
