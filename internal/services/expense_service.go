@@ -35,6 +35,8 @@ type ExpenseLineInput struct {
 	Description      string
 	Amount           decimal.Decimal
 	ExpenseAccountID *uint
+	TaskID           *uint
+	IsBillable       bool
 }
 
 type ExpenseInput struct {
@@ -119,7 +121,7 @@ func ListExpenses(db *gorm.DB, filter ExpenseListFilter) ([]models.Expense, erro
 }
 
 func upsertExpense(db *gorm.DB, expenseID uint, in ExpenseInput) (*models.Expense, error) {
-	// When lines are present, derive header Amount and ExpenseAccountID from them.
+	// When lines are present, derive header fields from them.
 	if len(in.Lines) > 0 {
 		total := decimal.Zero
 		for _, l := range in.Lines {
@@ -134,6 +136,14 @@ func upsertExpense(db *gorm.DB, expenseID uint, in ExpenseInput) (*models.Expens
 					in.Description = d
 					break
 				}
+			}
+		}
+		// Derive header task linkage from first line that has a task.
+		for _, l := range in.Lines {
+			if l.TaskID != nil && *l.TaskID > 0 {
+				in.TaskID = l.TaskID
+				in.IsBillable = l.IsBillable
+				break
 			}
 		}
 	}
@@ -211,6 +221,8 @@ func upsertExpense(db *gorm.DB, expenseID uint, in ExpenseInput) (*models.Expens
 					Description:      strings.TrimSpace(l.Description),
 					Amount:           l.Amount.RoundBank(2),
 					ExpenseAccountID: l.ExpenseAccountID,
+					TaskID:           l.TaskID,
+					IsBillable:       l.IsBillable,
 				}
 				if err := tx.Create(&line).Error; err != nil {
 					return err

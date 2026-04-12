@@ -202,8 +202,6 @@ func (s *Server) expenseFormVMFromExpense(companyID uint, exp *models.Expense) (
 		ExpenseDate:      exp.ExpenseDate.Format("2006-01-02"),
 		CurrencyCode:     exp.CurrencyCode,
 		VendorID:         optUintStr(exp.VendorID),
-		TaskID:           optUintStr(exp.TaskID),
-		IsBillable:       exp.IsBillable,
 		Notes:            exp.Notes,
 		PaymentMethod:    string(exp.PaymentMethod),
 		PaymentReference: exp.PaymentReference,
@@ -237,9 +235,13 @@ func (s *Server) expenseFormVMFromExpense(companyID uint, exp *models.Expense) (
 			lineVM := pages.ExpenseLineFormVM{
 				Description: l.Description,
 				Amount:      l.Amount.StringFixed(2),
+				IsBillable:  l.IsBillable,
 			}
 			if l.ExpenseAccountID != nil {
 				lineVM.ExpenseAccountID = fmt.Sprintf("%d", *l.ExpenseAccountID)
+			}
+			if l.TaskID != nil {
+				lineVM.TaskID = fmt.Sprintf("%d", *l.TaskID)
 			}
 			vm.Lines = append(vm.Lines, lineVM)
 		}
@@ -248,9 +250,13 @@ func (s *Server) expenseFormVMFromExpense(companyID uint, exp *models.Expense) (
 		lineVM := pages.ExpenseLineFormVM{
 			Description: exp.Description,
 			Amount:      exp.Amount.StringFixed(2),
+			IsBillable:  exp.IsBillable,
 		}
 		if exp.ExpenseAccountID != nil {
 			lineVM.ExpenseAccountID = fmt.Sprintf("%d", *exp.ExpenseAccountID)
+		}
+		if exp.TaskID != nil {
+			lineVM.TaskID = fmt.Sprintf("%d", *exp.TaskID)
 		}
 		vm.Lines = []pages.ExpenseLineFormVM{lineVM}
 	}
@@ -269,11 +275,9 @@ func (s *Server) buildExpenseFormVMFromRequest(c *fiber.Ctx, companyID uint, exi
 	vm.ExpenseDate = strings.TrimSpace(c.FormValue("expense_date"))
 	vm.CurrencyCode = strings.ToUpper(strings.TrimSpace(c.FormValue("currency_code")))
 	vm.VendorID = strings.TrimSpace(c.FormValue("vendor_id"))
-	vm.TaskID = strings.TrimSpace(c.FormValue("task_id"))
 	vm.PaymentAccountID = strings.TrimSpace(c.FormValue("payment_account_id"))
 	vm.PaymentMethod = strings.TrimSpace(c.FormValue("payment_method"))
 	vm.PaymentReference = strings.TrimSpace(c.FormValue("payment_reference"))
-	vm.IsBillable = c.FormValue("is_billable") == "1"
 	vm.Notes = strings.TrimSpace(c.FormValue("notes"))
 
 	if vm.CurrencyCode == "" {
@@ -297,6 +301,8 @@ func (s *Server) buildExpenseFormVMFromRequest(c *fiber.Ctx, companyID uint, exi
 		ExpenseAccountID *uint
 		Description      string
 		Amount           decimal.Decimal
+		TaskID           *uint
+		IsBillable       bool
 	}
 	var parsedLines []parsedLine
 	var lineVMs []pages.ExpenseLineFormVM
@@ -306,6 +312,8 @@ func (s *Server) buildExpenseFormVMFromRequest(c *fiber.Ctx, companyID uint, exi
 		accIDRaw := strings.TrimSpace(c.FormValue(key("line_expense_account_id")))
 		desc := strings.TrimSpace(c.FormValue(key("line_description")))
 		amtRaw := strings.TrimSpace(c.FormValue(key("line_amount")))
+		taskIDRaw := strings.TrimSpace(c.FormValue(key("line_task_id")))
+		isBillable := c.FormValue(key("line_is_billable")) == "1"
 
 		amt, aErr := decimal.NewFromString(amtRaw)
 		if aErr != nil || amt.IsNegative() {
@@ -313,7 +321,7 @@ func (s *Server) buildExpenseFormVMFromRequest(c *fiber.Ctx, companyID uint, exi
 		}
 
 		// Skip fully blank placeholder rows (no account, no description, zero amount).
-		if accIDRaw == "" && desc == "" && (amtRaw == "" || amtRaw == "0.00" || amtRaw == "0") {
+		if accIDRaw == "" && desc == "" && taskIDRaw == "" && (amtRaw == "" || amtRaw == "0.00" || amtRaw == "0") {
 			continue
 		}
 
@@ -321,12 +329,18 @@ func (s *Server) buildExpenseFormVMFromRequest(c *fiber.Ctx, companyID uint, exi
 			ExpenseAccountID: accIDRaw,
 			Description:      desc,
 			Amount:           amt.StringFixed(2),
+			TaskID:           taskIDRaw,
+			IsBillable:       isBillable,
 		}
 
-		pl := parsedLine{Description: desc, Amount: amt}
+		pl := parsedLine{Description: desc, Amount: amt, IsBillable: isBillable}
 		if id64, err := strconv.ParseUint(accIDRaw, 10, 64); err == nil && id64 > 0 {
 			id := uint(id64)
 			pl.ExpenseAccountID = &id
+		}
+		if id64, err := strconv.ParseUint(taskIDRaw, 10, 64); err == nil && id64 > 0 {
+			id := uint(id64)
+			pl.TaskID = &id
 		}
 
 		parsedLines = append(parsedLines, pl)
@@ -343,7 +357,6 @@ func (s *Server) buildExpenseFormVMFromRequest(c *fiber.Ctx, companyID uint, exi
 	var input services.ExpenseInput
 	input.CompanyID = companyID
 	input.CurrencyCode = vm.CurrencyCode
-	input.IsBillable = vm.IsBillable
 	input.Notes = vm.Notes
 
 	for _, pl := range parsedLines {
@@ -351,6 +364,8 @@ func (s *Server) buildExpenseFormVMFromRequest(c *fiber.Ctx, companyID uint, exi
 			Description:      pl.Description,
 			Amount:           pl.Amount,
 			ExpenseAccountID: pl.ExpenseAccountID,
+			TaskID:           pl.TaskID,
+			IsBillable:       pl.IsBillable,
 		})
 	}
 
@@ -400,10 +415,6 @@ func (s *Server) buildExpenseFormVMFromRequest(c *fiber.Ctx, companyID uint, exi
 		id := uint(id64)
 		input.VendorID = &id
 	}
-	if id64, err := services.ParseUint(vm.TaskID); err == nil && id64 > 0 {
-		id := uint(id64)
-		input.TaskID = &id
-	}
 	if id64, err := services.ParseUint(vm.PaymentAccountID); err == nil && id64 > 0 {
 		id := uint(id64)
 		input.PaymentAccountID = &id
@@ -414,13 +425,13 @@ func (s *Server) buildExpenseFormVMFromRequest(c *fiber.Ctx, companyID uint, exi
 }
 
 func (s *Server) loadExpenseFormContext(companyID uint, vm *pages.ExpenseFormVM) error {
-	// Vendor uses SmartPicker (on-demand search); expense accounts are pre-loaded
-	// as JSON for the line-item category <select> in the Alpine component.
+	// Vendor uses SmartPicker (on-demand search); expense accounts and tasks are
+	// pre-loaded as JSON for the Alpine component.
 	selectableTasks, err := services.ListSelectableTasks(s.DB, companyID)
 	if err != nil {
 		return err
 	}
-	vm.SelectableTasks = selectableTasks
+	vm.SelectableTasksJSON = buildExpenseTasksJSON(selectableTasks)
 
 	var company models.Company
 	if err := s.DB.Select("id", "base_currency_code", "multi_currency_enabled").First(&company, companyID).Error; err != nil {
@@ -474,6 +485,25 @@ func buildExpenseAccountsJSON(accounts []models.Account) string {
 	return string(b)
 }
 
+type expenseTaskJSONItem struct {
+	ID           uint   `json:"id"`
+	Title        string `json:"title"`
+	CustomerName string `json:"customer_name"`
+}
+
+func buildExpenseTasksJSON(tasks []models.Task) string {
+	items := make([]expenseTaskJSONItem, 0, len(tasks))
+	for _, t := range tasks {
+		items = append(items, expenseTaskJSONItem{
+			ID:           t.ID,
+			Title:        t.Title,
+			CustomerName: t.Customer.Name,
+		})
+	}
+	b, _ := json.Marshal(items)
+	return string(b)
+}
+
 func (s *Server) applyExpenseServiceError(vm *pages.ExpenseFormVM, err error) {
 	switch {
 	case errors.Is(err, services.ErrExpenseDateRequired):
@@ -489,10 +519,9 @@ func (s *Server) applyExpenseServiceError(vm *pages.ExpenseFormVM, err error) {
 		vm.ExpenseAccountError = err.Error()
 	case errors.Is(err, services.ErrExpenseVendorInvalid):
 		vm.VendorError = err.Error()
-	case errors.Is(err, services.ErrTaskLinkageTaskNotFound), errors.Is(err, services.ErrTaskLinkageTaskStatusInvalid):
-		vm.TaskError = err.Error()
-	case errors.Is(err, services.ErrTaskBillableCustomerMismatch):
-		vm.BillableCustomerError = err.Error()
+	case errors.Is(err, services.ErrTaskLinkageTaskNotFound), errors.Is(err, services.ErrTaskLinkageTaskStatusInvalid),
+		errors.Is(err, services.ErrTaskBillableCustomerMismatch):
+		vm.FormError = err.Error()
 	case errors.Is(err, services.ErrExpensePaymentAccountInvalid):
 		vm.PaymentAccountError = err.Error()
 	case errors.Is(err, services.ErrExpensePaymentMethodRequired), errors.Is(err, services.ErrExpensePaymentMethodInvalid):

@@ -15,7 +15,7 @@ templ ExpenseForm(vm ExpenseFormVM) {
 
 templ expenseFormBody(vm ExpenseFormVM) {
 	@bodyExpenseForm(vm)
-	<script src="/static/expense_form.js?v=1"></script>
+	<script src="/static/expense_form.js?v=2"></script>
 }
 
 templ bodyExpenseForm(vm ExpenseFormVM) {
@@ -40,13 +40,13 @@ templ bodyExpenseForm(vm ExpenseFormVM) {
 			data-base-currency={ vm.BaseCurrencyCode }
 			data-multi-currency={ expenseBoolAttr(vm.MultiCurrency) }
 			data-expense-accounts={ vm.ExpenseAccountsJSON }
+			data-tasks={ vm.SelectableTasksJSON }
 			data-initial-lines={ expenseInitialLinesJSON(vm) }
 			@gobooks-picker-select="onPickerSelect($event)"
 		>
 			@ui.SectionCard("Expense Header", "", expenseHeaderSection(vm))
 			@expenseFXStrip(vm)
 			@ui.SectionCard("Line Items", "Each row is one cost category. The total is the sum of all lines.", expenseLinesSection(vm))
-			@ui.SectionCard("Task & Billing", "", expenseTaskSection(vm))
 			@ui.SectionCard("Notes", "", expenseNotesSection(vm))
 
 			<div class="flex items-center justify-between border-t border-border pt-4">
@@ -182,6 +182,8 @@ templ expenseFXStrip(vm ExpenseFormVM) {
 }
 
 // expenseLinesSection renders the dynamic line-item grid managed by Alpine.
+// Each line includes: Category | Description | Amount | Remove
+// and a sub-row for Task linkage + Billable toggle.
 templ expenseLinesSection(vm ExpenseFormVM) {
 	<div>
 		<!-- Line-item table header -->
@@ -193,61 +195,98 @@ templ expenseLinesSection(vm ExpenseFormVM) {
 		</div>
 
 		<!-- Dynamic line rows — rendered by Alpine x-for -->
-		<div class="space-y-2">
+		<div class="space-y-3">
 			<template x-for="(line, idx) in lines" :key="idx">
-				<div class="grid grid-cols-1 gap-2 rounded-md border border-border bg-surface/30 p-2 sm:grid-cols-[1fr_2fr_9rem_2rem] sm:border-0 sm:bg-transparent sm:p-0">
+				<div class="rounded-md border border-border bg-surface/30 p-2 space-y-1.5 sm:border-0 sm:bg-transparent sm:p-0">
 
-					<!-- Category select -->
-					<select
-						:name="'line_expense_account_id[' + idx + ']'"
-						x-model="line.expense_account_id"
-						@change="onAccountChange(idx)"
-						class="block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
-						:class="line.error ? 'border-danger focus:ring-danger-focus' : ''"
-					>
-						<option value="">— Select category —</option>
-						<template x-for="a in accounts" :key="a.id">
-							<option :value="String(a.id)" :selected="String(line.expense_account_id) === String(a.id)" x-text="a.code + ' ' + a.name"></option>
-						</template>
-					</select>
+					<!-- Main row: Category | Description | Amount | Remove -->
+					<div class="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_2fr_9rem_2rem]">
 
-					<!-- Description -->
-					<input
-						type="text"
-						:name="'line_description[' + idx + ']'"
-						x-model="line.description"
-						maxlength="255"
-						placeholder="e.g. Courier charge"
-						class="block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus"
-					/>
+						<!-- Category select -->
+						<select
+							:name="'line_expense_account_id[' + idx + ']'"
+							x-model="line.expense_account_id"
+							@change="onAccountChange(idx)"
+							class="block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
+							:class="line.error ? 'border-danger focus:ring-danger-focus' : ''"
+						>
+							<option value="">— Select category —</option>
+							<template x-for="a in accounts" :key="a.id">
+								<option :value="String(a.id)" :selected="String(line.expense_account_id) === String(a.id)" x-text="a.code + ' ' + a.name"></option>
+							</template>
+						</select>
 
-					<!-- Amount -->
-					<input
-						type="text"
-						:name="'line_amount[' + idx + ']'"
-						x-model="line.amount"
-						inputmode="decimal"
-						placeholder="0.00"
-						@blur="onAmountBlur(idx)"
-						@input="recalc()"
-						class="block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-right font-mono text-body text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus tabular-nums"
-					/>
+						<!-- Description -->
+						<input
+							type="text"
+							:name="'line_description[' + idx + ']'"
+							x-model="line.description"
+							maxlength="255"
+							placeholder="e.g. Courier charge"
+							class="block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus"
+						/>
 
-					<!-- Remove button -->
-					<button
-						type="button"
-						@click="removeLine(idx)"
-						:disabled="lines.length <= 1"
-						class="flex items-center justify-center rounded-md border border-transparent p-1.5 text-text-muted3 hover:border-border hover:text-danger disabled:cursor-not-allowed disabled:opacity-30"
-						aria-label="Remove line"
-					>
-						<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-							<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-						</svg>
-					</button>
+						<!-- Amount -->
+						<input
+							type="text"
+							:name="'line_amount[' + idx + ']'"
+							x-model="line.amount"
+							inputmode="decimal"
+							placeholder="0.00"
+							@blur="onAmountBlur(idx)"
+							@input="recalc()"
+							class="block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-right font-mono text-body text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus tabular-nums"
+						/>
+
+						<!-- Remove button -->
+						<button
+							type="button"
+							@click="removeLine(idx)"
+							:disabled="lines.length <= 1"
+							class="flex items-center justify-center rounded-md border border-transparent p-1.5 text-text-muted3 hover:border-border hover:text-danger disabled:cursor-not-allowed disabled:opacity-30"
+							aria-label="Remove line"
+						>
+							<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+								<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+							</svg>
+						</button>
+					</div>
+
+					<!-- Task & Billing sub-row -->
+					<div class="flex flex-wrap items-center gap-3 sm:pr-[calc(2rem+0.5rem)]">
+						<!-- Task select -->
+						<div class="min-w-0 flex-1">
+							<select
+								:name="'line_task_id[' + idx + ']'"
+								x-model="line.task_id"
+								@change="onLineTaskChange(idx, $event.target.value)"
+								class="block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-small text-text outline-none focus:ring-2 focus:ring-primary-focus"
+							>
+								<option value="">— No task —</option>
+								<template x-for="t in tasks" :key="t.id">
+									<option :value="String(t.id)" :selected="String(line.task_id) === String(t.id)" x-text="t.title + ' — ' + t.customer_name"></option>
+								</template>
+							</select>
+						</div>
+						<!-- Billable toggle -->
+						<label
+							class="inline-flex shrink-0 items-center gap-2 text-small"
+							:class="line.task_id ? 'text-text' : 'text-text-muted3 cursor-not-allowed'"
+						>
+							<input
+								type="checkbox"
+								:name="'line_is_billable[' + idx + ']'"
+								value="1"
+								x-model="line.is_billable"
+								:disabled="!line.task_id"
+								class="h-4 w-4 rounded border-border-input accent-primary focus:ring-primary-focus disabled:opacity-40"
+							/>
+							<span>Billable</span>
+						</label>
+					</div>
 
 					<!-- Inline error -->
-					<div x-show="line.error" class="text-small text-danger sm:col-span-4" x-text="line.error"></div>
+					<div x-show="line.error" class="text-small text-danger" x-text="line.error"></div>
 				</div>
 			</template>
 		</div>
@@ -268,55 +307,6 @@ templ expenseLinesSection(vm ExpenseFormVM) {
 
 		<!-- Hidden line count for the server -->
 		<input type="hidden" name="line_count" :value="lines.length"/>
-	</div>
-}
-
-// expenseTaskSection renders the Task & Billing section (header-level, unchanged).
-templ expenseTaskSection(vm ExpenseFormVM) {
-	<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
-
-		<!-- Task -->
-		<div>
-			<label class="block text-body font-medium text-text">Task</label>
-			<select
-				name="task_id"
-				class={ taskInputClass(vm.TaskError != "" || vm.BillableCustomerError != "") }
-				@change="onTaskChange($event.target.value)"
-			>
-				<option value="">— No task linkage —</option>
-				for _, task := range vm.SelectableTasks {
-					<option value={ Uitoa(task.ID) } selected?={ Uitoa(task.ID) == vm.TaskID }>{ expenseTaskLabel(task) }</option>
-				}
-			</select>
-			<p class="mt-1 text-small text-text-muted2">Only open or completed tasks are shown. Billable customer follows the task's customer.</p>
-			if vm.TaskError != "" {
-				<div class="mt-1 text-small text-danger">{ vm.TaskError }</div>
-			}
-			if vm.BillableCustomerError != "" {
-				<div class="mt-1 text-small text-danger">{ vm.BillableCustomerError }</div>
-			}
-		</div>
-
-		<!-- Billable toggle -->
-		<div>
-			<label class="block text-body font-medium text-text">Billing</label>
-			<label
-				class="mt-2 inline-flex items-center gap-2 text-body"
-				:class="hasTask ? 'text-text' : 'text-text-muted3 cursor-not-allowed'"
-			>
-				<input
-					type="checkbox"
-					name="is_billable"
-					value="1"
-					checked?={ vm.IsBillable }
-					:disabled="!hasTask"
-					class="h-4 w-4 rounded border-border-input accent-primary focus:ring-primary-focus disabled:opacity-40"
-				/>
-				<span>Billable cost</span>
-			</label>
-			<p class="mt-1 text-small text-text-muted2">Marks this cost eligible for future invoice generation. Requires a task.</p>
-		</div>
-
 	</div>
 }
 

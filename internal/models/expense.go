@@ -23,6 +23,11 @@ type ExpenseLine struct {
 	ExpenseAccountID *uint    `gorm:"index"`
 	ExpenseAccount   *Account `gorm:"foreignKey:ExpenseAccountID"`
 
+	// Optional per-line task linkage.
+	TaskID    *uint `gorm:"index"`
+	Task      *Task `gorm:"foreignKey:TaskID"`
+	IsBillable bool  `gorm:"not null;default:false"`
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

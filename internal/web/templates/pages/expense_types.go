@@ -23,6 +23,8 @@ type ExpenseLineFormVM struct {
 	ExpenseAccountID string
 	Description      string
 	Amount           string
+	TaskID           string
+	IsBillable       bool
 	Error            string
 }
 
@@ -35,8 +37,6 @@ type ExpenseFormVM struct {
 	CurrencyCode string
 	VendorID     string
 	VendorLabel  string // human-readable label for SmartPicker rehydration; never a raw DB ID
-	TaskID       string
-	IsBillable   bool
 	Notes        string
 
 	// Lines holds the line-item rows. On new forms the handler seeds 2 blank rows.
@@ -46,29 +46,29 @@ type ExpenseFormVM struct {
 	// line-item category <select>. Shape: [{id, code, name}].
 	ExpenseAccountsJSON string
 
+	// SelectableTasksJSON is the JSON-encoded list of selectable tasks for the
+	// per-line task <select>. Shape: [{id, title, customer_name}].
+	SelectableTasksJSON string
+
 	// Payment settlement fields (all optional).
 	PaymentAccountID    string
 	PaymentAccountLabel string // human-readable label for SmartPicker rehydration
 	PaymentMethod       string
 	PaymentReference    string
 
-	// Legacy single-line fields kept for backward-compat with applyExpenseServiceError.
-	// The form no longer renders these directly; errors surface via LineError or FormError.
+	// Error fields for service-layer feedback.
 	ExpenseAccountError   string
 	AmountError           string
 	DescriptionError      string
 
-	ExpenseDateError      string
-	CurrencyError         string
-	VendorError           string
-	TaskError             string
-	BillableCustomerError string
-	PaymentAccountError   string
-	PaymentMethodError    string
-	FormError             string
+	ExpenseDateError    string
+	CurrencyError       string
+	VendorError         string
+	PaymentAccountError string
+	PaymentMethodError  string
+	FormError           string
 
 	BaseCurrencyCode string
 	MultiCurrency    bool
 	CurrencyOptions  []string
-	SelectableTasks  []models.Task
 }

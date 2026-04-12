@@ -1,11 +1,12 @@
 // expense_form.js — Alpine component for the multi-line expense entry form.
-// v=1
+// v=2
 //
 // State read from data-* attributes on the form element:
 //   data-base-currency      — company base currency code (e.g. "CAD")
 //   data-multi-currency     — "true" | "false"
 //   data-expense-accounts   — JSON [{id, code, name}] for category <select>
-//   data-initial-lines      — JSON [{expense_account_id, description, amount, error}]
+//   data-tasks              — JSON [{id, title, customer_name}] for per-line task <select>
+//   data-initial-lines      — JSON [{expense_account_id, description, amount, task_id, is_billable, error}]
 //
 // Events listened to:
 //   @gobooks-picker-select  — SmartPicker selection; handles vendor currency coupling.
@@ -16,13 +17,13 @@ function gobooksExpenseForm() {
     baseCurrency:   "",
     multiCurrency:  false,
     accounts:       [],  // [{id, code, name}]
+    tasks:          [],  // [{id, title, customer_name}]
 
     // ── State ─────────────────────────────────────────────────────────────────
     currency:  "",   // currently selected currency_code
     showFX:    false,
-    hasTask:   false,
 
-    // lines: [{expense_account_id, description, amount, error}]
+    // lines: [{expense_account_id, description, amount, task_id, is_billable, error}]
     lines: [],
 
     // ── Init ─────────────────────────────────────────────────────────────────
@@ -31,6 +32,7 @@ function gobooksExpenseForm() {
       this.baseCurrency  = el.dataset.baseCurrency  || "";
       this.multiCurrency = el.dataset.multiCurrency === "true";
       this.accounts      = JSON.parse(el.dataset.expenseAccounts || "[]");
+      this.tasks         = JSON.parse(el.dataset.tasks || "[]");
 
       const initial = JSON.parse(el.dataset.initialLines || "[]");
       if (initial.length > 0) {
@@ -38,6 +40,8 @@ function gobooksExpenseForm() {
           expense_account_id: String(l.expense_account_id || ""),
           description:        String(l.description || ""),
           amount:             String(l.amount || "0.00"),
+          task_id:            String(l.task_id || ""),
+          is_billable:        Boolean(l.is_billable),
           error:              String(l.error || ""),
         }));
       } else {
@@ -53,10 +57,6 @@ function gobooksExpenseForm() {
         this.currency = this.baseCurrency;
       }
       this._syncFX();
-
-      // Detect initial task selection.
-      const taskSel = el.querySelector('select[name="task_id"]');
-      if (taskSel) this.hasTask = taskSel.value !== "";
     },
 
     // ── Line management ───────────────────────────────────────────────────────
@@ -66,6 +66,8 @@ function gobooksExpenseForm() {
         expense_account_id: "",
         description:        "",
         amount:             "0.00",
+        task_id:            "",
+        is_billable:        false,
         error:              "",
       });
     },
@@ -94,6 +96,16 @@ function gobooksExpenseForm() {
       line.amount = (isNaN(n) || n < 0) ? "0.00" : n.toFixed(2);
     },
 
+    onLineTaskChange(idx, val) {
+      const line = this.lines[idx];
+      if (!line) return;
+      line.task_id = val;
+      // Clear billable when task is deselected.
+      if (!val) {
+        line.is_billable = false;
+      }
+    },
+
     recalc() {
       // Triggers totalFormatted() reactivity; no extra work needed.
     },
@@ -120,14 +132,6 @@ function gobooksExpenseForm() {
     onCurrencyChange(val) {
       this.currency = val;
       this._syncFX();
-    },
-
-    onTaskChange(val) {
-      this.hasTask = val !== "";
-      if (!this.hasTask) {
-        const cb = this.$el.querySelector('input[name="is_billable"]');
-        if (cb) cb.checked = false;
-      }
     },
 
     // ── SmartPicker event handler ─────────────────────────────────────────────

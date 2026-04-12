@@ -44,16 +44,16 @@ func TestExpensePagesSaveTaskLinkageAndKeepOrdinaryPathWorking(t *testing.T) {
 
 	csrf := newCSRFToken(t)
 	form := url.Values{
-		"expense_date":                  {"2026-04-04"},
-		"currency_code":                 {"CAD"},
-		"vendor_id":                     {fmt.Sprintf("%d", vendorID)},
-		"task_id":                       {fmt.Sprintf("%d", openTaskID)},
-		"is_billable":                   {"1"},
-		"notes":                         {"Linked to task"},
-		"line_count":                    {"1"},
-		"line_expense_account_id[0]":    {fmt.Sprintf("%d", expenseAccountID)},
-		"line_description[0]":           {"Client materials"},
-		"line_amount[0]":                {"45.00"},
+		"expense_date":               {"2026-04-04"},
+		"currency_code":              {"CAD"},
+		"vendor_id":                  {fmt.Sprintf("%d", vendorID)},
+		"notes":                      {"Linked to task"},
+		"line_count":                 {"1"},
+		"line_expense_account_id[0]": {fmt.Sprintf("%d", expenseAccountID)},
+		"line_description[0]":        {"Client materials"},
+		"line_amount[0]":             {"45.00"},
+		"line_task_id[0]":            {fmt.Sprintf("%d", openTaskID)},
+		"line_is_billable[0]":        {"1"},
 	}
 	form.Set(CSRFFormField, csrf)
 	resp := performSecurityRequest(
@@ -444,9 +444,10 @@ func TestExpense_SmartPickerOnlyInputSurface(t *testing.T) {
 		}
 	}
 
-	// Task options must still be present (task_id is a native select).
-	if !strings.Contains(body, `name="task_id"`) {
-		t.Error("task select must still have a static name attribute")
+	// Per-line task options are loaded via data-tasks (Alpine JSON); verify the
+	// attribute is present on the form element.
+	if !strings.Contains(body, `data-tasks=`) {
+		t.Error("expected data-tasks attribute for per-line task Alpine binding")
 	}
 }
 
