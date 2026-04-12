@@ -338,3 +338,69 @@ func validateCustomerFields(name, email, paymentTerm, addrStreet1, addrStreet2, 
 	}
 	return ""
 }
+
+// handleCustomerQuickCreate creates a minimal customer record from an inline
+// Quick Create panel (e.g. the invoice editor drawer). Accepts JSON {name} and
+// returns JSON {id, name} on success, or {error} on failure.
+func (s *Server) handleCustomerQuickCreate(c *fiber.Ctx) error {
+	user := UserFromCtx(c)
+	if user == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	var in struct {
+		Name string `json:"name"`
+	}
+	if err := c.BodyParser(&in); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body."})
+	}
+
+	name := strings.TrimSpace(in.Name)
+	if name == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Customer name is required."})
+	}
+	if len(name) > 200 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Name must be 200 characters or fewer."})
+	}
+
+	// Duplicate name check.
+	var count int64
+	if err := s.DB.Model(&models.Customer{}).
+		Where("company_id = ? AND lower(name) = lower(?)", companyID, name).
+		Count(&count).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not validate customer name."})
+	}
+	if count > 0 {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "A customer with this name already exists."})
+	}
+
+	customer := models.Customer{
+		CompanyID: companyID,
+		Name:      name,
+	}
+	if err := s.DB.Create(&customer).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not create customer."})
+	}
+
+	cid := companyID
+	uid := user.ID
+	actor := user.Email
+	if actor == "" {
+		actor = "user"
+	}
+	services.TryWriteAuditLogWithContext(s.DB, "customer.created", "customer", customer.ID, actor, map[string]any{
+		"name":       name,
+		"company_id": companyID,
+		"source":     "quick_create",
+	}, &cid, &uid)
+	s.SPAcceleration.InvalidateCompany(companyID)
+
+	return c.JSON(fiber.Map{
+		"id":   customer.ID,
+		"name": customer.Name,
+	})
+}

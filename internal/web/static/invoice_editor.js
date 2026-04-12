@@ -1,5 +1,5 @@
 // invoice_editor.js — Alpine component for the invoice line-items editor.
-// v=8
+// v=9
 function invoiceEditor() {
   return {
     lines: [],
@@ -353,6 +353,79 @@ function invoiceEditor() {
       this.memoAssist.suggestion = "";
       this.memoAssist.error      = "";
       this.memoAssist.empty      = false;
+    },
+  };
+}
+
+// gobooksCustomerQuickCreate — Alpine component for the inline customer creation
+// slide-over panel on the invoice editor page.
+//
+// Lifecycle:
+//   1. Listens for gobooks-picker-create (window-level) emitted by the Customer SmartPicker.
+//   2. Opens a slide-over with the typed query pre-filled as the customer name.
+//   3. On save, POSTs to /api/customers/quick-create and dispatches
+//      gobooks-picker-set-value to the SmartPicker's root element so it auto-selects
+//      the newly created customer without reloading the page.
+function gobooksCustomerQuickCreate() {
+  return {
+    open:      false,
+    name:      "",
+    nameError: "",
+    formError: "",
+    saving:    false,
+
+    onPickerCreate(event) {
+      const { context, query } = (event.detail || event) || {};
+      if (context !== "invoice_editor_customer") return;
+      this.name      = (query || "").trim();
+      this.nameError = "";
+      this.formError = "";
+      this.saving    = false;
+      this.open      = true;
+      this.$nextTick(() => {
+        if (this.$refs.nameInput) this.$refs.nameInput.focus();
+      });
+    },
+
+    cancel() {
+      this.open = false;
+    },
+
+    async save() {
+      const name = this.name.trim();
+      if (!name) {
+        this.nameError = "Customer name is required.";
+        return;
+      }
+      this.saving    = true;
+      this.nameError = "";
+      this.formError = "";
+      try {
+        const fetchFn = window.gobooksFetch || fetch;
+        const resp = await fetchFn("/api/customers/quick-create", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ name }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          this.formError = data.error || "Could not create customer.";
+          return;
+        }
+        // Programmatically select the new customer in the SmartPicker.
+        const pickerEl = document.querySelector('[data-context="invoice_editor_customer"]');
+        if (pickerEl) {
+          pickerEl.dispatchEvent(new CustomEvent("gobooks-picker-set-value", {
+            detail: { id: String(data.id), label: data.name },
+            bubbles: false,
+          }));
+        }
+        this.open = false;
+      } catch (_) {
+        this.formError = "Could not create customer. Please try again.";
+      } finally {
+        this.saving = false;
+      }
     },
   };
 }

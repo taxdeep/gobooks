@@ -56,6 +56,7 @@ templ smartPickerInteractive(vm SmartPickerVM) {
 		data-selected-label={ vm.SelectedLabel }
 		data-placeholder={ smartPickerPlaceholder(vm) }
 		data-required={ smartPickerBool(vm.Required) }
+		data-allow-create={ smartPickerBool(vm.AllowCreate) }
 		data-create-url={ vm.CreateURL }
 		data-create-label={ vm.CreateLabel }
 		data-limit={ smartPickerLimit(vm) }
@@ -122,6 +123,19 @@ templ smartPickerInteractive(vm SmartPickerVM) {
 
 			<!-- Error state -->
 			<div x-show="!loading && failed" class="px-3 py-2 text-body text-danger">Search failed. Try again.</div>
+
+			<!-- "+ Add new [query]" row — always first when allowCreate is enabled -->
+			<div
+				x-show="allowCreate && !loading && !failed"
+				@click="triggerCreate()"
+				@mouseenter="highlighted = -1"
+				:class="highlighted === -1
+					? 'flex items-center gap-2 px-3 py-2 cursor-pointer bg-background border-b border-border-subtle'
+					: 'flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-background border-b border-border-subtle'"
+			>
+				<span class="text-body font-medium text-primary">+ Add new</span>
+				<span x-show="query.trim() !== ''" class="truncate text-body text-text-muted2" x-text="'&quot;' + query.trim() + '&quot;'"></span>
+			</div>
 
 			<!-- Results list -->
 			<ul x-show="!loading && !failed && items.length > 0" class="max-h-60 overflow-y-auto py-1">

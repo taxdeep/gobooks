@@ -154,6 +154,7 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Get("/api/exchange-rate", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleExchangeRateGet)
 	// SmartPicker 使用事件（fire-and-forget，用于未来的排名信号）
 	app.Post("/api/smart-picker/usage", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleSmartPickerUsage)
+	app.Post("/api/customers/quick-create", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerQuickCreate)
 
 	// AI 辅助端点（仅建议，非业务数据权威）
 	app.Post("/api/ai/invoice-memo-assist", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleAIMemoAssist)

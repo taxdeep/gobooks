@@ -1,5 +1,5 @@
 // smart_picker.js — GoBooks universal SmartPicker Alpine component.
-// v=8
+// v=9
 //
 // IMPORTANT — entity semantics:
 //   entity="account" in Phase 1 maps to ExpenseAccountProvider, which returns
@@ -28,6 +28,7 @@ function gobooksSmartPicker() {
     fieldName:   "",
     limit:       10,
     required:    false,
+    allowCreate: false,
     createUrl:   "",
     createLabel: "Add new",
     placeholder: "Search\u2026",
@@ -63,6 +64,7 @@ function gobooksSmartPicker() {
       this.fieldName   = el.dataset.fieldName   || "";
       this.limit       = parseInt(el.dataset.limit, 10) || 10;
       this.required    = el.dataset.required    === "true";
+      this.allowCreate = el.dataset.allowCreate === "true";
       this.createUrl   = el.dataset.createUrl   || "";
       this.createLabel = el.dataset.createLabel || "Add new";
       this.placeholder = el.dataset.placeholder || "Search\u2026";
@@ -81,6 +83,27 @@ function gobooksSmartPicker() {
       // With JS active this is the sole authority for form submission.
       const hidden = el.querySelector('input[type=hidden]');
       if (hidden) hidden.name = this.fieldName;
+
+      // gobooks-picker-set-value: programmatic selection from outside the component
+      // (e.g. after inline Quick Create). Accepts {id, label}.
+      el.addEventListener("gobooks-picker-set-value", (e) => {
+        const { id, label } = e.detail || {};
+        if (!id) return;
+        this.selectedId    = String(id);
+        this.selectedLabel = label || "";
+        this.query         = label || "";
+        this.open          = false;
+        this.highlighted   = -1;
+        // Dispatch the standard picker-select event so listeners (e.g. due-date
+        // auto-fill) can react exactly as if the user had picked from the dropdown.
+        this.$dispatch("gobooks-picker-select", {
+          entity:  this.entity,
+          context: this.context,
+          id:      String(id),
+          payload: {},
+          requiresBackendValidation: false,
+        });
+      });
     },
 
     // ── CSS helpers ──
@@ -207,6 +230,19 @@ function gobooksSmartPicker() {
       }).catch(() => {});
     },
 
+    // triggerCreate — fired when user clicks/keyboards to the "+ Add new" row.
+    // Closes the dropdown and dispatches gobooks-picker-create so the host page
+    // can open an inline creation panel without navigating away.
+    triggerCreate() {
+      const q = this.query.trim();
+      this.close();
+      this.$dispatch("gobooks-picker-create", {
+        entity:  this.entity,
+        context: this.context,
+        query:   q,
+      });
+    },
+
     close() {
       this.open        = false;
       this.highlighted = -1;
@@ -241,15 +277,20 @@ function gobooksSmartPicker() {
       switch (event.key) {
         case "ArrowDown":
           event.preventDefault();
-          this.highlighted = Math.min(this.highlighted + 1, this.items.length - 1);
+          if (this.items.length > 0) {
+            this.highlighted = Math.min(this.highlighted + 1, this.items.length - 1);
+          }
           break;
         case "ArrowUp":
           event.preventDefault();
-          this.highlighted = Math.max(this.highlighted - 1, 0);
+          // When allowCreate the create row lives at index -1; allow navigating back to it.
+          this.highlighted = Math.max(this.highlighted - 1, this.allowCreate ? -1 : 0);
           break;
         case "Enter":
           event.preventDefault();
-          if (this.highlighted >= 0 && this.highlighted < this.items.length) {
+          if (this.highlighted === -1 && this.allowCreate) {
+            this.triggerCreate();
+          } else if (this.highlighted >= 0 && this.highlighted < this.items.length) {
             this.select(this.items[this.highlighted]);
           }
           break;

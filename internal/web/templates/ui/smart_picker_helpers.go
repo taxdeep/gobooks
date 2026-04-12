@@ -39,6 +39,11 @@ type SmartPickerVM struct {
 	// no HTML required attribute is set (hidden inputs are excluded from
 	// browser constraint validation anyway).
 	Required bool
+	// AllowCreate, when true, shows a persistent "+ Add new [query]" row at the
+	// top of every dropdown (not just the empty state). Clicking it dispatches
+	// gobooks-picker-create so the host page can open an inline creation panel
+	// without navigating away. Leave false (default) for read-only pickers.
+	AllowCreate bool
 	// CreateURL, if non-empty, shows an "Add new" link in the empty-results state.
 	// Intended for Batch C inline-create flows; leave empty in Phase 1.
 	CreateURL string
