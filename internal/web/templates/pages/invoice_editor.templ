@@ -94,7 +94,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 								placeholder="e.g. IN001"
 								autocomplete="off"
 								disabled?={ vm.TaskGeneratedReadOnly }
-								class="mt-2 block w-full rounded-md border border-danger px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus disabled:opacity-60 disabled:cursor-not-allowed"
+								class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-danger-focus disabled:opacity-60 disabled:cursor-not-allowed"
 							/>
 							<div class="mt-1 text-body text-danger">{ vm.InvoiceNumberError }</div>
 						} else {
@@ -105,7 +105,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 								placeholder="e.g. IN001"
 								autocomplete="off"
 								disabled?={ vm.TaskGeneratedReadOnly }
-								class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
+								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
 							/>
 						}
 					</div>
@@ -140,7 +140,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 								x-model="invoiceDate"
 								@change="onDateChange($event.target.value)"
 								disabled?={ vm.TaskGeneratedReadOnly }
-								class="mt-2 block w-full rounded-md border border-danger px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus disabled:opacity-60 disabled:cursor-not-allowed"
+								style="color-scheme:dark"
+								class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-danger-focus disabled:opacity-60 disabled:cursor-not-allowed"
 							/>
 							<div class="mt-1 text-body text-danger">{ vm.DateError }</div>
 						} else {
@@ -151,7 +152,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 								x-model="invoiceDate"
 								@change="onDateChange($event.target.value)"
 								disabled?={ vm.TaskGeneratedReadOnly }
-								class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
+								style="color-scheme:dark"
+								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
 							/>
 						}
 					</div>
@@ -182,8 +184,9 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 							x-model="dueDate"
 							disabled?={ vm.TaskGeneratedReadOnly }
 							:readonly="!dueDateEditable"
+							style="color-scheme:dark"
 							:class="dueDateEditable
-								? 'mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus'
+								? 'mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus'
 								: 'mt-2 block w-full cursor-not-allowed rounded-md border border-border-input bg-background px-3 py-2 text-body text-text-muted2 outline-none'"
 						/>
 						<p class="mt-1 text-small text-text-muted2" x-show="!dueDateEditable">Auto-computed from terms and invoice date.</p>
@@ -216,7 +219,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 							placeholder="Internal note or reference"
 							autocomplete="off"
 							x-ref="memoInput"
-							class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+							class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
 						/>
 						// AI Assist suggestion panel (only visible after a successful call)
 						if vm.IsEdit {
@@ -290,7 +293,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 									autocomplete="off"
 									inputmode="decimal"
 									disabled?={ vm.TaskGeneratedReadOnly }
-									class="mt-2 block w-full rounded-md border border-danger px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus disabled:opacity-60 disabled:cursor-not-allowed"
+									class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-danger-focus disabled:opacity-60 disabled:cursor-not-allowed"
 								/>
 								<div class="mt-1 text-body text-danger">{ vm.ExchangeRateError }</div>
 							} else {
@@ -302,7 +305,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 									autocomplete="off"
 									inputmode="decimal"
 									disabled?={ vm.TaskGeneratedReadOnly }
-									class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
+									class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
 								/>
 							}
 							<p class="mt-1 text-small text-text-muted2">Base units per 1 foreign unit. Leave blank to auto-lookup from exchange rates.</p>
@@ -367,7 +370,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 											autocomplete="off"
 											@input="calcLine(idx)"
 											:disabled="taskReadOnly && line.locked"
-											class="block w-full rounded-md px-2 py-1.5 text-body outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+											class="block w-full rounded-md bg-surface px-2 py-1.5 text-body text-text outline-none disabled:opacity-60 disabled:cursor-not-allowed"
 											:class="line.error
 												? 'border border-danger focus:ring-2 focus:ring-danger-focus'
 												: 'border border-border-input focus:ring-2 focus:ring-primary-focus'"
@@ -389,7 +392,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 											@blur="onQtyBlur(idx)"
 											inputmode="decimal"
 											:disabled="taskReadOnly && line.locked"
-											class="block w-full rounded-md border border-border-input px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
+											class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
 										/>
 									</td>
 									// Unit Price
@@ -402,7 +405,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 											@blur="onPriceBlur(idx)"
 											inputmode="decimal"
 											:disabled="taskReadOnly && line.locked"
-											class="block w-full rounded-md border border-border-input px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
+											class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
 										/>
 									</td>
 									// Tax Code
@@ -470,7 +473,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 									:value="taxAdjValue(tc.id)"
 									@input="onTaxAdjInput(tc.id, $event.target.value)"
 									@blur="if (!$event.target.value.trim()) { $event.target.value = taxAdjValue(tc.id) }"
-									class="w-24 rounded-md border border-border-input px-2 py-0.5 text-right text-body tabular-nums outline-none focus:ring-2 focus:ring-primary-focus"
+									class="w-24 rounded-md border border-border-input bg-surface px-2 py-0.5 text-right text-body text-text tabular-nums outline-none focus:ring-2 focus:ring-primary-focus"
 								/>
 							</div>
 						</template>
