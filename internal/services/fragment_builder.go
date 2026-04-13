@@ -84,10 +84,22 @@ func BuildInvoiceFragments(inv models.Invoice, arAccountID uint) ([]PostingFragm
 			return nil, fmt.Errorf("fragment builder: line %d (%q) product/service has no revenue account", lineNum, l.Description)
 		}
 
+		// Normalize line net: a negative line net (discount / contra-revenue charge)
+		// flips to a debit on the linked account rather than a negative credit.
+		// This keeps all fragment amounts non-negative so AggregateJournalLines
+		// and applyFXScaling work correctly.
+		//
+		// Example: Sales 100, Discount -10 →
+		//   DR AR 90 / CR Revenue 100 / DR Expense 10  (balance: 100 = 100 ✓)
+		lineDebit, lineCredit := decimal.Zero, l.LineNet
+		if l.LineNet.IsNegative() {
+			lineDebit = l.LineNet.Neg()
+			lineCredit = decimal.Zero
+		}
 		frags = append(frags, PostingFragment{
 			AccountID: l.ProductService.RevenueAccountID,
-			Debit:     decimal.Zero,
-			Credit:    l.LineNet,
+			Debit:     lineDebit,
+			Credit:    lineCredit,
 			Memo:      l.Description,
 		})
 
@@ -219,10 +231,13 @@ func applyFXScaling(frags []PostingFragment, exchangeRate decimal.Decimal, ancho
 		}
 		frags[i].Debit = frags[i].Debit.Mul(exchangeRate).Round(2)
 		frags[i].Credit = frags[i].Credit.Mul(exchangeRate).Round(2)
+		// For balance: anchor = Σ(other credits) - Σ(other debits).
+		// With only positive amounts this simplifies to the original Σ credits / Σ debits,
+		// but the general form handles mixed fragments (e.g. flipped negative lines).
 		if anchorIsDebit {
-			otherSum = otherSum.Add(frags[i].Credit)
+			otherSum = otherSum.Add(frags[i].Credit).Sub(frags[i].Debit)
 		} else {
-			otherSum = otherSum.Add(frags[i].Debit)
+			otherSum = otherSum.Add(frags[i].Debit).Sub(frags[i].Credit)
 		}
 	}
 	for i := range frags {
