@@ -76,6 +76,8 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 	if err := db.AutoMigrate(
+		// UserPlan must precede User because User.PlanID is a FK into user_plans.
+		&models.UserPlan{},
 		&models.Company{},
 		&models.User{},
 		&models.CompanyMembership{},

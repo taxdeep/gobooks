@@ -64,7 +64,7 @@ func Layout(title string, sidebar ui.SidebarVM, content templ.Component) templ.C
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</span></div></div><div class=\"hidden md:block\" title=\"Search is not available yet\"><input type=\"search\" disabled placeholder=\"Search…\" class=\"w-[360px] max-w-[40vw] cursor-not-allowed rounded-md border border-border-input bg-background px-3 py-2 text-body text-text-muted3 outline-none opacity-70\"></div><!-- Theme toggle (cycles system → light → dark) --><button type=\"button\" id=\"gb-theme-btn\" onclick=\"window.gbTheme.cycle()\" title=\"Toggle theme\" class=\"inline-flex items-center justify-center rounded-md border border-border-input bg-surface p-2 text-text-muted3 hover:bg-background hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus transition-colors\" aria-label=\"Toggle colour theme\"><!-- Sun icon — shown when theme = light --><svg id=\"gb-icon-sun\" xmlns=\"http://www.w3.org/2000/svg\" class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\" style=\"display:none\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 3v1m0 16v1m8.66-9H21M3 12H2m15.36-6.36l-.71.71M7.05 16.95l-.71.71M18.71 16.95l-.71-.71M6.34 7.34l-.71-.71M12 8a4 4 0 100 8 4 4 0 000-8z\"></path></svg><!-- Moon icon — shown when theme = dark --><svg id=\"gb-icon-moon\" xmlns=\"http://www.w3.org/2000/svg\" class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\" style=\"display:none\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z\"></path></svg><!-- Monitor icon — shown when theme = system (default) --><svg id=\"gb-icon-monitor\" xmlns=\"http://www.w3.org/2000/svg\" class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"2\" y=\"3\" width=\"20\" height=\"14\" rx=\"2\" stroke-linejoin=\"round\"></rect> <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M8 21h8M12 17v4\"></path></svg></button><!-- User menu dropdown --><div class=\"relative\" x-data=\"{ userMenuOpen: false }\" @keydown.escape=\"userMenuOpen = false\" @click.outside=\"userMenuOpen = false\"><button type=\"button\" class=\"inline-flex items-center gap-2 rounded-md border border-border-input bg-surface px-3 py-2 text-body font-semibold text-text-muted3 hover:bg-background focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus\" @click=\"userMenuOpen = !userMenuOpen\" aria-label=\"User menu\" :aria-expanded=\"userMenuOpen\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-5 w-5\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M16 7a4 4 0 01-8 0 4 4 0 018 0z\"></path> <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 14c-4.418 0-8 2.239-8 5v1h16v-1c0-2.761-3.582-5-8-5z\"></path></svg> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</span></div></div><div class=\"hidden md:block\" title=\"Search is not available yet\"><input type=\"search\" disabled placeholder=\"Search…\" class=\"w-[360px] max-w-[40vw] cursor-not-allowed rounded-md border border-border-input bg-background px-3 py-2 text-body text-text-muted3 outline-none opacity-70\"></div><!-- Right-side controls: theme toggle + user menu (grouped so they sit close together) --><div class=\"flex items-center gap-2\"><!-- Theme toggle (cycles system → light → dark) --><button type=\"button\" id=\"gb-theme-btn\" onclick=\"window.gbTheme.cycle()\" title=\"Toggle theme\" class=\"inline-flex items-center justify-center rounded-md border border-border-input bg-surface p-2 text-text-muted3 hover:bg-background hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus transition-colors\" aria-label=\"Toggle colour theme\"><!-- Sun icon — shown when theme = light --><svg id=\"gb-icon-sun\" xmlns=\"http://www.w3.org/2000/svg\" class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\" style=\"display:none\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 3v1m0 16v1m8.66-9H21M3 12H2m15.36-6.36l-.71.71M7.05 16.95l-.71.71M18.71 16.95l-.71-.71M6.34 7.34l-.71-.71M12 8a4 4 0 100 8 4 4 0 000-8z\"></path></svg><!-- Moon icon — shown when theme = dark --><svg id=\"gb-icon-moon\" xmlns=\"http://www.w3.org/2000/svg\" class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\" style=\"display:none\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z\"></path></svg><!-- Monitor icon — shown when theme = system (default) --><svg id=\"gb-icon-monitor\" xmlns=\"http://www.w3.org/2000/svg\" class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"2\" y=\"3\" width=\"20\" height=\"14\" rx=\"2\" stroke-linejoin=\"round\"></rect> <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M8 21h8M12 17v4\"></path></svg></button><!-- User menu dropdown --><div class=\"relative\" x-data=\"{ userMenuOpen: false }\" @keydown.escape=\"userMenuOpen = false\" @click.outside=\"userMenuOpen = false\"><button type=\"button\" class=\"inline-flex items-center gap-2 rounded-md border border-border-input bg-surface px-3 py-2 text-body font-semibold text-text-muted3 hover:bg-background focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus\" @click=\"userMenuOpen = !userMenuOpen\" aria-label=\"User menu\" :aria-expanded=\"userMenuOpen\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-5 w-5\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M16 7a4 4 0 01-8 0 4 4 0 018 0z\"></path> <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 14c-4.418 0-8 2.239-8 5v1h16v-1c0-2.761-3.582-5-8-5z\"></path></svg> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -76,7 +76,7 @@ func Layout(title string, sidebar ui.SidebarVM, content templ.Component) templ.C
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(sidebar.UserEmail)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 201, Col: 70}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 203, Col: 71}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -87,7 +87,7 @@ func Layout(title string, sidebar ui.SidebarVM, content templ.Component) templ.C
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-4 w-4 transition-transform duration-150\" :class=\"userMenuOpen ? 'rotate-180' : ''\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M19 9l-7 7-7-7\"></path></svg></button><div x-show=\"userMenuOpen\" x-transition:enter=\"transition ease-out duration-100\" x-transition:enter-start=\"opacity-0 scale-95\" x-transition:enter-end=\"opacity-100 scale-100\" x-transition:leave=\"transition ease-in duration-75\" x-transition:leave-start=\"opacity-100 scale-100\" x-transition:leave-end=\"opacity-0 scale-95\" class=\"absolute right-0 z-50 mt-2 w-48 origin-top-right rounded-md border border-border bg-surface shadow-lg\" style=\"display: none;\"><div class=\"py-1\"><a href=\"/profile\" class=\"flex items-center gap-2 px-4 py-2 text-body text-text hover:bg-background\" @click=\"userMenuOpen = false\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-4 w-4 text-text-muted3\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M16 7a4 4 0 01-8 0 4 4 0 018 0z\"></path> <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 14c-4.418 0-8 2.239-8 5v1h16v-1c0-2.761-3.582-5-8-5z\"></path></svg> Profile</a><div class=\"my-1 border-t border-border\"></div><form method=\"post\" action=\"/logout\"><button type=\"submit\" class=\"flex w-full items-center gap-2 px-4 py-2 text-body text-text hover:bg-background\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-4 w-4 text-text-muted3\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1\"></path></svg> Log out</button></form></div></div></div></div></header><div class=\"flex min-h-[calc(100vh-4rem)]\"><!-- Mobile sidebar overlay --><div class=\"fixed inset-0 z-30 bg-black/30 md:hidden\" x-show=\"sidebarOpen\" @click=\"sidebarOpen = false\"></div><div class=\"fixed z-40 top-16 left-0 transition-transform md:hidden\" :class=\"sidebarOpen ? 'translate-x-0' : '-translate-x-full'\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-4 w-4 transition-transform duration-150\" :class=\"userMenuOpen ? 'rotate-180' : ''\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M19 9l-7 7-7-7\"></path></svg></button><div x-show=\"userMenuOpen\" x-transition:enter=\"transition ease-out duration-100\" x-transition:enter-start=\"opacity-0 scale-95\" x-transition:enter-end=\"opacity-100 scale-100\" x-transition:leave=\"transition ease-in duration-75\" x-transition:leave-start=\"opacity-100 scale-100\" x-transition:leave-end=\"opacity-0 scale-95\" class=\"absolute right-0 z-50 mt-2 w-52 origin-top-right rounded-md border border-border bg-surface shadow-lg\" style=\"display: none;\"><div class=\"py-1\"><a href=\"/profile\" class=\"flex items-center gap-2 px-4 py-2 text-body text-text hover:bg-background\" @click=\"userMenuOpen = false\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-4 w-4 text-text-muted3\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M16 7a4 4 0 01-8 0 4 4 0 018 0z\"></path> <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 14c-4.418 0-8 2.239-8 5v1h16v-1c0-2.761-3.582-5-8-5z\"></path></svg> Profile</a> <a href=\"/companies\" class=\"flex items-center gap-2 px-4 py-2 text-body text-text hover:bg-background\" @click=\"userMenuOpen = false\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-4 w-4 text-text-muted3\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4\"></path></svg> Company List</a><div class=\"my-1 border-t border-border\"></div><form method=\"post\" action=\"/logout\"><button type=\"submit\" class=\"flex w-full items-center gap-2 px-4 py-2 text-body text-text hover:bg-background\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-4 w-4 text-text-muted3\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1\"></path></svg> Log out</button></form></div></div></div></div></div></header><div class=\"flex min-h-[calc(100vh-4rem)]\"><!-- Mobile sidebar overlay --><div class=\"fixed inset-0 z-30 bg-black/30 md:hidden\" x-show=\"sidebarOpen\" @click=\"sidebarOpen = false\"></div><div class=\"fixed z-40 top-16 left-0 transition-transform md:hidden\" :class=\"sidebarOpen ? 'translate-x-0' : '-translate-x-full'\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -118,7 +118,7 @@ func Layout(title string, sidebar ui.SidebarVM, content templ.Component) templ.C
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(time.Now().Year()))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 275, Col: 41}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 288, Col: 41}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -131,7 +131,7 @@ func Layout(title string, sidebar ui.SidebarVM, content templ.Component) templ.C
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(" ")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 275, Col: 49}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 288, Col: 49}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
@@ -144,7 +144,7 @@ func Layout(title string, sidebar ui.SidebarVM, content templ.Component) templ.C
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(" ")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 282, Col: 10}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 295, Col: 10}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -157,7 +157,7 @@ func Layout(title string, sidebar ui.SidebarVM, content templ.Component) templ.C
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(version.Version)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 282, Col: 62}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 295, Col: 62}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
@@ -201,7 +201,7 @@ func LayoutAuth(title string, content templ.Component) templ.Component {
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 297, Col: 17}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 310, Col: 17}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
@@ -222,7 +222,7 @@ func LayoutAuth(title string, content templ.Component) templ.Component {
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(time.Now().Year()))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 362, Col: 41}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 375, Col: 41}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
@@ -235,7 +235,7 @@ func LayoutAuth(title string, content templ.Component) templ.Component {
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(" ")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 362, Col: 49}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 375, Col: 49}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
@@ -248,7 +248,7 @@ func LayoutAuth(title string, content templ.Component) templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(" ")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 369, Col: 10}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 382, Col: 10}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {

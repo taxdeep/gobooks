@@ -37,6 +37,14 @@ func (s *Server) RegisterRoutes(app *fiber.App) {
 	app.Post("/admin/users/:id/deactivate", auth(s.handleAdminUserDeactivate)...)
 	app.Post("/admin/users/:id/reactivate", auth(s.handleAdminUserReactivate)...)
 	app.Post("/admin/users/:id/reset-password", auth(s.handleAdminUserResetPassword)...)
+	app.Post("/admin/users/:id/change-plan", auth(s.handleAdminUserChangePlan)...)
+
+	// Plan 管理（subscription tier CRUD）
+	app.Get("/admin/plans", auth(s.handleAdminPlans)...)
+	app.Get("/admin/plans/new", auth(s.handleAdminPlanNewGet)...)
+	app.Post("/admin/plans/new", auth(s.handleAdminPlanNewPost)...)
+	app.Get("/admin/plans/:id/edit", auth(s.handleAdminPlanEditGet)...)
+	app.Post("/admin/plans/:id/edit", auth(s.handleAdminPlanEditPost)...)
 
 	// 系统管理员账户管理
 	app.Get("/admin/sysadmins", auth(s.handleAdminSysadmins)...)

@@ -162,6 +162,7 @@ templ adminSidebarBody(activeNav string) {
 					@adminNavItemWithIcon("/admin/dashboard", "Dashboard", "dashboard", activeNav, adminIconNavDashboard())
 					@adminNavItemWithIcon("/admin/companies", "Companies", "companies", activeNav, adminIconNavBuilding())
 					@adminNavItemWithIcon("/admin/users", "Users", "users", activeNav, adminIconNavUsers())
+					@adminNavItemWithIcon("/admin/plans", "Plans", "plans", activeNav, adminIconNavPlans())
 					@adminNavItemWithIcon("/admin/audit-logs", "Audit logs", "audit", activeNav, adminIconNavClipboard())
 					@adminNavItemWithIcon("/admin/runtime-logs", "Runtime logs", "runtime", activeNav, adminIconNavBolt())
 					@adminNavItemWithIcon("/admin/system", "System control", "system", activeNav, adminIconNavCog())
@@ -262,6 +263,18 @@ templ adminFlashBanner(flash string) {
 	} else if flash == "test_sms_err" {
 		<div class="mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover">
 			Test SMS failed. Check the SMS configuration.
+		</div>
+	} else if flash == "plan_changed" {
+		<div class="mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success">
+			User plan updated successfully.
+		</div>
+	} else if flash == "invalid_plan" {
+		<div class="mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover">
+			Invalid or inactive plan selected.
+		</div>
+	} else if flash == "password_reset" {
+		<div class="mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success">
+			Password reset successfully. All sessions for that user have been revoked.
 		</div>
 	} else if flash == "invalid_id" {
 		<div class="mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover">

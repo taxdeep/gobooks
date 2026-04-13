@@ -3,6 +3,7 @@ package web
 
 import (
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -616,6 +617,37 @@ func (s *Server) handleSetupSubmit(c *fiber.Ctx) error {
 			Errors: errs,
 		}).Render(c.Context(), c)
 	}
+
+	// ── Plan quota check: max owned companies ──────────────────────────────
+	// Load the user's plan and count how many companies they already own.
+	var fullUser models.User
+	if err := s.DB.Preload("Plan").First(&fullUser, "id = ?", user.ID).Error; err != nil {
+		return pages.Setup(pages.SetupViewModel{
+			Active: "Setup",
+			Values: values,
+			Errors: pages.SetupFormErrors{Form: "Could not verify your account. Please try again."},
+		}).Render(c.Context(), c)
+	}
+	// Plan.ID == 0 means the plan system is not yet set up (e.g. fresh migration in
+	// progress). In that case we skip the quota check to avoid blocking company creation.
+	if fullUser.Plan.ID != 0 && fullUser.Plan.MaxOwnedCompanies != -1 {
+		var ownedCount int64
+		s.DB.Model(&models.CompanyMembership{}).
+			Where("user_id = ? AND role = ? AND is_active = true", user.ID, models.CompanyRoleOwner).
+			Count(&ownedCount)
+		if int(ownedCount) >= fullUser.Plan.MaxOwnedCompanies {
+			return pages.Setup(pages.SetupViewModel{
+				Active: "Setup",
+				Values: values,
+				Errors: pages.SetupFormErrors{
+					Form: "You have reached the maximum number of companies for your plan (" +
+						strconv.Itoa(fullUser.Plan.MaxOwnedCompanies) + "). " +
+						"Contact support to upgrade.",
+				},
+			}).Render(c.Context(), c)
+		}
+	}
+	// ── end quota check ────────────────────────────────────────────────────
 
 	codeLen, _ := ParseAccountCodeLengthChoice(values.AccountCodeLength)
 

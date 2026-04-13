@@ -336,12 +336,13 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Get("/vendors", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleVendors)
 	app.Post("/vendors", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionBillCreate), s.handleVendorCreate)
 
-	// ── 用户档案（仅需登录；不依赖公司成员资格，所有已认证用户均可访问）───────────────
+	// ── 用户档案 + 公司列表（仅需登录；不依赖公司成员资格，所有已认证用户均可访问）───
 	// NOTE: ResolveActiveCompany is intentionally NOT used here — it returns 403
 	// for users with no membership and redirects multi-company users to /select-company,
 	// both of which would block legitimate profile access. hasCompany is derived
-	// directly from the session in handleProfileGet.
+	// directly from the session in handleProfileGet / handleCompaniesGet.
 	app.Get("/profile", s.LoadSession(), s.RequireAuth(), s.handleProfileGet)
+	app.Get("/companies", s.LoadSession(), s.RequireAuth(), s.handleCompaniesGet)
 	app.Post("/profile/request-email-change", s.LoadSession(), s.RequireAuth(), s.handleRequestEmailChange)
 	app.Post("/profile/verify-email-change", s.LoadSession(), s.RequireAuth(), s.handleVerifyEmailChange)
 	app.Post("/profile/request-password-change", s.LoadSession(), s.RequireAuth(), s.handleRequestPasswordChange)

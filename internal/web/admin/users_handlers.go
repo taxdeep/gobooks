@@ -2,6 +2,7 @@
 package admin
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,9 +18,13 @@ import (
 // handleAdminUsers 列出所有业务用户。
 func (s *Server) handleAdminUsers(c *fiber.Ctx) error {
 	var users []models.User
-	if err := s.DB.Order("created_at asc").Find(&users).Error; err != nil {
+	if err := s.DB.Preload("Plan").Order("created_at asc").Find(&users).Error; err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "database error")
 	}
+
+	// Load active plans for the Change Plan dropdown.
+	var activePlans []models.UserPlan
+	s.DB.Where("is_active = true").Order("sort_order asc, id asc").Find(&activePlans)
 
 	rows := make([]admintmpl.AdminUserRow, 0, len(users))
 	for _, u := range users {
@@ -27,9 +32,14 @@ func (s *Server) handleAdminUsers(c *fiber.Ctx) error {
 		s.DB.Model(&models.CompanyMembership{}).
 			Where("user_id = ? AND is_active = true", u.ID).
 			Count(&companyCnt)
+		planName := u.Plan.Name
+		if planName == "" {
+			planName = "—"
+		}
 		rows = append(rows, admintmpl.AdminUserRow{
 			User:         u,
 			CompanyCount: int(companyCnt),
+			PlanName:     planName,
 		})
 	}
 
@@ -37,8 +47,36 @@ func (s *Server) handleAdminUsers(c *fiber.Ctx) error {
 		AdminEmail:      AdminUserFromCtx(c).Email,
 		MaintenanceMode: IsMaintenanceMode(),
 		Users:           rows,
+		ActivePlans:     activePlans,
 		Flash:           c.Query("flash"),
 	}).Render(c.Context(), c)
+}
+
+// handleAdminUserChangePlan updates the plan assigned to a business user.
+func (s *Server) handleAdminUserChangePlan(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Redirect("/admin/users?flash=invalid_id", fiber.StatusSeeOther)
+	}
+
+	planIDStr := strings.TrimSpace(c.FormValue("plan_id"))
+	planID64, err := strconv.ParseInt(planIDStr, 10, 64)
+	if err != nil || planID64 <= 0 {
+		return c.Redirect("/admin/users?flash=invalid_plan", fiber.StatusSeeOther)
+	}
+	planID := int(planID64)
+
+	// Verify the plan exists and is active.
+	var plan models.UserPlan
+	if err := s.DB.Where("id = ? AND is_active = true", planID).First(&plan).Error; err != nil {
+		return c.Redirect("/admin/users?flash=invalid_plan", fiber.StatusSeeOther)
+	}
+
+	if err := s.DB.Model(&models.User{}).Where("id = ?", id).Update("plan_id", planID).Error; err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "database error")
+	}
+
+	return c.Redirect("/admin/users?flash=plan_changed", fiber.StatusSeeOther)
 }
 
 // handleAdminUserDeactivate 停用指定业务用户（软删除）。

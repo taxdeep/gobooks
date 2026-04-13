@@ -1,0 +1,225 @@
+// 遵循project_guide.md
+package admintmpl
+
+import "gobooks/internal/models"
+
+// AdminPlansVM is the view model for /admin/plans (list page).
+type AdminPlansVM struct {
+	AdminEmail      string
+	MaintenanceMode bool
+	Plans           []AdminPlanRow
+	Flash           string
+}
+
+// AdminPlanRow is one plan row in the list.
+type AdminPlanRow struct {
+	Plan      models.UserPlan
+	UserCount int // how many active users are on this plan
+}
+
+// AdminPlanFormVM is the view model for the create/edit form.
+type AdminPlanFormVM struct {
+	AdminEmail      string
+	MaintenanceMode bool
+	Plan            models.UserPlan // zero-value for create
+	IsEdit          bool
+	FormError       string
+}
+
+templ AdminPlans(vm AdminPlansVM) {
+	@adminLayout("Plans", vm.AdminEmail, "plans", vm.MaintenanceMode, bodyAdminPlans(vm))
+}
+
+templ bodyAdminPlans(vm AdminPlansVM) {
+	@adminPageHeader("Plans", "Subscription tiers that control per-user quotas. SysAdmin can freely define and modify these limits.")
+	@adminPlansFlashBanner(vm.Flash)
+
+	<div class="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
+		<div class="flex flex-col gap-3 border-b border-border bg-background/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+			<div>
+				<h2 class="text-section font-semibold text-text">Plan directory</h2>
+				<p class="mt-0.5 text-xs text-text-muted2">{ adminInt(len(vm.Plans)) } plans · Edit limits without redeploying. Users on inactive plans keep their existing limits.</p>
+			</div>
+			<div class="flex flex-wrap items-center gap-2">
+				<a href="/admin/plans/new" class={ adminClassPrimaryButtonSmall() }>+ New plan</a>
+			</div>
+		</div>
+		<div class="overflow-x-auto">
+			<table class="w-full min-w-[640px] text-left text-body">
+				<thead class="border-b border-border bg-background text-xs font-semibold uppercase tracking-wide text-text-muted">
+					<tr>
+						<th class="py-2.5 pl-4 pr-4">Plan</th>
+						<th class="py-2.5 pr-4">Max Companies</th>
+						<th class="py-2.5 pr-4">Max Members / Co.</th>
+						<th class="py-2.5 pr-4">Status</th>
+						<th class="py-2.5 pr-4">Users</th>
+						<th class="py-2.5 pr-4 text-right">Actions</th>
+					</tr>
+				</thead>
+				<tbody class="text-text">
+					if len(vm.Plans) == 0 {
+						<tr>
+							<td colspan="6" class="px-4 py-8 text-center text-small text-text-muted2">
+								<p class="font-medium text-text">No plans defined</p>
+								<p class="mt-1">Create a plan to start assigning quota limits to users.</p>
+							</td>
+						</tr>
+					}
+					for _, row := range vm.Plans {
+						<tr class={ adminClassTableRow() }>
+							<td class="py-2.5 pl-4 pr-4">
+								<div class="font-semibold text-text">{ row.Plan.Name }</div>
+								<div class="text-xs text-text-muted2">ID { adminInt(row.Plan.ID) } · order { adminInt(row.Plan.SortOrder) }</div>
+							</td>
+							<td class="py-2.5 pr-4 text-small tabular-nums">
+								{ adminQuotaLabel(row.Plan.MaxOwnedCompanies) }
+							</td>
+							<td class="py-2.5 pr-4 text-small tabular-nums">
+								{ adminQuotaLabel(row.Plan.MaxMembersPerCompany) }
+							</td>
+							<td class="py-2.5 pr-4">
+								if row.Plan.IsActive {
+									<span class={ adminClassBadgeActive() }>Active</span>
+								} else {
+									<span class={ adminClassBadgeInactive() }>Inactive</span>
+								}
+							</td>
+							<td class="py-2.5 pr-4 text-small tabular-nums">{ adminInt(row.UserCount) }</td>
+							<td class="py-2.5 pr-4 text-right whitespace-nowrap">
+								<a href={ "/admin/plans/" + adminInt(row.Plan.ID) + "/edit" } class={ adminClassActionDefault() }>Edit</a>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	</div>
+}
+
+templ AdminPlanForm(vm AdminPlanFormVM) {
+	if vm.IsEdit {
+		@adminLayout("Edit Plan", vm.AdminEmail, "plans", vm.MaintenanceMode, bodyAdminPlanForm(vm))
+	} else {
+		@adminLayout("New Plan", vm.AdminEmail, "plans", vm.MaintenanceMode, bodyAdminPlanForm(vm))
+	}
+}
+
+templ bodyAdminPlanForm(vm AdminPlanFormVM) {
+	if vm.IsEdit {
+		@adminPageHeader("Edit Plan", "Modify quota limits. Changes take effect immediately for all users on this plan.")
+	} else {
+		@adminPageHeader("New Plan", "Define a new subscription tier with its quota limits.")
+	}
+
+	if vm.FormError != "" {
+		<div class="mb-4 rounded-md border border-danger bg-danger-soft px-4 py-3 text-body text-danger">{ vm.FormError }</div>
+	}
+
+	<div class="max-w-lg rounded-xl border border-border bg-surface shadow-sm">
+		<form
+			method="post"
+			if vm.IsEdit {
+				action={ "/admin/plans/" + adminInt(vm.Plan.ID) + "/edit" }
+			} else {
+				action="/admin/plans/new"
+			}
+			class="space-y-5 p-6"
+		>
+			<!-- Name -->
+			<div>
+				<label class="block text-body font-medium text-text">Plan name</label>
+				<input
+					type="text"
+					name="name"
+					value={ vm.Plan.Name }
+					required
+					maxlength="64"
+					placeholder="e.g. Starter"
+					class="mt-2 block w-full rounded-md border border-border-input bg-background px-3 py-2 text-body text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus"
+				/>
+			</div>
+
+			<!-- Max owned companies -->
+			<div>
+				<label class="block text-body font-medium text-text">Max owned companies</label>
+				<p class="mt-0.5 text-small text-text-muted2">How many companies this user can create as owner. Enter -1 for unlimited.</p>
+				<input
+					type="number"
+					name="max_owned_companies"
+					value={ adminInt(vm.Plan.MaxOwnedCompanies) }
+					required
+					min="-1"
+					class="mt-2 block w-full rounded-md border border-border-input bg-background px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
+				/>
+			</div>
+
+			<!-- Max members per company -->
+			<div>
+				<label class="block text-body font-medium text-text">Max team members per company</label>
+				<p class="mt-0.5 text-small text-text-muted2">Max invited members per company owned by this user (owner not counted). Enter -1 for unlimited.</p>
+				<input
+					type="number"
+					name="max_members_per_company"
+					value={ adminInt(vm.Plan.MaxMembersPerCompany) }
+					required
+					min="-1"
+					class="mt-2 block w-full rounded-md border border-border-input bg-background px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
+				/>
+			</div>
+
+			<!-- Sort order -->
+			<div>
+				<label class="block text-body font-medium text-text">Sort order</label>
+				<p class="mt-0.5 text-small text-text-muted2">Display order in lists (lower = first). e.g. 10, 20, 30.</p>
+				<input
+					type="number"
+					name="sort_order"
+					value={ adminInt(vm.Plan.SortOrder) }
+					required
+					min="0"
+					class="mt-2 block w-full rounded-md border border-border-input bg-background px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
+				/>
+			</div>
+
+			<!-- Is active -->
+			<div class="flex items-center gap-3">
+				<input
+					type="checkbox"
+					name="is_active"
+					id="plan-is-active"
+					value="true"
+					class="h-4 w-4 rounded border-border-input text-primary focus:ring-primary-focus"
+					if vm.Plan.IsActive || !vm.IsEdit {
+						checked
+					}
+				/>
+				<label for="plan-is-active" class="text-body text-text">Active (users can be assigned to this plan)</label>
+			</div>
+
+			<!-- Actions -->
+			<div class="flex items-center justify-between border-t border-border pt-4">
+				<a href="/admin/plans" class={ adminClassSecondaryButton() }>Cancel</a>
+				if vm.IsEdit {
+					<button type="submit" class={ adminClassPrimaryButton() }>Save changes</button>
+				} else {
+					<button type="submit" class={ adminClassPrimaryButton() }>Create plan</button>
+				}
+			</div>
+		</form>
+	</div>
+}
+
+templ adminPlansFlashBanner(flash string) {
+	if flash == "created" {
+		<div class="mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success">Plan created successfully.</div>
+	} else if flash == "updated" {
+		<div class="mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success">Plan updated successfully.</div>
+	}
+}
+
+func adminQuotaLabel(n int) string {
+	if n == -1 {
+		return "Unlimited"
+	}
+	return adminInt(n)
+}
