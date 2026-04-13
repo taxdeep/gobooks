@@ -377,13 +377,14 @@ function invoiceEditor() {
 //      pre-fill the invoice's currency select.
 function gobooksCustomerQuickCreate() {
   return {
-    open:       false,
-    name:       "",
-    currency:   "",
-    currencies: [],
-    nameError:  "",
-    formError:  "",
-    saving:     false,
+    open:          false,
+    name:          "",
+    currency:      "",
+    currencies:    [],
+    nameError:     "",
+    currencyError: "",
+    formError:     "",
+    saving:        false,
 
     init() {
       // Read available currencies from data-currencies attribute (JSON string array).
@@ -402,13 +403,14 @@ function gobooksCustomerQuickCreate() {
     onPickerCreate(event) {
       const { context, query } = (event.detail || event) || {};
       if (context !== "invoice_editor_customer") return;
-      this.name      = (query || "").trim();
-      this.nameError = "";
-      this.formError = "";
-      this.saving    = false;
-      this.open      = true;
-      // Reset currency to first option on each open.
-      if (this.currencies.length > 0) this.currency = this.currencies[0];
+      this.name          = (query || "").trim();
+      this.nameError     = "";
+      this.currencyError = "";
+      this.formError     = "";
+      this.saving        = false;
+      this.open          = true;
+      // Reset currency to empty so user must actively choose when multi-currency.
+      this.currency = "";
       this.$nextTick(() => {
         if (this.$refs.nameInput) this.$refs.nameInput.focus();
       });
@@ -420,17 +422,24 @@ function gobooksCustomerQuickCreate() {
 
     async save() {
       const name = this.name.trim();
+      this.nameError     = "";
+      this.currencyError = "";
+      this.formError     = "";
+      let hasErr = false;
       if (!name) {
         this.nameError = "Customer name is required.";
-        return;
+        hasErr = true;
       }
+      if (this.currencies.length > 1 && !this.currency) {
+        this.currencyError = "Currency is required.";
+        hasErr = true;
+      }
+      if (hasErr) return;
       this.saving    = true;
-      this.nameError = "";
-      this.formError = "";
       try {
         const fetchFn = window.gobooksFetch || fetch;
         const body = { name };
-        if (this.currencies.length > 1 && this.currency) {
+        if (this.currency) {
           body.currency_code = this.currency;
         }
         const resp = await fetchFn("/api/customers/quick-create", {

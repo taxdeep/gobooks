@@ -197,10 +197,16 @@ func (p *CustomerProvider) Search(db *gorm.DB, ctx SmartPickerContext, query str
 
 	items := make([]SmartPickerItem, 0, len(customers))
 	for _, c := range customers {
+		// Secondary: currency code takes priority (most relevant in invoice/JE contexts);
+		// fall back to email so non-multi-currency setups still show useful info.
+		secondary := c.CurrencyCode
+		if secondary == "" {
+			secondary = c.Email
+		}
 		item := SmartPickerItem{
 			ID:        fmt.Sprintf("%d", c.ID),
 			Primary:   c.Name,
-			Secondary: c.Email,
+			Secondary: secondary,
 		}
 		if c.CurrencyCode != "" {
 			item.Payload = map[string]string{"default_currency": c.CurrencyCode}

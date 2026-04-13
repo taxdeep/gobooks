@@ -648,16 +648,18 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 						</div>
 						<!-- Currency select — only rendered when multi-currency is enabled for this company -->
 						<div x-show="currencies.length > 1" x-cloak>
-							<label class="block text-body font-medium text-text">Currency</label>
+							<label class="block text-body font-medium text-text">Currency *</label>
 							<select
 								x-model="currency"
-								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+								class="mt-2 block w-full rounded-md border bg-surface px-3 py-2 text-body outline-none focus:ring-2"
+								:class="currencyError ? 'border-danger focus:ring-danger-focus' : 'border-border-input focus:ring-primary-focus'"
 							>
+								<option value="">— Select currency —</option>
 								<template x-for="code in currencies" :key="code">
 									<option :value="code" x-text="code"></option>
 								</template>
 							</select>
-							<p class="mt-1 text-small text-text-muted2">Default currency for this customer's invoices.</p>
+							<div x-show="currencyError" class="mt-1 text-small text-danger" x-text="currencyError"></div>
 						</div>
 						<div x-show="formError" class="rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-small text-danger-hover" x-text="formError"></div>
 					</div>
