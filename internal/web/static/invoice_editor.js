@@ -1,5 +1,5 @@
 // invoice_editor.js — Alpine component for the invoice line-items editor.
-// v=9
+// v=10
 function invoiceEditor() {
   return {
     lines: [],
@@ -117,6 +117,21 @@ function invoiceEditor() {
       line.unit_price = this._format2dp(line.unit_price);
       this._recalcLine(idx);
       this._recalcAll();
+      this._autoAddIfLastLineComplete(idx);
+    },
+
+    // Auto-add a new blank line when the last line is "complete":
+    // item selected + qty non-empty + unit_price non-empty.
+    // Triggered from onPriceBlur so it fires after the user finishes entering the price.
+    _autoAddIfLastLineComplete(idx) {
+      if (idx !== this.lines.length - 1) return;
+      const line = this.lines[idx];
+      const hasItem  = (line.product_service_id || "") !== "";
+      const hasQty   = (line.qty || "").trim() !== "";
+      const hasPrice = (line.unit_price || "").trim() !== "";
+      if (hasItem && hasQty && hasPrice) {
+        this.addLine();
+      }
     },
 
     // When user changes the tax code dropdown on a line, reset that code's adjustment.

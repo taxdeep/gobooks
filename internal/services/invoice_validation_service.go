@@ -74,10 +74,7 @@ func ValidateInvoiceForIssuing(db *gorm.DB, companyID, invoiceID uint) error {
 			errors = append(errors, fmt.Sprintf("line %d: quantity must be positive", lineNum))
 		}
 
-		// Line unit price must be non-negative (but can be zero for giveaways)
-		if line.UnitPrice.IsNegative() {
-			errors = append(errors, fmt.Sprintf("line %d: unit price cannot be negative", lineNum))
-		}
+		// Unit price may be negative (e.g. credit lines / discounts).
 
 		// If product is specified, verify it exists
 		if line.ProductServiceID != nil && line.ProductService == nil {
