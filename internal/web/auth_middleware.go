@@ -30,6 +30,7 @@ import (
 
 	"gobooks/internal/models"
 	"gobooks/internal/repository"
+	"gobooks/internal/web/templates/ui"
 )
 
 // RequirePermission 允许请求继续，当且仅当当前成员角色能执行指定操作（依据 permissions.go 定义）。
@@ -199,6 +200,13 @@ func (s *Server) ResolveActiveCompany() fiber.Handler {
 
 		c.Locals(LocalsActiveCompanyID, chosen.CompanyID)
 		c.Locals(LocalsCompanyMembership, chosen)
+
+		// Inject sidebar switcher data into Go context so layout.templ can render
+		// the company switcher without any page template needing to change.
+		// Fault-tolerant: errors produce empty SidebarData (switcher just won't show).
+		sd := s.buildSidebarData(user, chosen.CompanyID)
+		c.SetUserContext(ui.WithSidebarData(c.Context(), sd))
+
 		return c.Next()
 	}
 }

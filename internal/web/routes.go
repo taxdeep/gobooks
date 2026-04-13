@@ -15,8 +15,8 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	// ── 首次启动向导 ─────────────────────────────────────────────────────────────
 	app.Get("/setup/bootstrap", s.handleBootstrapForm)
 	app.Post("/setup/bootstrap", s.handleBootstrapSubmit)
-	app.Get("/setup", s.LoadSession(), s.RequireAuth(), s.handleSetupForm)
-	app.Post("/setup", s.LoadSession(), s.RequireAuth(), s.handleSetupSubmit)
+	app.Get("/setup", s.LoadSession(), s.RequireAuth(), s.LoadSidebarData(), s.handleSetupForm)
+	app.Post("/setup", s.LoadSession(), s.RequireAuth(), s.LoadSidebarData(), s.handleSetupSubmit)
 
 	// ── 认证（邮箱 + 密码）───────────────────────────────────────────────────────
 	app.Get("/login", s.handleLoginForm)
@@ -341,8 +341,9 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	// for users with no membership and redirects multi-company users to /select-company,
 	// both of which would block legitimate profile access. hasCompany is derived
 	// directly from the session in handleProfileGet / handleCompaniesGet.
-	app.Get("/profile", s.LoadSession(), s.RequireAuth(), s.handleProfileGet)
-	app.Get("/companies", s.LoadSession(), s.RequireAuth(), s.handleCompaniesGet)
+	// LoadSidebarData is added explicitly so the company switcher renders on these pages too.
+	app.Get("/profile", s.LoadSession(), s.RequireAuth(), s.LoadSidebarData(), s.handleProfileGet)
+	app.Get("/companies", s.LoadSession(), s.RequireAuth(), s.LoadSidebarData(), s.handleCompaniesGet)
 	app.Post("/profile/request-email-change", s.LoadSession(), s.RequireAuth(), s.handleRequestEmailChange)
 	app.Post("/profile/verify-email-change", s.LoadSession(), s.RequireAuth(), s.handleVerifyEmailChange)
 	app.Post("/profile/request-password-change", s.LoadSession(), s.RequireAuth(), s.handleRequestPasswordChange)

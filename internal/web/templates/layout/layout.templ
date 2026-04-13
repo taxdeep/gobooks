@@ -149,6 +149,72 @@ templ Layout(title string, sidebar ui.SidebarVM, content templ.Component) {
 									v{ version.Version }
 								</span>
 							</div>
+							<!-- Company switcher (hidden on mobile; only shown when a company is resolved) -->
+							if ui.SidebarDataFromCtx(ctx).CompanyName != "" {
+								<div
+									class="relative hidden md:block"
+									x-data="{ switcherOpen: false }"
+									@keydown.escape="switcherOpen = false"
+									@click.outside="switcherOpen = false"
+								>
+									<button
+										type="button"
+										@click="switcherOpen = !switcherOpen"
+										class="flex items-center gap-1.5 rounded-md border border-border-input bg-surface px-2.5 py-1.5 text-body font-medium text-text hover:bg-background focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus transition-colors"
+									>
+										<span class="max-w-[160px] truncate">{ ui.SidebarDataFromCtx(ctx).CompanyName }</span>
+										if ui.SidebarDataFromCtx(ctx).PlanName != "" {
+											<span class="hidden lg:inline rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+												{ ui.SidebarDataFromCtx(ctx).PlanName }
+											</span>
+										}
+										<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 flex-shrink-0 text-text-muted3 transition-transform duration-150" :class="switcherOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+										</svg>
+									</button>
+									<!-- Switcher dropdown panel -->
+									<div
+										x-show="switcherOpen"
+										x-transition:enter="transition ease-out duration-100"
+										x-transition:enter-start="opacity-0 scale-95"
+										x-transition:enter-end="opacity-100 scale-100"
+										x-transition:leave="transition ease-in duration-75"
+										x-transition:leave-start="opacity-100 scale-100"
+										x-transition:leave-end="opacity-0 scale-95"
+										class="absolute left-0 z-50 mt-2 w-72 origin-top-left rounded-md border border-border bg-surface shadow-lg"
+										style="display: none;"
+									>
+										<div class="border-b border-border px-3 py-2">
+											<p class="text-[11px] font-semibold uppercase tracking-wider text-text-muted3">Switch company</p>
+										</div>
+										<div class="max-h-64 overflow-y-auto py-1">
+											for _, row := range ui.SidebarDataFromCtx(ctx).SwitcherRows {
+												<div class="flex items-center justify-between gap-2 px-3 py-2 hover:bg-background">
+													<div class="flex min-w-0 items-center gap-2">
+														if row.IsActive {
+															<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+																<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+															</svg>
+														} else {
+															<span class="h-4 w-4 flex-shrink-0"></span>
+														}
+														<span class="truncate text-body text-text">{ row.Name }</span>
+													</div>
+													if !row.IsActive {
+														<form method="post" action="/select-company" class="flex-shrink-0">
+															<input type="hidden" name="company_id" value={ row.CompanyIDStr }/>
+															<button
+																type="submit"
+																class="rounded border border-primary/30 px-2 py-0.5 text-small font-medium text-primary transition-colors hover:bg-primary/10"
+															>Switch</button>
+														</form>
+													}
+												</div>
+											}
+										</div>
+									</div>
+								</div>
+							}
 						</div>
 
 						<div class="hidden md:block" title="Search is not available yet">
