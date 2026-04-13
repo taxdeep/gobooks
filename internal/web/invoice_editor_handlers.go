@@ -819,6 +819,16 @@ func (s *Server) loadEditorDropdowns(companyID uint, vm *pages.InvoiceEditorVM) 
 		if company.MultiCurrencyEnabled {
 			ccs, _ := services.ListCompanyCurrencies(s.DB, companyID)
 			vm.CompanyCurrencies = ccs
+			// Build the currency list for the Quick Create Customer drawer.
+			// Always include the base currency first, then any foreign currencies.
+			codes := make([]string, 0, 1+len(ccs))
+			codes = append(codes, company.BaseCurrencyCode)
+			for _, cc := range ccs {
+				codes = append(codes, cc.CurrencyCode)
+			}
+			if b, err := json.Marshal(codes); err == nil {
+				vm.QuickCreateCurrenciesJSON = string(b)
+			}
 		}
 	}
 	return nil

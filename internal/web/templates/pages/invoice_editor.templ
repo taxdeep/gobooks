@@ -112,8 +112,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 
 					// Customer — SmartPicker (entity="customer")
 					// gobooks-picker-select bubbles up from the picker; we forward
-					// the selected ID to onContactChange for due-date auto-fill.
-					<div @gobooks-picker-select="onContactChange($event.detail.id)">
+					// the selected ID + payload to onContactChange for terms/currency auto-fill.
+					<div @gobooks-picker-select="onContactChange($event.detail.id, $event.detail.payload)">
 						@ui.SmartPicker(ui.SmartPickerVM{
 							Label:         "Customer *",
 							FieldName:     "customer_id",
@@ -613,6 +613,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 			// opens a slide-over panel to create a new customer without leaving the page.
 			<div
 				x-data="gobooksCustomerQuickCreate()"
+				data-currencies={ vm.QuickCreateCurrenciesJSON }
 				@gobooks-picker-create.window="onPickerCreate($event)"
 				x-show="open"
 				x-cloak
@@ -644,6 +645,19 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 								:class="nameError ? 'border-danger focus:ring-danger-focus' : ''"
 							/>
 							<div x-show="nameError" class="mt-1 text-small text-danger" x-text="nameError"></div>
+						</div>
+						<!-- Currency select — only rendered when multi-currency is enabled for this company -->
+						<div x-show="currencies.length > 1" x-cloak>
+							<label class="block text-body font-medium text-text">Currency</label>
+							<select
+								x-model="currency"
+								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+							>
+								<template x-for="code in currencies" :key="code">
+									<option :value="code" x-text="code"></option>
+								</template>
+							</select>
+							<p class="mt-1 text-small text-text-muted2">Default currency for this customer's invoices.</p>
 						</div>
 						<div x-show="formError" class="rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-small text-danger-hover" x-text="formError"></div>
 					</div>

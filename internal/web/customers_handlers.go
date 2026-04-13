@@ -353,7 +353,8 @@ func (s *Server) handleCustomerQuickCreate(c *fiber.Ctx) error {
 	}
 
 	var in struct {
-		Name string `json:"name"`
+		Name         string `json:"name"`
+		CurrencyCode string `json:"currency_code"`
 	}
 	if err := c.BodyParser(&in); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body."})
@@ -365,6 +366,12 @@ func (s *Server) handleCustomerQuickCreate(c *fiber.Ctx) error {
 	}
 	if len(name) > 200 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Name must be 200 characters or fewer."})
+	}
+
+	// Validate currency code format if provided (must be 3 uppercase letters or empty).
+	currencyCode := strings.ToUpper(strings.TrimSpace(in.CurrencyCode))
+	if currencyCode != "" && len(currencyCode) != 3 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid currency code."})
 	}
 
 	// Duplicate name check.
@@ -379,8 +386,9 @@ func (s *Server) handleCustomerQuickCreate(c *fiber.Ctx) error {
 	}
 
 	customer := models.Customer{
-		CompanyID: companyID,
-		Name:      name,
+		CompanyID:    companyID,
+		Name:         name,
+		CurrencyCode: currencyCode,
 	}
 	if err := s.DB.Create(&customer).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not create customer."})
@@ -400,7 +408,8 @@ func (s *Server) handleCustomerQuickCreate(c *fiber.Ctx) error {
 	s.SPAcceleration.InvalidateCompany(companyID)
 
 	return c.JSON(fiber.Map{
-		"id":   customer.ID,
-		"name": customer.Name,
+		"id":            customer.ID,
+		"name":          customer.Name,
+		"currency_code": customer.CurrencyCode,
 	})
 }

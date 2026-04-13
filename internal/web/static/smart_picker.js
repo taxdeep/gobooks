@@ -85,9 +85,9 @@ function gobooksSmartPicker() {
       if (hidden) hidden.name = this.fieldName;
 
       // gobooks-picker-set-value: programmatic selection from outside the component
-      // (e.g. after inline Quick Create). Accepts {id, label}.
+      // (e.g. after inline Quick Create). Accepts {id, label, payload?}.
       el.addEventListener("gobooks-picker-set-value", (e) => {
-        const { id, label } = e.detail || {};
+        const { id, label, payload } = e.detail || {};
         if (!id) return;
         this.selectedId    = String(id);
         this.selectedLabel = label || "";
@@ -95,12 +95,13 @@ function gobooksSmartPicker() {
         this.open          = false;
         this.highlighted   = -1;
         // Dispatch the standard picker-select event so listeners (e.g. due-date
-        // auto-fill) can react exactly as if the user had picked from the dropdown.
+        // auto-fill and currency pre-fill) can react exactly as if the user had
+        // picked from the dropdown. Forward the caller's payload (if any).
         this.$dispatch("gobooks-picker-select", {
           entity:  this.entity,
           context: this.context,
           id:      String(id),
-          payload: {},
+          payload: payload || {},
           requiresBackendValidation: false,
         });
       });

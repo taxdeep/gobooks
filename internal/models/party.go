@@ -37,6 +37,9 @@ type Customer struct {
 	AddrProvince   string `gorm:"type:text;not null;default:''"`
 	AddrPostalCode string `gorm:"type:text;not null;default:''"`
 	AddrCountry    string `gorm:"type:text;not null;default:''"`
+	// CurrencyCode is the customer's default invoice currency (ISO 4217, e.g. "USD").
+	// Empty string means the company's base currency is used.
+	CurrencyCode string `gorm:"type:text;not null;default:''"`
 	// DefaultPaymentTermCode references a PaymentTerm.Code for this company.
 	// Empty string means "use company default at document creation time".
 	DefaultPaymentTermCode string `gorm:"type:text;not null;default:''"`

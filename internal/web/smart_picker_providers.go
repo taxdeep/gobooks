@@ -197,11 +197,15 @@ func (p *CustomerProvider) Search(db *gorm.DB, ctx SmartPickerContext, query str
 
 	items := make([]SmartPickerItem, 0, len(customers))
 	for _, c := range customers {
-		items = append(items, SmartPickerItem{
+		item := SmartPickerItem{
 			ID:        fmt.Sprintf("%d", c.ID),
 			Primary:   c.Name,
 			Secondary: c.Email,
-		})
+		}
+		if c.CurrencyCode != "" {
+			item.Payload = map[string]string{"default_currency": c.CurrencyCode}
+		}
+		items = append(items, item)
 	}
 	return &SmartPickerResult{Candidates: items}, nil
 }
@@ -217,11 +221,15 @@ func (p *CustomerProvider) GetByID(db *gorm.DB, ctx SmartPickerContext, id strin
 		}
 		return nil, fmt.Errorf("customer get by id: %w", err)
 	}
-	return &SmartPickerItem{
+	item := &SmartPickerItem{
 		ID:        fmt.Sprintf("%d", customer.ID),
 		Primary:   customer.Name,
 		Secondary: customer.Email,
-	}, nil
+	}
+	if customer.CurrencyCode != "" {
+		item.Payload = map[string]string{"default_currency": customer.CurrencyCode}
+	}
+	return item, nil
 }
 
 // ── VendorProvider ───────────────────────────────────────────────────────────

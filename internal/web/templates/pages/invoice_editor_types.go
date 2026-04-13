@@ -84,6 +84,10 @@ type InvoiceEditorVM struct {
 	// ExchangeRate is the manually-entered rate (base per 1 foreign unit).
 	// Optional: if empty the posting service looks it up from exchange_rates.
 	ExchangeRate string
+	// QuickCreateCurrenciesJSON is a JSON array of currency codes available for the
+	// Quick Create Customer drawer, e.g. ["CAD","USD"]. Empty when multi-currency
+	// is disabled (drawer hides the currency field in that case).
+	QuickCreateCurrenciesJSON string
 }
 
 // InvoiceLineFormRow carries one line's form values (and optional error) for

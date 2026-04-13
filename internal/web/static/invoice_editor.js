@@ -257,14 +257,19 @@ function invoiceEditor() {
 
     // ── Terms / due-date auto-computation ────────────────────────────────────
 
-    // Called when the customer dropdown changes; auto-fills terms from customer default.
-    onContactChange(contactId) {
+    // Called when the customer dropdown changes; auto-fills terms and currency
+    // from the customer's defaults (carried in the SmartPicker payload).
+    onContactChange(contactId, payload) {
       if (!contactId) return;
       const termCode = this.contactTerms[String(contactId)];
       if (termCode) {
         this.onTermsChange(termCode);
-        // Sync the terms <select> element since it uses x-model="terms".
-        // Alpine's reactivity handles this automatically via this.terms assignment.
+      }
+      // Pre-fill invoice currency when the customer has a default currency set.
+      const defaultCurrency = (payload || {}).default_currency || "";
+      if (defaultCurrency) {
+        const sel = document.querySelector('select[name="currency_code"]');
+        if (sel) sel.value = defaultCurrency;
       }
     },
 
@@ -363,16 +368,36 @@ function invoiceEditor() {
 // Lifecycle:
 //   1. Listens for gobooks-picker-create (window-level) emitted by the Customer SmartPicker.
 //   2. Opens a slide-over with the typed query pre-filled as the customer name.
-//   3. On save, POSTs to /api/customers/quick-create and dispatches
+//      When multi-currency is enabled (data-currencies has >1 entry), shows a Currency
+//      dropdown so the user can set the customer's default invoice currency.
+//   3. On save, POSTs to /api/customers/quick-create (name + currency_code) and dispatches
 //      gobooks-picker-set-value to the SmartPicker's root element so it auto-selects
 //      the newly created customer without reloading the page.
+//      The chosen currency is forwarded in the picker payload so onContactChange can
+//      pre-fill the invoice's currency select.
 function gobooksCustomerQuickCreate() {
   return {
-    open:      false,
-    name:      "",
-    nameError: "",
-    formError: "",
-    saving:    false,
+    open:       false,
+    name:       "",
+    currency:   "",
+    currencies: [],
+    nameError:  "",
+    formError:  "",
+    saving:     false,
+
+    init() {
+      // Read available currencies from data-currencies attribute (JSON string array).
+      // Set by the templ template when multi-currency is enabled; empty otherwise.
+      try {
+        const raw = this.$el.dataset.currencies;
+        if (raw) {
+          this.currencies = JSON.parse(raw);
+          if (this.currencies.length > 0) this.currency = this.currencies[0];
+        }
+      } catch (_) {
+        this.currencies = [];
+      }
+    },
 
     onPickerCreate(event) {
       const { context, query } = (event.detail || event) || {};
@@ -382,6 +407,8 @@ function gobooksCustomerQuickCreate() {
       this.formError = "";
       this.saving    = false;
       this.open      = true;
+      // Reset currency to first option on each open.
+      if (this.currencies.length > 0) this.currency = this.currencies[0];
       this.$nextTick(() => {
         if (this.$refs.nameInput) this.$refs.nameInput.focus();
       });
@@ -402,10 +429,14 @@ function gobooksCustomerQuickCreate() {
       this.formError = "";
       try {
         const fetchFn = window.gobooksFetch || fetch;
+        const body = { name };
+        if (this.currencies.length > 1 && this.currency) {
+          body.currency_code = this.currency;
+        }
         const resp = await fetchFn("/api/customers/quick-create", {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ name }),
+          body:    JSON.stringify(body),
         });
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) {
@@ -413,10 +444,16 @@ function gobooksCustomerQuickCreate() {
           return;
         }
         // Programmatically select the new customer in the SmartPicker.
+        // Include the chosen currency in the payload so onContactChange can
+        // pre-fill the invoice's currency select.
         const pickerEl = document.querySelector('[data-context="invoice_editor_customer"]');
         if (pickerEl) {
           pickerEl.dispatchEvent(new CustomEvent("gobooks-picker-set-value", {
-            detail: { id: String(data.id), label: data.name },
+            detail: {
+              id:      String(data.id),
+              label:   data.name,
+              payload: data.currency_code ? { default_currency: data.currency_code } : {},
+            },
             bubbles: false,
           }));
         }
