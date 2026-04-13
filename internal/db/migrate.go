@@ -75,6 +75,13 @@ func Migrate(db *gorm.DB) error {
 	if err := migrateJournalLinesTxAmounts(db); err != nil {
 		return err
 	}
+	// Ensure user_plans seed data exists and backfill users.plan_id = 0 → 1
+	// before AutoMigrate adds the FK constraint. This handles cases where GORM
+	// added the plan_id column on a previous deploy before the SQL migration ran,
+	// leaving existing rows with plan_id = 0 which violates the FK.
+	if err := migrateEnsureUserPlans(db); err != nil {
+		return err
+	}
 	if err := db.AutoMigrate(
 		// UserPlan must precede User because User.PlanID is a FK into user_plans.
 		&models.UserPlan{},
@@ -224,6 +231,63 @@ func Migrate(db *gorm.DB) error {
 	// Batch 28 task service item: link tasks to Products & Services catalogue.
 	// AutoMigrate above handles fresh installs; this guard adds the column on live DBs.
 	return migrateTaskServiceItem(db)
+}
+
+// migrateEnsureUserPlans seeds the user_plans table with the three default tiers
+// and backfills users.plan_id = 0 → 1 (Starter).
+//
+// This guard is needed because a previous GORM AutoMigrate may have added the
+// plan_id column to users before the SQL migration 053 ran, leaving existing rows
+// with plan_id = 0 which would violate the fk_users_plan FK constraint.
+// Running this before AutoMigrate ensures all rows are valid before the FK is added.
+func migrateEnsureUserPlans(db *gorm.DB) error {
+	// 1. Create the table if it doesn't exist yet (safety net for fresh installs
+	//    where ApplySQLMigrations hasn't run or the SQL migration file is missing).
+	if err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS user_plans (
+			id                      SERIAL PRIMARY KEY,
+			name                    TEXT    NOT NULL,
+			max_owned_companies     INTEGER NOT NULL DEFAULT 3,
+			max_members_per_company INTEGER NOT NULL DEFAULT 5,
+			is_active               BOOLEAN NOT NULL DEFAULT TRUE,
+			sort_order              INTEGER NOT NULL DEFAULT 0,
+			created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+			updated_at              TIMESTAMPTZ NOT NULL DEFAULT now()
+		)
+	`).Error; err != nil {
+		// SQLite (used in tests) uses a different dialect; ignore if already exists.
+		if !strings.Contains(err.Error(), "already exists") {
+			return fmt.Errorf("migrateEnsureUserPlans create table: %w", err)
+		}
+	}
+
+	// 2. Seed the three default plans (idempotent).
+	if err := db.Exec(`
+		INSERT INTO user_plans (id, name, max_owned_companies, max_members_per_company, is_active, sort_order)
+		VALUES
+			(1, 'Starter',      3,  5,  TRUE, 10),
+			(2, 'Professional', 5,  15, TRUE, 20),
+			(3, 'Business',     -1, -1, TRUE, 30)
+		ON CONFLICT (id) DO NOTHING
+	`).Error; err != nil {
+		// Ignore "no such table" on SQLite test DBs — they use AutoMigrate paths.
+		if !strings.Contains(err.Error(), "no such table") {
+			return fmt.Errorf("migrateEnsureUserPlans seed: %w", err)
+		}
+	}
+
+	// 3. Backfill users that have plan_id = 0 (written by GORM before seed ran).
+	if err := db.Exec(`
+		UPDATE users SET plan_id = 1 WHERE plan_id = 0 OR plan_id IS NULL
+	`).Error; err != nil {
+		// Ignore if users table doesn't exist yet (fresh install before AutoMigrate).
+		if !strings.Contains(err.Error(), "no such table") &&
+			!strings.Contains(err.Error(), `relation "users" does not exist`) {
+			return fmt.Errorf("migrateEnsureUserPlans backfill: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // migrateBatch15Columns adds Batch 15 columns to existing live databases.
