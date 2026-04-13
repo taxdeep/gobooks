@@ -382,7 +382,7 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 			qty = decimal.NewFromInt(1)
 		}
 		price, pErr := decimal.NewFromString(priceRaw)
-		if pErr != nil || price.IsNegative() {
+		if pErr != nil {
 			price = decimal.Zero
 		}
 		if desc == "" {
@@ -1066,7 +1066,7 @@ func (s *Server) handleInvoiceSaveTaskDraft(c *fiber.Ctx) error {
 				qty = decimal.NewFromInt(1)
 			}
 			price, pErr := decimal.NewFromString(priceRaw)
-			if pErr != nil || price.IsNegative() {
+			if pErr != nil {
 				price = decimal.Zero
 			}
 

@@ -166,7 +166,10 @@ function invoiceEditor() {
 
     // Strip non-numeric chars; keep at most one '.'; truncate to maxDp decimal places.
     _sanitizeDecimalInput(val, maxDp) {
-      let s = String(val).replace(/[^0-9.]/g, '');
+      let s = String(val);
+      // Allow a leading minus sign.
+      const negative = s.startsWith('-');
+      s = s.replace(/[^0-9.]/g, '');
       const firstDot = s.indexOf('.');
       if (firstDot !== -1) {
         s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, '');
@@ -174,13 +177,13 @@ function invoiceEditor() {
           s = s.slice(0, firstDot + maxDp + 1);
         }
       }
-      return s;
+      return negative && s !== '' ? '-' + s : s;
     },
 
-    // Format to exactly 2 decimal places on blur; negative → 0.
+    // Format to exactly 2 decimal places on blur.
     _format2dp(val) {
       const n = parseFloat(val);
-      return (isNaN(n) || n < 0) ? '0.00' : n.toFixed(2);
+      return isNaN(n) ? '0.00' : n.toFixed(2);
     },
 
     _clearLineError(idx) {
