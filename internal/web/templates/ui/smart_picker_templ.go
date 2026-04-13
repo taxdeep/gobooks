@@ -313,82 +313,95 @@ func smartPickerInteractive(vm SmartPickerVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" data-create-url=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" data-allow-create=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var17 string
-		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(vm.CreateURL)
+		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(smartPickerBool(vm.AllowCreate))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/ui/smart_picker.templ`, Line: 59, Col: 32}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/ui/smart_picker.templ`, Line: 59, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" data-create-label=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" data-create-url=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var18 string
-		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(vm.CreateLabel)
+		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(vm.CreateURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/ui/smart_picker.templ`, Line: 60, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/ui/smart_picker.templ`, Line: 60, Col: 32}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\" data-limit=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\" data-create-label=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var19 string
-		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(smartPickerLimit(vm))
+		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(vm.CreateLabel)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/ui/smart_picker.templ`, Line: 61, Col: 35}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/ui/smart_picker.templ`, Line: 61, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" data-has-error=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" data-limit=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var20 string
-		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(smartPickerBool(vm.Error != ""))
+		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(smartPickerLimit(vm))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/ui/smart_picker.templ`, Line: 62, Col: 50}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/ui/smart_picker.templ`, Line: 62, Col: 35}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\" class=\"relative mt-2\" @keydown=\"onKeydown($event)\" @click.outside=\"close()\"><!-- Hidden input: no static name attribute. Alpine init() assigns name\r\n\t\t     dynamically so a no-JS fallback select with the same field name\r\n\t\t     does not cause a double-submit. Alpine keeps value in sync via\r\n\t\t     :value=\"selectedId\". --><input type=\"hidden\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\" data-has-error=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var21 string
-		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(vm.Value)
+		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(smartPickerBool(vm.Error != ""))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/ui/smart_picker.templ`, Line: 73, Col: 19}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/ui/smart_picker.templ`, Line: 63, Col: 50}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\" :value=\"selectedId\"><!-- Visible search input + optional clear button (required fields omit clear) --><div class=\"relative\"><!-- Static class provides dark-mode-safe base styling before Alpine initialises\r\n\t\t\t     (eliminates the white-box FOUC). Alpine's :class merges on top and adds\r\n\t\t\t     the state-conditional border/ring colour from inputClass(). --><input type=\"text\" autocomplete=\"off\" :placeholder=\"placeholder\" x-model=\"query\" class=\"mt-2 block w-full rounded-md border bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted outline-none focus:ring-2\" :class=\"inputClass()\" @focus=\"onFocus()\" @input.debounce.250ms=\"onInput()\" aria-autocomplete=\"list\" :aria-expanded=\"open\" role=\"combobox\"> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\" class=\"relative mt-2\" @keydown=\"onKeydown($event)\" @click.outside=\"close()\"><!-- Hidden input: no static name attribute. Alpine init() assigns name\r\n\t\t     dynamically so a no-JS fallback select with the same field name\r\n\t\t     does not cause a double-submit. Alpine keeps value in sync via\r\n\t\t     :value=\"selectedId\". --><input type=\"hidden\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var22 string
+		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(vm.Value)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/ui/smart_picker.templ`, Line: 74, Col: 19}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\" :value=\"selectedId\"><!-- Visible search input + optional clear button (required fields omit clear) --><div class=\"relative\"><!-- Static class provides dark-mode-safe base styling before Alpine initialises\r\n\t\t\t     (eliminates the white-box FOUC). Alpine's :class merges on top and adds\r\n\t\t\t     the state-conditional border/ring colour from inputClass(). --><input type=\"text\" autocomplete=\"off\" :placeholder=\"placeholder\" x-model=\"query\" class=\"mt-2 block w-full rounded-md border bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted outline-none focus:ring-2\" :class=\"inputClass()\" @focus=\"onFocus()\" @input.debounce.250ms=\"onInput()\" aria-autocomplete=\"list\" :aria-expanded=\"open\" role=\"combobox\"> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if !vm.Required {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<button type=\"button\" x-show=\"selectedId !== ''\" x-cloak @click.stop=\"clear()\" class=\"absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-text-muted3 hover:text-text\" aria-label=\"Clear selection\" style=\"display:none\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 20 20\" fill=\"currentColor\" aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z\" clip-rule=\"evenodd\"></path></svg></button>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<button type=\"button\" x-show=\"selectedId !== ''\" x-cloak @click.stop=\"clear()\" class=\"absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-text-muted3 hover:text-text\" aria-label=\"Clear selection\" style=\"display:none\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 20 20\" fill=\"currentColor\" aria-hidden=\"true\"><path fill-rule=\"evenodd\" d=\"M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z\" clip-rule=\"evenodd\"></path></svg></button>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</div><!-- Dropdown panel --><div x-show=\"open\" x-cloak class=\"absolute z-50 mt-1 w-full rounded-md border border-border bg-surface shadow-lg\" style=\"display:none\" role=\"listbox\"><!-- Loading state --><div x-show=\"loading\" class=\"px-3 py-2 text-body text-text-muted2\">Searching…</div><!-- Error state --><div x-show=\"!loading && failed\" class=\"px-3 py-2 text-body text-danger\">Search failed. Try again.</div><!-- Results list --><ul x-show=\"!loading && !failed && items.length > 0\" class=\"max-h-60 overflow-y-auto py-1\"><template x-for=\"(item, idx) in items\" :key=\"item.id\"><li role=\"option\" :aria-selected=\"selectedId === item.id\" @click=\"select(item)\" @mouseenter=\"highlighted = idx\" :class=\"highlighted === idx\r\n\t\t\t\t\t\t\t? 'flex flex-col px-3 py-2 cursor-pointer bg-background'\r\n\t\t\t\t\t\t\t: 'flex flex-col px-3 py-2 cursor-pointer hover:bg-background'\"><!-- Primary label: main display text (e.g. account name) --><span class=\"text-body text-text\" x-text=\"item.primary\"></span><!-- Secondary label: code / rate / identifier (e.g. account code) --><span x-show=\"item.secondary\" class=\"text-small text-text-muted2\" x-text=\"item.secondary\"></span><!-- Meta slot: key-value bag reserved for Batch C+ contexts\r\n\t\t\t\t\t\t     (e.g. customer email, vendor type, product sku, tax rate detail).\r\n\t\t\t\t\t\t     Rendered as a row of plain text values when present. --><template x-if=\"item.meta && Object.keys(item.meta).length > 0\"><span class=\"mt-0.5 flex flex-wrap gap-2\"><template x-for=\"[k, v] in Object.entries(item.meta)\" :key=\"k\"><span class=\"text-small text-text-muted3\" x-text=\"v\"></span></template></span></template></li></template></ul><!-- Empty state --><div x-show=\"!loading && !failed && items.length === 0\" class=\"px-3 py-2\"><span class=\"text-body text-text-muted2\">No results.</span><template x-if=\"createUrl !== ''\"><a :href=\"createUrl\" class=\"ml-2 text-body text-primary hover:underline\" x-text=\"createLabel\"></a></template></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</div><!-- Dropdown panel --><div x-show=\"open\" x-cloak class=\"absolute z-50 mt-1 w-full rounded-md border border-border bg-surface shadow-lg\" style=\"display:none\" role=\"listbox\"><!-- Loading state --><div x-show=\"loading\" class=\"px-3 py-2 text-body text-text-muted2\">Searching…</div><!-- Error state --><div x-show=\"!loading && failed\" class=\"px-3 py-2 text-body text-danger\">Search failed. Try again.</div><!-- \"+ Add new [query]\" row — always first when allowCreate is enabled --><div x-show=\"allowCreate && !loading && !failed\" @click=\"triggerCreate()\" @mouseenter=\"highlighted = -1\" :class=\"highlighted === -1\r\n\t\t\t\t\t? 'flex items-center gap-2 px-3 py-2 cursor-pointer bg-background border-b border-border-subtle'\r\n\t\t\t\t\t: 'flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-background border-b border-border-subtle'\"><span class=\"text-body font-medium text-primary\">+ Add new</span> <span x-show=\"query.trim() !== ''\" class=\"truncate text-body text-text-muted2\" x-text=\"'&quot;' + query.trim() + '&quot;'\"></span></div><!-- Results list --><ul x-show=\"!loading && !failed && items.length > 0\" class=\"max-h-60 overflow-y-auto py-1\"><template x-for=\"(item, idx) in items\" :key=\"item.id\"><li role=\"option\" :aria-selected=\"selectedId === item.id\" @click=\"select(item)\" @mouseenter=\"highlighted = idx\" :class=\"highlighted === idx\r\n\t\t\t\t\t\t\t? 'flex flex-col px-3 py-2 cursor-pointer bg-background'\r\n\t\t\t\t\t\t\t: 'flex flex-col px-3 py-2 cursor-pointer hover:bg-background'\"><!-- Primary label: main display text (e.g. account name) --><span class=\"text-body text-text\" x-text=\"item.primary\"></span><!-- Secondary label: code / rate / identifier (e.g. account code) --><span x-show=\"item.secondary\" class=\"text-small text-text-muted2\" x-text=\"item.secondary\"></span><!-- Meta slot: key-value bag reserved for Batch C+ contexts\r\n\t\t\t\t\t\t     (e.g. customer email, vendor type, product sku, tax rate detail).\r\n\t\t\t\t\t\t     Rendered as a row of plain text values when present. --><template x-if=\"item.meta && Object.keys(item.meta).length > 0\"><span class=\"mt-0.5 flex flex-wrap gap-2\"><template x-for=\"[k, v] in Object.entries(item.meta)\" :key=\"k\"><span class=\"text-small text-text-muted3\" x-text=\"v\"></span></template></span></template></li></template></ul><!-- Empty state --><div x-show=\"!loading && !failed && items.length === 0\" class=\"px-3 py-2\"><span class=\"text-body text-text-muted2\">No results.</span><template x-if=\"createUrl !== ''\"><a :href=\"createUrl\" class=\"ml-2 text-body text-primary hover:underline\" x-text=\"createLabel\"></a></template></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
