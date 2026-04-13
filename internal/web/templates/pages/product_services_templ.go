@@ -1612,7 +1612,7 @@ func psBundleComponentsSection(vm ProductServicesVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 160, "</select></div><div class=\"w-24\"><label class=\"block text-small text-text-muted2\">Qty</label> <input type=\"text\" :name=\"'comp_qty[' + idx + ']'\" value=\"1\" inputmode=\"decimal\" class=\"mt-1 block w-full rounded-md border border-border-input px-2 py-1.5 text-small outline-none focus:ring-2 focus:ring-primary-focus\"></div><button type=\"button\" @click=\"if (compCount > 1) compCount--\" class=\"mb-0.5 text-small text-text-muted3 hover:text-danger\" title=\"Remove\">&times;</button></div></template><button type=\"button\" @click=\"compCount++\" class=\"text-small font-medium text-primary hover:text-primary-hover\">+ Add Component</button></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 160, "</select></div><div class=\"w-24\"><label class=\"block text-small text-text-muted2\">Qty</label> <input type=\"text\" :name=\"'comp_qty[' + idx + ']'\" value=\"1\" inputmode=\"decimal\" class=\"mt-1 block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-small text-text outline-none focus:ring-2 focus:ring-primary-focus\"></div><button type=\"button\" @click=\"if (compCount > 1) compCount--\" class=\"mb-0.5 text-small text-text-muted3 hover:text-danger\" title=\"Remove\">&times;</button></div></template><button type=\"button\" @click=\"compCount++\" class=\"text-small font-medium text-primary hover:text-primary-hover\">+ Add Component</button></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1629,9 +1629,9 @@ func maxInt(a, b int) int {
 
 func psInputClass(hasErr bool) string {
 	if hasErr {
-		return "mt-2 block w-full rounded-md border border-danger px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+		return "mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-danger-focus"
 	}
-	return "mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+	return "mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
 }
 
 var _ = templruntime.GeneratedTemplate

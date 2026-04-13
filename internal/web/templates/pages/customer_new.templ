@@ -44,7 +44,7 @@ templ bodyCustomerNew(vm CustomerNewVM) {
 								placeholder="e.g. ACME Corp."
 								maxlength="200"
 								autocomplete="organization"
-								class="mt-2 block w-full rounded-md border border-danger px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus"
+								class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-danger-focus"
 							/>
 							<div class="mt-1 text-body text-danger">{ vm.NameError }</div>
 						} else {
@@ -55,7 +55,7 @@ templ bodyCustomerNew(vm CustomerNewVM) {
 								placeholder="e.g. ACME Corp."
 								maxlength="200"
 								autocomplete="organization"
-								class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
 							/>
 						}
 					</div>
@@ -69,7 +69,7 @@ templ bodyCustomerNew(vm CustomerNewVM) {
 							placeholder="e.g. billing@acmecorp.com"
 							maxlength="200"
 							autocomplete="email"
-							class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+							class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
 						/>
 					</div>
 					// Payment term (optional)
@@ -101,7 +101,7 @@ templ bodyCustomerNew(vm CustomerNewVM) {
 							value={ vm.AddrStreet1 }
 							maxlength="200"
 							autocomplete="address-line1"
-							class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+							class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
 						/>
 					</div>
 					// Street address 2
@@ -113,7 +113,7 @@ templ bodyCustomerNew(vm CustomerNewVM) {
 							value={ vm.AddrStreet2 }
 							maxlength="200"
 							autocomplete="address-line2"
-							class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+							class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
 						/>
 					</div>
 					// City
@@ -125,7 +125,7 @@ templ bodyCustomerNew(vm CustomerNewVM) {
 							value={ vm.AddrCity }
 							maxlength="100"
 							autocomplete="address-level2"
-							class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+							class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
 						/>
 					</div>
 					// Province / State
@@ -137,7 +137,7 @@ templ bodyCustomerNew(vm CustomerNewVM) {
 							value={ vm.AddrProvince }
 							maxlength="100"
 							autocomplete="address-level1"
-							class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+							class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
 						/>
 					</div>
 					// Postal code
@@ -151,7 +151,7 @@ templ bodyCustomerNew(vm CustomerNewVM) {
 							pattern="[A-Za-z0-9 \-]*"
 							title="Postal code may only contain letters, numbers, spaces, and hyphens."
 							autocomplete="postal-code"
-							class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+							class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
 						/>
 					</div>
 					// Country
@@ -163,7 +163,7 @@ templ bodyCustomerNew(vm CustomerNewVM) {
 							value={ vm.AddrCountry }
 							maxlength="100"
 							autocomplete="country-name"
-							class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+							class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
 						/>
 					</div>
 				</div>
