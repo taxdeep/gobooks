@@ -289,8 +289,8 @@ templ psFormFields(vm ProductServicesVM) {
 			/>
 		</div>
 
-		// Structure Type (single / bundle)
-		<div x-show="itemType !== 'service'" x-cloak>
+		// Structure Type (single / bundle) — hidden for service and other_charge types
+		<div x-show="itemType !== 'service' && itemType !== 'other_charge'" x-cloak>
 			<label class="block text-body font-medium text-text">Structure</label>
 			<select
 				name="structure_type"
@@ -336,11 +336,14 @@ templ psFormFields(vm ProductServicesVM) {
 			<p class="mt-1 text-small text-text-muted2">Default cost used for purchase bills.</p>
 		</div>
 
-		// Revenue Account
+		// Account Code — Revenue for standard items; Expense/COGS for Other Charge items.
 		<div>
-			<label class="block text-body font-medium text-text">Revenue account *</label>
+			<label class="block text-body font-medium text-text">Account Code *</label>
+			// Revenue accounts dropdown (shown for all types except other_charge)
 			<select
 				name="revenue_account_id"
+				x-show="itemType !== 'other_charge'"
+				:disabled="itemType === 'other_charge'"
 				class={ psInputClass(vm.RevenueAccountIDError != "") }
 			>
 				<option value="">-- Select --</option>
@@ -348,10 +351,23 @@ templ psFormFields(vm ProductServicesVM) {
 					<option value={ Uitoa(a.ID) } selected?={ Uitoa(a.ID) == vm.RevenueAccountID }>{ a.Code + " · " + a.Name }</option>
 				}
 			</select>
+			// Expense / COGS accounts dropdown (shown for other_charge only)
+			<select
+				name="revenue_account_id"
+				x-show="itemType === 'other_charge'"
+				:disabled="itemType !== 'other_charge'"
+				class={ psInputClass(vm.RevenueAccountIDError != "") }
+			>
+				<option value="">-- Select --</option>
+				for _, a := range vm.OtherChargeAccounts {
+					<option value={ Uitoa(a.ID) } selected?={ Uitoa(a.ID) == vm.RevenueAccountID }>{ a.Code + " · " + a.Name }</option>
+				}
+			</select>
 			if vm.RevenueAccountIDError != "" {
 				<div class="mt-1 text-body text-danger">{ vm.RevenueAccountIDError }</div>
 			}
-			<p class="mt-1 text-small text-text-muted2">The account credited when an invoice line using this item is posted.</p>
+			<p class="mt-1 text-small text-text-muted2" x-show="itemType !== 'other_charge'">The account credited when an invoice line using this item is posted.</p>
+			<p class="mt-1 text-small text-text-muted2" x-show="itemType === 'other_charge'">The expense or cost account debited when a negative Other Charge line is posted.</p>
 		</div>
 
 		// COGS Account — inventory only

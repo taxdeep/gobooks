@@ -17,6 +17,10 @@ const (
 	ProductServiceTypeService      ProductServiceType = "service"
 	ProductServiceTypeNonInventory ProductServiceType = "non_inventory"
 	ProductServiceTypeInventory    ProductServiceType = "inventory"
+	// ProductServiceTypeOtherCharge is a line-item charge (e.g. discount, surcharge) whose
+	// account code is an Expense or Cost-of-Sales account rather than a Revenue account.
+	// A negative unit price on an Other Charge line produces a DR Expense / CR AR reduction.
+	ProductServiceTypeOtherCharge ProductServiceType = "other_charge"
 )
 
 // AllProductServiceTypes returns the currently supported types in display order.
@@ -25,6 +29,7 @@ func AllProductServiceTypes() []ProductServiceType {
 		ProductServiceTypeService,
 		ProductServiceTypeNonInventory,
 		ProductServiceTypeInventory,
+		ProductServiceTypeOtherCharge,
 	}
 }
 
@@ -37,6 +42,8 @@ func ProductServiceTypeLabel(t ProductServiceType) string {
 		return "Non-Inventory"
 	case ProductServiceTypeInventory:
 		return "Inventory"
+	case ProductServiceTypeOtherCharge:
+		return "Other Charge"
 	default:
 		return string(t)
 	}
@@ -46,7 +53,8 @@ func ProductServiceTypeLabel(t ProductServiceType) string {
 // if the value is not recognised.
 func ParseProductServiceType(s string) (ProductServiceType, error) {
 	switch ProductServiceType(s) {
-	case ProductServiceTypeService, ProductServiceTypeNonInventory, ProductServiceTypeInventory:
+	case ProductServiceTypeService, ProductServiceTypeNonInventory, ProductServiceTypeInventory,
+		ProductServiceTypeOtherCharge:
 		return ProductServiceType(s), nil
 	default:
 		return "", fmt.Errorf("unknown product/service type: %q", s)
@@ -89,6 +97,10 @@ func (ps *ProductService) ApplyTypeDefaults() {
 		ps.CanBeSold = true
 		ps.CanBePurchased = true
 		ps.IsStockItem = true
+	case ProductServiceTypeOtherCharge:
+		ps.CanBeSold = true
+		ps.CanBePurchased = false
+		ps.IsStockItem = false
 	}
 	if ps.ItemStructureType == "" {
 		ps.ItemStructureType = ItemStructureSingle

@@ -132,7 +132,7 @@ func (s *Server) handleProductServiceCreate(c *fiber.Ctx) error {
 
 	// Company-scope validation: reject any account/tax IDs not owned by this company.
 	if revenueID64 > 0 {
-		s.validateItemAccountsCompanyScope(companyID, uint(revenueID64), cogsID, invAcctID, taxCodeID, &vm)
+		s.validateItemAccountsCompanyScope(companyID, psType, uint(revenueID64), cogsID, invAcctID, taxCodeID, &vm)
 	}
 
 	if hasItemFormErrors(vm) {
@@ -278,7 +278,7 @@ func (s *Server) handleProductServiceUpdate(c *fiber.Ctx) error {
 
 	// Company-scope validation: reject any account/tax IDs not owned by this company.
 	if revenueID64 > 0 {
-		s.validateItemAccountsCompanyScope(companyID, uint(revenueID64), cogsID, invAcctID, taxCodeID, &vm)
+		s.validateItemAccountsCompanyScope(companyID, psType, uint(revenueID64), cogsID, invAcctID, taxCodeID, &vm)
 	}
 	// Early exit: if scope validation set any error (including vm.FormError for tax code),
 	// return before bundle validation so its vm.FormError = err.Error() cannot overwrite ours.
@@ -586,7 +586,7 @@ func validateItemCommon(vm *pages.ProductServicesVM, name, typeRaw, priceRaw, re
 		}
 	}
 	if _, err := strconv.ParseUint(revenueIDRaw, 10, 64); err != nil {
-		vm.RevenueAccountIDError = "Revenue account is required."
+		vm.RevenueAccountIDError = "Account code is required."
 	}
 	return psType, typeErr
 }
@@ -611,17 +611,28 @@ func validateInventoryAccounts(vm *pages.ProductServicesVM, psType models.Produc
 // we must not trust raw form values.
 func (s *Server) validateItemAccountsCompanyScope(
 	companyID uint,
+	psType models.ProductServiceType,
 	revenueID uint,
 	cogsID, invAcctID, taxCodeID *uint,
 	vm *pages.ProductServicesVM,
 ) {
-	// Revenue account: must be a revenue-type account owned by this company.
-	var revenueCount int64
-	if err := s.DB.Model(&models.Account{}).
-		Where("id = ? AND company_id = ? AND is_active = true AND root_account_type = ?",
-			revenueID, companyID, models.RootRevenue).
-		Count(&revenueCount).Error; err != nil || revenueCount == 0 {
-		vm.RevenueAccountIDError = "Revenue account is not valid for this company."
+	// Account Code: for Other Charge items the account must be an Expense or COGS account;
+	// for all other types it must be a Revenue account.
+	var accountCount int64
+	if psType == models.ProductServiceTypeOtherCharge {
+		if err := s.DB.Model(&models.Account{}).
+			Where("id = ? AND company_id = ? AND is_active = true AND root_account_type IN ?",
+				revenueID, companyID, []string{string(models.RootCostOfSales), string(models.RootExpense)}).
+			Count(&accountCount).Error; err != nil || accountCount == 0 {
+			vm.RevenueAccountIDError = "Account code is not valid for this company (must be an Expense or Cost of Sales account)."
+		}
+	} else {
+		if err := s.DB.Model(&models.Account{}).
+			Where("id = ? AND company_id = ? AND is_active = true AND root_account_type = ?",
+				revenueID, companyID, models.RootRevenue).
+			Count(&accountCount).Error; err != nil || accountCount == 0 {
+			vm.RevenueAccountIDError = "Account code is not valid for this company."
+		}
 	}
 
 	// COGS account: if provided, must be a cost-of-sales account owned by this company.
@@ -724,6 +735,14 @@ func (s *Server) loadProductServicesDropdowns(companyID uint, vm *pages.ProductS
 		Where("company_id = ? AND is_active = true AND root_account_type = ?", companyID, models.RootRevenue).
 		Order("code asc").
 		Find(&vm.RevenueAccounts).Error; err != nil {
+		return err
+	}
+	// Other Charge items link to an Expense or Cost-of-Sales account.
+	if err := s.DB.
+		Where("company_id = ? AND is_active = true AND root_account_type IN ?", companyID,
+			[]string{string(models.RootCostOfSales), string(models.RootExpense)}).
+		Order("code asc").
+		Find(&vm.OtherChargeAccounts).Error; err != nil {
 		return err
 	}
 	if err := s.DB.

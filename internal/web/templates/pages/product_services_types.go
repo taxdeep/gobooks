@@ -8,9 +8,10 @@ type ProductServicesVM struct {
 	HasCompany bool
 
 	// Dropdown data
-	RevenueAccounts  []models.Account  // root_account_type = 'revenue'
-	COGSAccounts     []models.Account  // root_account_type = 'cost_of_sales'
-	InventoryAccounts []models.Account // detail_account_type = 'inventory' (asset)
+	RevenueAccounts     []models.Account // root_account_type = 'revenue'
+	OtherChargeAccounts []models.Account // root_account_type IN ('cost_of_sales', 'expense') — for Other Charge items
+	COGSAccounts        []models.Account // root_account_type = 'cost_of_sales'
+	InventoryAccounts   []models.Account // detail_account_type = 'inventory' (asset)
 	TaxCodes         []models.TaxCode
 
 	// Component picker dropdown (inventory items only, for bundle component selection)
