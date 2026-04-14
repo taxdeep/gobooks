@@ -17,7 +17,8 @@ func SectionKeyForActivePage(active string) string {
 		return "accounting"
 	case "AI Connect Settings", "Members Settings", "Audit Log", "Products & Services",
 		"Payment Gateways", "Gateway Settlement Review", "Gateway Payouts", "Gateway Disputes",
-		"Recon Exceptions", "Investigation Workspace":
+		"Recon Exceptions", "Investigation Workspace",
+		"User Preferences Hub", "User Preferences System Setup":
 		return "settings"
 	default:
 		if IsCompanySettingsNavActive(active) {
@@ -31,6 +32,11 @@ func SectionKeyForActivePage(active string) string {
 // Active strings for those routes must start with "Company " (see layout SidebarVM on each page).
 func IsCompanySettingsNavActive(active string) bool {
 	return strings.HasPrefix(active, "Company ")
+}
+
+// IsUserPreferencesNavActive is true on Settings > User Preferences hub and all sub-pages.
+func IsUserPreferencesNavActive(active string) bool {
+	return strings.HasPrefix(active, "User Preferences")
 }
 
 // BoolStr returns "true" or "false" for HTML data attributes.

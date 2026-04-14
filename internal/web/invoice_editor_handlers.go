@@ -574,7 +574,7 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 	// ── Duplicate number check (new invoices only) ────────────────────────────
 	var dupCount int64
 	dupQuery := s.DB.Model(&models.Invoice{}).
-		Where("company_id = ? AND LOWER(invoice_number) = LOWER(?)", companyID, invoiceNo)
+		Where("company_id = ? AND LOWER(invoice_number) = LOWER(?) AND status <> ?", companyID, invoiceNo, models.InvoiceStatusVoided)
 	if isEdit {
 		dupQuery = dupQuery.Where("id <> ?", editingID)
 	}
@@ -927,7 +927,11 @@ func buildInitialLinesJSON(rows []pages.InvoiceLineFormRow) string {
 		UnitPrice        string `json:"unit_price"`
 		TaxCodeID        string `json:"tax_code_id"`
 		LineNet          string `json:"line_net"`
-		Error            string `json:"error"`
+		// SavedLineTax carries the server-stored tax amount for this line.
+		// Used by init() to detect user tax overrides that differ from the
+		// rate-based calculation, so the review page displays the correct value.
+		SavedLineTax string `json:"saved_line_tax"`
+		Error        string `json:"error"`
 	}
 	items := make([]alpineLine, 0, len(rows))
 	for _, r := range rows {
@@ -943,6 +947,7 @@ func buildInitialLinesJSON(rows []pages.InvoiceLineFormRow) string {
 			UnitPrice:        r.UnitPrice,
 			TaxCodeID:        r.TaxCodeID,
 			LineNet:          net,
+			SavedLineTax:     r.LineTax,
 			Error:            r.Error,
 		})
 	}

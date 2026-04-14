@@ -1,0 +1,69 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+templ UserPrefSystemSetup(vm UserPrefSystemSetupVM) {
+	@layout.Layout(
+		"GoBooks - System Setup",
+		ui.SidebarVM{Active: "User Preferences System Setup", HasCompany: vm.HasCompany},
+		bodyUserPrefSystemSetup(vm),
+	)
+}
+
+templ bodyUserPrefSystemSetup(vm UserPrefSystemSetupVM) {
+	<div class="max-w-2xl">
+		@SettingsBreadcrumb(vm.Breadcrumb)
+		<h1 class="text-title font-semibold">System Setup</h1>
+		<p class="mt-2 text-text-muted2">Configure display preferences for your account.</p>
+
+		if vm.Saved {
+			@ui.AlertSuccess("Preferences saved.")
+		}
+		if vm.FormError != "" {
+			@ui.AlertError(vm.FormError)
+		}
+
+		<form method="post" action="/settings/user-preferences/system-setup" class="mt-6 space-y-6">
+
+			// ── Number Format ──────────────────────────────────────────────────────
+			<div class="rounded-lg border border-border bg-surface p-5">
+				<h2 class="text-body font-semibold text-text">Number Display Format</h2>
+				<p class="mt-1 text-small text-text-muted2">
+					Choose how amounts and quantities are formatted across the application.
+				</p>
+				<div class="mt-4 space-y-3">
+					for _, opt := range models.NumberFormatOptions {
+						<label class="flex cursor-pointer items-start gap-3 rounded-md border border-border p-3 hover:bg-background has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+							<input
+								type="radio"
+								name="number_format"
+								value={ opt.Value }
+								checked?={ vm.NumberFormat == opt.Value }
+								class="mt-0.5 h-4 w-4 accent-primary"
+							/>
+							<div>
+								<div class="text-body font-medium text-text">{ opt.Label }</div>
+								<div class="mt-0.5 font-mono text-small text-text-muted2">{ opt.Example }</div>
+							</div>
+						</label>
+					}
+				</div>
+			</div>
+
+			// ── Actions ────────────────────────────────────────────────────────────
+			<div class="flex items-center gap-3">
+				@ui.ButtonLink("Cancel", "/settings/user-preferences")
+				<button
+					type="submit"
+					class="rounded-md bg-primary px-5 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+				>Save</button>
+			</div>
+
+		</form>
+	</div>
+}

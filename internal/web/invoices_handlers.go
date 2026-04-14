@@ -175,7 +175,7 @@ func (s *Server) handleInvoiceCreate(c *fiber.Ctx) error {
 
 	var dupCount int64
 	if err := s.DB.Model(&models.Invoice{}).
-		Where("company_id = ? AND LOWER(invoice_number) = LOWER(?)", companyID, invoiceNo).
+		Where("company_id = ? AND LOWER(invoice_number) = LOWER(?) AND status <> ?", companyID, invoiceNo, models.InvoiceStatusVoided).
 		Count(&dupCount).Error; err != nil {
 		vm.FormError = "Could not validate Invoice Number."
 		return pages.Invoices(vm).Render(c.Context(), c)

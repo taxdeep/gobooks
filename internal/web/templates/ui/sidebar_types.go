@@ -24,6 +24,9 @@ type SidebarData struct {
 	// SwitcherRows lists all companies the user can access.
 	// Used to render the company-switcher dropdown.
 	SwitcherRows []SwitcherRow
+	// NumberFormat is the user's preferred number display format (e.g. "comma_dot").
+	// Injected into the layout as a data attribute; applied client-side by num-format.js.
+	NumberFormat string
 }
 
 // SwitcherRow is one entry in the company-switcher dropdown.

@@ -8,6 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"gobooks/internal/models"
+	"gobooks/internal/services"
 	"gobooks/internal/web/templates/ui"
 )
 
@@ -63,13 +64,17 @@ func (s *Server) buildSidebarData(user *models.User, activeCompanyID uint) ui.Si
 		}
 	}
 
-	// 3. Load all memberships for this user to build the switcher list.
+	// 3. Load number format preference (one SELECT, shared across all return paths).
+	numFmt := services.GetUserNumberFormat(s.DB, user.ID)
+
+	// 4. Load all memberships for this user to build the switcher list.
 	var memberships []models.CompanyMembership
 	if err := s.DB.Where("user_id = ? AND is_active = true", user.ID).
 		Find(&memberships).Error; err != nil || len(memberships) == 0 {
 		return ui.SidebarData{
-			CompanyName: companyName,
-			PlanName:    planName,
+			CompanyName:  companyName,
+			PlanName:     planName,
+			NumberFormat: numFmt,
 		}
 	}
 
@@ -81,8 +86,9 @@ func (s *Server) buildSidebarData(user *models.User, activeCompanyID uint) ui.Si
 	var companies []models.Company
 	if err := s.DB.Select("id, name").Where("id IN ?", ids).Find(&companies).Error; err != nil {
 		return ui.SidebarData{
-			CompanyName: companyName,
-			PlanName:    planName,
+			CompanyName:  companyName,
+			PlanName:     planName,
+			NumberFormat: numFmt,
 		}
 	}
 
@@ -109,5 +115,6 @@ func (s *Server) buildSidebarData(user *models.User, activeCompanyID uint) ui.Si
 		CompanyName:  companyName,
 		PlanName:     planName,
 		SwitcherRows: rows,
+		NumberFormat: numFmt,
 	}
 }

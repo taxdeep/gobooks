@@ -124,6 +124,11 @@ func (s *Server) registerRoutes(app *fiber.App) {
 		return c.Redirect("/settings/company/numbering", fiber.StatusSeeOther)
 	})
 
+	// ── 设置：用户偏好（每位用户独立，无需公司权限）────────────────────────────────
+	app.Get("/settings/user-preferences", s.LoadSession(), s.RequireAuth(), s.LoadSidebarData(), s.handleUserPreferencesHub)
+	app.Get("/settings/user-preferences/system-setup", s.LoadSession(), s.RequireAuth(), s.LoadSidebarData(), s.handleUserPrefSystemSetupGet)
+	app.Post("/settings/user-preferences/system-setup", s.LoadSession(), s.RequireAuth(), s.LoadSidebarData(), s.handleUserPrefSystemSetupPost)
+
 	// ── 设置：AI Connect（owner / admin 专属）───────────────────────────────────
 	app.Get("/settings/ai-connect", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleAIConnectGet)
 	app.Post("/settings/ai-connect", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleAIConnectPost)

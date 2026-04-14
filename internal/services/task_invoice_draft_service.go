@@ -599,7 +599,7 @@ func resolveDraftInvoiceTerms(db *gorm.DB, companyID uint, customer models.Custo
 func ensureInvoiceNumberAvailable(db *gorm.DB, companyID uint, invoiceNumber string) error {
 	var count int64
 	if err := db.Model(&models.Invoice{}).
-		Where("company_id = ? AND LOWER(invoice_number) = LOWER(?)", companyID, invoiceNumber).
+		Where("company_id = ? AND LOWER(invoice_number) = LOWER(?) AND status <> ?", companyID, invoiceNumber, models.InvoiceStatusVoided).
 		Count(&count).Error; err != nil {
 		return fmt.Errorf("validate invoice number: %w", err)
 	}

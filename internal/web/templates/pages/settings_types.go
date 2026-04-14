@@ -75,6 +75,21 @@ type PaymentGatewaysHubVM struct {
 	Breadcrumb []SettingsBreadcrumbPart
 }
 
+// UserPreferencesHubVM is the User Preferences landing/hub page.
+type UserPreferencesHubVM struct {
+	HasCompany bool
+	Breadcrumb []SettingsBreadcrumbPart
+}
+
+// UserPrefSystemSetupVM is the User Preferences > System Setup page.
+type UserPrefSystemSetupVM struct {
+	HasCompany   bool
+	Breadcrumb   []SettingsBreadcrumbPart
+	NumberFormat string // current saved value (or default)
+	Saved        bool
+	FormError    string
+}
+
 // PaymentTermsVM is the view-model for Settings > Company > Payment Terms.
 type PaymentTermsVM struct {
 	HasCompany bool

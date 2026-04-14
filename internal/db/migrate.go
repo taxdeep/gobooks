@@ -210,6 +210,8 @@ func Migrate(db *gorm.DB) error {
 		&models.PaymentReverseResolutionAttempt{},
 		// SmartPicker: selection event log (ranking/popularity signal)
 		&models.SmartPickerUsage{},
+		// User preferences (number format, etc.) — one row per user
+		&models.UserPreference{},
 	); err != nil {
 		return err
 	}

@@ -54,6 +54,26 @@ function invoiceEditor() {
         this.addLine();
       }
       this._recalcAll();
+
+      // Restore saved tax overrides: the server may have stored a user-adjusted
+      // tax total that differs from what the rate alone would calculate.
+      // Aggregate saved_line_tax per tax code; if it differs from the calculated
+      // total, treat it as a user override so the review page shows the right value.
+      const savedByCode = {};
+      for (const line of this.lines) {
+        const cid = String(line.tax_code_id);
+        if (!cid || !line.saved_line_tax) continue;
+        const stored = parseFloat(line.saved_line_tax) || 0;
+        savedByCode[cid] = (savedByCode[cid] || 0) + stored;
+      }
+      for (const [cid, storedTotal] of Object.entries(savedByCode)) {
+        const a = this.taxAdj[cid];
+        if (!a) continue;
+        const stored = storedTotal.toFixed(2);
+        if (stored !== a.calc) {
+          a.user = stored;
+        }
+      }
     },
 
     // ── Line management ──────────────────────────────────────────────────────

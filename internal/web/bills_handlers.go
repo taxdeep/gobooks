@@ -441,7 +441,7 @@ func (s *Server) handleBillSaveDraft(c *fiber.Ctx) error {
 	if billNo != "" {
 		var dupCount int64
 		dupQuery := s.DB.Model(&models.Bill{}).
-			Where("company_id = ? AND LOWER(bill_number) = LOWER(?)", companyID, billNo)
+			Where("company_id = ? AND LOWER(bill_number) = LOWER(?) AND status <> ?", companyID, billNo, models.BillStatusVoided)
 		if isEdit {
 			dupQuery = dupQuery.Where("id <> ?", editingID)
 		}

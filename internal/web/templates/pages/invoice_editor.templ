@@ -468,9 +468,8 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 							<div class="flex items-center justify-between gap-2">
 								<span class="text-small text-text-muted truncate" x-text="tc.code + ' @ ' + (tc.rate * 100).toFixed(2).replace(/\.?0+$/, '') + '%'"></span>
 								<input
-									type="number"
-									min="0"
-									step="0.01"
+									type="text"
+									inputmode="decimal"
 									:value="taxAdjValue(tc.id)"
 									@input="onTaxAdjInput(tc.id, $event.target.value)"
 									@blur="if (!$event.target.value.trim()) { $event.target.value = taxAdjValue(tc.id) }"
@@ -500,7 +499,7 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 					</div>
 				</div>
 
-				<script src="/static/invoice_editor.js?v=11"></script>
+				<script src="/static/invoice_editor.js?v=12"></script>
 			</div>
 
 			</fieldset>

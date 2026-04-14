@@ -326,9 +326,8 @@ templ expenseLinesSection(vm ExpenseFormVM) {
 						<div class="flex items-center justify-between gap-2">
 							<span class="truncate text-small text-text-muted2" x-text="tc.code + ' @ ' + (tc.rate * 100).toFixed(2).replace(/\\.?0+$/, '') + '%'"></span>
 							<input
-								type="number"
-								min="0"
-								step="0.01"
+								type="text"
+								inputmode="decimal"
 								:value="taxAdjValue(tc.id)"
 								@input="onTaxAdjInput(tc.id, $event.target.value)"
 								@blur="if (!$event.target.value.trim()) { $event.target.value = taxAdjValue(tc.id) }"
