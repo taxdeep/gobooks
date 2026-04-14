@@ -1,0 +1,137 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"fmt"
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+func vrfStatusBadgeClass(s models.VendorRefundStatus) string {
+	switch s {
+	case models.VendorRefundStatusDraft:
+		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600"
+	case models.VendorRefundStatusPosted:
+		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700"
+	case models.VendorRefundStatusVoided:
+		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700"
+	case models.VendorRefundStatusReversed:
+		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-700"
+	default:
+		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600"
+	}
+}
+
+templ VendorRefunds(vm VendorRefundsVM) {
+	@layout.Layout(
+		"GoBooks - Vendor Refunds",
+		ui.SidebarVM{Active: "Vendor Refunds", HasCompany: vm.HasCompany},
+		bodyVendorRefunds(vm),
+	)
+}
+
+templ bodyVendorRefunds(vm VendorRefundsVM) {
+	<div class="max-w-[95%]">
+		<div class="flex flex-wrap items-start justify-between gap-4">
+			<div class="min-w-0 flex-1">
+				<h1 class="text-title font-semibold">Vendor Refunds</h1>
+				<p class="mt-2 text-text-muted2">Cash received back from vendors.</p>
+			</div>
+			<div class="shrink-0">
+				<a
+					href="/vendor-refunds/new"
+					class="inline-block rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+				>
+					New Refund
+				</a>
+			</div>
+		</div>
+
+		if vm.Created {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Vendor refund created.</div>
+		}
+
+		<!-- Filters -->
+		<form method="GET" action="/vendor-refunds" class="mt-4 flex flex-wrap gap-3">
+			<select
+				name="status"
+				class="rounded-md border border-border bg-surface px-3 py-1.5 text-body text-text"
+				onchange="this.form.submit()"
+			>
+				<option value="">All Statuses</option>
+				for _, s := range models.AllVendorRefundStatuses() {
+					<option value={ string(s) } selected?={ vm.FilterStatus == string(s) }>
+						{ models.VendorRefundStatusLabel(s) }
+					</option>
+				}
+			</select>
+			<select
+				name="vendor_id"
+				class="rounded-md border border-border bg-surface px-3 py-1.5 text-body text-text"
+				onchange="this.form.submit()"
+			>
+				<option value="">All Vendors</option>
+				for _, v := range vm.Vendors {
+					<option value={ fmt.Sprintf("%d", v.ID) } selected?={ vm.FilterVendor == fmt.Sprintf("%d", v.ID) }>
+						{ v.Name }
+					</option>
+				}
+			</select>
+		</form>
+
+		<!-- Table -->
+		<div class="mt-4 overflow-x-auto rounded-md border border-border">
+			<table class="min-w-full divide-y divide-border text-body">
+				<thead class="bg-background">
+					<tr>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Number</th>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Vendor</th>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Date</th>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Source</th>
+						<th class="px-4 py-3 text-right font-medium text-text-muted">Amount</th>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Status</th>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-border bg-surface">
+					if len(vm.Refunds) == 0 {
+						<tr>
+							<td colspan="6" class="px-4 py-8 text-center text-text-muted">No vendor refunds found.</td>
+						</tr>
+					}
+					for _, vrf := range vm.Refunds {
+						<tr class="hover:bg-background">
+							<td class="px-4 py-3">
+								<a href={ templ.SafeURL("/vendor-refunds/" + fmt.Sprintf("%d", vrf.ID)) } class="font-medium text-primary hover:underline">
+									{ vrf.RefundNumber }
+								</a>
+							</td>
+							<td class="px-4 py-3 text-text">{ vrf.Vendor.Name }</td>
+							<td class="px-4 py-3 text-text">{ vrf.RefundDate.Format("2006-01-02") }</td>
+							<td class="px-4 py-3 text-text">{ vendorRefundSourceLabel(vrf.SourceType) }</td>
+							<td class="px-4 py-3 text-right text-text">
+								<span data-numfmt>{ vrf.Amount.StringFixed(2) }</span> { vrf.CurrencyCode }
+							</td>
+							<td class="px-4 py-3">
+								<span class={ vrfStatusBadgeClass(vrf.Status) }>
+									{ models.VendorRefundStatusLabel(vrf.Status) }
+								</span>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	</div>
+}
+
+func vendorRefundSourceLabel(s models.VendorRefundSourceType) string {
+	switch s {
+	case models.VendorRefundSourcePrepayment:
+		return "Prepayment"
+	case models.VendorRefundSourceCreditNote:
+		return "Credit Note"
+	default:
+		return "Other"
+	}
+}

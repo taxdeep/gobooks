@@ -1,0 +1,249 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"fmt"
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+templ VendorPrepaymentDetail(vm VendorPrepaymentDetailVM) {
+	@layout.Layout(
+		"GoBooks - "+vpDetailTitle(vm),
+		ui.SidebarVM{Active: "Vendor Prepayments", HasCompany: vm.HasCompany},
+		bodyVPDetail(vm),
+	)
+}
+
+func vpDetailTitle(vm VendorPrepaymentDetailVM) string {
+	if vm.Prepayment.ID == 0 {
+		return "New Vendor Prepayment"
+	}
+	return "Prepayment " + vm.Prepayment.PrepaymentNumber
+}
+
+func vpDateVal(pp models.VendorPrepayment) string {
+	if pp.PrepaymentDate.IsZero() {
+		return ""
+	}
+	return pp.PrepaymentDate.Format("2006-01-02")
+}
+
+templ bodyVPDetail(vm VendorPrepaymentDetailVM) {
+	<div class="max-w-3xl">
+		<div class="flex flex-wrap items-center justify-between gap-4">
+			<div>
+				<h1 class="text-title font-semibold">{ vpDetailTitle(vm) }</h1>
+				<p class="mt-1 text-text-muted2">
+					if vm.Prepayment.ID == 0 {
+						Record an advance payment to a vendor.
+					} else {
+						View and manage this vendor prepayment.
+					}
+				</p>
+			</div>
+			<a href="/vendor-prepayments" class="text-body text-text-muted3 hover:text-text">← Back to Prepayments</a>
+		</div>
+
+		if vm.Saved {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Prepayment saved.</div>
+		}
+		if vm.Posted {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Prepayment posted to accounting.</div>
+		}
+		if vm.Voided {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">Prepayment voided.</div>
+		}
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">{ vm.FormError }</div>
+		}
+
+		if vm.Prepayment.ID != 0 {
+			<div class="mt-4 flex items-center gap-3">
+				<span class="text-body font-medium text-text-muted">Status:</span>
+				<span class={ vpStatusBadgeClass(vm.Prepayment.Status) }>{ models.VendorPrepaymentStatusLabel(vm.Prepayment.Status) }</span>
+			</div>
+		}
+
+		if vm.Prepayment.ID == 0 || vm.Prepayment.Status == models.VendorPrepaymentStatusDraft {
+			@vpEditForm(vm)
+		} else {
+			@vpReadOnlyView(vm)
+		}
+	</div>
+}
+
+templ vpEditForm(vm VendorPrepaymentDetailVM) {
+	<form method="POST" action="/vendor-prepayments/save" class="mt-6 space-y-5">
+		if vm.Prepayment.ID != 0 {
+			<input type="hidden" name="prepayment_id" value={ fmt.Sprintf("%d", vm.Prepayment.ID) }/>
+		}
+
+		<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+			<div>
+				<label class="block text-body font-medium text-text-muted">Vendor *</label>
+				<select name="vendor_id" required class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					<option value="">— Select vendor —</option>
+					for _, v := range vm.Vendors {
+						<option value={ fmt.Sprintf("%d", v.ID) } selected?={ vm.Prepayment.VendorID == v.ID }>
+							{ v.Name }
+						</option>
+					}
+				</select>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">Prepayment Date *</label>
+				<input
+					type="date"
+					name="prepayment_date"
+					value={ vpDateVal(vm.Prepayment) }
+					required
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+			<div>
+				<label class="block text-body font-medium text-text-muted">Bank Account (paid from) *</label>
+				<select name="bank_account_id" required class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					<option value="">— Select bank account —</option>
+					for _, a := range vm.Accounts {
+						if a.DetailAccountType == models.DetailBank {
+							<option
+								value={ fmt.Sprintf("%d", a.ID) }
+								selected?={ vm.Prepayment.BankAccountID != nil && *vm.Prepayment.BankAccountID == a.ID }
+							>
+								{ a.Code } – { a.Name }
+							</option>
+						}
+					}
+				</select>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">Prepayment Asset Account *</label>
+				<select name="prepayment_account_id" required class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					<option value="">— Select account —</option>
+					for _, a := range vm.Accounts {
+						<option
+							value={ fmt.Sprintf("%d", a.ID) }
+							selected?={ vm.Prepayment.PrepaymentAccountID != nil && *vm.Prepayment.PrepaymentAccountID == a.ID }
+						>
+							{ a.Code } – { a.Name }
+						</option>
+					}
+				</select>
+			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+			<div>
+				<label class="block text-body font-medium text-text-muted">Currency *</label>
+				<input
+					type="text"
+					name="currency_code"
+					value={ vm.Prepayment.CurrencyCode }
+					maxlength="3"
+					placeholder="CAD"
+					required
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">Exchange Rate</label>
+				<input
+					type="text"
+					name="exchange_rate"
+					value={ vm.Prepayment.ExchangeRate.StringFixed(6) }
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+			<div>
+				<label class="block text-body font-medium text-text-muted">Amount *</label>
+				<input
+					type="text"
+					name="amount"
+					value={ vm.Prepayment.Amount.StringFixed(2) }
+					required
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">Payment Method</label>
+				<select name="payment_method" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					for _, pm := range models.AllPaymentMethods() {
+						<option value={ string(pm) } selected?={ vm.Prepayment.PaymentMethod == pm }>
+							{ models.PaymentMethodLabel(pm) }
+						</option>
+					}
+				</select>
+			</div>
+		</div>
+
+		<div>
+			<label class="block text-body font-medium text-text-muted">Reference</label>
+			<input
+				type="text"
+				name="reference"
+				value={ vm.Prepayment.Reference }
+				class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+			/>
+		</div>
+
+		<div>
+			<label class="block text-body font-medium text-text-muted">Memo</label>
+			<textarea name="memo" rows="2" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">{ vm.Prepayment.Memo }</textarea>
+		</div>
+
+		<div class="flex gap-3">
+			<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
+				if vm.Prepayment.ID == 0 {
+					Create Prepayment
+				} else {
+					Save Prepayment
+				}
+			</button>
+			if vm.Prepayment.ID != 0 {
+				<form method="POST" action={ templ.SafeURL("/vendor-prepayments/" + fmt.Sprintf("%d", vm.Prepayment.ID) + "/post") }>
+					<button type="submit" class="rounded-md bg-green-600 px-4 py-2 text-body font-semibold text-white hover:bg-green-700">
+						Post to Accounting
+					</button>
+				</form>
+				<form method="POST" action={ templ.SafeURL("/vendor-prepayments/" + fmt.Sprintf("%d", vm.Prepayment.ID) + "/void") }>
+					<button type="submit" class="rounded-md bg-red-600 px-4 py-2 text-body font-semibold text-white hover:bg-red-700">
+						Void
+					</button>
+				</form>
+			}
+		</div>
+	</form>
+}
+
+templ vpReadOnlyView(vm VendorPrepaymentDetailVM) {
+	<div class="mt-6 space-y-4 rounded-md border border-border bg-surface p-6">
+		<div class="grid grid-cols-2 gap-x-8 gap-y-3 text-body">
+			<div><span class="font-medium text-text-muted">Vendor:</span> <span class="text-text">{ vm.Prepayment.Vendor.Name }</span></div>
+			<div><span class="font-medium text-text-muted">Prepayment #:</span> <span class="text-text">{ vm.Prepayment.PrepaymentNumber }</span></div>
+			<div><span class="font-medium text-text-muted">Date:</span> <span class="text-text">{ vm.Prepayment.PrepaymentDate.Format("2006-01-02") }</span></div>
+			<div><span class="font-medium text-text-muted">Currency:</span> <span class="text-text">{ vm.Prepayment.CurrencyCode }</span></div>
+			<div>
+				<span class="font-medium text-text-muted">Amount:</span>
+				<span class="text-text"><span data-numfmt>{ vm.Prepayment.Amount.StringFixed(2) }</span> { vm.Prepayment.CurrencyCode }</span>
+			</div>
+			<div>
+				<span class="font-medium text-text-muted">Remaining:</span>
+				<span class="text-text"><span data-numfmt>{ vm.Prepayment.RemainingAmount.StringFixed(2) }</span></span>
+			</div>
+			if vm.Prepayment.Reference != "" {
+				<div><span class="font-medium text-text-muted">Reference:</span> <span class="text-text">{ vm.Prepayment.Reference }</span></div>
+			}
+			if vm.Prepayment.PostedBy != "" {
+				<div><span class="font-medium text-text-muted">Posted By:</span> <span class="text-text">{ vm.Prepayment.PostedBy }</span></div>
+			}
+		</div>
+	</div>
+}

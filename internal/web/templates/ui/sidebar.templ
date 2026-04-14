@@ -79,6 +79,12 @@ templ sidebarShell(vm SidebarVM) {
 						@navItem("/customers", "Customers", "customers", vm.Active == "Customers")
 						@navItem("/quotes", "Quotes", "invoice", vm.Active == "Quotes")
 						@navItem("/sales-orders", "Sales Orders", "invoice", vm.Active == "Sales Orders")
+						@navItem("/deposits", "Customer Deposits", "receive", vm.Active == "Customer Deposits")
+						@navItem("/receipts", "Customer Receipts", "receive", vm.Active == "Customer Receipts")
+						@navItem("/returns", "AR Returns", "receive", vm.Active == "AR Returns")
+						@navItem("/refunds", "AR Refunds", "receive", vm.Active == "AR Refunds")
+						@navItem("/write-offs", "AR Write-Offs", "receive", vm.Active == "AR Write-Offs")
+						@navItem("/customer-statement", "Customer Statement", "reports", vm.Active == "Customer Statement")
 						@navItem("/credit-notes", "Credit Notes", "invoice", vm.Active == "Credit Notes")
 						@navItem("/banking/receive-payment", "Receive Payment", "receive", vm.Active == "Receive Payment")
 					</div>
@@ -99,6 +105,12 @@ templ sidebarShell(vm SidebarVM) {
 					<div class="sidebar-section-panel mt-1 space-y-0.5" data-sidebar-panel>
 						@navItem("/expenses", "Expenses", "bill", vm.Active == "Expenses")
 						@navItem("/vendors", "Vendors", "vendors", vm.Active == "Vendors")
+						@navItem("/purchase-orders", "Purchase Orders", "bill", vm.Active == "Purchase Orders")
+						@navItem("/vendor-prepayments", "Vendor Prepayments", "pay", vm.Active == "Vendor Prepayments")
+						@navItem("/vendor-returns", "Vendor Returns", "receive", vm.Active == "Vendor Returns")
+						@navItem("/vendor-credit-notes", "Vendor Credit Notes", "invoice", vm.Active == "Vendor Credit Notes")
+						@navItem("/vendor-refunds", "Vendor Refunds", "receive", vm.Active == "Vendor Refunds")
+						@navItem("/ap-aging", "AP Aging", "reports", vm.Active == "AP Aging")
 						@navItem("/banking/pay-bills", "Pay Bills", "pay", vm.Active == "Pay Bills")
 					</div>
 				</div>

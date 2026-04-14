@@ -1,0 +1,279 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"fmt"
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+templ RefundDetail(vm RefundDetailVM) {
+	@layout.Layout(
+		"GoBooks - "+refundDetailTitle(vm),
+		ui.SidebarVM{Active: "AR Refunds", HasCompany: vm.HasCompany},
+		bodyRefundDetail(vm),
+	)
+}
+
+func refundDetailTitle(vm RefundDetailVM) string {
+	if vm.Refund.ID == 0 {
+		return "New Refund"
+	}
+	return "Refund " + vm.Refund.RefundNumber
+}
+
+func refundDateVal(ref models.ARRefund) string {
+	if ref.RefundDate.IsZero() {
+		return ""
+	}
+	return ref.RefundDate.Format("2006-01-02")
+}
+
+templ bodyRefundDetail(vm RefundDetailVM) {
+	<div class="max-w-3xl">
+		<div class="flex flex-wrap items-center justify-between gap-4">
+			<div>
+				<h1 class="text-title font-semibold">{ refundDetailTitle(vm) }</h1>
+				<p class="mt-1 text-text-muted2">
+					if vm.Refund.ID == 0 {
+						Record a customer cash refund.
+					} else {
+						View and manage this refund.
+					}
+				</p>
+			</div>
+			<a href="/refunds" class="text-body text-text-muted3 hover:text-text">← Back to Refunds</a>
+		</div>
+
+		if vm.Saved {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Refund saved.</div>
+		}
+		if vm.Posted {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Refund posted to accounting.</div>
+		}
+		if vm.Voided {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">Refund voided.</div>
+		}
+		if vm.Reversed {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">Refund reversed.</div>
+		}
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">{ vm.FormError }</div>
+		}
+
+		if vm.Refund.ID != 0 {
+			<div class="mt-4 flex items-center gap-3">
+				<span class="text-body font-medium text-text-muted">Status:</span>
+				<span class={ refundStatusBadgeClass(vm.Refund.Status) }>{ models.ARRefundStatusLabel(vm.Refund.Status) }</span>
+			</div>
+		}
+
+		if vm.Refund.ID == 0 || vm.Refund.Status == models.ARRefundStatusDraft {
+			@refundEditForm(vm)
+		} else {
+			@refundReadOnlyView(vm)
+		}
+	</div>
+}
+
+templ refundEditForm(vm RefundDetailVM) {
+	<form method="POST" action="/refunds/save" class="mt-6 space-y-5">
+		if vm.Refund.ID != 0 {
+			<input type="hidden" name="refund_id" value={ fmt.Sprintf("%d", vm.Refund.ID) }/>
+		}
+
+		<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+			<div>
+				<label class="block text-body font-medium text-text-muted">Customer *</label>
+				<select name="customer_id" required class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					<option value="">— Select customer —</option>
+					for _, c := range vm.Customers {
+						<option value={ fmt.Sprintf("%d", c.ID) } selected?={ vm.Refund.CustomerID == c.ID }>
+							{ c.Name }
+						</option>
+					}
+				</select>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">Refund Date *</label>
+				<input
+					type="date"
+					name="refund_date"
+					value={ refundDateVal(vm.Refund) }
+					required
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+			<div>
+				<label class="block text-body font-medium text-text-muted">Bank Account (paid from) *</label>
+				<select name="bank_account_id" required class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					<option value="">— Select bank account —</option>
+					for _, a := range vm.Accounts {
+						if a.DetailAccountType == models.DetailBank {
+							<option
+								value={ fmt.Sprintf("%d", a.ID) }
+								selected?={ vm.Refund.BankAccountID != nil && *vm.Refund.BankAccountID == a.ID }
+							>
+								{ a.Code } – { a.Name }
+							</option>
+						}
+					}
+				</select>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">Source Type</label>
+				<select name="source_type" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					for _, st := range []models.ARRefundSourceType{
+						models.ARRefundSourceDeposit,
+						models.ARRefundSourceOverpayment,
+						models.ARRefundSourceCreditNote,
+						models.ARRefundSourceOther,
+					} {
+						<option value={ string(st) } selected?={ vm.Refund.SourceType == st }>
+							{ refundSourceLabel(st) }
+						</option>
+					}
+				</select>
+			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+			<div>
+				<label class="block text-body font-medium text-text-muted">Currency *</label>
+				<input
+					type="text"
+					name="currency_code"
+					value={ vm.Refund.CurrencyCode }
+					maxlength="3"
+					placeholder="CAD"
+					required
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">Exchange Rate</label>
+				<input
+					type="text"
+					name="exchange_rate"
+					value={ vm.Refund.ExchangeRate.StringFixed(6) }
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+			<div>
+				<label class="block text-body font-medium text-text-muted">Amount *</label>
+				<input
+					type="text"
+					name="amount"
+					value={ vm.Refund.Amount.StringFixed(2) }
+					required
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">Payment Method</label>
+				<select name="payment_method" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					for _, pm := range models.AllPaymentMethods() {
+						<option value={ string(pm) } selected?={ vm.Refund.PaymentMethod == pm }>
+							{ models.PaymentMethodLabel(pm) }
+						</option>
+					}
+				</select>
+			</div>
+		</div>
+
+		<div>
+			<label class="block text-body font-medium text-text-muted">Reference</label>
+			<input
+				type="text"
+				name="reference"
+				value={ vm.Refund.Reference }
+				class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+			/>
+		</div>
+
+		<div>
+			<label class="block text-body font-medium text-text-muted">Memo</label>
+			<textarea name="memo" rows="2" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">{ vm.Refund.Memo }</textarea>
+		</div>
+
+		<div class="flex gap-3">
+			<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
+				if vm.Refund.ID == 0 {
+					Create Refund
+				} else {
+					Save Refund
+				}
+			</button>
+			if vm.Refund.ID != 0 {
+				<form method="POST" action={ templ.SafeURL("/refunds/" + fmt.Sprintf("%d", vm.Refund.ID) + "/void") }>
+					<button type="submit" class="rounded-md bg-red-600 px-4 py-2 text-body font-semibold text-white hover:bg-red-700">
+						Void
+					</button>
+				</form>
+			}
+		</div>
+	</form>
+
+	<!-- Post section (only for saved draft with a debit account picker) -->
+	if vm.Refund.ID != 0 {
+		<div class="mt-8 rounded-md border border-border p-5">
+			<h3 class="text-body font-semibold text-text">Post Refund to Accounting</h3>
+			<p class="mt-1 text-body-sm text-text-muted2">Select the debit account (AR / Deposit Liability / Credit balance) and post the journal entry.</p>
+			<form method="POST" action={ templ.SafeURL("/refunds/" + fmt.Sprintf("%d", vm.Refund.ID) + "/post") } class="mt-4 flex flex-wrap items-end gap-4">
+				<div class="flex-1 min-w-48">
+					<label class="block text-body font-medium text-text-muted">Debit Account *</label>
+					<select name="debit_account_id" required class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+						<option value="">— Select account —</option>
+						for _, a := range vm.Accounts {
+							<option value={ fmt.Sprintf("%d", a.ID) }>
+								{ a.Code } – { a.Name }
+							</option>
+						}
+					</select>
+				</div>
+				<button type="submit" class="rounded-md bg-green-600 px-4 py-2 text-body font-semibold text-white hover:bg-green-700">
+					Post
+				</button>
+			</form>
+		</div>
+	}
+}
+
+templ refundReadOnlyView(vm RefundDetailVM) {
+	<div class="mt-6 space-y-4 rounded-md border border-border bg-surface p-6">
+		<div class="grid grid-cols-2 gap-x-8 gap-y-3 text-body">
+			<div><span class="font-medium text-text-muted">Customer:</span> <span class="text-text">{ vm.Refund.Customer.Name }</span></div>
+			<div><span class="font-medium text-text-muted">Refund #:</span> <span class="text-text">{ vm.Refund.RefundNumber }</span></div>
+			<div><span class="font-medium text-text-muted">Refund Date:</span> <span class="text-text">{ vm.Refund.RefundDate.Format("2006-01-02") }</span></div>
+			<div><span class="font-medium text-text-muted">Source:</span> <span class="text-text">{ refundSourceLabel(vm.Refund.SourceType) }</span></div>
+			<div><span class="font-medium text-text-muted">Currency:</span> <span class="text-text">{ vm.Refund.CurrencyCode }</span></div>
+			<div>
+				<span class="font-medium text-text-muted">Amount:</span>
+				<span class="text-text"><span data-numfmt>{ vm.Refund.Amount.StringFixed(2) }</span> { vm.Refund.CurrencyCode }</span>
+			</div>
+			if vm.Refund.Reference != "" {
+				<div><span class="font-medium text-text-muted">Reference:</span> <span class="text-text">{ vm.Refund.Reference }</span></div>
+			}
+			if vm.Refund.PostedBy != "" {
+				<div><span class="font-medium text-text-muted">Posted By:</span> <span class="text-text">{ vm.Refund.PostedBy }</span></div>
+			}
+		</div>
+	</div>
+
+	if vm.Refund.Status == models.ARRefundStatusPosted {
+		<div class="mt-4">
+			<form method="POST" action={ templ.SafeURL("/refunds/" + fmt.Sprintf("%d", vm.Refund.ID) + "/reverse") }>
+				<button type="submit" class="rounded-md bg-red-600 px-4 py-2 text-body font-semibold text-white hover:bg-red-700">
+					Reverse Refund
+				</button>
+			</form>
+		</div>
+	}
+}

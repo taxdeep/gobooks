@@ -1,0 +1,492 @@
+// 遵循project_guide.md
+package services
+
+// customer_deposit_service.go — CustomerDeposit: pre-invoice cash receipt lifecycle.
+//
+// Accounting rules:
+//
+//   Post (draft → posted/unapplied):
+//     Dr  BankAccount          Amount (base)
+//     Cr  DepositLiability     Amount (base)
+//
+//   Apply to Invoice (posted/partially_applied → partially_applied/fully_applied):
+//     Dr  DepositLiability     AmountApplied (base)
+//     Cr  ARAccount            AmountApplied (base)
+//     + updates Invoice.BalanceDue and Invoice payment status
+//     + updates Deposit.BalanceRemaining
+//
+//   Void (draft or posted/unapplied):
+//     If posted: creates reversal JE; marks deposit JE status=reversed
+//     Sets deposit status=voided, BalanceRemaining=0
+
+import (
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
+	"gorm.io/gorm"
+
+	"gobooks/internal/models"
+)
+
+// ── Errors ─────────────────────────────────────────────────────────────────
+
+var (
+	ErrDepositNotFound      = errors.New("customer deposit not found")
+	ErrDepositInvalidStatus = errors.New("action not allowed in current deposit status")
+	ErrDepositNoBank        = errors.New("bank account is required before posting")
+	ErrDepositNoLiability   = errors.New("deposit liability account is required before posting")
+	ErrDepositInsufficientBalance = errors.New("apply amount exceeds deposit balance remaining")
+	ErrDepositAlreadyApplied = errors.New("cannot void a deposit that has been partially or fully applied")
+)
+
+// ── Input types ──────────────────────────────────────────────────────────────
+
+// CustomerDepositInput holds all data needed to create or update a CustomerDeposit.
+type CustomerDepositInput struct {
+	CustomerID                uint
+	SalesOrderID              *uint
+	BankAccountID             *uint
+	DepositLiabilityAccountID *uint
+	DepositDate               time.Time
+	CurrencyCode              string
+	ExchangeRate              decimal.Decimal // 1.0 for base currency
+	Amount                    decimal.Decimal
+	PaymentMethod             models.PaymentMethod
+	Reference                 string
+	Memo                      string
+}
+
+// ApplyDepositInput holds data for applying a deposit to an invoice.
+type ApplyDepositInput struct {
+	DepositID     uint
+	InvoiceID     uint
+	AmountApplied decimal.Decimal
+	Actor         string
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+// nextDepositNumber derives the next deposit document number for a company.
+func nextDepositNumber(db *gorm.DB, companyID uint) string {
+	var last models.CustomerDeposit
+	db.Where("company_id = ?", companyID).
+		Order("id desc").
+		Select("deposit_number").
+		First(&last)
+	return NextDocumentNumber(last.DepositNumber, "DEP-0001")
+}
+
+// ── Create ────────────────────────────────────────────────────────────────────
+
+// CreateCustomerDeposit creates a new draft deposit. No JE is generated.
+func CreateCustomerDeposit(db *gorm.DB, companyID uint, in CustomerDepositInput) (*models.CustomerDeposit, error) {
+	if in.CustomerID == 0 {
+		return nil, errors.New("customer is required")
+	}
+	if !in.Amount.IsPositive() {
+		return nil, errors.New("amount must be positive")
+	}
+
+	rate := in.ExchangeRate
+	if rate.IsZero() {
+		rate = decimal.NewFromInt(1)
+	}
+
+	dep := models.CustomerDeposit{
+		CompanyID:                 companyID,
+		CustomerID:                in.CustomerID,
+		SalesOrderID:              in.SalesOrderID,
+		BankAccountID:             in.BankAccountID,
+		DepositLiabilityAccountID: in.DepositLiabilityAccountID,
+		DepositNumber:             nextDepositNumber(db, companyID),
+		Status:                    models.CustomerDepositStatusDraft,
+		DepositDate:               in.DepositDate,
+		CurrencyCode:              in.CurrencyCode,
+		ExchangeRate:              rate,
+		Amount:                    in.Amount.Round(2),
+		AmountBase:                decimal.Zero,  // set at posting
+		BalanceRemaining:          decimal.Zero,  // set at posting
+		PaymentMethod:             in.PaymentMethod,
+		Reference:                 in.Reference,
+		Memo:                      in.Memo,
+	}
+	if dep.PaymentMethod == "" {
+		dep.PaymentMethod = models.PaymentMethodOther
+	}
+
+	if err := db.Create(&dep).Error; err != nil {
+		return nil, fmt.Errorf("create deposit: %w", err)
+	}
+	return &dep, nil
+}
+
+// ── Read ──────────────────────────────────────────────────────────────────────
+
+// GetCustomerDeposit loads a deposit with its customer for the given company.
+func GetCustomerDeposit(db *gorm.DB, companyID, depositID uint) (*models.CustomerDeposit, error) {
+	var dep models.CustomerDeposit
+	err := db.Preload("Customer").Preload("BankAccount").Preload("DepositLiabilityAccount").
+		Where("id = ? AND company_id = ?", depositID, companyID).
+		First(&dep).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrDepositNotFound
+	}
+	return &dep, err
+}
+
+// ListCustomerDeposits returns deposits for a company, newest first.
+// statusFilter: empty = all; customerID: 0 = all.
+func ListCustomerDeposits(db *gorm.DB, companyID uint, statusFilter string, customerID uint) ([]models.CustomerDeposit, error) {
+	q := db.Preload("Customer").Where("company_id = ?", companyID)
+	if statusFilter != "" {
+		q = q.Where("status = ?", statusFilter)
+	}
+	if customerID > 0 {
+		q = q.Where("customer_id = ?", customerID)
+	}
+	var deps []models.CustomerDeposit
+	err := q.Order("id desc").Find(&deps).Error
+	return deps, err
+}
+
+// ── Update ────────────────────────────────────────────────────────────────────
+
+// UpdateCustomerDeposit updates a draft deposit.
+func UpdateCustomerDeposit(db *gorm.DB, companyID, depositID uint, in CustomerDepositInput) (*models.CustomerDeposit, error) {
+	var dep models.CustomerDeposit
+	if err := db.Where("id = ? AND company_id = ?", depositID, companyID).First(&dep).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrDepositNotFound
+		}
+		return nil, err
+	}
+	if dep.Status != models.CustomerDepositStatusDraft {
+		return nil, fmt.Errorf("%w: only draft deposits may be edited", ErrDepositInvalidStatus)
+	}
+
+	rate := in.ExchangeRate
+	if rate.IsZero() {
+		rate = decimal.NewFromInt(1)
+	}
+
+	updates := map[string]any{
+		"customer_id":                  in.CustomerID,
+		"sales_order_id":               in.SalesOrderID,
+		"bank_account_id":              in.BankAccountID,
+		"deposit_liability_account_id": in.DepositLiabilityAccountID,
+		"deposit_date":                 in.DepositDate,
+		"currency_code":                in.CurrencyCode,
+		"exchange_rate":                rate,
+		"amount":                       in.Amount.Round(2),
+		"payment_method":               in.PaymentMethod,
+		"reference":                    in.Reference,
+		"memo":                         in.Memo,
+	}
+	if err := db.Model(&dep).Updates(updates).Error; err != nil {
+		return nil, fmt.Errorf("update deposit: %w", err)
+	}
+	return &dep, nil
+}
+
+// ── Post ──────────────────────────────────────────────────────────────────────
+
+// PostCustomerDeposit transitions a draft deposit to posted (unapplied) and
+// creates a double-entry journal entry.
+//
+//	Dr  BankAccount          Amount×Rate (base)
+//	Cr  DepositLiability     Amount×Rate (base)
+func PostCustomerDeposit(db *gorm.DB, companyID, depositID uint, actor string, actorID *uuid.UUID) error {
+	var dep models.CustomerDeposit
+	if err := db.Where("id = ? AND company_id = ?", depositID, companyID).First(&dep).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrDepositNotFound
+		}
+		return err
+	}
+	if dep.Status != models.CustomerDepositStatusDraft {
+		return fmt.Errorf("%w: only draft deposits can be posted", ErrDepositInvalidStatus)
+	}
+	if dep.BankAccountID == nil || *dep.BankAccountID == 0 {
+		return ErrDepositNoBank
+	}
+	if dep.DepositLiabilityAccountID == nil || *dep.DepositLiabilityAccountID == 0 {
+		return ErrDepositNoLiability
+	}
+
+	// Compute base-currency amount.
+	rate := dep.ExchangeRate
+	if rate.IsZero() || rate.IsNegative() {
+		rate = decimal.NewFromInt(1)
+	}
+	amountBase := dep.Amount.Mul(rate).Round(2)
+
+	return db.Transaction(func(tx *gorm.DB) error {
+		je := models.JournalEntry{
+			CompanyID:  companyID,
+			EntryDate:  dep.DepositDate,
+			JournalNo:  "DEP – " + dep.DepositNumber,
+			Status:     models.JournalEntryStatusPosted,
+			SourceType: models.LedgerSourceCustomerDeposit,
+			SourceID:   dep.ID,
+		}
+		if err := tx.Create(&je).Error; err != nil {
+			return fmt.Errorf("create deposit JE: %w", err)
+		}
+
+		lines := []models.JournalLine{
+			// Dr Bank / Cash
+			{
+				CompanyID:      companyID,
+				JournalEntryID: je.ID,
+				AccountID:      *dep.BankAccountID,
+				Debit:          amountBase,
+				Credit:         decimal.Zero,
+				Memo:           dep.DepositNumber + " – customer deposit received",
+			},
+			// Cr Deposit Liability
+			{
+				CompanyID:      companyID,
+				JournalEntryID: je.ID,
+				AccountID:      *dep.DepositLiabilityAccountID,
+				Debit:          decimal.Zero,
+				Credit:         amountBase,
+				Memo:           dep.DepositNumber + " – deposit liability",
+			},
+		}
+		if err := tx.Create(&lines).Error; err != nil {
+			return fmt.Errorf("create deposit JE lines: %w", err)
+		}
+
+		if err := ProjectToLedger(tx, companyID, LedgerPostInput{
+			JournalEntry: je,
+			Lines:        lines,
+			SourceType:   models.LedgerSourceCustomerDeposit,
+			SourceID:     dep.ID,
+		}); err != nil {
+			return fmt.Errorf("project deposit to ledger: %w", err)
+		}
+
+		now := time.Now()
+		updates := map[string]any{
+			"status":            string(models.CustomerDepositStatusPosted),
+			"journal_entry_id":  je.ID,
+			"amount_base":       amountBase,
+			"balance_remaining": dep.Amount.Round(2), // remaining in doc currency
+			"posted_at":         &now,
+			"posted_by":         actor,
+		}
+		if actorID != nil {
+			updates["posted_by_user_id"] = actorID
+		}
+		if err := tx.Model(&dep).Updates(updates).Error; err != nil {
+			return fmt.Errorf("update deposit status: %w", err)
+		}
+		return nil
+	})
+}
+
+// ── Apply to Invoice ──────────────────────────────────────────────────────────
+
+// ApplyDepositToInvoice applies a portion of a posted deposit to an open invoice.
+//
+//	Dr  DepositLiability     AmountApplied×Rate (base)
+//	Cr  ARAccount            AmountApplied×Rate (base)
+//
+// The invoice's BalanceDue is reduced and the deposit's BalanceRemaining is
+// updated. Status transitions happen automatically.
+func ApplyDepositToInvoice(db *gorm.DB, companyID uint, in ApplyDepositInput, actorID *uuid.UUID) error {
+	if !in.AmountApplied.IsPositive() {
+		return errors.New("apply amount must be positive")
+	}
+
+	var dep models.CustomerDeposit
+	if err := db.Where("id = ? AND company_id = ?", in.DepositID, companyID).First(&dep).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrDepositNotFound
+		}
+		return err
+	}
+	if dep.Status != models.CustomerDepositStatusPosted &&
+		dep.Status != models.CustomerDepositStatusPartiallyApplied {
+		return fmt.Errorf("%w: deposit must be posted/unapplied or partially applied", ErrDepositInvalidStatus)
+	}
+	if dep.DepositLiabilityAccountID == nil {
+		return ErrDepositNoLiability
+	}
+	if in.AmountApplied.GreaterThan(dep.BalanceRemaining) {
+		return ErrDepositInsufficientBalance
+	}
+
+	// Load invoice.
+	var inv models.Invoice
+	if err := db.Where("id = ? AND company_id = ?", in.InvoiceID, companyID).First(&inv).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("invoice not found")
+		}
+		return err
+	}
+	if inv.BalanceDue.LessThan(in.AmountApplied) {
+		return errors.New("apply amount exceeds invoice balance due")
+	}
+
+	// Load AR account.
+	arAccount, err := ResolveControlAccount(db, companyID, 0,
+		models.ARAPDocTypeInvoice, dep.CurrencyCode, dep.CurrencyCode != "" && dep.CurrencyCode != inv.CurrencyCode,
+		models.DetailAccountsReceivable, ErrNoARAccount)
+	if err != nil {
+		return fmt.Errorf("resolve AR account: %w", err)
+	}
+
+	// Base amount for the application JE.
+	rate := dep.ExchangeRate
+	if rate.IsZero() || rate.IsNegative() {
+		rate = decimal.NewFromInt(1)
+	}
+	amountAppliedBase := in.AmountApplied.Mul(rate).Round(2)
+
+	return db.Transaction(func(tx *gorm.DB) error {
+		// Create application JE.
+		je := models.JournalEntry{
+			CompanyID:  companyID,
+			EntryDate:  time.Now(),
+			JournalNo:  "DEP-APP – " + dep.DepositNumber,
+			Status:     models.JournalEntryStatusPosted,
+			SourceType: models.LedgerSourceDepositApplication,
+			SourceID:   dep.ID,
+		}
+		if err := tx.Create(&je).Error; err != nil {
+			return fmt.Errorf("create application JE: %w", err)
+		}
+
+		lines := []models.JournalLine{
+			// Dr Deposit Liability (reduces the liability)
+			{
+				CompanyID:      companyID,
+				JournalEntryID: je.ID,
+				AccountID:      *dep.DepositLiabilityAccountID,
+				Debit:          amountAppliedBase,
+				Credit:         decimal.Zero,
+				Memo:           fmt.Sprintf("Apply %s against invoice %s", dep.DepositNumber, inv.InvoiceNumber),
+			},
+			// Cr AR (reduces the invoice balance)
+			{
+				CompanyID:      companyID,
+				JournalEntryID: je.ID,
+				AccountID:      arAccount.ID,
+				Debit:          decimal.Zero,
+				Credit:         amountAppliedBase,
+				Memo:           fmt.Sprintf("Apply deposit %s against invoice %s", dep.DepositNumber, inv.InvoiceNumber),
+			},
+		}
+		if err := tx.Create(&lines).Error; err != nil {
+			return fmt.Errorf("create application JE lines: %w", err)
+		}
+
+		if err := ProjectToLedger(tx, companyID, LedgerPostInput{
+			JournalEntry: je,
+			Lines:        lines,
+			SourceType:   models.LedgerSourceDepositApplication,
+			SourceID:     dep.ID,
+		}); err != nil {
+			return fmt.Errorf("project application to ledger: %w", err)
+		}
+
+		// Record the CustomerDepositApplication.
+		app := models.CustomerDepositApplication{
+			CompanyID:         companyID,
+			CustomerDepositID: dep.ID,
+			InvoiceID:         inv.ID,
+			AmountApplied:     in.AmountApplied.Round(2),
+			AmountAppliedBase: amountAppliedBase,
+			AppliedAt:         time.Now(),
+			AppliedBy:         in.Actor,
+		}
+		if err := tx.Create(&app).Error; err != nil {
+			return fmt.Errorf("create deposit application record: %w", err)
+		}
+
+		// Update deposit balance.
+		newBalance := dep.BalanceRemaining.Sub(in.AmountApplied).Round(2)
+		var newDepStatus models.CustomerDepositStatus
+		if newBalance.IsZero() {
+			newDepStatus = models.CustomerDepositStatusFullyApplied
+		} else {
+			newDepStatus = models.CustomerDepositStatusPartiallyApplied
+		}
+		if err := tx.Model(&dep).Updates(map[string]any{
+			"balance_remaining": newBalance,
+			"status":            string(newDepStatus),
+		}).Error; err != nil {
+			return fmt.Errorf("update deposit balance: %w", err)
+		}
+
+		// Update invoice BalanceDue.
+		newBalanceDue := inv.BalanceDue.Sub(in.AmountApplied).Round(2)
+		if err := tx.Model(&inv).Update("balance_due", newBalanceDue).Error; err != nil {
+			return fmt.Errorf("update invoice balance due: %w", err)
+		}
+
+		return nil
+	})
+}
+
+// ── Void ──────────────────────────────────────────────────────────────────────
+
+// VoidCustomerDeposit voids a draft or posted (unapplied) deposit.
+//
+// If posted: creates a reversal JE; marks original JE reversed.
+// Applied deposits cannot be voided — unapply first.
+func VoidCustomerDeposit(db *gorm.DB, companyID, depositID uint, actor string) error {
+	var dep models.CustomerDeposit
+	if err := db.Where("id = ? AND company_id = ?", depositID, companyID).First(&dep).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrDepositNotFound
+		}
+		return err
+	}
+
+	switch dep.Status {
+	case models.CustomerDepositStatusDraft:
+		// Simply mark voided — no JE to reverse.
+		return db.Model(&dep).Update("status", models.CustomerDepositStatusVoided).Error
+
+	case models.CustomerDepositStatusPosted:
+		// Posted = fully unapplied; safe to void.
+		return db.Transaction(func(tx *gorm.DB) error {
+			if dep.JournalEntryID == nil {
+				return errors.New("deposit has no linked journal entry")
+			}
+			// Create reversal JE.
+			reversalID, err := ReverseJournalEntry(tx, companyID, *dep.JournalEntryID, time.Now())
+			if err != nil {
+				return fmt.Errorf("reverse deposit JE: %w", err)
+			}
+			_ = reversalID
+
+			// Mark original JE reversed.
+			if err := tx.Model(&models.JournalEntry{}).
+				Where("id = ? AND company_id = ?", *dep.JournalEntryID, companyID).
+				Update("status", models.JournalEntryStatusReversed).Error; err != nil {
+				return fmt.Errorf("mark original JE reversed: %w", err)
+			}
+
+			// Mark deposit voided.
+			if err := tx.Model(&dep).Updates(map[string]any{
+				"status":            string(models.CustomerDepositStatusVoided),
+				"balance_remaining": decimal.Zero,
+			}).Error; err != nil {
+				return fmt.Errorf("void deposit: %w", err)
+			}
+			return nil
+		})
+
+	case models.CustomerDepositStatusPartiallyApplied, models.CustomerDepositStatusFullyApplied:
+		return ErrDepositAlreadyApplied
+
+	default:
+		return fmt.Errorf("%w: cannot void from status %s", ErrDepositInvalidStatus, dep.Status)
+	}
+}

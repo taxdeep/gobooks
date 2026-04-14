@@ -1,0 +1,248 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"fmt"
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+templ VendorCreditNoteDetail(vm VendorCreditNoteDetailVM) {
+	@layout.Layout(
+		"GoBooks - "+vcnDetailTitle(vm),
+		ui.SidebarVM{Active: "Vendor Credit Notes", HasCompany: vm.HasCompany},
+		bodyVCNDetail(vm),
+	)
+}
+
+func vcnDetailTitle(vm VendorCreditNoteDetailVM) string {
+	if vm.CreditNote.ID == 0 {
+		return "New Vendor Credit Note"
+	}
+	return "Credit Note " + vm.CreditNote.CreditNoteNumber
+}
+
+func vcnDateVal(vcn models.VendorCreditNote) string {
+	if vcn.CreditNoteDate.IsZero() {
+		return ""
+	}
+	return vcn.CreditNoteDate.Format("2006-01-02")
+}
+
+templ bodyVCNDetail(vm VendorCreditNoteDetailVM) {
+	<div class="max-w-3xl">
+		<div class="flex flex-wrap items-center justify-between gap-4">
+			<div>
+				<h1 class="text-title font-semibold">{ vcnDetailTitle(vm) }</h1>
+				<p class="mt-1 text-text-muted2">
+					if vm.CreditNote.ID == 0 {
+						Record a vendor-issued credit that reduces your AP balance.
+					} else {
+						View and manage this vendor credit note.
+					}
+				</p>
+			</div>
+			<a href="/vendor-credit-notes" class="text-body text-text-muted3 hover:text-text">← Back to Credit Notes</a>
+		</div>
+
+		if vm.Saved {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Credit note saved.</div>
+		}
+		if vm.Posted {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Credit note posted to accounting.</div>
+		}
+		if vm.Voided {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">Credit note voided.</div>
+		}
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">{ vm.FormError }</div>
+		}
+
+		if vm.CreditNote.ID != 0 {
+			<div class="mt-4 flex items-center gap-3">
+				<span class="text-body font-medium text-text-muted">Status:</span>
+				<span class={ vcnStatusBadgeClass(vm.CreditNote.Status) }>{ models.VendorCreditNoteStatusLabel(vm.CreditNote.Status) }</span>
+			</div>
+		}
+
+		if vm.CreditNote.ID == 0 || vm.CreditNote.Status == models.VendorCreditNoteStatusDraft {
+			@vcnEditForm(vm)
+		} else {
+			@vcnReadOnlyView(vm)
+		}
+	</div>
+}
+
+templ vcnEditForm(vm VendorCreditNoteDetailVM) {
+	<form method="POST" action="/vendor-credit-notes/save" class="mt-6 space-y-5">
+		if vm.CreditNote.ID != 0 {
+			<input type="hidden" name="credit_note_id" value={ fmt.Sprintf("%d", vm.CreditNote.ID) }/>
+		}
+
+		<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+			<div>
+				<label class="block text-body font-medium text-text-muted">Vendor *</label>
+				<select name="vendor_id" required class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					<option value="">— Select vendor —</option>
+					for _, v := range vm.Vendors {
+						<option value={ fmt.Sprintf("%d", v.ID) } selected?={ vm.CreditNote.VendorID == v.ID }>
+							{ v.Name }
+						</option>
+					}
+				</select>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">Credit Note Date *</label>
+				<input
+					type="date"
+					name="credit_note_date"
+					value={ vcnDateVal(vm.CreditNote) }
+					required
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+			<div>
+				<label class="block text-body font-medium text-text-muted">AP Account *</label>
+				<select name="ap_account_id" required class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					<option value="">— Select AP account —</option>
+					for _, a := range vm.Accounts {
+						<option
+							value={ fmt.Sprintf("%d", a.ID) }
+							selected?={ vm.CreditNote.APAccountID != nil && *vm.CreditNote.APAccountID == a.ID }
+						>
+							{ a.Code } – { a.Name }
+						</option>
+					}
+				</select>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">Offset Account *</label>
+				<select name="offset_account_id" required class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					<option value="">— Select offset account —</option>
+					for _, a := range vm.Accounts {
+						<option
+							value={ fmt.Sprintf("%d", a.ID) }
+							selected?={ vm.CreditNote.OffsetAccountID != nil && *vm.CreditNote.OffsetAccountID == a.ID }
+						>
+							{ a.Code } – { a.Name }
+						</option>
+					}
+				</select>
+			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+			<div>
+				<label class="block text-body font-medium text-text-muted">Currency *</label>
+				<input
+					type="text"
+					name="currency_code"
+					value={ vm.CreditNote.CurrencyCode }
+					maxlength="3"
+					placeholder="CAD"
+					required
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">Exchange Rate</label>
+				<input
+					type="text"
+					name="exchange_rate"
+					value={ vm.CreditNote.ExchangeRate.StringFixed(6) }
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+			<div>
+				<label class="block text-body font-medium text-text-muted">Amount *</label>
+				<input
+					type="text"
+					name="amount"
+					value={ vm.CreditNote.Amount.StringFixed(2) }
+					required
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">Linked Bill</label>
+				<select name="bill_id" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					<option value="">— None —</option>
+					for _, b := range vm.Bills {
+						<option value={ fmt.Sprintf("%d", b.ID) } selected?={ vm.CreditNote.BillID != nil && *vm.CreditNote.BillID == b.ID }>
+							{ b.BillNumber }
+						</option>
+					}
+				</select>
+			</div>
+		</div>
+
+		<div>
+			<label class="block text-body font-medium text-text-muted">Reason</label>
+			<input
+				type="text"
+				name="reason"
+				value={ vm.CreditNote.Reason }
+				class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+			/>
+		</div>
+
+		<div>
+			<label class="block text-body font-medium text-text-muted">Memo</label>
+			<textarea name="memo" rows="2" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">{ vm.CreditNote.Memo }</textarea>
+		</div>
+
+		<div class="flex gap-3">
+			<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
+				if vm.CreditNote.ID == 0 {
+					Create Credit Note
+				} else {
+					Save Credit Note
+				}
+			</button>
+			if vm.CreditNote.ID != 0 {
+				<form method="POST" action={ templ.SafeURL("/vendor-credit-notes/" + fmt.Sprintf("%d", vm.CreditNote.ID) + "/post") }>
+					<button type="submit" class="rounded-md bg-green-600 px-4 py-2 text-body font-semibold text-white hover:bg-green-700">
+						Post to Accounting
+					</button>
+				</form>
+				<form method="POST" action={ templ.SafeURL("/vendor-credit-notes/" + fmt.Sprintf("%d", vm.CreditNote.ID) + "/void") }>
+					<button type="submit" class="rounded-md bg-red-600 px-4 py-2 text-body font-semibold text-white hover:bg-red-700">
+						Void
+					</button>
+				</form>
+			}
+		</div>
+	</form>
+}
+
+templ vcnReadOnlyView(vm VendorCreditNoteDetailVM) {
+	<div class="mt-6 space-y-4 rounded-md border border-border bg-surface p-6">
+		<div class="grid grid-cols-2 gap-x-8 gap-y-3 text-body">
+			<div><span class="font-medium text-text-muted">Vendor:</span> <span class="text-text">{ vm.CreditNote.Vendor.Name }</span></div>
+			<div><span class="font-medium text-text-muted">Credit Note #:</span> <span class="text-text">{ vm.CreditNote.CreditNoteNumber }</span></div>
+			<div><span class="font-medium text-text-muted">Date:</span> <span class="text-text">{ vm.CreditNote.CreditNoteDate.Format("2006-01-02") }</span></div>
+			<div><span class="font-medium text-text-muted">Currency:</span> <span class="text-text">{ vm.CreditNote.CurrencyCode }</span></div>
+			<div>
+				<span class="font-medium text-text-muted">Amount:</span>
+				<span class="text-text"><span data-numfmt>{ vm.CreditNote.Amount.StringFixed(2) }</span> { vm.CreditNote.CurrencyCode }</span>
+			</div>
+			<div>
+				<span class="font-medium text-text-muted">Remaining:</span>
+				<span class="text-text"><span data-numfmt>{ vm.CreditNote.RemainingAmount.StringFixed(2) }</span></span>
+			</div>
+			if vm.CreditNote.Reason != "" {
+				<div class="col-span-2"><span class="font-medium text-text-muted">Reason:</span> <span class="text-text">{ vm.CreditNote.Reason }</span></div>
+			}
+			if vm.CreditNote.PostedBy != "" {
+				<div><span class="font-medium text-text-muted">Posted By:</span> <span class="text-text">{ vm.CreditNote.PostedBy }</span></div>
+			}
+		</div>
+	</div>
+}

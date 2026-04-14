@@ -1,0 +1,132 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"fmt"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+templ CustomerStatement(vm CustomerStatementVM) {
+	@layout.Layout(
+		"GoBooks - Customer Statement",
+		ui.SidebarVM{Active: "Customer Statement", HasCompany: vm.HasCompany},
+		bodyCustomerStatement(vm),
+	)
+}
+
+templ bodyCustomerStatement(vm CustomerStatementVM) {
+	<div class="max-w-[95%]">
+		<div class="flex flex-wrap items-start justify-between gap-4">
+			<div class="min-w-0 flex-1">
+				<h1 class="text-title font-semibold">Customer Statement</h1>
+				<p class="mt-2 text-text-muted2">Account activity for a customer over a date range.</p>
+			</div>
+		</div>
+
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">{ vm.FormError }</div>
+		}
+
+		<!-- Filters -->
+		<form method="GET" action="/customer-statement" class="mt-4 flex flex-wrap items-end gap-3">
+			<div>
+				<label class="block text-body font-medium text-text-muted">Customer</label>
+				<select
+					name="customer_id"
+					class="mt-1 rounded-md border border-border bg-surface px-3 py-1.5 text-body text-text"
+				>
+					<option value="">— Select customer —</option>
+					for _, c := range vm.Customers {
+						<option value={ fmt.Sprintf("%d", c.ID) } selected?={ vm.CustomerID == fmt.Sprintf("%d", c.ID) }>
+							{ c.Name }
+						</option>
+					}
+				</select>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">From</label>
+				<input
+					type="date"
+					name="from"
+					value={ vm.FromDate }
+					class="mt-1 rounded-md border border-border bg-surface px-3 py-1.5 text-body text-text"
+				/>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">To</label>
+				<input
+					type="date"
+					name="to"
+					value={ vm.ToDate }
+					class="mt-1 rounded-md border border-border bg-surface px-3 py-1.5 text-body text-text"
+				/>
+			</div>
+			<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
+				Run Statement
+			</button>
+		</form>
+
+		if vm.Statement != nil {
+			<div class="mt-6">
+				<h2 class="text-section font-semibold text-text">{ vm.Statement.Customer.Name }</h2>
+				<p class="mt-1 text-body text-text-muted2">
+					{ vm.Statement.FromDate.Format("2006-01-02") } — { vm.Statement.ToDate.Format("2006-01-02") }
+				</p>
+
+				<div class="mt-4 rounded-md border border-border bg-surface px-5 py-3">
+					<div class="flex items-center justify-between text-body">
+						<span class="text-text-muted">Opening Balance</span>
+						<span class="font-medium text-text"><span data-numfmt>{ vm.Statement.OpeningBalance.StringFixed(2) }</span></span>
+					</div>
+				</div>
+
+				<div class="mt-2 overflow-x-auto rounded-md border border-border">
+					<table class="min-w-full divide-y divide-border text-body">
+						<thead class="bg-background">
+							<tr>
+								<th class="px-4 py-3 text-left font-medium text-text-muted">Date</th>
+								<th class="px-4 py-3 text-left font-medium text-text-muted">Type</th>
+								<th class="px-4 py-3 text-left font-medium text-text-muted">Reference</th>
+								<th class="px-4 py-3 text-right font-medium text-text-muted">Debit</th>
+								<th class="px-4 py-3 text-right font-medium text-text-muted">Credit</th>
+								<th class="px-4 py-3 text-right font-medium text-text-muted">Balance</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-border bg-surface">
+							if len(vm.Statement.Lines) == 0 {
+								<tr>
+									<td colspan="6" class="px-4 py-8 text-center text-text-muted">No activity in this period.</td>
+								</tr>
+							}
+							for _, line := range vm.Statement.Lines {
+								<tr class="hover:bg-background">
+									<td class="px-4 py-3 text-text">{ line.Date.Format("2006-01-02") }</td>
+									<td class="px-4 py-3 text-text">{ line.Description }</td>
+									<td class="px-4 py-3 text-text">{ line.Reference }</td>
+									<td class="px-4 py-3 text-right text-text">
+										if line.Debit.IsPositive() {
+											<span data-numfmt>{ line.Debit.StringFixed(2) }</span>
+										}
+									</td>
+									<td class="px-4 py-3 text-right text-text">
+										if line.Credit.IsPositive() {
+											<span data-numfmt>{ line.Credit.StringFixed(2) }</span>
+										}
+									</td>
+									<td class="px-4 py-3 text-right text-text"><span data-numfmt>{ line.Balance.StringFixed(2) }</span></td>
+								</tr>
+							}
+						</tbody>
+						<tfoot class="bg-background">
+							<tr class="border-t-2 border-border">
+								<td colspan="5" class="px-4 py-3 font-semibold text-text">Closing Balance</td>
+								<td class="px-4 py-3 text-right font-semibold text-text"><span data-numfmt>{ vm.Statement.ClosingBalance.StringFixed(2) }</span></td>
+							</tr>
+						</tfoot>
+					</table>
+				</div>
+			</div>
+		}
+	</div>
+}

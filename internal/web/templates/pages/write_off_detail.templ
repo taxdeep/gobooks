@@ -1,0 +1,264 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"fmt"
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+templ WriteOffDetail(vm WriteOffDetailVM) {
+	@layout.Layout(
+		"GoBooks - "+writeOffDetailTitle(vm),
+		ui.SidebarVM{Active: "AR Write-Offs", HasCompany: vm.HasCompany},
+		bodyWriteOffDetail(vm),
+	)
+}
+
+func writeOffDetailTitle(vm WriteOffDetailVM) string {
+	if vm.WriteOff.ID == 0 {
+		return "New Write-Off"
+	}
+	return "Write-Off " + vm.WriteOff.WriteOffNumber
+}
+
+func writeOffDateVal(wo models.ARWriteOff) string {
+	if wo.WriteOffDate.IsZero() {
+		return ""
+	}
+	return wo.WriteOffDate.Format("2006-01-02")
+}
+
+templ bodyWriteOffDetail(vm WriteOffDetailVM) {
+	<div class="max-w-3xl">
+		<div class="flex flex-wrap items-center justify-between gap-4">
+			<div>
+				<h1 class="text-title font-semibold">{ writeOffDetailTitle(vm) }</h1>
+				<p class="mt-1 text-text-muted2">
+					if vm.WriteOff.ID == 0 {
+						Record a bad-debt write-off for an uncollectible AR balance.
+					} else {
+						View and manage this write-off.
+					}
+				</p>
+			</div>
+			<a href="/write-offs" class="text-body text-text-muted3 hover:text-text">← Back to Write-Offs</a>
+		</div>
+
+		if vm.Saved {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Write-off saved.</div>
+		}
+		if vm.Posted {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Write-off posted to accounting. AR balance reduced.</div>
+		}
+		if vm.Voided {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">Write-off voided.</div>
+		}
+		if vm.Reversed {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">Write-off reversed. AR balance restored.</div>
+		}
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">{ vm.FormError }</div>
+		}
+
+		if vm.WriteOff.ID != 0 {
+			<div class="mt-4 flex items-center gap-3">
+				<span class="text-body font-medium text-text-muted">Status:</span>
+				<span class={ writeOffStatusBadgeClass(vm.WriteOff.Status) }>{ models.ARWriteOffStatusLabel(vm.WriteOff.Status) }</span>
+			</div>
+		}
+
+		if vm.WriteOff.ID == 0 || vm.WriteOff.Status == models.ARWriteOffStatusDraft {
+			@writeOffEditForm(vm)
+		} else {
+			@writeOffReadOnlyView(vm)
+		}
+	</div>
+}
+
+templ writeOffEditForm(vm WriteOffDetailVM) {
+	<form method="POST" action="/write-offs/save" class="mt-6 space-y-5">
+		if vm.WriteOff.ID != 0 {
+			<input type="hidden" name="write_off_id" value={ fmt.Sprintf("%d", vm.WriteOff.ID) }/>
+		}
+
+		<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+			<div>
+				<label class="block text-body font-medium text-text-muted">Customer *</label>
+				<select name="customer_id" required class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					<option value="">— Select customer —</option>
+					for _, c := range vm.Customers {
+						<option value={ fmt.Sprintf("%d", c.ID) } selected?={ vm.WriteOff.CustomerID == c.ID }>
+							{ c.Name }
+						</option>
+					}
+				</select>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">Write-Off Date *</label>
+				<input
+					type="date"
+					name="write_off_date"
+					value={ writeOffDateVal(vm.WriteOff) }
+					required
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+			<div>
+				<label class="block text-body font-medium text-text-muted">Invoice (optional)</label>
+				<select name="invoice_id" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					<option value="">— None —</option>
+					for _, inv := range vm.Invoices {
+						<option
+							value={ fmt.Sprintf("%d", inv.ID) }
+							selected?={ vm.WriteOff.InvoiceID != nil && *vm.WriteOff.InvoiceID == inv.ID }
+						>
+							{ inv.InvoiceNumber } — <span data-numfmt>{ inv.BalanceDue.StringFixed(2) }</span> { inv.CurrencyCode }
+						</option>
+					}
+				</select>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">Currency *</label>
+				<input
+					type="text"
+					name="currency_code"
+					value={ vm.WriteOff.CurrencyCode }
+					maxlength="3"
+					placeholder="CAD"
+					required
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+			<div>
+				<label class="block text-body font-medium text-text-muted">AR Account (to be credited) *</label>
+				<select name="ar_account_id" required class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					<option value="">— Select AR account —</option>
+					for _, a := range vm.Accounts {
+						if a.DetailAccountType == models.DetailAccountsReceivable {
+							<option
+								value={ fmt.Sprintf("%d", a.ID) }
+								selected?={ vm.WriteOff.ARAccountID != nil && *vm.WriteOff.ARAccountID == a.ID }
+							>
+								{ a.Code } – { a.Name }
+							</option>
+						}
+					}
+				</select>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">Expense Account (to be debited) *</label>
+				<select name="expense_account_id" required class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					<option value="">— Select expense account —</option>
+					for _, a := range vm.Accounts {
+						if a.RootAccountType == models.RootExpense {
+							<option
+								value={ fmt.Sprintf("%d", a.ID) }
+								selected?={ vm.WriteOff.ExpenseAccountID != nil && *vm.WriteOff.ExpenseAccountID == a.ID }
+							>
+								{ a.Code } – { a.Name }
+							</option>
+						}
+					}
+				</select>
+			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+			<div>
+				<label class="block text-body font-medium text-text-muted">Amount *</label>
+				<input
+					type="text"
+					name="amount"
+					value={ vm.WriteOff.Amount.StringFixed(2) }
+					required
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">Exchange Rate</label>
+				<input
+					type="text"
+					name="exchange_rate"
+					value={ vm.WriteOff.ExchangeRate.StringFixed(6) }
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+		</div>
+
+		<div>
+			<label class="block text-body font-medium text-text-muted">Reason</label>
+			<input
+				type="text"
+				name="reason"
+				value={ vm.WriteOff.Reason }
+				class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				placeholder="e.g. Customer bankrupt, uncollectible"
+			/>
+		</div>
+
+		<div>
+			<label class="block text-body font-medium text-text-muted">Memo</label>
+			<textarea name="memo" rows="2" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">{ vm.WriteOff.Memo }</textarea>
+		</div>
+
+		<div class="flex gap-3">
+			<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
+				if vm.WriteOff.ID == 0 {
+					Create Write-Off
+				} else {
+					Save Write-Off
+				}
+			</button>
+			if vm.WriteOff.ID != 0 {
+				<form method="POST" action={ templ.SafeURL("/write-offs/" + fmt.Sprintf("%d", vm.WriteOff.ID) + "/post") }>
+					<button type="submit" class="rounded-md bg-green-600 px-4 py-2 text-body font-semibold text-white hover:bg-green-700">
+						Post Write-Off
+					</button>
+				</form>
+				<form method="POST" action={ templ.SafeURL("/write-offs/" + fmt.Sprintf("%d", vm.WriteOff.ID) + "/void") }>
+					<button type="submit" class="rounded-md bg-red-600 px-4 py-2 text-body font-semibold text-white hover:bg-red-700">
+						Void
+					</button>
+				</form>
+			}
+		</div>
+	</form>
+}
+
+templ writeOffReadOnlyView(vm WriteOffDetailVM) {
+	<div class="mt-6 space-y-4 rounded-md border border-border bg-surface p-6">
+		<div class="grid grid-cols-2 gap-x-8 gap-y-3 text-body">
+			<div><span class="font-medium text-text-muted">Customer:</span> <span class="text-text">{ vm.WriteOff.Customer.Name }</span></div>
+			<div><span class="font-medium text-text-muted">Write-Off #:</span> <span class="text-text">{ vm.WriteOff.WriteOffNumber }</span></div>
+			<div><span class="font-medium text-text-muted">Date:</span> <span class="text-text">{ vm.WriteOff.WriteOffDate.Format("2006-01-02") }</span></div>
+			<div>
+				<span class="font-medium text-text-muted">Amount:</span>
+				<span class="text-text"><span data-numfmt>{ vm.WriteOff.Amount.StringFixed(2) }</span> { vm.WriteOff.CurrencyCode }</span>
+			</div>
+			if vm.WriteOff.Reason != "" {
+				<div class="col-span-2"><span class="font-medium text-text-muted">Reason:</span> <span class="text-text">{ vm.WriteOff.Reason }</span></div>
+			}
+			if vm.WriteOff.PostedBy != "" {
+				<div><span class="font-medium text-text-muted">Posted By:</span> <span class="text-text">{ vm.WriteOff.PostedBy }</span></div>
+			}
+		</div>
+	</div>
+
+	if vm.WriteOff.Status == models.ARWriteOffStatusPosted {
+		<div class="mt-4">
+			<form method="POST" action={ templ.SafeURL("/write-offs/" + fmt.Sprintf("%d", vm.WriteOff.ID) + "/reverse") }>
+				<button type="submit" class="rounded-md bg-red-600 px-4 py-2 text-body font-semibold text-white hover:bg-red-700">
+					Reverse Write-Off
+				</button>
+			</form>
+		</div>
+	}
+}

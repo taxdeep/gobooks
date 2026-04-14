@@ -1,0 +1,251 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"fmt"
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+templ ReturnDetail(vm ReturnDetailVM) {
+	@layout.Layout(
+		"GoBooks - "+returnDetailTitle(vm),
+		ui.SidebarVM{Active: "AR Returns", HasCompany: vm.HasCompany},
+		bodyReturnDetail(vm),
+	)
+}
+
+func returnDetailTitle(vm ReturnDetailVM) string {
+	if vm.Return.ID == 0 {
+		return "New Return"
+	}
+	return "Return " + vm.Return.ReturnNumber
+}
+
+func returnDateVal(ret models.ARReturn) string {
+	if ret.ReturnDate.IsZero() {
+		return ""
+	}
+	return ret.ReturnDate.Format("2006-01-02")
+}
+
+templ bodyReturnDetail(vm ReturnDetailVM) {
+	<div class="max-w-3xl">
+		<div class="flex flex-wrap items-center justify-between gap-4">
+			<div>
+				<h1 class="text-title font-semibold">{ returnDetailTitle(vm) }</h1>
+				<p class="mt-1 text-text-muted2">
+					if vm.Return.ID == 0 {
+						Record a customer return or cancellation request.
+					} else {
+						View and manage this return request.
+					}
+				</p>
+			</div>
+			<a href="/returns" class="text-body text-text-muted3 hover:text-text">← Back to Returns</a>
+		</div>
+
+		if vm.Saved {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Return saved.</div>
+		}
+		if vm.Submitted {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Return submitted for approval.</div>
+		}
+		if vm.Approved {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Return approved.</div>
+		}
+		if vm.Rejected {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">Return rejected.</div>
+		}
+		if vm.Cancelled {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">Return cancelled.</div>
+		}
+		if vm.Processed {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Return marked as processed.</div>
+		}
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">{ vm.FormError }</div>
+		}
+
+		if vm.Return.ID != 0 {
+			<div class="mt-4 flex items-center gap-3">
+				<span class="text-body font-medium text-text-muted">Status:</span>
+				<span class={ returnStatusBadgeClass(vm.Return.Status) }>{ models.ARReturnStatusLabel(vm.Return.Status) }</span>
+			</div>
+		}
+
+		if vm.Return.ID == 0 || vm.Return.Status == models.ARReturnStatusDraft {
+			@returnEditForm(vm)
+		} else {
+			@returnReadOnlyView(vm)
+		}
+	</div>
+}
+
+templ returnEditForm(vm ReturnDetailVM) {
+	<form method="POST" action="/returns/save" class="mt-6 space-y-5">
+		if vm.Return.ID != 0 {
+			<input type="hidden" name="return_id" value={ fmt.Sprintf("%d", vm.Return.ID) }/>
+		}
+
+		<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+			<div>
+				<label class="block text-body font-medium text-text-muted">Customer *</label>
+				<select name="customer_id" required class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					<option value="">— Select customer —</option>
+					for _, c := range vm.Customers {
+						<option value={ fmt.Sprintf("%d", c.ID) } selected?={ vm.Return.CustomerID == c.ID }>
+							{ c.Name }
+						</option>
+					}
+				</select>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">Return Date *</label>
+				<input
+					type="date"
+					name="return_date"
+					value={ returnDateVal(vm.Return) }
+					required
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+			<div>
+				<label class="block text-body font-medium text-text-muted">Originating Invoice *</label>
+				<select name="invoice_id" required class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					<option value="">— Select invoice —</option>
+					for _, inv := range vm.Invoices {
+						<option value={ fmt.Sprintf("%d", inv.ID) } selected?={ vm.Return.InvoiceID == inv.ID }>
+							{ inv.InvoiceNumber }
+						</option>
+					}
+				</select>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">Reason</label>
+				<select name="reason" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					for _, r := range []models.ARReturnReason{
+						models.ARReturnReasonDefective,
+						models.ARReturnReasonWrongItem,
+						models.ARReturnReasonNotRequired,
+						models.ARReturnReasonQuality,
+						models.ARReturnReasonOther,
+					} {
+						<option value={ string(r) } selected?={ vm.Return.Reason == r }>
+							{ models.ARReturnReasonLabel(r) }
+						</option>
+					}
+				</select>
+			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+			<div>
+				<label class="block text-body font-medium text-text-muted">Currency *</label>
+				<input
+					type="text"
+					name="currency_code"
+					value={ vm.Return.CurrencyCode }
+					maxlength="3"
+					placeholder="CAD"
+					required
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text-muted">Return Amount *</label>
+				<input
+					type="text"
+					name="return_amount"
+					value={ vm.Return.ReturnAmount.StringFixed(2) }
+					required
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+		</div>
+
+		<div>
+			<label class="block text-body font-medium text-text-muted">Description</label>
+			<textarea
+				name="description"
+				rows="3"
+				class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+			>{ vm.Return.Description }</textarea>
+		</div>
+
+		<div class="flex gap-3">
+			<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
+				if vm.Return.ID == 0 {
+					Create Return
+				} else {
+					Save Return
+				}
+			</button>
+			if vm.Return.ID != 0 {
+				<form method="POST" action={ templ.SafeURL("/returns/" + fmt.Sprintf("%d", vm.Return.ID) + "/submit") }>
+					<button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-body font-semibold text-white hover:bg-blue-700">
+						Submit for Approval
+					</button>
+				</form>
+				<form method="POST" action={ templ.SafeURL("/returns/" + fmt.Sprintf("%d", vm.Return.ID) + "/cancel") }>
+					<button type="submit" class="rounded-md bg-red-600 px-4 py-2 text-body font-semibold text-white hover:bg-red-700">
+						Cancel
+					</button>
+				</form>
+			}
+		</div>
+	</form>
+}
+
+templ returnReadOnlyView(vm ReturnDetailVM) {
+	<div class="mt-6 space-y-4 rounded-md border border-border bg-surface p-6">
+		<div class="grid grid-cols-2 gap-x-8 gap-y-3 text-body">
+			<div><span class="font-medium text-text-muted">Customer:</span> <span class="text-text">{ vm.Return.Customer.Name }</span></div>
+			<div><span class="font-medium text-text-muted">Return #:</span> <span class="text-text">{ vm.Return.ReturnNumber }</span></div>
+			<div><span class="font-medium text-text-muted">Return Date:</span> <span class="text-text">{ vm.Return.ReturnDate.Format("2006-01-02") }</span></div>
+			<div><span class="font-medium text-text-muted">Reason:</span> <span class="text-text">{ models.ARReturnReasonLabel(vm.Return.Reason) }</span></div>
+			<div><span class="font-medium text-text-muted">Currency:</span> <span class="text-text">{ vm.Return.CurrencyCode }</span></div>
+			<div>
+				<span class="font-medium text-text-muted">Return Amount:</span>
+				<span class="text-text"><span data-numfmt>{ vm.Return.ReturnAmount.StringFixed(2) }</span> { vm.Return.CurrencyCode }</span>
+			</div>
+			if vm.Return.Description != "" {
+				<div class="col-span-2"><span class="font-medium text-text-muted">Description:</span> <span class="text-text">{ vm.Return.Description }</span></div>
+			}
+			if vm.Return.ApprovedBy != "" {
+				<div><span class="font-medium text-text-muted">Approved By:</span> <span class="text-text">{ vm.Return.ApprovedBy }</span></div>
+			}
+		</div>
+	</div>
+
+	<div class="mt-4 flex flex-wrap gap-3">
+		if vm.Return.Status == models.ARReturnStatusSubmitted {
+			<form method="POST" action={ templ.SafeURL("/returns/" + fmt.Sprintf("%d", vm.Return.ID) + "/approve") }>
+				<button type="submit" class="rounded-md bg-green-600 px-4 py-2 text-body font-semibold text-white hover:bg-green-700">
+					Approve
+				</button>
+			</form>
+			<form method="POST" action={ templ.SafeURL("/returns/" + fmt.Sprintf("%d", vm.Return.ID) + "/reject") }>
+				<button type="submit" class="rounded-md bg-red-600 px-4 py-2 text-body font-semibold text-white hover:bg-red-700">
+					Reject
+				</button>
+			</form>
+			<form method="POST" action={ templ.SafeURL("/returns/" + fmt.Sprintf("%d", vm.Return.ID) + "/cancel") }>
+				<button type="submit" class="rounded-md border border-border px-4 py-2 text-body text-text hover:bg-background">
+					Cancel
+				</button>
+			</form>
+		}
+		if vm.Return.Status == models.ARReturnStatusApproved {
+			<form method="POST" action={ templ.SafeURL("/returns/" + fmt.Sprintf("%d", vm.Return.ID) + "/process") }>
+				<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
+					Mark as Processed
+				</button>
+			</form>
+		}
+	</div>
+}

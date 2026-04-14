@@ -1,0 +1,384 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"fmt"
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+templ ReceiptDetail(vm ReceiptDetailVM) {
+	@layout.Layout(
+		"GoBooks - "+receiptDetailTitle(vm),
+		ui.SidebarVM{Active: "Customer Receipts", HasCompany: vm.HasCompany},
+		bodyReceiptDetail(vm),
+	)
+}
+
+func receiptDetailTitle(vm ReceiptDetailVM) string {
+	if vm.Receipt.ID == 0 {
+		return "New Receipt"
+	}
+	return "Receipt " + vm.Receipt.ReceiptNumber
+}
+
+templ bodyReceiptDetail(vm ReceiptDetailVM) {
+	<div class="max-w-[95%]">
+		<div class="flex flex-wrap items-center justify-between gap-4">
+			<div>
+				<h1 class="text-title font-semibold">{ receiptDetailTitle(vm) }</h1>
+				<p class="mt-1 text-text-muted2">
+					if vm.Receipt.ID == 0 {
+						Record a customer cash receipt.
+					} else {
+						View and manage this receipt.
+					}
+				</p>
+			</div>
+			<a href="/receipts" class="text-body text-text-muted3 hover:text-text">← Back to Receipts</a>
+		</div>
+
+		// Flash messages
+		if vm.Saved {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Receipt saved.</div>
+		}
+		if vm.Confirmed {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Receipt confirmed and posted to accounting.</div>
+		}
+		if vm.Applied {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Receipt applied to invoice.</div>
+		}
+		if vm.Unapplied {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Application reversed.</div>
+		}
+		if vm.Reversed {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">Receipt reversed.</div>
+		}
+		if vm.Voided {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">Receipt voided.</div>
+		}
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">{ vm.FormError }</div>
+		}
+
+		// Status badge for existing receipts
+		if vm.Receipt.ID != 0 {
+			<div class="mt-4 flex items-center gap-3">
+				<span class="text-body font-medium text-text-muted">Status:</span>
+				<span class={ receiptStatusBadgeClass(vm.Receipt.Status) }>{ models.CustomerReceiptStatusLabel(vm.Receipt.Status) }</span>
+			</div>
+		}
+
+		if vm.Receipt.ID == 0 || vm.Receipt.Status == models.CustomerReceiptStatusDraft {
+			@receiptEditForm(vm)
+		} else {
+			@receiptReadOnlyView(vm)
+		}
+	</div>
+}
+
+templ receiptEditForm(vm ReceiptDetailVM) {
+	<form method="POST" action="/receipts/save" class="mt-6 space-y-6">
+		if vm.Receipt.ID != 0 {
+			<input type="hidden" name="receipt_id" value={ fmt.Sprintf("%d", vm.Receipt.ID) }/>
+		}
+
+		<div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+			<!-- Customer -->
+			<div>
+				<label class="block text-body font-medium text-text">Customer <span class="text-danger">*</span></label>
+				<select name="customer_id" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text" required>
+					<option value="">Select customer…</option>
+					for _, cust := range vm.Customers {
+						<option value={ fmt.Sprintf("%d", cust.ID) } selected?={ vm.Receipt.CustomerID == cust.ID }>
+							{ cust.Name }
+						</option>
+					}
+				</select>
+			</div>
+
+			<!-- Receipt Date -->
+			<div>
+				<label class="block text-body font-medium text-text">Receipt Date <span class="text-danger">*</span></label>
+				<input
+					type="date"
+					name="receipt_date"
+					value={ receiptDateVal(vm.Receipt) }
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+					required
+				/>
+			</div>
+
+			<!-- Amount -->
+			<div>
+				<label class="block text-body font-medium text-text">Amount <span class="text-danger">*</span></label>
+				<input
+					type="number"
+					name="amount"
+					step="0.01"
+					min="0.01"
+					value={ vm.Receipt.Amount.StringFixed(2) }
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+					required
+				/>
+			</div>
+
+			<!-- Currency -->
+			<div>
+				<label class="block text-body font-medium text-text">Currency</label>
+				<input
+					type="text"
+					name="currency_code"
+					value={ vm.Receipt.CurrencyCode }
+					maxlength="3"
+					placeholder="CAD"
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+
+			<!-- Bank Account -->
+			<div>
+				<label class="block text-body font-medium text-text">Bank Account <span class="text-danger">*</span></label>
+				<select name="bank_account_id" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					<option value="">Select bank account…</option>
+					for _, acc := range vm.Accounts {
+						if acc.DetailAccountType == models.DetailBank {
+							<option value={ fmt.Sprintf("%d", acc.ID) } selected?={ vm.Receipt.BankAccountID != nil && *vm.Receipt.BankAccountID == acc.ID }>
+								{ acc.Code } - { acc.Name }
+							</option>
+						}
+					}
+				</select>
+			</div>
+
+			<!-- Payment Method -->
+			<div>
+				<label class="block text-body font-medium text-text">Payment Method</label>
+				<select name="payment_method" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					for _, pm := range models.AllPaymentMethods() {
+						<option value={ string(pm) } selected?={ vm.Receipt.PaymentMethod == pm }>
+							{ models.PaymentMethodLabel(pm) }
+						</option>
+					}
+				</select>
+			</div>
+
+			<!-- Reference -->
+			<div class="sm:col-span-2">
+				<label class="block text-body font-medium text-text">Reference</label>
+				<input
+					type="text"
+					name="reference"
+					value={ vm.Receipt.Reference }
+					maxlength="200"
+					placeholder="Cheque #, wire ref, transaction ID…"
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+		</div>
+
+		<!-- Memo -->
+		<div>
+			<label class="block text-body font-medium text-text">Memo</label>
+			<textarea
+				name="memo"
+				rows="3"
+				class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+			>{ vm.Receipt.Memo }</textarea>
+		</div>
+
+		<div class="flex gap-3">
+			<button
+				type="submit"
+				class="rounded-md bg-primary px-5 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+			>
+				Save
+			</button>
+			<a href="/receipts" class="rounded-md border border-border px-5 py-2 text-body font-medium text-text hover:bg-background">
+				Cancel
+			</a>
+		</div>
+
+		// Draft void/confirm actions
+		if vm.Receipt.ID != 0 {
+			<div class="mt-2 flex gap-3 border-t border-border pt-4">
+				<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/receipts/%d/confirm", vm.Receipt.ID)) }>
+					<button type="submit" class="rounded-md bg-primary px-5 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
+						Confirm &amp; Post
+					</button>
+				</form>
+				<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/receipts/%d/void", vm.Receipt.ID)) }>
+					<button type="submit" class="rounded-md border border-border-danger px-5 py-2 text-body font-medium text-danger hover:bg-danger-soft">
+						Void
+					</button>
+				</form>
+			</div>
+		}
+	</form>
+}
+
+templ receiptReadOnlyView(vm ReceiptDetailVM) {
+	<div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+		<div>
+			<p class="text-small font-medium text-text-muted">Customer</p>
+			<p class="mt-0.5 text-body text-text">{ vm.Receipt.Customer.Name }</p>
+		</div>
+		<div>
+			<p class="text-small font-medium text-text-muted">Receipt Date</p>
+			<p class="mt-0.5 text-body text-text">{ vm.Receipt.ReceiptDate.Format("2006-01-02") }</p>
+		</div>
+		<div>
+			<p class="text-small font-medium text-text-muted">Amount</p>
+			<p class="mt-0.5 text-body text-text">
+				<span data-numfmt>{ vm.Receipt.Amount.StringFixed(2) }</span> { vm.Receipt.CurrencyCode }
+			</p>
+		</div>
+		<div>
+			<p class="text-small font-medium text-text-muted">Unapplied Amount</p>
+			<p class="mt-0.5 text-body text-text">
+				<span data-numfmt>{ vm.Receipt.UnappliedAmount.StringFixed(2) }</span> { vm.Receipt.CurrencyCode }
+			</p>
+		</div>
+		if vm.Receipt.BankAccount != nil {
+			<div>
+				<p class="text-small font-medium text-text-muted">Bank Account</p>
+				<p class="mt-0.5 text-body text-text">{ vm.Receipt.BankAccount.Code } - { vm.Receipt.BankAccount.Name }</p>
+			</div>
+		}
+		<div>
+			<p class="text-small font-medium text-text-muted">Payment Method</p>
+			<p class="mt-0.5 text-body text-text">{ models.PaymentMethodLabel(vm.Receipt.PaymentMethod) }</p>
+		</div>
+		if vm.Receipt.Reference != "" {
+			<div>
+				<p class="text-small font-medium text-text-muted">Reference</p>
+				<p class="mt-0.5 text-body text-text">{ vm.Receipt.Reference }</p>
+			</div>
+		}
+		if vm.Receipt.ConfirmedAt != nil {
+			<div>
+				<p class="text-small font-medium text-text-muted">Confirmed At</p>
+				<p class="mt-0.5 text-body text-text">{ vm.Receipt.ConfirmedAt.Format("2006-01-02 15:04") }</p>
+			</div>
+		}
+		if vm.Receipt.Memo != "" {
+			<div class="sm:col-span-2">
+				<p class="text-small font-medium text-text-muted">Memo</p>
+				<p class="mt-0.5 text-body text-text">{ vm.Receipt.Memo }</p>
+			</div>
+		}
+	</div>
+
+	// Actions for confirmed (unapplied / partially applied) receipts
+	if vm.Receipt.Status == models.CustomerReceiptStatusConfirmed ||
+		vm.Receipt.Status == models.CustomerReceiptStatusPartiallyApplied {
+		<div class="mt-6 space-y-4">
+			// Apply to invoice
+			if len(vm.Invoices) > 0 {
+				<div class="rounded-md border border-border p-4">
+					<h3 class="text-body font-semibold text-text">Apply to Invoice</h3>
+					<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/receipts/%d/apply", vm.Receipt.ID)) } class="mt-3 flex flex-wrap items-end gap-3">
+						<div>
+							<label class="block text-small font-medium text-text-muted">Invoice</label>
+							<select name="invoice_id" class="mt-1 rounded-md border border-border bg-surface px-3 py-2 text-body text-text" required>
+								<option value="">Select invoice…</option>
+								for _, inv := range vm.Invoices {
+									<option value={ fmt.Sprintf("%d", inv.ID) }>
+										{ inv.InvoiceNumber } — Balance: { inv.BalanceDue.StringFixed(2) } { inv.CurrencyCode }
+									</option>
+								}
+							</select>
+						</div>
+						<div>
+							<label class="block text-small font-medium text-text-muted">Amount to Apply</label>
+							<input
+								type="number"
+								name="amount_applied"
+								step="0.01"
+								min="0.01"
+								value={ vm.Receipt.UnappliedAmount.StringFixed(2) }
+								class="mt-1 rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+								required
+							/>
+						</div>
+						<button type="submit" class="rounded-md bg-primary px-5 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
+							Apply
+						</button>
+					</form>
+				</div>
+			}
+
+			// Reverse (only when fully unapplied)
+			if vm.Receipt.Status == models.CustomerReceiptStatusConfirmed {
+				<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/receipts/%d/reverse", vm.Receipt.ID)) }>
+					<button type="submit" class="rounded-md border border-border-danger px-5 py-2 text-body font-medium text-danger hover:bg-danger-soft">
+						Reverse Receipt
+					</button>
+				</form>
+			}
+		</div>
+	}
+
+	// Active applications table
+	if len(vm.Applications) > 0 {
+		<div class="mt-6">
+			<h3 class="text-body font-semibold text-text">Applications</h3>
+			<div class="mt-2 overflow-x-auto rounded-md border border-border">
+				<table class="min-w-full divide-y divide-border text-body">
+					<thead class="bg-background">
+						<tr>
+							<th class="px-4 py-2 text-left font-medium text-text-muted">Invoice</th>
+							<th class="px-4 py-2 text-right font-medium text-text-muted">Amount Applied</th>
+							<th class="px-4 py-2 text-left font-medium text-text-muted">Date</th>
+							<th class="px-4 py-2 text-left font-medium text-text-muted">Status</th>
+							<th class="px-4 py-2"></th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-border bg-surface">
+						for _, app := range vm.Applications {
+							<tr>
+								<td class="px-4 py-2 text-text">{ app.Invoice.InvoiceNumber }</td>
+								<td class="px-4 py-2 text-right text-text">
+									<span data-numfmt>{ app.AmountApplied.StringFixed(2) }</span>
+								</td>
+								<td class="px-4 py-2 text-text">{ app.AppliedAt.Format("2006-01-02") }</td>
+								<td class="px-4 py-2">
+									<span class={ payAppStatusBadge(app.Status) }>
+										{ models.PaymentApplicationStatusLabel(app.Status) }
+									</span>
+								</td>
+								<td class="px-4 py-2">
+									if app.Status == models.PaymentApplicationStatusActive {
+										<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/receipts/%d/unapply", vm.Receipt.ID)) }>
+											<input type="hidden" name="application_id" value={ fmt.Sprintf("%d", app.ID) }/>
+											<button type="submit" class="text-small text-danger hover:underline">Unapply</button>
+										</form>
+									}
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	}
+}
+
+func payAppStatusBadge(s models.PaymentApplicationStatus) string {
+	switch s {
+	case models.PaymentApplicationStatusActive:
+		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700"
+	case models.PaymentApplicationStatusReversed:
+		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-500"
+	default:
+		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600"
+	}
+}
+
+func receiptDateVal(rcpt models.CustomerReceipt) string {
+	if rcpt.ReceiptDate.IsZero() {
+		return ""
+	}
+	return rcpt.ReceiptDate.Format("2006-01-02")
+}

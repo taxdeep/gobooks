@@ -1,0 +1,345 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"fmt"
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+templ DepositDetail(vm DepositDetailVM) {
+	@layout.Layout(
+		"GoBooks - "+depositDetailTitle(vm),
+		ui.SidebarVM{Active: "Customer Deposits", HasCompany: vm.HasCompany},
+		bodyDepositDetail(vm),
+	)
+}
+
+func depositDetailTitle(vm DepositDetailVM) string {
+	if vm.Deposit.ID == 0 {
+		return "New Deposit"
+	}
+	return "Deposit " + vm.Deposit.DepositNumber
+}
+
+templ bodyDepositDetail(vm DepositDetailVM) {
+	<div class="max-w-[95%]">
+		<div class="flex flex-wrap items-center justify-between gap-4">
+			<div>
+				<h1 class="text-title font-semibold">{ depositDetailTitle(vm) }</h1>
+				<p class="mt-1 text-text-muted2">
+					if vm.Deposit.ID == 0 {
+						Record a customer pre-payment or deposit.
+					} else {
+						View and manage this deposit.
+					}
+				</p>
+			</div>
+			<a href="/deposits" class="text-body text-text-muted3 hover:text-text">← Back to Deposits</a>
+		</div>
+
+		// Flash messages
+		if vm.Saved {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Deposit saved.</div>
+		}
+		if vm.Posted {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Deposit posted to accounting.</div>
+		}
+		if vm.Applied {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Deposit applied to invoice.</div>
+		}
+		if vm.Voided {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">Deposit voided.</div>
+		}
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">{ vm.FormError }</div>
+		}
+
+		// Status badge for existing deposits
+		if vm.Deposit.ID != 0 {
+			<div class="mt-4 flex items-center gap-3">
+				<span class="text-body font-medium text-text-muted">Status:</span>
+				<span class={ depositStatusBadgeClass(vm.Deposit.Status) }>{ models.CustomerDepositStatusLabel(vm.Deposit.Status) }</span>
+			</div>
+		}
+
+		if vm.Deposit.ID == 0 || vm.Deposit.Status == models.CustomerDepositStatusDraft {
+			@depositEditForm(vm)
+		} else {
+			@depositReadOnlyView(vm)
+		}
+
+		// Action buttons for posted deposits
+		if vm.Deposit.ID != 0 && vm.Deposit.Status == models.CustomerDepositStatusPosted {
+			@depositPostedActions(vm)
+		}
+	</div>
+}
+
+templ depositEditForm(vm DepositDetailVM) {
+	<form method="POST" action="/deposits/save" class="mt-6 space-y-6">
+		if vm.Deposit.ID != 0 {
+			<input type="hidden" name="deposit_id" value={ fmt.Sprintf("%d", vm.Deposit.ID) }/>
+		}
+
+		<div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+			<!-- Customer -->
+			<div>
+				<label class="block text-body font-medium text-text">Customer <span class="text-danger">*</span></label>
+				<select name="customer_id" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text" required>
+					<option value="">Select customer…</option>
+					for _, cust := range vm.Customers {
+						<option value={ fmt.Sprintf("%d", cust.ID) } selected?={ vm.Deposit.CustomerID == cust.ID }>
+							{ cust.Name }
+						</option>
+					}
+				</select>
+			</div>
+
+			<!-- Deposit Date -->
+			<div>
+				<label class="block text-body font-medium text-text">Deposit Date <span class="text-danger">*</span></label>
+				<input
+					type="date"
+					name="deposit_date"
+					value={ depositDateVal(vm.Deposit) }
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+					required
+				/>
+			</div>
+
+			<!-- Amount -->
+			<div>
+				<label class="block text-body font-medium text-text">Amount <span class="text-danger">*</span></label>
+				<input
+					type="number"
+					name="amount"
+					step="0.01"
+					min="0.01"
+					value={ vm.Deposit.Amount.StringFixed(2) }
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+					required
+				/>
+			</div>
+
+			<!-- Currency -->
+			<div>
+				<label class="block text-body font-medium text-text">Currency</label>
+				<input
+					type="text"
+					name="currency_code"
+					value={ vm.Deposit.CurrencyCode }
+					maxlength="3"
+					placeholder="CAD"
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+
+			<!-- Bank Account -->
+			<div>
+				<label class="block text-body font-medium text-text">Bank Account</label>
+				<select name="bank_account_id" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					<option value="">Select bank account…</option>
+					for _, acc := range vm.Accounts {
+						if acc.DetailAccountType == models.DetailBank {
+							<option value={ fmt.Sprintf("%d", acc.ID) } selected?={ vm.Deposit.BankAccountID != nil && *vm.Deposit.BankAccountID == acc.ID }>
+								{ acc.Code } - { acc.Name }
+							</option>
+						}
+					}
+				</select>
+			</div>
+
+			<!-- Deposit Liability Account -->
+			<div>
+				<label class="block text-body font-medium text-text">Deposit Liability Account</label>
+				<select name="deposit_liability_account_id" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					<option value="">Select liability account…</option>
+					for _, acc := range vm.Accounts {
+						if acc.RootAccountType == models.RootLiability {
+							<option value={ fmt.Sprintf("%d", acc.ID) } selected?={ vm.Deposit.DepositLiabilityAccountID != nil && *vm.Deposit.DepositLiabilityAccountID == acc.ID }>
+								{ acc.Code } - { acc.Name }
+							</option>
+						}
+					}
+				</select>
+			</div>
+
+			<!-- Payment Method -->
+			<div>
+				<label class="block text-body font-medium text-text">Payment Method</label>
+				<select name="payment_method" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+					for _, pm := range models.AllPaymentMethods() {
+						<option value={ string(pm) } selected?={ vm.Deposit.PaymentMethod == pm }>
+							{ models.PaymentMethodLabel(pm) }
+						</option>
+					}
+				</select>
+			</div>
+
+			<!-- Reference -->
+			<div>
+				<label class="block text-body font-medium text-text">Reference</label>
+				<input
+					type="text"
+					name="reference"
+					value={ vm.Deposit.Reference }
+					maxlength="200"
+					placeholder="Cheque #, wire ref…"
+					class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+				/>
+			</div>
+		</div>
+
+		<!-- Memo -->
+		<div>
+			<label class="block text-body font-medium text-text">Memo</label>
+			<textarea
+				name="memo"
+				rows="3"
+				class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+			>{ vm.Deposit.Memo }</textarea>
+		</div>
+
+		<div class="flex gap-3">
+			<button
+				type="submit"
+				class="rounded-md bg-primary px-5 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+			>
+				Save
+			</button>
+			<a href="/deposits" class="rounded-md border border-border px-5 py-2 text-body font-medium text-text hover:bg-background">
+				Cancel
+			</a>
+		</div>
+	</form>
+}
+
+templ depositReadOnlyView(vm DepositDetailVM) {
+	<div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+		<div>
+			<p class="text-small font-medium text-text-muted">Customer</p>
+			<p class="mt-0.5 text-body text-text">{ vm.Deposit.Customer.Name }</p>
+		</div>
+		<div>
+			<p class="text-small font-medium text-text-muted">Deposit Date</p>
+			<p class="mt-0.5 text-body text-text">{ vm.Deposit.DepositDate.Format("2006-01-02") }</p>
+		</div>
+		<div>
+			<p class="text-small font-medium text-text-muted">Amount</p>
+			<p class="mt-0.5 text-body text-text">
+				<span data-numfmt>{ vm.Deposit.Amount.StringFixed(2) }</span> { vm.Deposit.CurrencyCode }
+			</p>
+		</div>
+		<div>
+			<p class="text-small font-medium text-text-muted">Balance Remaining</p>
+			<p class="mt-0.5 text-body text-text">
+				<span data-numfmt>{ vm.Deposit.BalanceRemaining.StringFixed(2) }</span> { vm.Deposit.CurrencyCode }
+			</p>
+		</div>
+		if vm.Deposit.BankAccount != nil {
+			<div>
+				<p class="text-small font-medium text-text-muted">Bank Account</p>
+				<p class="mt-0.5 text-body text-text">{ vm.Deposit.BankAccount.Code } - { vm.Deposit.BankAccount.Name }</p>
+			</div>
+		}
+		if vm.Deposit.DepositLiabilityAccount != nil {
+			<div>
+				<p class="text-small font-medium text-text-muted">Liability Account</p>
+				<p class="mt-0.5 text-body text-text">{ vm.Deposit.DepositLiabilityAccount.Code } - { vm.Deposit.DepositLiabilityAccount.Name }</p>
+			</div>
+		}
+		<div>
+			<p class="text-small font-medium text-text-muted">Payment Method</p>
+			<p class="mt-0.5 text-body text-text">{ models.PaymentMethodLabel(vm.Deposit.PaymentMethod) }</p>
+		</div>
+		if vm.Deposit.Reference != "" {
+			<div>
+				<p class="text-small font-medium text-text-muted">Reference</p>
+				<p class="mt-0.5 text-body text-text">{ vm.Deposit.Reference }</p>
+			</div>
+		}
+		if vm.Deposit.PostedAt != nil {
+			<div>
+				<p class="text-small font-medium text-text-muted">Posted At</p>
+				<p class="mt-0.5 text-body text-text">{ vm.Deposit.PostedAt.Format("2006-01-02 15:04") }</p>
+			</div>
+		}
+		if vm.Deposit.Memo != "" {
+			<div class="sm:col-span-2">
+				<p class="text-small font-medium text-text-muted">Memo</p>
+				<p class="mt-0.5 text-body text-text">{ vm.Deposit.Memo }</p>
+			</div>
+		}
+	</div>
+
+	// Action buttons for draft deposit (can still void)
+	if vm.Deposit.Status == models.CustomerDepositStatusDraft {
+		<div class="mt-6 flex gap-3">
+			<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/deposits/%d/post", vm.Deposit.ID)) }>
+				<button type="submit" class="rounded-md bg-primary px-5 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
+					Post to Accounting
+				</button>
+			</form>
+			<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/deposits/%d/void", vm.Deposit.ID)) }>
+				<button type="submit" class="rounded-md border border-border-danger px-5 py-2 text-body font-medium text-danger hover:bg-danger-soft">
+					Void
+				</button>
+			</form>
+		</div>
+	}
+}
+
+templ depositPostedActions(vm DepositDetailVM) {
+	<div class="mt-6 space-y-4">
+		<!-- Apply to Invoice -->
+		if len(vm.Invoices) > 0 {
+			<div class="rounded-md border border-border p-4">
+				<h3 class="text-body font-semibold text-text">Apply to Invoice</h3>
+				<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/deposits/%d/apply", vm.Deposit.ID)) } class="mt-3 flex flex-wrap items-end gap-3">
+					<div>
+						<label class="block text-small font-medium text-text-muted">Invoice</label>
+						<select name="invoice_id" class="mt-1 rounded-md border border-border bg-surface px-3 py-2 text-body text-text" required>
+							<option value="">Select invoice…</option>
+							for _, inv := range vm.Invoices {
+								<option value={ fmt.Sprintf("%d", inv.ID) }>
+									{ inv.InvoiceNumber } — Balance: { inv.BalanceDue.StringFixed(2) } { inv.CurrencyCode }
+								</option>
+							}
+						</select>
+					</div>
+					<div>
+						<label class="block text-small font-medium text-text-muted">Amount to Apply</label>
+						<input
+							type="number"
+							name="amount_applied"
+							step="0.01"
+							min="0.01"
+							value={ vm.Deposit.BalanceRemaining.StringFixed(2) }
+							class="mt-1 rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+							required
+						/>
+					</div>
+					<button type="submit" class="rounded-md bg-primary px-5 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
+						Apply
+					</button>
+				</form>
+			</div>
+		}
+
+		<!-- Void -->
+		<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/deposits/%d/void", vm.Deposit.ID)) }>
+			<button type="submit" class="rounded-md border border-border-danger px-5 py-2 text-body font-medium text-danger hover:bg-danger-soft">
+				Void Deposit
+			</button>
+		</form>
+	</div>
+}
+
+func depositDateVal(dep models.CustomerDeposit) string {
+	if dep.DepositDate.IsZero() {
+		return ""
+	}
+	return dep.DepositDate.Format("2006-01-02")
+}

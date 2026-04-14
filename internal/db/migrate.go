@@ -255,6 +255,15 @@ func Migrate(db *gorm.DB) error {
 		&models.PaymentApplication{},
 		&models.ARReturn{},
 		&models.ARRefund{},
+		// AR Phase 6: bad-debt write-off.
+		&models.ARWriteOff{},
+		// AP Phase A: purchase order + prepayment + return/credit note/refund.
+		&models.PurchaseOrder{},
+		&models.PurchaseOrderLine{},
+		&models.VendorPrepayment{},
+		&models.VendorReturn{},
+		&models.VendorCreditNote{},
+		&models.VendorRefund{},
 	); err != nil {
 		return err
 	}

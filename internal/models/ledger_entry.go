@@ -49,6 +49,22 @@ const (
 	LedgerSourceBankInterest LedgerSourceType = "bank_interest"
 	// LedgerSourceCreditNote is used by customer credit note postings.
 	LedgerSourceCreditNote LedgerSourceType = "credit_note"
+	// LedgerSourceCustomerDeposit is used by customer deposit posting (Dr Bank Cr DepositLiability).
+	LedgerSourceCustomerDeposit LedgerSourceType = "customer_deposit"
+	// LedgerSourceDepositApplication is used when a deposit is applied to an invoice (Dr Liability Cr AR).
+	LedgerSourceDepositApplication LedgerSourceType = "deposit_application"
+	// LedgerSourceCustomerReceipt is used by customer receipt confirmation (Dr Bank Cr AR).
+	LedgerSourceCustomerReceipt LedgerSourceType = "customer_receipt"
+	// LedgerSourceARRefund is used by AR refund posting (Dr liability/AR Cr Bank).
+	LedgerSourceARRefund LedgerSourceType = "ar_refund"
+	// LedgerSourceARWriteOff is used by AR bad-debt write-off posting (Dr Expense Cr AR).
+	LedgerSourceARWriteOff LedgerSourceType = "ar_write_off"
+	// LedgerSourceVendorPrepayment is used by vendor prepayment posting (Dr PrepaymentAsset Cr Bank).
+	LedgerSourceVendorPrepayment LedgerSourceType = "vendor_prepayment"
+	// LedgerSourceVendorCreditNote is used by vendor credit note posting (Dr AP Cr PurchaseReturns).
+	LedgerSourceVendorCreditNote LedgerSourceType = "vendor_credit_note"
+	// LedgerSourceVendorRefund is used by vendor refund posting (Dr Bank Cr PrepaymentAsset/AP).
+	LedgerSourceVendorRefund LedgerSourceType = "vendor_refund"
 )
 
 // LedgerEntry is one row in the accounting fact layer.
