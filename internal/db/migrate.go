@@ -238,6 +238,23 @@ func Migrate(db *gorm.DB) error {
 		// Phase 12: per-customer and per-vendor allowed-currency lists.
 		&models.CustomerAllowedCurrency{},
 		&models.VendorAllowedCurrency{},
+		// AR Phase 13 (AR Module Phase 1): formal AR object skeletons.
+		// Quote → SalesOrder: commercial pre-chain, no JE.
+		// CustomerDeposit + CustomerDepositApplication: pre-invoice cash, JE = liability.
+		// CustomerReceipt: formal AR receipt header, JE = Dr Cash Cr AR (Phase 4).
+		// PaymentApplication: AR open-item matching record (Phase 4).
+		// ARReturn: business-fact return object, no JE.
+		// ARRefund: fund-outflow object, JE = Dr Liability Cr Cash (Phase 5).
+		&models.Quote{},
+		&models.QuoteLine{},
+		&models.SalesOrder{},
+		&models.SalesOrderLine{},
+		&models.CustomerDeposit{},
+		&models.CustomerDepositApplication{},
+		&models.CustomerReceipt{},
+		&models.PaymentApplication{},
+		&models.ARReturn{},
+		&models.ARRefund{},
 	); err != nil {
 		return err
 	}
@@ -297,7 +314,12 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 	// Phase 12: customer_allowed_currencies + vendor_allowed_currencies tables.
-	return migratePhase12(db)
+	if err := migratePhase12(db); err != nil {
+		return err
+	}
+	// AR Phase 13 (AR Module Phase 1): Quote, SalesOrder, CustomerDeposit,
+	// CustomerReceipt, PaymentApplication, ARReturn, ARRefund tables.
+	return migratePhase13(db)
 }
 
 // migrateEnsureUserPlans seeds the user_plans table with the three default tiers
@@ -1799,6 +1821,264 @@ func migratePhase12(db *gorm.DB) error {
 				continue
 			}
 			return fmt.Errorf("migratePhase12 step %d: %w", i+1, err)
+		}
+	}
+	return nil
+}
+
+// migratePhase13 creates the AR module object tables introduced in AR Phase 1.
+// AutoMigrate handles fresh installs; this guard adds the tables on live databases.
+//
+// Tables: quotes, quote_lines, sales_orders, sales_order_lines,
+//         customer_deposits, customer_deposit_applications,
+//         customer_receipts, payment_applications,
+//         ar_returns, ar_refunds.
+func migratePhase13(db *gorm.DB) error {
+	stmts := []string{
+		// quotes
+		`CREATE TABLE IF NOT EXISTS quotes (
+			id              BIGSERIAL PRIMARY KEY,
+			company_id      BIGINT       NOT NULL,
+			customer_id     BIGINT       NOT NULL,
+			sales_order_id  BIGINT,
+			quote_number    VARCHAR(50)  NOT NULL DEFAULT '',
+			status          TEXT         NOT NULL DEFAULT 'draft',
+			quote_date      TIMESTAMPTZ  NOT NULL,
+			expiry_date     TIMESTAMPTZ,
+			currency_code   VARCHAR(3)   NOT NULL DEFAULT '',
+			subtotal        NUMERIC(18,4) NOT NULL DEFAULT 0,
+			tax_total       NUMERIC(18,4) NOT NULL DEFAULT 0,
+			total           NUMERIC(18,4) NOT NULL DEFAULT 0,
+			notes           TEXT         NOT NULL DEFAULT '',
+			memo            TEXT         NOT NULL DEFAULT '',
+			sent_at         TIMESTAMPTZ,
+			created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+			updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_quotes_company    ON quotes(company_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_quotes_customer   ON quotes(customer_id)`,
+
+		// quote_lines
+		`CREATE TABLE IF NOT EXISTS quote_lines (
+			id                   BIGSERIAL PRIMARY KEY,
+			quote_id             BIGINT        NOT NULL,
+			product_service_id   BIGINT,
+			revenue_account_id   BIGINT,
+			tax_code_id          BIGINT,
+			description          TEXT          NOT NULL DEFAULT '',
+			quantity             NUMERIC(18,4) NOT NULL DEFAULT 1,
+			unit_price           NUMERIC(18,4) NOT NULL DEFAULT 0,
+			line_net             NUMERIC(18,4) NOT NULL DEFAULT 0,
+			tax_amount           NUMERIC(18,4) NOT NULL DEFAULT 0,
+			line_total           NUMERIC(18,4) NOT NULL DEFAULT 0,
+			sort_order           INT           NOT NULL DEFAULT 0,
+			created_at           TIMESTAMPTZ   NOT NULL DEFAULT now(),
+			updated_at           TIMESTAMPTZ   NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_quote_lines_quote ON quote_lines(quote_id)`,
+
+		// sales_orders
+		`CREATE TABLE IF NOT EXISTS sales_orders (
+			id               BIGSERIAL PRIMARY KEY,
+			company_id       BIGINT       NOT NULL,
+			customer_id      BIGINT       NOT NULL,
+			quote_id         BIGINT,
+			order_number     VARCHAR(50)  NOT NULL DEFAULT '',
+			status           TEXT         NOT NULL DEFAULT 'draft',
+			order_date       TIMESTAMPTZ  NOT NULL,
+			required_by      TIMESTAMPTZ,
+			currency_code    VARCHAR(3)   NOT NULL DEFAULT '',
+			subtotal         NUMERIC(18,4) NOT NULL DEFAULT 0,
+			tax_total        NUMERIC(18,4) NOT NULL DEFAULT 0,
+			total            NUMERIC(18,4) NOT NULL DEFAULT 0,
+			invoiced_amount  NUMERIC(18,4) NOT NULL DEFAULT 0,
+			notes            TEXT         NOT NULL DEFAULT '',
+			memo             TEXT         NOT NULL DEFAULT '',
+			confirmed_at     TIMESTAMPTZ,
+			created_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
+			updated_at       TIMESTAMPTZ  NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_sales_orders_company  ON sales_orders(company_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_sales_orders_customer ON sales_orders(customer_id)`,
+
+		// sales_order_lines
+		`CREATE TABLE IF NOT EXISTS sales_order_lines (
+			id                   BIGSERIAL PRIMARY KEY,
+			sales_order_id       BIGINT        NOT NULL,
+			product_service_id   BIGINT,
+			revenue_account_id   BIGINT,
+			tax_code_id          BIGINT,
+			description          TEXT          NOT NULL DEFAULT '',
+			quantity             NUMERIC(18,4) NOT NULL DEFAULT 1,
+			unit_price           NUMERIC(18,4) NOT NULL DEFAULT 0,
+			line_net             NUMERIC(18,4) NOT NULL DEFAULT 0,
+			tax_amount           NUMERIC(18,4) NOT NULL DEFAULT 0,
+			line_total           NUMERIC(18,4) NOT NULL DEFAULT 0,
+			invoiced_qty         NUMERIC(18,4) NOT NULL DEFAULT 0,
+			sort_order           INT           NOT NULL DEFAULT 0,
+			created_at           TIMESTAMPTZ   NOT NULL DEFAULT now(),
+			updated_at           TIMESTAMPTZ   NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_so_lines_order ON sales_order_lines(sales_order_id)`,
+
+		// customer_deposits
+		`CREATE TABLE IF NOT EXISTS customer_deposits (
+			id                           BIGSERIAL PRIMARY KEY,
+			company_id                   BIGINT       NOT NULL,
+			customer_id                  BIGINT       NOT NULL,
+			sales_order_id               BIGINT,
+			journal_entry_id             BIGINT       UNIQUE,
+			bank_account_id              BIGINT,
+			deposit_liability_account_id BIGINT,
+			deposit_number               VARCHAR(50)  NOT NULL DEFAULT '',
+			status                       TEXT         NOT NULL DEFAULT 'draft',
+			deposit_date                 TIMESTAMPTZ  NOT NULL,
+			currency_code                VARCHAR(3)   NOT NULL DEFAULT '',
+			exchange_rate                NUMERIC(18,8) NOT NULL DEFAULT 1,
+			amount                       NUMERIC(18,2) NOT NULL DEFAULT 0,
+			amount_base                  NUMERIC(18,2) NOT NULL DEFAULT 0,
+			balance_remaining            NUMERIC(18,2) NOT NULL DEFAULT 0,
+			payment_method               TEXT         NOT NULL DEFAULT 'other',
+			reference                    VARCHAR(200) NOT NULL DEFAULT '',
+			memo                         TEXT         NOT NULL DEFAULT '',
+			posted_at                    TIMESTAMPTZ,
+			posted_by                    VARCHAR(200) NOT NULL DEFAULT '',
+			posted_by_user_id            UUID,
+			created_at                   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+			updated_at                   TIMESTAMPTZ  NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_deposits_company  ON customer_deposits(company_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_deposits_customer ON customer_deposits(customer_id)`,
+
+		// customer_deposit_applications
+		`CREATE TABLE IF NOT EXISTS customer_deposit_applications (
+			id                   BIGSERIAL PRIMARY KEY,
+			company_id           BIGINT        NOT NULL,
+			customer_deposit_id  BIGINT        NOT NULL,
+			invoice_id           BIGINT        NOT NULL,
+			amount_applied       NUMERIC(18,2) NOT NULL DEFAULT 0,
+			amount_applied_base  NUMERIC(18,2) NOT NULL DEFAULT 0,
+			applied_at           TIMESTAMPTZ   NOT NULL,
+			applied_by           VARCHAR(200)  NOT NULL DEFAULT '',
+			created_at           TIMESTAMPTZ   NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_dep_app_company  ON customer_deposit_applications(company_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_dep_app_deposit  ON customer_deposit_applications(customer_deposit_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_dep_app_invoice  ON customer_deposit_applications(invoice_id)`,
+
+		// customer_receipts
+		`CREATE TABLE IF NOT EXISTS customer_receipts (
+			id                    BIGSERIAL PRIMARY KEY,
+			company_id            BIGINT       NOT NULL,
+			customer_id           BIGINT       NOT NULL,
+			journal_entry_id      BIGINT       UNIQUE,
+			bank_account_id       BIGINT,
+			receipt_number        VARCHAR(50)  NOT NULL DEFAULT '',
+			status                TEXT         NOT NULL DEFAULT 'draft',
+			receipt_date          TIMESTAMPTZ  NOT NULL,
+			currency_code         VARCHAR(3)   NOT NULL DEFAULT '',
+			exchange_rate         NUMERIC(18,8) NOT NULL DEFAULT 1,
+			amount                NUMERIC(18,2) NOT NULL DEFAULT 0,
+			amount_base           NUMERIC(18,2) NOT NULL DEFAULT 0,
+			unapplied_amount      NUMERIC(18,2) NOT NULL DEFAULT 0,
+			payment_method        TEXT         NOT NULL DEFAULT 'other',
+			reference             VARCHAR(200) NOT NULL DEFAULT '',
+			memo                  TEXT         NOT NULL DEFAULT '',
+			gateway_transaction_id BIGINT,
+			confirmed_at          TIMESTAMPTZ,
+			confirmed_by          VARCHAR(200) NOT NULL DEFAULT '',
+			confirmed_by_user_id  UUID,
+			created_at            TIMESTAMPTZ  NOT NULL DEFAULT now(),
+			updated_at            TIMESTAMPTZ  NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_receipts_company  ON customer_receipts(company_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_receipts_customer ON customer_receipts(customer_id)`,
+
+		// payment_applications (AR open-item matching records)
+		`CREATE TABLE IF NOT EXISTS payment_applications (
+			id                    BIGSERIAL PRIMARY KEY,
+			company_id            BIGINT        NOT NULL,
+			source_type           TEXT          NOT NULL,
+			customer_receipt_id   BIGINT,
+			customer_deposit_id   BIGINT,
+			invoice_id            BIGINT        NOT NULL,
+			status                TEXT          NOT NULL DEFAULT 'active',
+			amount_applied        NUMERIC(18,2) NOT NULL DEFAULT 0,
+			amount_applied_base   NUMERIC(18,2) NOT NULL DEFAULT 0,
+			applied_at            TIMESTAMPTZ   NOT NULL,
+			applied_by            VARCHAR(200)  NOT NULL DEFAULT '',
+			reversed_at           TIMESTAMPTZ,
+			reversed_by           VARCHAR(200)  NOT NULL DEFAULT '',
+			created_at            TIMESTAMPTZ   NOT NULL DEFAULT now(),
+			updated_at            TIMESTAMPTZ   NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_pay_app_company   ON payment_applications(company_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_pay_app_receipt   ON payment_applications(customer_receipt_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_pay_app_deposit   ON payment_applications(customer_deposit_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_pay_app_invoice   ON payment_applications(invoice_id)`,
+
+		// ar_returns
+		`CREATE TABLE IF NOT EXISTS ar_returns (
+			id               BIGSERIAL PRIMARY KEY,
+			company_id       BIGINT       NOT NULL,
+			customer_id      BIGINT       NOT NULL,
+			invoice_id       BIGINT       NOT NULL,
+			credit_note_id   BIGINT,
+			return_number    VARCHAR(50)  NOT NULL DEFAULT '',
+			status           TEXT         NOT NULL DEFAULT 'draft',
+			return_date      TIMESTAMPTZ  NOT NULL,
+			reason           TEXT         NOT NULL DEFAULT 'other',
+			description      TEXT         NOT NULL DEFAULT '',
+			currency_code    VARCHAR(3)   NOT NULL DEFAULT '',
+			return_amount    NUMERIC(18,2) NOT NULL DEFAULT 0,
+			approved_at      TIMESTAMPTZ,
+			approved_by      VARCHAR(200) NOT NULL DEFAULT '',
+			processed_at     TIMESTAMPTZ,
+			created_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
+			updated_at       TIMESTAMPTZ  NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_ar_returns_company  ON ar_returns(company_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_ar_returns_customer ON ar_returns(customer_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_ar_returns_invoice  ON ar_returns(invoice_id)`,
+
+		// ar_refunds
+		`CREATE TABLE IF NOT EXISTS ar_refunds (
+			id                    BIGSERIAL PRIMARY KEY,
+			company_id            BIGINT       NOT NULL,
+			customer_id           BIGINT       NOT NULL,
+			journal_entry_id      BIGINT       UNIQUE,
+			bank_account_id       BIGINT,
+			source_type           TEXT         NOT NULL DEFAULT 'other',
+			customer_deposit_id   BIGINT,
+			customer_receipt_id   BIGINT,
+			credit_note_id        BIGINT,
+			ar_return_id          BIGINT,
+			refund_number         VARCHAR(50)  NOT NULL DEFAULT '',
+			status                TEXT         NOT NULL DEFAULT 'draft',
+			refund_date           TIMESTAMPTZ  NOT NULL,
+			currency_code         VARCHAR(3)   NOT NULL DEFAULT '',
+			exchange_rate         NUMERIC(18,8) NOT NULL DEFAULT 1,
+			amount                NUMERIC(18,2) NOT NULL DEFAULT 0,
+			amount_base           NUMERIC(18,2) NOT NULL DEFAULT 0,
+			payment_method        TEXT         NOT NULL DEFAULT 'other',
+			reference             VARCHAR(200) NOT NULL DEFAULT '',
+			memo                  TEXT         NOT NULL DEFAULT '',
+			posted_at             TIMESTAMPTZ,
+			posted_by             VARCHAR(200) NOT NULL DEFAULT '',
+			posted_by_user_id     UUID,
+			created_at            TIMESTAMPTZ  NOT NULL DEFAULT now(),
+			updated_at            TIMESTAMPTZ  NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_ar_refunds_company  ON ar_refunds(company_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_ar_refunds_customer ON ar_refunds(customer_id)`,
+	}
+	for i, stmt := range stmts {
+		if err := db.Exec(stmt).Error; err != nil {
+			if strings.Contains(err.Error(), "42P01") ||
+				strings.Contains(err.Error(), "already exists") {
+				continue
+			}
+			return fmt.Errorf("migratePhase13 step %d: %w", i+1, err)
 		}
 	}
 	return nil
