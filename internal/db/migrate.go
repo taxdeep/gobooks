@@ -148,6 +148,12 @@ func Migrate(db *gorm.DB) error {
 		// Phase 5 multi-currency: period-end unrealized FX revaluation runs + lines
 		&models.RevaluationRun{},
 		&models.RevaluationLine{},
+		// Phase 6: versioned accounting standard profiles + per-company accounting books.
+		// AccountingStandardProfile must precede AccountingBook (FK dependency).
+		&models.AccountingStandardProfile{},
+		&models.AccountingBook{},
+		// Phase 7: immutable FX rate snapshots (linked from JournalEntry + SettlementAllocation).
+		&models.FXSnapshot{},
 		// Items extensibility: BOM components, inventory tracking, channel integration
 		&models.ItemComponent{},
 		&models.InventoryMovement{},
@@ -234,7 +240,18 @@ func Migrate(db *gorm.DB) error {
 	}
 	// Batch 28 task service item: link tasks to Products & Services catalogue.
 	// AutoMigrate above handles fresh installs; this guard adds the column on live DBs.
-	return migrateTaskServiceItem(db)
+	if err := migrateTaskServiceItem(db); err != nil {
+		return err
+	}
+	// Phase 6: accounting_standard_profiles + accounting_books tables;
+	// companies.primary_book_id; revaluation_runs.book_id backfill.
+	// No behavioral changes — all existing posting logic continues unchanged.
+	if err := migrateCurrencyPhase6(db); err != nil {
+		return err
+	}
+	// Phase 7: fx_snapshots table; journal_entries.fx_snapshot_id;
+	// settlement_allocations.fx_snapshot_id. Existing rows get NULL (valid).
+	return migrateCurrencyPhase7(db)
 }
 
 // migrateEnsureUserPlans seeds the user_plans table with the three default tiers
@@ -1212,6 +1229,220 @@ END $$;
 				return nil
 			}
 			return fmt.Errorf("migrateJournalLinesTxAmounts step %d: %w", i+1, err)
+		}
+	}
+	return nil
+}
+
+// migrateCurrencyPhase6 creates the accounting_standard_profiles and
+// accounting_books tables, adds primary_book_id to companies, and backfills
+// one primary AccountingBook per existing company (functional_currency =
+// company.base_currency_code, standard_profile = ASPE_2024).
+//
+// Also adds book_id to revaluation_runs and backfills to the primary book.
+//
+// All steps are fully idempotent. On a fresh install the companies table does
+// not yet exist when this runs (AutoMigrate hasn't fired), so backfill steps
+// check for table existence before acting.
+func migrateCurrencyPhase6(db *gorm.DB) error {
+	steps := []string{
+		// Step 1: accounting_standard_profiles table
+		`CREATE TABLE IF NOT EXISTS accounting_standard_profiles (
+    id             BIGSERIAL    PRIMARY KEY,
+    code           TEXT         NOT NULL,
+    display_name   TEXT         NOT NULL,
+    effective_from DATE         NOT NULL,
+    is_system      BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_asp_code UNIQUE (code)
+);`,
+		// Step 2: seed system profiles (idempotent via ON CONFLICT DO NOTHING)
+		`INSERT INTO accounting_standard_profiles (code, display_name, effective_from, is_system, created_at)
+VALUES
+    ('ASPE_2024',       'ASPE 2024',          '2024-01-01', TRUE, NOW()),
+    ('IFRS_IAS21_2025', 'IFRS IAS 21 (2025)', '2025-01-01', TRUE, NOW()),
+    ('IFRS_IAS21_2027', 'IFRS IAS 21 (2027)', '2027-01-01', TRUE, NOW())
+ON CONFLICT (code) DO NOTHING;`,
+		// Step 3: accounting_books table (FK to accounting_standard_profiles)
+		`CREATE TABLE IF NOT EXISTS accounting_books (
+    id                     BIGSERIAL    PRIMARY KEY,
+    company_id             BIGINT       NOT NULL,
+    book_type              TEXT         NOT NULL DEFAULT 'primary',
+    functional_currency    VARCHAR(3)   NOT NULL,
+    standard_profile_id    BIGINT       NOT NULL REFERENCES accounting_standard_profiles(id),
+    standard_change_policy TEXT         NOT NULL DEFAULT 'allow_direct',
+    created_at             TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at             TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_accounting_books_company ON accounting_books (company_id);`,
+		// Step 4: add primary_book_id to companies (nullable; backfilled in step 5)
+		`DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = CURRENT_SCHEMA()
+          AND table_name   = 'companies'
+          AND column_name  = 'primary_book_id'
+    ) THEN
+        ALTER TABLE companies ADD COLUMN primary_book_id BIGINT;
+    END IF;
+END $$;`,
+		// Step 5: backfill one primary book per company + wire primary_book_id
+		`DO $$
+DECLARE
+    v_profile_id BIGINT;
+BEGIN
+    -- Skip entirely on fresh installs where the companies table does not exist yet.
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'companies'
+    ) THEN
+        RETURN;
+    END IF;
+
+    SELECT id INTO v_profile_id
+    FROM accounting_standard_profiles WHERE code = 'ASPE_2024' LIMIT 1;
+
+    IF v_profile_id IS NULL THEN
+        RETURN; -- profile seed may not have committed; re-run will fix.
+    END IF;
+
+    -- Insert a primary book for each company that does not already have one.
+    INSERT INTO accounting_books
+        (company_id, book_type, functional_currency, standard_profile_id,
+         standard_change_policy, created_at, updated_at)
+    SELECT
+        c.id,
+        'primary',
+        c.base_currency_code,
+        v_profile_id,
+        'allow_direct',
+        NOW(),
+        NOW()
+    FROM companies c
+    WHERE NOT EXISTS (
+        SELECT 1 FROM accounting_books ab
+        WHERE ab.company_id = c.id AND ab.book_type = 'primary'
+    );
+
+    -- Wire companies.primary_book_id to the newly created (or existing) primary book.
+    UPDATE companies c
+    SET    primary_book_id = ab.id
+    FROM   accounting_books ab
+    WHERE  ab.company_id  = c.id
+      AND  ab.book_type   = 'primary'
+      AND  c.primary_book_id IS NULL;
+END $$;`,
+		// Step 6: add book_id to revaluation_runs
+		`DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = CURRENT_SCHEMA()
+          AND table_name   = 'revaluation_runs'
+          AND column_name  = 'book_id'
+    ) THEN
+        ALTER TABLE revaluation_runs ADD COLUMN book_id BIGINT;
+    END IF;
+END $$;`,
+		// Step 7: backfill revaluation_runs.book_id to each company's primary book
+		`DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'revaluation_runs'
+    ) THEN
+        RETURN;
+    END IF;
+
+    UPDATE revaluation_runs rr
+    SET    book_id = ab.id
+    FROM   companies c
+    JOIN   accounting_books ab
+           ON ab.company_id = c.id AND ab.book_type = 'primary'
+    WHERE  rr.company_id = c.id
+      AND  rr.book_id IS NULL;
+END $$;`,
+	}
+
+	for i, stmt := range steps {
+		if err := db.Exec(stmt).Error; err != nil {
+			// 42P01 = undefined_table: safe to skip on fresh installs.
+			if strings.Contains(err.Error(), "42P01") {
+				continue
+			}
+			return fmt.Errorf("migrateCurrencyPhase6 step %d: %w", i+1, err)
+		}
+	}
+	return nil
+}
+
+// migrateCurrencyPhase7 creates the fx_snapshots table and adds fx_snapshot_id
+// (nullable) to journal_entries and settlement_allocations.
+//
+// Existing rows are left with fx_snapshot_id = NULL, which is valid; the column
+// is nullable specifically to preserve backward compatibility.
+// All steps are idempotent.
+func migrateCurrencyPhase7(db *gorm.DB) error {
+	steps := []string{
+		// Step 1: fx_snapshots table
+		`CREATE TABLE IF NOT EXISTS fx_snapshots (
+    id             BIGSERIAL     PRIMARY KEY,
+    company_id     BIGINT        NOT NULL,
+    from_currency  VARCHAR(3)    NOT NULL,
+    to_currency    VARCHAR(3)    NOT NULL,
+    rate           NUMERIC(20,8) NOT NULL,
+    effective_date DATE          NOT NULL,
+    rate_type      TEXT          NOT NULL DEFAULT 'spot',
+    quote_basis    TEXT          NOT NULL DEFAULT 'direct',
+    posting_reason TEXT          NOT NULL,
+    rate_category  TEXT          NOT NULL,
+    source         TEXT          NOT NULL DEFAULT '',
+    is_immutable   BOOLEAN       NOT NULL DEFAULT TRUE,
+    created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_fx_snapshots_company
+    ON fx_snapshots (company_id);
+CREATE INDEX IF NOT EXISTS idx_fx_snapshots_currency_date
+    ON fx_snapshots (from_currency, to_currency, effective_date DESC);`,
+		// Step 2: add fx_snapshot_id to journal_entries
+		`DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = CURRENT_SCHEMA()
+          AND table_name   = 'journal_entries'
+          AND column_name  = 'fx_snapshot_id'
+    ) THEN
+        ALTER TABLE journal_entries ADD COLUMN fx_snapshot_id BIGINT;
+        CREATE INDEX IF NOT EXISTS idx_je_fx_snapshot
+            ON journal_entries (fx_snapshot_id)
+            WHERE fx_snapshot_id IS NOT NULL;
+    END IF;
+END $$;`,
+		// Step 3: add fx_snapshot_id to settlement_allocations
+		`DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = CURRENT_SCHEMA()
+          AND table_name   = 'settlement_allocations'
+          AND column_name  = 'fx_snapshot_id'
+    ) THEN
+        ALTER TABLE settlement_allocations ADD COLUMN fx_snapshot_id BIGINT;
+        CREATE INDEX IF NOT EXISTS idx_sa_fx_snapshot
+            ON settlement_allocations (fx_snapshot_id)
+            WHERE fx_snapshot_id IS NOT NULL;
+    END IF;
+END $$;`,
+	}
+
+	for i, stmt := range steps {
+		if err := db.Exec(stmt).Error; err != nil {
+			if strings.Contains(err.Error(), "42P01") {
+				continue
+			}
+			return fmt.Errorf("migrateCurrencyPhase7 step %d: %w", i+1, err)
 		}
 	}
 	return nil

@@ -30,9 +30,13 @@ const (
 // Carrying values stay at original posting rates; the JEs are the only record
 // of the unrealized adjustment.
 type RevaluationRun struct {
-	ID           uint                 `gorm:"primaryKey"`
-	CompanyID    uint                 `gorm:"not null;index"`
-	RunDate      time.Time            `gorm:"not null"`
+	ID        uint `gorm:"primaryKey"`
+	CompanyID uint `gorm:"not null;index"`
+	// BookID links this revaluation run to the accounting book it was executed against.
+	// Nil for runs created before Phase 0; backfilled to the primary book by
+	// migrateCurrencyPhase6.
+	BookID  *uint     `gorm:"index"`
+	RunDate time.Time            `gorm:"not null"`
 	ReversalDate time.Time            `gorm:"not null"`
 	Status       RevaluationRunStatus `gorm:"type:text;not null;default:'posted'"`
 	// JournalEntryID is the revaluation JE (0 until the transaction commits).

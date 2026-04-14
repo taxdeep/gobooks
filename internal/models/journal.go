@@ -83,6 +83,10 @@ type JournalEntry struct {
 	// ReversedFromID is set on the reversal JE; nil on normal entries.
 	ReversedFromID *uint `gorm:"index"`
 
+	// FXSnapshotID links to the structured FX rate snapshot used when this entry
+	// was posted. Nil for base-currency entries and for entries posted before Phase 1.
+	FXSnapshotID *uint `gorm:"index"`
+
 	CreatedAt time.Time
 
 	Lines []JournalLine `gorm:"foreignKey:JournalEntryID"`

@@ -1,7 +1,6 @@
 package services
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -39,14 +38,22 @@ func TestConvertJournalLineAmounts_ForeignPrecisionAndBankersRounding(t *testing
 	}
 }
 
-func TestConvertJournalLineAmounts_BaseImbalanceBlocksSave(t *testing.T) {
-	_, err := ConvertJournalLineAmounts([]FXLineAmounts{
+func TestConvertJournalLineAmounts_BaseImbalanceAbsorbedByAnchor(t *testing.T) {
+	// 3 lines: USD 0.01 + USD 0.01 (debits) vs USD 0.02 (credit) at rate 1.5.
+	// Per-line: 0.01 × 1.5 = 0.015 → rounds to 0.02 each (banker's rounding).
+	// Naive total: debit 0.02+0.02=0.04, credit 0.02 → residual +0.02.
+	// Anchor pattern should absorb the residual into the last debit line.
+	result, err := ConvertJournalLineAmounts([]FXLineAmounts{
 		{TxDebit: decimal.RequireFromString("0.01")},
 		{TxDebit: decimal.RequireFromString("0.01")},
 		{TxCredit: decimal.RequireFromString("0.02")},
 	}, decimal.RequireFromString("1.5"))
-	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "base-currency totals do not balance exactly") {
-		t.Fatalf("expected base imbalance error, got %v", err)
+	if err != nil {
+		t.Fatalf("expected anchor absorption, got error: %v", err)
+	}
+	if !result.Totals.BaseDebitTotal.Equal(result.Totals.BaseCreditTotal) {
+		t.Fatalf("base totals should balance after anchor absorption: debit=%s credit=%s",
+			result.Totals.BaseDebitTotal, result.Totals.BaseCreditTotal)
 	}
 }
 

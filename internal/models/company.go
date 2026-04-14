@@ -135,6 +135,11 @@ type Company struct {
 	// false = base-currency-only mode (safe default for existing companies).
 	MultiCurrencyEnabled bool `gorm:"not null;default:false"`
 
+	// PrimaryBookID is the FK to this company's primary AccountingBook.
+	// Nullable during Phase 0 migration; backfilled for all existing companies
+	// by migrateCurrencyPhase6. New companies have this set at creation time.
+	PrimaryBookID *uint `gorm:"index"`
+
 	// Inventory costing method. Controls how unit costs are calculated on
 	// inbound/outbound movements. Default: moving_average.
 	// Once inventory movements exist for the company, this should not be changed.

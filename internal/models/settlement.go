@@ -65,5 +65,9 @@ type SettlementAllocation struct {
 	// SettlementRate is the documentCurrency→baseCurrency rate used. 1 for base-currency docs.
 	SettlementRate decimal.Decimal `gorm:"type:numeric(20,8);not null;default:1"`
 
+	// FXSnapshotID links to the structured FX rate snapshot used for this settlement.
+	// Nil for allocations posted before Phase 1.
+	FXSnapshotID *uint `gorm:"index"`
+
 	CreatedAt time.Time
 }
