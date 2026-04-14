@@ -292,6 +292,15 @@ func totalBillBalanceDue(bills []models.Bill) decimal.Decimal {
 	return total
 }
 
+// customerDefaultCurrLabel returns a display label for the customer's default currency.
+// Falls back to the company base currency when the customer has no explicit currency set.
+func customerDefaultCurrLabel(currencyCode, baseCurrency string) string {
+	if currencyCode != "" {
+		return currencyCode
+	}
+	return baseCurrency
+}
+
 // billDaysFromToday returns the number of calendar days until the bill's due date
 // (negative = already overdue). Returns 9999 when DueDate is nil (no due date set).
 func billDaysFromToday(b models.Bill) int {

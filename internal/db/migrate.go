@@ -235,6 +235,9 @@ func Migrate(db *gorm.DB) error {
 		&models.BookStandardChange{},
 		// Phase 11: AR/AP control-account routing table + Customer/Vendor currency policy.
 		&models.ARAPControlMapping{},
+		// Phase 12: per-customer and per-vendor allowed-currency lists.
+		&models.CustomerAllowedCurrency{},
+		&models.VendorAllowedCurrency{},
 	); err != nil {
 		return err
 	}
@@ -290,7 +293,11 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 	// Phase 11: ar_ap_control_mappings table + currency_policy columns on customers/vendors.
-	return migratePhase11(db)
+	if err := migratePhase11(db); err != nil {
+		return err
+	}
+	// Phase 12: customer_allowed_currencies + vendor_allowed_currencies tables.
+	return migratePhase12(db)
 }
 
 // migrateEnsureUserPlans seeds the user_plans table with the three default tiers
@@ -1752,6 +1759,46 @@ func migratePhase11(db *gorm.DB) error {
 				continue
 			}
 			return fmt.Errorf("migratePhase11 step %d: %w", i+1, err)
+		}
+	}
+	return nil
+}
+
+// migratePhase12 creates the customer_allowed_currencies and
+// vendor_allowed_currencies tables. AutoMigrate handles fresh installs.
+func migratePhase12(db *gorm.DB) error {
+	stmts := []string{
+		`CREATE TABLE IF NOT EXISTS customer_allowed_currencies (
+			id            BIGSERIAL PRIMARY KEY,
+			company_id    BIGINT      NOT NULL,
+			customer_id   BIGINT      NOT NULL,
+			currency_code VARCHAR(3)  NOT NULL,
+			created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX  IF NOT EXISTS idx_cust_allowed_curr_company  ON customer_allowed_currencies(company_id)`,
+		`CREATE INDEX  IF NOT EXISTS idx_cust_allowed_curr_customer ON customer_allowed_currencies(customer_id)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_cust_allowed_curr_uniq
+			ON customer_allowed_currencies(company_id, customer_id, currency_code)`,
+
+		`CREATE TABLE IF NOT EXISTS vendor_allowed_currencies (
+			id            BIGSERIAL PRIMARY KEY,
+			company_id    BIGINT      NOT NULL,
+			vendor_id     BIGINT      NOT NULL,
+			currency_code VARCHAR(3)  NOT NULL,
+			created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX  IF NOT EXISTS idx_vendor_allowed_curr_company ON vendor_allowed_currencies(company_id)`,
+		`CREATE INDEX  IF NOT EXISTS idx_vendor_allowed_curr_vendor  ON vendor_allowed_currencies(vendor_id)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_vendor_allowed_curr_uniq
+			ON vendor_allowed_currencies(company_id, vendor_id, currency_code)`,
+	}
+	for i, stmt := range stmts {
+		if err := db.Exec(stmt).Error; err != nil {
+			if strings.Contains(err.Error(), "42P01") ||
+				strings.Contains(err.Error(), "already exists") {
+				continue
+			}
+			return fmt.Errorf("migratePhase12 step %d: %w", i+1, err)
 		}
 	}
 	return nil

@@ -91,6 +91,14 @@ func (s *Server) handleCustomerDetail(c *fiber.Ctx) error {
 		creditCount = len(activeCredits)
 	}
 
+	// Phase 12: load currency policy data.
+	allowedCurrencies, _ := services.ListCustomerAllowedCurrencies(s.DB, companyID, uint(customerID64))
+	var company models.Company
+	baseCurrencyCode := ""
+	if err := s.DB.Select("base_currency_code").First(&company, companyID).Error; err == nil {
+		baseCurrencyCode = company.BaseCurrencyCode
+	}
+
 	return pages.CustomerDetail(pages.CustomerDetailVM{
 		HasCompany:              true,
 		Customer:                workspace.Customer,
@@ -102,6 +110,9 @@ func (s *Server) handleCustomerDetail(c *fiber.Ctx) error {
 		MostRecentInvoice:       workspace.MostRecentInvoice,
 		CreditCount:             creditCount,
 		CreditRemaining:         creditRemaining,
+		AllowedCurrencies:       allowedCurrencies,
+		BaseCurrencyCode:        baseCurrencyCode,
+		CurrencyPolicySaved:     c.Query("policy_saved") == "1",
 	}).Render(c.Context(), c)
 }
 
@@ -368,6 +379,77 @@ func validateCustomerFields(name, email, currencyCode string, multiCurrency bool
 		return "Postal code may only contain letters, numbers, spaces, and hyphens."
 	}
 	return ""
+}
+
+// handleCustomerCurrencyPolicySet updates the customer's currency policy (single / multi_allowed).
+func (s *Server) handleCustomerCurrencyPolicySet(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/select-company", fiber.StatusSeeOther)
+	}
+	customerID64, err := strconv.ParseUint(strings.TrimSpace(c.Params("id")), 10, 64)
+	if err != nil || customerID64 == 0 {
+		return redirectErr(c, "/customers", "invalid customer ID")
+	}
+	customerID := uint(customerID64)
+
+	policy := models.CustomerCurrencyPolicy(strings.TrimSpace(c.FormValue("policy")))
+	if policy != models.CustomerCurrencyPolicySingle && policy != models.CustomerCurrencyPolicyMultiAllowed {
+		policy = models.CustomerCurrencyPolicySingle
+	}
+	if err := services.SetCustomerCurrencyPolicy(s.DB, companyID, customerID, policy); err != nil {
+		return redirectErr(c, "/customers/"+strconv.FormatUint(customerID64, 10), "failed to update currency policy")
+	}
+	return c.Redirect("/customers/"+strconv.FormatUint(customerID64, 10)+"?policy_saved=1", fiber.StatusSeeOther)
+}
+
+// handleCustomerCurrencyPolicyAdd adds a currency to the customer's allowed currency list.
+func (s *Server) handleCustomerCurrencyPolicyAdd(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/select-company", fiber.StatusSeeOther)
+	}
+	customerID64, err := strconv.ParseUint(strings.TrimSpace(c.Params("id")), 10, 64)
+	if err != nil || customerID64 == 0 {
+		return redirectErr(c, "/customers", "invalid customer ID")
+	}
+	customerID := uint(customerID64)
+	idStr := strconv.FormatUint(customerID64, 10)
+
+	code := strings.ToUpper(strings.TrimSpace(c.FormValue("currency_code_manual")))
+	if code == "" {
+		code = strings.ToUpper(strings.TrimSpace(c.FormValue("currency_code")))
+	}
+	if len(code) != 3 {
+		return redirectErr(c, "/customers/"+idStr, "currency code must be 3 letters")
+	}
+	if err := services.AddCustomerAllowedCurrency(s.DB, companyID, customerID, code); err != nil {
+		return redirectErr(c, "/customers/"+idStr, "could not add currency: "+err.Error())
+	}
+	return c.Redirect("/customers/"+idStr+"?policy_saved=1", fiber.StatusSeeOther)
+}
+
+// handleCustomerCurrencyPolicyRemove removes a currency from the customer's allowed currency list.
+func (s *Server) handleCustomerCurrencyPolicyRemove(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/select-company", fiber.StatusSeeOther)
+	}
+	customerID64, err := strconv.ParseUint(strings.TrimSpace(c.Params("id")), 10, 64)
+	if err != nil || customerID64 == 0 {
+		return redirectErr(c, "/customers", "invalid customer ID")
+	}
+	customerID := uint(customerID64)
+	idStr := strconv.FormatUint(customerID64, 10)
+
+	code := strings.ToUpper(strings.TrimSpace(c.FormValue("currency_code")))
+	if len(code) != 3 {
+		return redirectErr(c, "/customers/"+idStr, "invalid currency code")
+	}
+	if err := services.RemoveCustomerAllowedCurrency(s.DB, companyID, customerID, code); err != nil {
+		return redirectErr(c, "/customers/"+idStr, "could not remove currency")
+	}
+	return c.Redirect("/customers/"+idStr, fiber.StatusSeeOther)
 }
 
 // handleCustomerQuickCreate creates a minimal customer record from an inline

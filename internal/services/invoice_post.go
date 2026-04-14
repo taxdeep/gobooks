@@ -157,6 +157,12 @@ func PostInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 		}
 	}
 
+	// ── 2b. Validate customer currency policy (Phase 12) ─────────────────────
+	if err := ValidateDocumentCurrency(db, companyID, inv.CustomerID,
+		models.PartyTypeCustomer, transactionCurrencyCode, company.BaseCurrencyCode); err != nil {
+		return err
+	}
+
 	// ── 3. Resolve debit-side account (AR or channel clearing) ───────────────
 	// Channel-origin invoices (from channel order conversion) use the channel's
 	// clearing account instead of AR. This ensures the clearing account

@@ -84,6 +84,12 @@ type CustomerDetailVM struct {
 	// Batch 16: credit balance visibility
 	CreditCount     int
 	CreditRemaining decimal.Decimal
+
+	// Phase 12: currency policy management
+	AllowedCurrencies []models.CustomerAllowedCurrency
+	BaseCurrencyCode  string
+	CurrencyPolicySaved bool
+	CurrencyPolicyError string
 }
 
 type VendorsVM struct {

@@ -102,6 +102,12 @@ func PostCreditNote(db *gorm.DB, companyID, creditNoteID uint, actor string, use
 		}
 	}
 
+	// ── 2b. Validate customer currency policy (Phase 12) ─────────────────────
+	if err := ValidateDocumentCurrency(db, companyID, cn.CustomerID,
+		models.PartyTypeCustomer, txCurrencyCode, company.BaseCurrencyCode); err != nil {
+		return err
+	}
+
 	// ── 3. Resolve AR account (Phase 11: ARAPControlMapping) ─────────────────
 	arAccount, err := ResolveControlAccount(db, companyID, 0,
 		models.ARAPDocTypeCreditNote, txCurrencyCode, isForeignCurrency,

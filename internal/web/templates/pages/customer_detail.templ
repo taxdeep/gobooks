@@ -1,9 +1,12 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/models"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import (
+	"fmt"
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
 
 templ CustomerDetail(vm CustomerDetailVM) {
 	@layout.Layout(
@@ -255,5 +258,90 @@ templ bodyCustomerDetail(vm CustomerDetailVM) {
 				</div>
 			</div>
 		}
+
+		<!-- Phase 12: currency policy -->
+		@customerCurrencyPolicySection(vm)
 	</div>
+}
+
+templ customerCurrencyPolicySection(vm CustomerDetailVM) {
+	<div class="mt-8 rounded-lg border border-border bg-surface p-5">
+		<div class="flex items-center justify-between mb-4">
+			<div>
+				<h2 class="text-section font-semibold text-text">Currency Policy</h2>
+				<p class="mt-1 text-small text-text-muted2">Control which currencies may be used on invoices and credit notes for this customer.</p>
+			</div>
+			@customerCurrencyPolicyBadge(vm.Customer.CurrencyPolicy)
+		</div>
+		if vm.CurrencyPolicyError != "" {
+			<p class="mb-3 text-small text-danger">{ vm.CurrencyPolicyError }</p>
+		}
+		if vm.CurrencyPolicySaved {
+			<p class="mb-3 text-small text-success">Currency policy updated.</p>
+		}
+		<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/customers/%d/currency-policy", vm.Customer.ID)) }>
+			<div class="flex flex-wrap items-center gap-4">
+				<label class="flex items-center gap-2 cursor-pointer">
+					<input
+						type="radio"
+						name="policy"
+						value="single"
+						if vm.Customer.CurrencyPolicy == "" || vm.Customer.CurrencyPolicy == "single" {
+							checked
+						}
+						class="accent-primary"
+					/>
+					<span class="text-body text-text">Single currency</span>
+					<span class="text-small text-text-muted2">({ customerDefaultCurrLabel(vm.Customer.CurrencyCode, vm.BaseCurrencyCode) } only)</span>
+				</label>
+				<label class="flex items-center gap-2 cursor-pointer">
+					<input
+						type="radio"
+						name="policy"
+						value="multi_allowed"
+						if vm.Customer.CurrencyPolicy == "multi_allowed" {
+							checked
+						}
+						class="accent-primary"
+					/>
+					<span class="text-body text-text">Multi-currency allowed</span>
+				</label>
+				<button type="submit" class="btn-secondary text-small px-3 py-1">Save</button>
+			</div>
+		</form>
+		if vm.Customer.CurrencyPolicy == "multi_allowed" {
+			<div class="mt-5">
+				<p class="text-small font-medium text-text-muted uppercase tracking-wider mb-2">Allowed Currencies</p>
+				if len(vm.AllowedCurrencies) == 0 {
+					<p class="text-small text-text-muted2 mb-3">No restrictions — all currencies are accepted.</p>
+				} else {
+					<div class="flex flex-wrap gap-2 mb-3">
+						for _, ac := range vm.AllowedCurrencies {
+							<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/customers/%d/currency-policy/remove", vm.Customer.ID)) } class="inline">
+								<input type="hidden" name="currency_code" value={ ac.CurrencyCode }/>
+								<span class="inline-flex items-center gap-1 rounded bg-surface-raised border border-border px-2 py-0.5 text-small text-text">
+									{ ac.CurrencyCode }
+									<button type="submit" class="text-text-muted hover:text-danger leading-none" title="Remove">×</button>
+								</span>
+							</form>
+						}
+					</div>
+				}
+				<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/customers/%d/currency-policy/add", vm.Customer.ID)) } class="flex items-center gap-2">
+					<input type="text" name="currency_code_manual" placeholder="e.g. EUR" maxlength="3" class="input-field text-small py-1 w-24"/>
+					<button type="submit" class="btn-secondary text-small px-3 py-1">Add</button>
+				</form>
+				<p class="mt-2 text-small text-text-muted2">Type a 3-letter ISO currency code (e.g. EUR, GBP) and click Add. An empty list means all currencies are accepted.</p>
+			</div>
+		}
+	</div>
+}
+
+templ customerCurrencyPolicyBadge(p models.CustomerCurrencyPolicy) {
+	switch p {
+		case models.CustomerCurrencyPolicyMultiAllowed:
+			<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-success-soft text-success">Multi-currency</span>
+		default:
+			<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-surface-raised text-text-muted">Single currency</span>
+	}
 }

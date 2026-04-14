@@ -143,6 +143,12 @@ func PostBill(db *gorm.DB, companyID, billID uint, actor string, userID *uuid.UU
 		}
 	}
 
+	// ── 2b. Validate vendor currency policy (Phase 12) ───────────────────────
+	if err := ValidateDocumentCurrency(db, companyID, bill.VendorID,
+		models.PartyTypeVendor, transactionCurrencyCode, company.BaseCurrencyCode); err != nil {
+		return err
+	}
+
 	// ── 3. Resolve AP account (Phase 11: ARAPControlMapping) ─────────────────
 	// Consults the control-account mapping table first, then falls back through
 	// legacy system_key ("ap_{code}") → first active AP account.

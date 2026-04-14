@@ -346,6 +346,10 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	// Batch 17: credit multi-invoice allocation
 	app.Get("/customers/:id/credits/:creditID/allocate", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCreditMultiAllocateForm)
 	app.Post("/customers/:id/credits/:creditID/allocate", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleCreditMultiAllocateSubmit)
+	// Phase 12: customer currency policy
+	app.Post("/customers/:id/currency-policy", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerCurrencyPolicySet)
+	app.Post("/customers/:id/currency-policy/add", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerCurrencyPolicyAdd)
+	app.Post("/customers/:id/currency-policy/remove", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerCurrencyPolicyRemove)
 	app.Post("/customers", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerCreate)
 	app.Post("/customers/update", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerUpdate)
 	app.Get("/tasks", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleTasks)

@@ -52,6 +52,8 @@ func testFXPostingDB(t *testing.T) *gorm.DB {
 		&models.Currency{},
 		&models.CompanyCurrency{},
 		&models.ExchangeRate{},
+		&models.CustomerAllowedCurrency{},
+		&models.VendorAllowedCurrency{},
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -59,6 +61,35 @@ func testFXPostingDB(t *testing.T) *gorm.DB {
 }
 
 // ── Seed helpers ──────────────────────────────────────────────────────────────
+
+// seedFXCustomer creates a customer with multi_allowed currency policy so that
+// FX posting tests are not blocked by the single-currency enforcement check.
+func seedFXCustomer(t *testing.T, db *gorm.DB, companyID uint) uint {
+	t.Helper()
+	c := models.Customer{
+		CompanyID:      companyID,
+		Name:           "FX Test Customer",
+		CurrencyPolicy: models.CustomerCurrencyPolicyMultiAllowed,
+	}
+	if err := db.Create(&c).Error; err != nil {
+		t.Fatal(err)
+	}
+	return c.ID
+}
+
+// seedFXVendor creates a vendor with multi_allowed currency policy.
+func seedFXVendor(t *testing.T, db *gorm.DB, companyID uint) uint {
+	t.Helper()
+	v := models.Vendor{
+		CompanyID:      companyID,
+		Name:           "FX Test Vendor",
+		CurrencyPolicy: models.VendorCurrencyPolicyMultiAllowed,
+	}
+	if err := db.Create(&v).Error; err != nil {
+		t.Fatal(err)
+	}
+	return v.ID
+}
 
 // seedFXCompany creates a company with the given base currency code.
 func seedFXCompany(t *testing.T, db *gorm.DB, baseCurrency string) uint {
@@ -194,7 +225,7 @@ func seedFXProductService(t *testing.T, db *gorm.DB, companyID, revenueAcctID ui
 func TestPostInvoice_ForeignCurrency_FXScaling(t *testing.T) {
 	db := testFXPostingDB(t)
 	cid := seedFXCompany(t, db, "CAD")
-	custID := seedCustomer(t, db, cid)
+	custID := seedFXCustomer(t, db, cid)
 
 	// Accounts: base CAD AR (fallback) + dedicated USD AR (system key) + revenue.
 	seedFXAccount(t, db, cid, "1100", models.RootAsset, models.DetailAccountsReceivable, "", "")
@@ -255,7 +286,7 @@ func TestPostInvoice_ForeignCurrency_FXScaling(t *testing.T) {
 func TestPostInvoice_ForeignCurrency_UsesSystemKeyAR(t *testing.T) {
 	db := testFXPostingDB(t)
 	cid := seedFXCompany(t, db, "CAD")
-	custID := seedCustomer(t, db, cid)
+	custID := seedFXCustomer(t, db, cid)
 
 	cadAR := seedFXAccount(t, db, cid, "1100", models.RootAsset, models.DetailAccountsReceivable, "", "")
 	usdAR := seedFXAccount(t, db, cid, "1150", models.RootAsset, models.DetailAccountsReceivable, "ar_USD", "USD")
@@ -288,7 +319,7 @@ func TestPostInvoice_ForeignCurrency_UsesSystemKeyAR(t *testing.T) {
 func TestPostInvoice_ForeignCurrency_MissingRateErrors(t *testing.T) {
 	db := testFXPostingDB(t)
 	cid := seedFXCompany(t, db, "CAD")
-	custID := seedCustomer(t, db, cid)
+	custID := seedFXCustomer(t, db, cid)
 
 	seedFXAccount(t, db, cid, "1100", models.RootAsset, models.DetailAccountsReceivable, "", "")
 	revID := seedFXAccount(t, db, cid, "4000", models.RootRevenue, models.DetailServiceRevenue, "", "")
@@ -308,7 +339,7 @@ func TestPostInvoice_ForeignCurrency_MissingRateErrors(t *testing.T) {
 func TestPostInvoice_ForeignCurrency_UsesPersistedManualExchangeRate(t *testing.T) {
 	db := testFXPostingDB(t)
 	cid := seedFXCompany(t, db, "CAD")
-	custID := seedCustomer(t, db, cid)
+	custID := seedFXCustomer(t, db, cid)
 
 	seedFXAccount(t, db, cid, "1100", models.RootAsset, models.DetailAccountsReceivable, "", "")
 	revID := seedFXAccount(t, db, cid, "4000", models.RootRevenue, models.DetailServiceRevenue, "", "")
@@ -341,7 +372,7 @@ func TestPostInvoice_ForeignCurrency_UsesPersistedManualExchangeRate(t *testing.
 func TestPostBill_ForeignCurrency_FXScaling(t *testing.T) {
 	db := testFXPostingDB(t)
 	cid := seedFXCompany(t, db, "CAD")
-	vendID := seedVendor(t, db, cid)
+	vendID := seedFXVendor(t, db, cid)
 
 	// Accounts: base CAD AP (fallback) + dedicated USD AP (system key) + expense.
 	seedFXAccount(t, db, cid, "2000", models.RootLiability, models.DetailAccountsPayable, "", "")
@@ -396,7 +427,7 @@ func TestPostBill_ForeignCurrency_FXScaling(t *testing.T) {
 func TestPostBill_ForeignCurrency_UsesPersistedManualExchangeRate(t *testing.T) {
 	db := testFXPostingDB(t)
 	cid := seedFXCompany(t, db, "CAD")
-	vendID := seedVendor(t, db, cid)
+	vendID := seedFXVendor(t, db, cid)
 
 	seedFXAccount(t, db, cid, "2000", models.RootLiability, models.DetailAccountsPayable, "", "")
 	expID := seedFXAccount(t, db, cid, "6000", models.RootExpense, models.DetailOtherExpense, "", "")
