@@ -19,7 +19,7 @@ func SectionKeyForActivePage(active string) string {
 		"Payment Gateways", "Gateway Settlement Review", "Gateway Payouts", "Gateway Disputes",
 		"Recon Exceptions", "Investigation Workspace",
 		"User Preferences Hub", "User Preferences System Setup",
-		"Accounting Books":
+		"Accounting Books", "AR/AP Control":
 		return "settings"
 	default:
 		if IsCompanySettingsNavActive(active) {

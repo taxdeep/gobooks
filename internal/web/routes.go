@@ -137,6 +137,12 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Post("/settings/accounting-books/:id/add-period", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleAccountingBookAddPeriod)
 	app.Post("/settings/accounting-books/:id/close-period/:period_id", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleAccountingBookClosePeriod)
 
+	// ── 设置：AR/AP Control Accounts ──────────────────────────────────────────
+	app.Get("/settings/ar-ap-control", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleARAPControlGet)
+	app.Post("/settings/ar-ap-control", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleARAPControlCreate)
+	app.Post("/settings/ar-ap-control/seed", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleARAPControlSeedDefaults)
+	app.Post("/settings/ar-ap-control/:id/delete", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleARAPControlDelete)
+
 	// ── 设置：AI Connect（owner / admin 专属）───────────────────────────────────
 	app.Get("/settings/ai-connect", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleAIConnectGet)
 	app.Post("/settings/ai-connect", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleAIConnectPost)

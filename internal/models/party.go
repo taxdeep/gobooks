@@ -25,6 +25,20 @@ func (t PartyType) Valid() bool {
 	}
 }
 
+// CustomerCurrencyPolicy governs which transaction currencies are permitted on
+// documents created for a customer. AR.9 / § 12.3 of project_guide.md.
+type CustomerCurrencyPolicy string
+
+const (
+	// CustomerCurrencyPolicySingle — only the customer's default currency is allowed.
+	// Any attempt to create a document in a different currency is rejected.
+	CustomerCurrencyPolicySingle CustomerCurrencyPolicy = "single"
+
+	// CustomerCurrencyPolicyMultiAllowed — multiple currencies are allowed.
+	// The default currency is pre-filled but can be overridden per document.
+	CustomerCurrencyPolicyMultiAllowed CustomerCurrencyPolicy = "multi_allowed"
+)
+
 // Customer is a company-scoped record for sales-side party selection (invoices, journal, etc.).
 type Customer struct {
 	ID             uint   `gorm:"primaryKey"`
@@ -40,6 +54,9 @@ type Customer struct {
 	// CurrencyCode is the customer's default invoice currency (ISO 4217, e.g. "USD").
 	// Empty string means the company's base currency is used.
 	CurrencyCode string `gorm:"type:text;not null;default:''"`
+	// CurrencyPolicy controls whether documents may use currencies other than
+	// CurrencyCode. Defaults to "single" (backward-compatible).
+	CurrencyPolicy CustomerCurrencyPolicy `gorm:"type:text;not null;default:'single'"`
 	// DefaultPaymentTermCode references a PaymentTerm.Code for this company.
 	// Empty string means "use company default at document creation time".
 	DefaultPaymentTermCode string `gorm:"type:text;not null;default:''"`
@@ -81,6 +98,14 @@ func (c Customer) FormattedAddress() string {
 	return strings.Join(parts, "\n")
 }
 
+// VendorCurrencyPolicy mirrors CustomerCurrencyPolicy for the AP side.
+type VendorCurrencyPolicy string
+
+const (
+	VendorCurrencyPolicySingle       VendorCurrencyPolicy = "single"
+	VendorCurrencyPolicyMultiAllowed VendorCurrencyPolicy = "multi_allowed"
+)
+
 // Vendor is a company-scoped record for purchase-side party selection (bills, journal, etc.).
 type Vendor struct {
 	ID        uint `gorm:"primaryKey"`
@@ -94,6 +119,9 @@ type Vendor struct {
 	// CurrencyCode is the vendor's default billing currency (ISO 4217, e.g. "USD").
 	// Empty string means the company's base currency is used.
 	CurrencyCode string `gorm:"type:text;not null;default:''"`
+	// CurrencyPolicy controls whether documents may use currencies other than
+	// CurrencyCode. Defaults to "single" (backward-compatible).
+	CurrencyPolicy VendorCurrencyPolicy `gorm:"type:text;not null;default:'single'"`
 	// Notes is a free-form internal note about this vendor.
 	Notes string `gorm:"type:text;not null;default:''"`
 	// DefaultPaymentTermCode references a PaymentTerm.Code for this company.

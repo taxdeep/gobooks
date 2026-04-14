@@ -1,0 +1,253 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"fmt"
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+templ ARAPControlHub(vm ARAPControlVM) {
+	@layout.Layout(
+		"GoBooks - AR/AP Control Accounts",
+		ui.SidebarVM{Active: "AR/AP Control", HasCompany: vm.HasCompany},
+		bodyARAPControlHub(vm),
+	)
+}
+
+templ bodyARAPControlHub(vm ARAPControlVM) {
+	<div class="max-w-[95%]">
+		@SettingsBreadcrumb(vm.Breadcrumb)
+
+		<div class="flex items-center justify-between">
+			<div>
+				<h1 class="text-title font-semibold">AR/AP Control Accounts</h1>
+				<p class="mt-1 max-w-3xl text-text-muted2">
+					Map each document type and transaction currency to a specific AR or AP control account.
+					Entries here take priority over the system default. Leave a currency blank to set the
+					fallback for any unmapped currency of that document type.
+				</p>
+			</div>
+			if vm.HasCompany {
+				<div class="flex gap-2">
+					<button
+						type="button"
+						hx-post="/settings/ar-ap-control/seed"
+						hx-target="body"
+						hx-swap="outerHTML"
+						class="rounded-md border border-border px-4 py-2 text-body hover:bg-background"
+					>Seed Defaults</button>
+					<button
+						type="button"
+						hx-get="/settings/ar-ap-control?drawer=create"
+						hx-target="body"
+						hx-swap="outerHTML"
+						class="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-body font-medium text-onPrimary hover:bg-primary-hover"
+					>Add Mapping</button>
+				</div>
+			}
+		</div>
+
+		if vm.Saved {
+			<div class="mt-4 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-body text-green-700">Saved.</div>
+		}
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-body text-red-700">{ vm.FormError }</div>
+		}
+
+		<div class="mt-6 overflow-hidden rounded-lg border border-border">
+			<table class="w-full text-body">
+				<thead class="bg-surface-raised">
+					<tr>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Document Type</th>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Side</th>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Currency</th>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Book</th>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Control Account</th>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Notes</th>
+						<th class="px-4 py-3"></th>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-border">
+					if len(vm.Mappings) == 0 {
+						<tr>
+							<td colspan="7" class="px-4 py-8 text-center text-text-muted2">
+								No mappings yet. Click <strong>Seed Defaults</strong> to auto-create fallback
+								mappings from your current AR/AP accounts, or <strong>Add Mapping</strong> for
+								a per-currency override.
+							</td>
+						</tr>
+					}
+					for _, m := range vm.Mappings {
+						<tr class="hover:bg-surface-raised">
+							<td class="px-4 py-3 font-medium">{ arapDocTypeLabel(m.DocumentType) }</td>
+							<td class="px-4 py-3">@arapSideBadge(m.DocumentType)</td>
+							<td class="px-4 py-3 font-mono text-small">
+								if m.CurrencyCode == "" {
+									<span class="text-text-muted2 italic">any (default)</span>
+								} else {
+									{ m.CurrencyCode }
+								}
+							</td>
+							<td class="px-4 py-3 text-small text-text-muted2">
+								if m.BookID == 0 {
+									<span class="italic">all books</span>
+								} else {
+									{ fmt.Sprintf("Book #%d", m.BookID) }
+								}
+							</td>
+							<td class="px-4 py-3">
+								<span class="font-medium">{ m.ControlAccount.Code }</span>
+								<span class="ml-2 text-text-muted2">{ m.ControlAccount.Name }</span>
+							</td>
+							<td class="px-4 py-3 text-small text-text-muted2">{ m.Notes }</td>
+							<td class="px-4 py-3 text-right">
+								<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/settings/ar-ap-control/%d/delete", m.ID)) }>
+									<button
+										type="submit"
+										onclick="return confirm('Delete this control account mapping?')"
+										class="text-small text-danger hover:underline"
+									>Delete</button>
+								</form>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+
+		<!-- Resolution order explanation -->
+		<details class="mt-6 rounded-lg border border-border">
+			<summary class="cursor-pointer px-4 py-3 text-body font-medium hover:bg-surface-raised">
+				How control account resolution works
+			</summary>
+			<div class="px-4 py-3 text-small text-text-muted2 space-y-1 border-t border-border">
+				<p><strong>Priority order (highest → lowest):</strong></p>
+				<ol class="ml-4 list-decimal space-y-1">
+					<li>Explicit mapping: book-specific + exact currency match</li>
+					<li>Book-agnostic mapping: book = "all books" + exact currency match</li>
+					<li>Default mapping: book = "all books" + currency = "any (default)"</li>
+					<li>Legacy system account: <code>ar_usd</code> / <code>ap_eur</code> etc.</li>
+					<li>First active AR or AP account in Chart of Accounts (original behaviour)</li>
+				</ol>
+				<p class="mt-2">If none of the above resolves, posting is blocked with an error.</p>
+			</div>
+		</details>
+	</div>
+
+	if vm.DrawerOpen {
+		@arapControlCreateDrawer(vm)
+	}
+}
+
+templ arapControlCreateDrawer(vm ARAPControlVM) {
+	<div class="fixed inset-0 z-40 flex justify-end">
+		<div
+			class="absolute inset-0 bg-black/30"
+			hx-get="/settings/ar-ap-control"
+			hx-target="body" hx-swap="outerHTML"
+		></div>
+		<div class="relative z-50 flex w-full max-w-md flex-col bg-surface shadow-xl">
+			<div class="flex items-center justify-between border-b border-border px-6 py-4">
+				<h2 class="text-lg font-semibold">Add Control Account Mapping</h2>
+				<button
+					type="button"
+					hx-get="/settings/ar-ap-control"
+					hx-target="body" hx-swap="outerHTML"
+					class="rounded p-1 hover:bg-background"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+					</svg>
+				</button>
+			</div>
+			<form
+				method="POST"
+				action="/settings/ar-ap-control"
+				class="flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5"
+			>
+				<div>
+					<label class="block text-body font-medium text-text">Document Type</label>
+					<select name="document_type" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-primary">
+						for _, dt := range models.AllARAPDocTypes() {
+							<option value={ string(dt) } selected?={ string(dt) == vm.FieldDocType }>
+								{ arapDocTypeLabel(dt) }
+							</option>
+						}
+					</select>
+				</div>
+				<div>
+					<label class="block text-body font-medium text-text">Currency Code</label>
+					<input
+						type="text"
+						name="currency_code"
+						value={ vm.FieldCurrency }
+						placeholder="e.g. USD — leave blank for default (any)"
+						maxlength="3"
+						class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body uppercase focus:outline-none focus:ring-2 focus:ring-primary"
+					/>
+					<p class="mt-1 text-small text-text-muted2">Leave blank to create a fallback mapping for any unmapped currency.</p>
+				</div>
+				<div>
+					<label class="block text-body font-medium text-text">Control Account</label>
+					<select name="control_account_id" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-primary">
+						<option value="">— select account —</option>
+						for _, a := range vm.Accounts {
+							<option value={ Uitoa(a.ID) } selected?={ Uitoa(a.ID) == vm.FieldAccountID }>
+								{ a.Code } — { a.Name }
+							</option>
+						}
+					</select>
+				</div>
+				<div>
+					<label class="block text-body font-medium text-text">Notes (optional)</label>
+					<input
+						type="text"
+						name="notes"
+						value={ vm.FieldNotes }
+						placeholder="e.g. USD Receivables"
+						class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-primary"
+					/>
+				</div>
+				<div class="flex gap-3 pt-2">
+					<button type="submit" class="flex-1 rounded-md bg-primary px-4 py-2 text-body font-medium text-onPrimary hover:bg-primary-hover">Add Mapping</button>
+					<button
+						type="button"
+						hx-get="/settings/ar-ap-control"
+						hx-target="body" hx-swap="outerHTML"
+						class="flex-1 rounded-md border border-border px-4 py-2 text-body hover:bg-background"
+					>Cancel</button>
+				</div>
+			</form>
+		</div>
+	</div>
+}
+
+// arapDocTypeLabel returns a human-readable label for a document type.
+func arapDocTypeLabel(dt models.ARAPControlDocType) string {
+	switch dt {
+	case models.ARAPDocTypeInvoice:
+		return "Invoice"
+	case models.ARAPDocTypeBill:
+		return "Bill"
+	case models.ARAPDocTypeCreditNote:
+		return "Credit Note"
+	case models.ARAPDocTypeCustomerReceipt:
+		return "Customer Receipt"
+	case models.ARAPDocTypeCustomerDeposit:
+		return "Customer Deposit"
+	case models.ARAPDocTypeVendorCredit:
+		return "Vendor Credit"
+	default:
+		return string(dt)
+	}
+}
+
+templ arapSideBadge(dt models.ARAPControlDocType) {
+	if models.ARAPDocTypeSide[dt] == "AR" {
+		<span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-small font-medium text-blue-700">AR</span>
+	} else {
+		<span class="inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-small font-medium text-orange-700">AP</span>
+	}
+}

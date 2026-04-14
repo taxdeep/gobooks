@@ -102,25 +102,12 @@ func PostCreditNote(db *gorm.DB, companyID, creditNoteID uint, actor string, use
 		}
 	}
 
-	// ── 3. Resolve AR account ─────────────────────────────────────────────────
-	var arAccount models.Account
-	if isForeignCurrency {
-		sysKey := "ar_" + txCurrencyCode
-		err := db.Where("company_id = ? AND system_key = ? AND is_active = true", companyID, sysKey).
-			First(&arAccount).Error
-		if err != nil {
-			if err := db.Where("company_id = ? AND detail_account_type = ? AND is_active = true",
-				companyID, string(models.DetailAccountsReceivable)).
-				Order("code asc").First(&arAccount).Error; err != nil {
-				return ErrNoARAccount
-			}
-		}
-	} else {
-		if err := db.Where("company_id = ? AND detail_account_type = ? AND is_active = true",
-			companyID, string(models.DetailAccountsReceivable)).
-			Order("code asc").First(&arAccount).Error; err != nil {
-			return ErrNoARAccount
-		}
+	// ── 3. Resolve AR account (Phase 11: ARAPControlMapping) ─────────────────
+	arAccount, err := ResolveControlAccount(db, companyID, 0,
+		models.ARAPDocTypeCreditNote, txCurrencyCode, isForeignCurrency,
+		models.DetailAccountsReceivable, ErrNoARAccount)
+	if err != nil {
+		return err
 	}
 
 	// ── 4. Build posting fragments ────────────────────────────────────────────

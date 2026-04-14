@@ -179,26 +179,16 @@ func PostInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 			First(&arAccount).Error; err != nil {
 			return fmt.Errorf("clearing account is not active")
 		}
-	} else if isForeignCurrency {
-		sysKey := "ar_" + transactionCurrencyCode
-		err := db.Where("company_id = ? AND system_key = ? AND is_active = true", companyID, sysKey).
-			First(&arAccount).Error
-		if err != nil {
-			if err := db.
-				Where("company_id = ? AND detail_account_type = ? AND is_active = true",
-					companyID, string(models.DetailAccountsReceivable)).
-				Order("code asc").First(&arAccount).Error; err != nil {
-				return ErrNoARAccount
-			}
-		}
 	} else {
-		if err := db.
-			Where("company_id = ? AND detail_account_type = ? AND is_active = true",
-				companyID, string(models.DetailAccountsReceivable)).
-			Order("code asc").
-			First(&arAccount).Error; err != nil {
-			return ErrNoARAccount
+		// Use the AR/AP control mapping table (Phase 11).
+		// Falls back through legacy system_key → detail_account_type order.
+		acc, err := ResolveControlAccount(db, companyID, 0,
+			models.ARAPDocTypeInvoice, transactionCurrencyCode, isForeignCurrency,
+			models.DetailAccountsReceivable, ErrNoARAccount)
+		if err != nil {
+			return err
 		}
+		arAccount = acc
 	}
 
 	// ── 3b. Validate inventory stock (for stock items) ───────────────────────

@@ -233,6 +233,8 @@ func Migrate(db *gorm.DB) error {
 		// Phase 10: fiscal period governance + accounting standard change audit trail.
 		&models.FiscalPeriod{},
 		&models.BookStandardChange{},
+		// Phase 11: AR/AP control-account routing table + Customer/Vendor currency policy.
+		&models.ARAPControlMapping{},
 	); err != nil {
 		return err
 	}
@@ -284,7 +286,11 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 	// Phase 10: fiscal_periods + book_standard_changes tables.
-	return migratePhase10(db)
+	if err := migratePhase10(db); err != nil {
+		return err
+	}
+	// Phase 11: ar_ap_control_mappings table + currency_policy columns on customers/vendors.
+	return migratePhase11(db)
 }
 
 // migrateEnsureUserPlans seeds the user_plans table with the three default tiers
@@ -1703,6 +1709,49 @@ func migratePhase10(db *gorm.DB) error {
 				continue
 			}
 			return fmt.Errorf("migratePhase10 step %d: %w", i+1, err)
+		}
+	}
+	return nil
+}
+
+// migratePhase11 creates the ar_ap_control_mappings table and adds
+// currency_policy columns to customers and vendors. AutoMigrate handles fresh
+// installs; this guard adds the table and columns on live databases.
+func migratePhase11(db *gorm.DB) error {
+	stmts := []string{
+		// ar_ap_control_mappings: explicit AR/AP control-account routing.
+		`CREATE TABLE IF NOT EXISTS ar_ap_control_mappings (
+			id                 BIGSERIAL PRIMARY KEY,
+			company_id         BIGINT      NOT NULL,
+			book_id            BIGINT      NOT NULL DEFAULT 0,
+			document_type      TEXT        NOT NULL,
+			currency_code      VARCHAR(3)  NOT NULL DEFAULT '',
+			control_account_id BIGINT      NOT NULL,
+			notes              TEXT        NOT NULL DEFAULT '',
+			created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+			updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_ar_ap_ctrl_company ON ar_ap_control_mappings(company_id)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_ar_ap_ctrl_uniq
+			ON ar_ap_control_mappings(company_id, book_id, document_type, currency_code)`,
+
+		// currency_policy on customers (safe ADD COLUMN IF NOT EXISTS).
+		`ALTER TABLE customers ADD COLUMN IF NOT EXISTS
+			currency_policy TEXT NOT NULL DEFAULT 'single'`,
+
+		// currency_policy on vendors.
+		`ALTER TABLE vendors ADD COLUMN IF NOT EXISTS
+			currency_policy TEXT NOT NULL DEFAULT 'single'`,
+	}
+
+	for i, stmt := range stmts {
+		if err := db.Exec(stmt).Error; err != nil {
+			if strings.Contains(err.Error(), "42P01") ||
+				strings.Contains(err.Error(), "already exists") ||
+				strings.Contains(err.Error(), "duplicate column") {
+				continue
+			}
+			return fmt.Errorf("migratePhase11 step %d: %w", i+1, err)
 		}
 	}
 	return nil

@@ -123,6 +123,23 @@ type AccountingBookDetailVM struct {
 	FieldPeriodEnd   string
 }
 
+// ARAPControlVM is the view-model for Settings > AR/AP Control Accounts.
+type ARAPControlVM struct {
+	HasCompany bool
+	Breadcrumb []SettingsBreadcrumbPart
+	Mappings   []models.ARAPControlMapping
+	Accounts   []models.Account // AR + AP accounts for the create drawer
+	Saved      bool
+	FormError  string
+	DrawerOpen bool
+
+	// Create-form field round-trips.
+	FieldDocType   string
+	FieldCurrency  string
+	FieldAccountID string
+	FieldNotes     string
+}
+
 // UserPrefSystemSetupVM is the User Preferences > System Setup page.
 type UserPrefSystemSetupVM struct {
 	HasCompany   bool

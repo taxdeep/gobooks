@@ -143,31 +143,14 @@ func PostBill(db *gorm.DB, companyID, billID uint, actor string, userID *uuid.UU
 		}
 	}
 
-	// ── 3. Resolve AP account ─────────────────────────────────────────────────
-	// For foreign-currency bills, prefer the system-generated AP account for
-	// that currency (system_key = "ap_{code}", created by AddCompanyCurrency).
-	// Fall back to the first active AP account if not found.
-	var apAccount models.Account
-	if isForeignCurrency {
-		sysKey := "ap_" + transactionCurrencyCode
-		err := db.Where("company_id = ? AND system_key = ? AND is_active = true", companyID, sysKey).
-			First(&apAccount).Error
-		if err != nil {
-			if err := db.
-				Where("company_id = ? AND detail_account_type = ? AND is_active = true",
-					companyID, string(models.DetailAccountsPayable)).
-				Order("code asc").First(&apAccount).Error; err != nil {
-				return ErrNoAPAccount
-			}
-		}
-	} else {
-		if err := db.
-			Where("company_id = ? AND detail_account_type = ? AND is_active = true",
-				companyID, string(models.DetailAccountsPayable)).
-			Order("code asc").
-			First(&apAccount).Error; err != nil {
-			return ErrNoAPAccount
-		}
+	// ── 3. Resolve AP account (Phase 11: ARAPControlMapping) ─────────────────
+	// Consults the control-account mapping table first, then falls back through
+	// legacy system_key ("ap_{code}") → first active AP account.
+	apAccount, err := ResolveControlAccount(db, companyID, 0,
+		models.ARAPDocTypeBill, transactionCurrencyCode, isForeignCurrency,
+		models.DetailAccountsPayable, ErrNoAPAccount)
+	if err != nil {
+		return err
 	}
 
 	// ── 4. Build posting fragments ────────────────────────────────────────────
