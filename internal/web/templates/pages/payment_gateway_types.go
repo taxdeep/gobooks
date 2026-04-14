@@ -41,6 +41,7 @@ type PaymentReverseExceptionDetailVM struct {
 
 type PaymentGatewaysVM struct {
 	HasCompany bool
+	Breadcrumb []SettingsBreadcrumbPart
 	Accounts   []services.GatewayAccountSummary
 	Created    bool
 	FormError  string

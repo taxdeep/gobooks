@@ -12,7 +12,8 @@ templ PaymentGateways(vm PaymentGatewaysVM) {
 
 templ bodyPaymentGateways(vm PaymentGatewaysVM) {
 	<div class="max-w-[95%]">
-		<h1 class="text-title font-semibold">Payment Gateways</h1>
+		@SettingsBreadcrumb(vm.Breadcrumb)
+		<h1 class="text-title font-semibold">Processors</h1>
 		<p class="mt-2 text-text-muted2">Connect payment processors (Stripe, PayPal, etc.). Transactions are staged before GL posting.</p>
 
 		if vm.Created {
@@ -22,7 +23,7 @@ templ bodyPaymentGateways(vm PaymentGatewaysVM) {
 			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">{ vm.FormError }</div>
 		}
 
-		<form method="post" action="/settings/payment-gateways" class="mt-6 rounded-lg border border-border bg-surface p-6">
+		<form method="post" action="/settings/payment-gateways/processors" class="mt-6 rounded-lg border border-border bg-surface p-6">
 			<h2 class="text-section font-semibold text-text">Add Gateway</h2>
 			<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
 				<div>
@@ -98,7 +99,7 @@ templ bodyPaymentMappings(vm PaymentMappingsVM) {
 				<h1 class="text-title font-semibold">Payment Accounting Mappings</h1>
 				<p class="mt-2 text-text-muted2">Map gateway clearing, fees, refunds, and payouts to GL accounts.</p>
 			</div>
-			<a href="/settings/payment-gateways" class="text-body text-primary hover:text-primary-hover">← Gateways</a>
+			<a href="/settings/payment-gateways" class="text-body text-primary hover:text-primary-hover">← Payment Gateways</a>
 		</div>
 		if vm.Saved {
 			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Mapping saved.</div>
@@ -169,7 +170,7 @@ templ bodyPaymentRequests(vm PaymentRequestsVM) {
 				<h1 class="text-title font-semibold">Payment Requests</h1>
 				<p class="mt-2 text-text-muted2">Track payment requests sent to gateways. Future: linked to invoices and checkout sessions.</p>
 			</div>
-			<a href="/settings/payment-gateways" class="text-body text-primary hover:text-primary-hover">← Gateways</a>
+			<a href="/settings/payment-gateways" class="text-body text-primary hover:text-primary-hover">← Payment Gateways</a>
 		</div>
 		if vm.Created {
 			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Payment request created.</div>
@@ -244,7 +245,7 @@ templ bodyPaymentTransactions(vm PaymentTransactionsVM) {
 				<h1 class="text-title font-semibold">Payment Transactions</h1>
 				<p class="mt-2 text-text-muted2">Raw payment events from gateways. Future: populated via webhooks.</p>
 			</div>
-			<a href="/settings/payment-gateways" class="text-body text-primary hover:text-primary-hover">← Gateways</a>
+			<a href="/settings/payment-gateways" class="text-body text-primary hover:text-primary-hover">← Payment Gateways</a>
 		</div>
 		if vm.Created {
 			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Transaction recorded.</div>

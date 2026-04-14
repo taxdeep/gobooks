@@ -1,0 +1,55 @@
+// 遵循project_guide.md
+package pages
+
+import "gobooks/internal/web/templates/layout"
+import "gobooks/internal/web/templates/ui"
+
+templ PaymentGatewaysHub(vm PaymentGatewaysHubVM) {
+	@layout.Layout(
+		"GoBooks - Payment Gateways",
+		ui.SidebarVM{Active: "Payment Gateways", HasCompany: vm.HasCompany},
+		bodyPaymentGatewaysHub(vm),
+	)
+}
+
+templ bodyPaymentGatewaysHub(vm PaymentGatewaysHubVM) {
+	<div class="max-w-[95%]">
+		@SettingsBreadcrumb(vm.Breadcrumb)
+		<h1 class="text-title font-semibold">Payment Gateways</h1>
+		<p class="mt-2 max-w-3xl text-text-muted2">
+			Connect payment processors, review settlements, manage payouts, handle disputes, and investigate reconciliation exceptions.
+		</p>
+		<div class="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
+			@companyHubCard(
+				"/settings/payment-gateways/processors",
+				"Processors",
+				"Connect payment processors (Stripe, PayPal, etc.) and configure accounting mappings.",
+			)
+			@companyHubCard(
+				"/settings/payment-gateways/settlement-review",
+				"Settlement Review",
+				"Review staged settlement batches before posting them to the general ledger.",
+			)
+			@companyHubCard(
+				"/settings/payment-gateways/payouts",
+				"Gateway Payouts",
+				"Track and reconcile payout deposits from your payment processors.",
+			)
+			@companyHubCard(
+				"/settings/payment-gateways/disputes",
+				"Gateway Disputes",
+				"Manage chargebacks and dispute cases from customers.",
+			)
+			@companyHubCard(
+				"/settings/payment-gateways/reconciliation-exceptions",
+				"Recon Exceptions",
+				"Review transactions that could not be automatically matched during reconciliation.",
+			)
+			@companyHubCard(
+				"/settings/payment-gateways/investigation",
+				"Investigation Workspace",
+				"Deep-dive into specific transactions to resolve discrepancies and edge cases.",
+			)
+		</div>
+	</div>
+}

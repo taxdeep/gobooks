@@ -14,6 +14,23 @@ import (
 	"gobooks/internal/web/templates/pages"
 )
 
+// ── Payment Gateways Hub ──────────────────────────────────────────────────────
+
+func (s *Server) handlePaymentGatewaysHub(c *fiber.Ctx) error {
+	_, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/select-company", fiber.StatusSeeOther)
+	}
+	vm := pages.PaymentGatewaysHubVM{
+		HasCompany: true,
+		Breadcrumb: []pages.SettingsBreadcrumbPart{
+			{Label: "Settings", Href: "/settings/company"},
+			{Label: "Payment Gateways"},
+		},
+	}
+	return pages.PaymentGatewaysHub(vm).Render(c.Context(), c)
+}
+
 // ── Gateway Accounts ─────────────────────────────────────────────────────────
 
 func (s *Server) handlePaymentGateways(c *fiber.Ctx) error {
@@ -24,9 +41,14 @@ func (s *Server) handlePaymentGateways(c *fiber.Ctx) error {
 	summaries, _ := services.ListGatewayAccountSummaries(s.DB, companyID)
 	vm := pages.PaymentGatewaysVM{
 		HasCompany: true,
-		Accounts:   summaries,
-		Created:    c.Query("created") == "1",
-		FormError:  strings.TrimSpace(c.Query("error")),
+		Breadcrumb: []pages.SettingsBreadcrumbPart{
+			{Label: "Settings", Href: "/settings/company"},
+			{Label: "Payment Gateways", Href: "/settings/payment-gateways"},
+			{Label: "Processors"},
+		},
+		Accounts:  summaries,
+		Created:   c.Query("created") == "1",
+		FormError: strings.TrimSpace(c.Query("error")),
 	}
 	return pages.PaymentGateways(vm).Render(c.Context(), c)
 }
@@ -41,7 +63,7 @@ func (s *Server) handlePaymentGatewayCreate(c *fiber.Ctx) error {
 	extRef := strings.TrimSpace(c.FormValue("external_account_ref"))
 	webhookSecret := strings.TrimSpace(c.FormValue("webhook_secret"))
 	if providerType == "" || displayName == "" {
-		return redirectErr(c, "/settings/payment-gateways", "provider type and display name are required")
+		return redirectErr(c, "/settings/payment-gateways/processors", "provider type and display name are required")
 	}
 	webhookStatus := "not_configured"
 	if webhookSecret != "" {
@@ -53,9 +75,9 @@ func (s *Server) handlePaymentGatewayCreate(c *fiber.Ctx) error {
 		WebhookSecret: webhookSecret,
 		AuthStatus: "pending", WebhookStatus: webhookStatus, IsActive: true,
 	}); err != nil {
-		return redirectErr(c, "/settings/payment-gateways", err.Error())
+		return redirectErr(c, "/settings/payment-gateways/processors", err.Error())
 	}
-	return c.Redirect("/settings/payment-gateways?created=1", fiber.StatusSeeOther)
+	return c.Redirect("/settings/payment-gateways/processors?created=1", fiber.StatusSeeOther)
 }
 
 // handlePaymentGatewayUpdateWebhook updates the webhook signing secret for a

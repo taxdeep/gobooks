@@ -69,6 +69,12 @@ type SalesTaxVM struct {
 	AssetAccounts     []models.Account // for Purchase Recoverable Account (ITC Receivable, etc.)
 }
 
+// PaymentGatewaysHubVM is the Payment Gateways landing/hub page.
+type PaymentGatewaysHubVM struct {
+	HasCompany bool
+	Breadcrumb []SettingsBreadcrumbPart
+}
+
 // PaymentTermsVM is the view-model for Settings > Company > Payment Terms.
 type PaymentTermsVM struct {
 	HasCompany bool

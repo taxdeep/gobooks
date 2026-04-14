@@ -88,8 +88,9 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Post("/settings/channels/settlements/:id/reverse-payout", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleSettlementReversePayout)
 
 	// ── 设置：支付网关 ──────────────────────────────────────────────────────────
-	app.Get("/settings/payment-gateways", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handlePaymentGateways)
-	app.Post("/settings/payment-gateways", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentGatewayCreate)
+	app.Get("/settings/payment-gateways", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handlePaymentGatewaysHub)
+	app.Get("/settings/payment-gateways/processors", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handlePaymentGateways)
+	app.Post("/settings/payment-gateways/processors", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentGatewayCreate)
 	app.Post("/settings/payment-gateways/:id/update-webhook", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentGatewayUpdateWebhook)
 	app.Get("/settings/payment-gateways/mappings", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handlePaymentMappings)
 	app.Post("/settings/payment-gateways/mappings", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentMappingSave)
