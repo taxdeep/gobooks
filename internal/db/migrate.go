@@ -155,6 +155,8 @@ func Migrate(db *gorm.DB) error {
 		// Phase 7: immutable FX rate snapshots (linked from JournalEntry + SettlementAllocation).
 		&models.FXSnapshot{},
 		// Items extensibility: BOM components, inventory tracking, channel integration
+		// Phase B: Warehouse must precede InventoryMovement/InventoryBalance (FK deps).
+		&models.Warehouse{},
 		&models.ItemComponent{},
 		&models.InventoryMovement{},
 		&models.InventoryBalance{},
@@ -264,6 +266,9 @@ func Migrate(db *gorm.DB) error {
 		&models.VendorReturn{},
 		&models.VendorCreditNote{},
 		&models.VendorRefund{},
+		// Phase C: inter-warehouse stock transfers.
+		// Warehouse must precede WarehouseTransfer (FK deps already above).
+		&models.WarehouseTransfer{},
 	); err != nil {
 		return err
 	}
@@ -328,7 +333,12 @@ func Migrate(db *gorm.DB) error {
 	}
 	// AR Phase 13 (AR Module Phase 1): Quote, SalesOrder, CustomerDeposit,
 	// CustomerReceipt, PaymentApplication, ARReturn, ARRefund tables.
-	return migratePhase13(db)
+	if err := migratePhase13(db); err != nil {
+		return err
+	}
+	// Phase B: Warehouse table + warehouse_id columns on inventory tables.
+	// AutoMigrate above handles fresh installs; these guards add columns on live DBs.
+	return migratePhaseBWarehouse(db)
 }
 
 // migrateEnsureUserPlans seeds the user_plans table with the three default tiers
@@ -2088,6 +2098,31 @@ func migratePhase13(db *gorm.DB) error {
 				continue
 			}
 			return fmt.Errorf("migratePhase13 step %d: %w", i+1, err)
+		}
+	}
+	return nil
+}
+
+// migratePhaseBWarehouse adds warehouse_id (nullable FK) to inventory_movements
+// and inventory_balances on live databases that predate Phase B.
+// AutoMigrate handles the column on fresh installs. These guards are idempotent.
+func migratePhaseBWarehouse(db *gorm.DB) error {
+	stmts := []string{
+		// inventory_movements.warehouse_id
+		`ALTER TABLE inventory_movements ADD COLUMN IF NOT EXISTS warehouse_id BIGINT REFERENCES warehouses(id)`,
+		`CREATE INDEX IF NOT EXISTS idx_inventory_movements_warehouse_id ON inventory_movements(warehouse_id)`,
+
+		// inventory_balances.warehouse_id
+		`ALTER TABLE inventory_balances ADD COLUMN IF NOT EXISTS warehouse_id BIGINT REFERENCES warehouses(id)`,
+		`CREATE INDEX IF NOT EXISTS idx_inventory_balances_warehouse_id ON inventory_balances(warehouse_id)`,
+	}
+	for i, stmt := range stmts {
+		if err := db.Exec(stmt).Error; err != nil {
+			if strings.Contains(err.Error(), "already exists") ||
+				strings.Contains(err.Error(), "42701") { // column already exists code
+				continue
+			}
+			return fmt.Errorf("migratePhaseBWarehouse step %d: %w", i+1, err)
 		}
 	}
 	return nil

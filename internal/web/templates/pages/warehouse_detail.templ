@@ -1,0 +1,120 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"fmt"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+templ WarehouseDetail(vm WarehouseDetailVM) {
+	@layout.Layout(
+		"GoBooks - "+warehouseDetailTitle(vm),
+		ui.SidebarVM{Active: "Warehouses", HasCompany: vm.HasCompany},
+		bodyWarehouseDetail(vm),
+	)
+}
+
+templ bodyWarehouseDetail(vm WarehouseDetailVM) {
+	<div class="max-w-2xl">
+		<div class="mb-6">
+			<a href="/warehouses" class="text-sm text-base-content/60 hover:underline">← Warehouses</a>
+			<h1 class="text-title font-semibold mt-1">{ warehouseDetailTitle(vm) }</h1>
+		</div>
+
+		if vm.Saved {
+			<div class="alert alert-success mb-4">Warehouse saved.</div>
+		}
+		if vm.FormError != "" {
+			<div class="alert alert-error mb-4">{ vm.FormError }</div>
+		}
+
+		<div class="card bg-base-100 shadow">
+			<div class="card-body">
+				<form method="POST" action={ templ.SafeURL(warehouseFormAction(vm)) }>
+					<input type="hidden" name="warehouse_id" value={ fmt.Sprintf("%d", vm.Warehouse.ID) }/>
+
+					<div class="grid grid-cols-2 gap-4">
+						<div class="form-control">
+							<label class="label"><span class="label-text">Code <span class="text-error">*</span></span></label>
+							<input type="text" name="code" value={ vm.Warehouse.Code }
+								class="input input-bordered" placeholder="e.g. MAIN" required maxlength="20"/>
+						</div>
+						<div class="form-control">
+							<label class="label"><span class="label-text">Name <span class="text-error">*</span></span></label>
+							<input type="text" name="name" value={ vm.Warehouse.Name }
+								class="input input-bordered" placeholder="e.g. Main Warehouse" required maxlength="100"/>
+						</div>
+					</div>
+
+					<div class="form-control mt-4">
+						<label class="label"><span class="label-text">Description</span></label>
+						<input type="text" name="description" value={ vm.Warehouse.Description }
+							class="input input-bordered" placeholder="Optional description"/>
+					</div>
+
+					<div class="divider text-sm">Address (optional)</div>
+
+					<div class="form-control">
+						<label class="label"><span class="label-text">Address</span></label>
+						<input type="text" name="address_line1" value={ vm.Warehouse.AddressLine1 }
+							class="input input-bordered" placeholder="Street address"/>
+					</div>
+
+					<div class="grid grid-cols-2 gap-4 mt-4">
+						<div class="form-control">
+							<label class="label"><span class="label-text">City</span></label>
+							<input type="text" name="city" value={ vm.Warehouse.City }
+								class="input input-bordered"/>
+						</div>
+						<div class="form-control">
+							<label class="label"><span class="label-text">Country</span></label>
+							<input type="text" name="country" value={ vm.Warehouse.Country }
+								class="input input-bordered"/>
+						</div>
+					</div>
+
+					<div class="divider text-sm">Settings</div>
+
+					<div class="flex gap-8">
+						<label class="label cursor-pointer gap-2">
+							if vm.Warehouse.IsDefault {
+								<input type="checkbox" name="is_default" class="checkbox" checked/>
+							} else {
+								<input type="checkbox" name="is_default" class="checkbox"/>
+							}
+							<span class="label-text">Default warehouse</span>
+						</label>
+						<label class="label cursor-pointer gap-2">
+							if vm.Warehouse.IsActive || vm.Warehouse.ID == 0 {
+								<input type="checkbox" name="is_active" class="checkbox" checked/>
+							} else {
+								<input type="checkbox" name="is_active" class="checkbox"/>
+							}
+							<span class="label-text">Active</span>
+						</label>
+					</div>
+
+					<div class="flex justify-end gap-3 mt-6">
+						<a href="/warehouses" class="btn btn-ghost">Cancel</a>
+						<button type="submit" class="btn btn-primary">Save Warehouse</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+}
+
+func warehouseDetailTitle(vm WarehouseDetailVM) string {
+	if vm.Warehouse.ID == 0 {
+		return "New Warehouse"
+	}
+	return "Edit Warehouse: " + vm.Warehouse.Code
+}
+
+func warehouseFormAction(vm WarehouseDetailVM) string {
+	if vm.Warehouse.ID == 0 {
+		return "/warehouses/save"
+	}
+	return fmt.Sprintf("/warehouses/%d/save", vm.Warehouse.ID)
+}

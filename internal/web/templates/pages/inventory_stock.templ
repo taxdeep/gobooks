@@ -1,0 +1,94 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"gobooks/internal/models"
+	"gobooks/internal/services"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+templ InventoryStock(vm StockReportVM) {
+	@layout.Layout(
+		"GoBooks - Stock Report",
+		ui.SidebarVM{Active: "Stock Report", HasCompany: vm.HasCompany},
+		bodyInventoryStock(vm),
+	)
+}
+
+templ bodyInventoryStock(vm StockReportVM) {
+	<div class="max-w-5xl">
+		<div class="mb-6">
+			<h1 class="text-title font-semibold">Stock Report</h1>
+			<p class="text-sm text-text-muted2 mt-1">Current on-hand quantities and values across all locations.</p>
+		</div>
+
+		if vm.Report == nil || len(vm.Report.Rows) == 0 {
+			<div class="card bg-base-100 shadow">
+				<div class="card-body text-center text-base-content/50 py-12">
+					No inventory balances found. Post bills with inventory items to see stock here.
+				</div>
+			</div>
+		} else {
+			<div class="card bg-base-100 shadow">
+				<div class="card-body p-0">
+					<table class="table table-zebra">
+						<thead>
+							<tr>
+								<th>Item</th>
+								<th>Location</th>
+								<th class="text-right">Qty On Hand</th>
+								<th class="text-right">Avg Cost</th>
+								<th class="text-right">Total Value</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, row := range vm.Report.Rows {
+								<tr>
+									<td>
+										<span class="font-medium">{ row.ItemName }</span>
+									</td>
+									<td>{ stockLocationLabel(row) }</td>
+									<td class="text-right font-mono">{ row.QuantityOnHand.String() }</td>
+									<td class="text-right font-mono">{ row.AverageCost.StringFixed(4) }</td>
+									<td class="text-right font-mono font-semibold">{ row.TotalValue.StringFixed(2) }</td>
+								</tr>
+							}
+						</tbody>
+						<tfoot>
+							<tr class="font-semibold border-t-2 border-base-300">
+								<td colspan="4" class="text-right">Total Inventory Value</td>
+								<td class="text-right font-mono">{ vm.Report.TotalValue.StringFixed(2) }</td>
+							</tr>
+						</tfoot>
+					</table>
+				</div>
+			</div>
+		}
+	</div>
+}
+
+func stockLocationLabel(row services.StockRow) string {
+	if row.WarehouseID != nil {
+		if row.WarehouseName != "" {
+			return row.WarehouseName
+		}
+		return row.WarehouseCode
+	}
+	switch row.LocationType {
+	case models.LocationTypeAmazonFBA:
+		if row.LocationRef != "" {
+			return "Amazon FBA — " + row.LocationRef
+		}
+		return "Amazon FBA"
+	case models.LocationTypeThirdParty:
+		if row.LocationRef != "" {
+			return "3PL — " + row.LocationRef
+		}
+		return "Third Party"
+	case models.LocationTypeAdjBucket:
+		return "Adjustment Bucket"
+	default:
+		return "Internal"
+	}
+}

@@ -53,6 +53,9 @@ const (
 //
 // source_type + source_id trace the originating document (e.g. "bill", 42 or
 // "adjustment", 7). This mirrors the JournalEntry source_type/source_id pattern.
+//
+// WarehouseID (nullable) links to a Warehouse row when multi-warehouse is active.
+// Nil means the movement used the legacy LocationType/LocationRef path.
 type InventoryMovement struct {
 	ID        uint `gorm:"primaryKey"`
 	CompanyID uint `gorm:"not null;index"`
@@ -69,6 +72,10 @@ type InventoryMovement struct {
 	JournalEntryID *uint `gorm:"index"` // links to the JE created in the same transaction
 	ReferenceNote  string `gorm:"type:text;not null;default:''"`
 
+	// Multi-warehouse routing (nullable for backward compatibility)
+	WarehouseID *uint      `gorm:"index"`
+	Warehouse   *Warehouse `gorm:"foreignKey:WarehouseID"`
+
 	MovementDate time.Time `gorm:"type:date;not null"`
 	CreatedAt    time.Time
 }
@@ -78,12 +85,13 @@ type InventoryMovement struct {
 // InventoryBalance is a materialized summary of stock on hand for an item at a
 // specific location. Updated incrementally when movements are recorded.
 //
-// location_type + location_ref support multi-warehouse scenarios:
-//   - internal / ""                → default company warehouse
+// location_type + location_ref support external-channel scenarios:
 //   - amazon_fba / "ATVPDKIKX0DER" → FBA US marketplace
 //   - third_party / "3PL-XYZ"     → external 3PL warehouse
 //
-// Current phase uses only internal/"" (single location).
+// For internal warehouses, WarehouseID (nullable FK → warehouses) is the
+// preferred key. Legacy rows created before multi-warehouse support use
+// LocationType="internal" / LocationRef="" with WarehouseID=nil.
 type InventoryBalance struct {
 	ID        uint `gorm:"primaryKey"`
 	CompanyID uint `gorm:"not null;index"`
@@ -92,6 +100,10 @@ type InventoryBalance struct {
 	Item         ProductService `gorm:"foreignKey:ItemID"`
 	LocationType LocationType   `gorm:"type:text;not null;default:'internal'"`
 	LocationRef  string         `gorm:"type:text;not null;default:''"`
+
+	// Multi-warehouse routing (nullable for backward compatibility)
+	WarehouseID *uint      `gorm:"index"`
+	Warehouse   *Warehouse `gorm:"foreignKey:WarehouseID"`
 
 	QuantityOnHand decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`
 	AverageCost    decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`

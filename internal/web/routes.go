@@ -352,6 +352,23 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	// AP Phase A: AP Aging report
 	app.Get("/ap-aging", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleAPAging)
 
+	// Phase B: Warehouses — /new must be before /:id to avoid param collision
+	app.Get("/warehouses", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleWarehouseList)
+	app.Get("/warehouses/new", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleWarehouseNew)
+	app.Post("/warehouses/save", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleWarehouseCreate)
+	app.Get("/warehouses/:id", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleWarehouseDetail)
+	app.Post("/warehouses/:id/save", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleWarehouseUpdate)
+
+	// Phase C: Inventory — stock report + warehouse transfers
+	app.Get("/inventory/stock", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInventoryStock)
+	app.Get("/inventory/transfers", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleTransferList)
+	app.Get("/inventory/transfers/new", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleTransferNew)
+	app.Post("/inventory/transfers/save", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleTransferCreate)
+	app.Get("/inventory/transfers/:id", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleTransferDetail)
+	app.Post("/inventory/transfers/:id/save", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleTransferUpdate)
+	app.Post("/inventory/transfers/:id/post", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleTransferPost)
+	app.Post("/inventory/transfers/:id/cancel", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleTransferCancel)
+
 	// Batch 13: settlement review list + row-level retry
 	app.Get("/settings/payment-gateways/settlement-review", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleGatewaySettlementReview)
 	app.Post("/settings/payment-gateways/settlement-review/:invoiceID/retry", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleGatewaySettlementRetry)

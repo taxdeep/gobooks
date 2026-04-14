@@ -1,0 +1,115 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"fmt"
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+templ WarehouseTransfers(vm WarehouseTransfersVM) {
+	@layout.Layout(
+		"GoBooks - Warehouse Transfers",
+		ui.SidebarVM{Active: "Warehouse Transfers", HasCompany: vm.HasCompany},
+		bodyWarehouseTransfers(vm),
+	)
+}
+
+templ bodyWarehouseTransfers(vm WarehouseTransfersVM) {
+	<div class="max-w-5xl">
+		<div class="flex items-center justify-between mb-6">
+			<h1 class="text-title font-semibold">Warehouse Transfers</h1>
+			<a href="/inventory/transfers/new" class="btn btn-primary btn-sm">+ New Transfer</a>
+		</div>
+
+		if vm.Created {
+			<div class="alert alert-success mb-4">Transfer created.</div>
+		}
+
+		<div class="flex gap-3 mb-4">
+			<a href="/inventory/transfers" class={ transferFilterClass("", vm.Filter) }>All</a>
+			<a href="/inventory/transfers?status=draft" class={ transferFilterClass("draft", vm.Filter) }>Draft</a>
+			<a href="/inventory/transfers?status=posted" class={ transferFilterClass("posted", vm.Filter) }>Posted</a>
+			<a href="/inventory/transfers?status=cancelled" class={ transferFilterClass("cancelled", vm.Filter) }>Cancelled</a>
+		</div>
+
+		<div class="card bg-base-100 shadow">
+			<div class="card-body p-0">
+				<table class="table table-zebra">
+					<thead>
+						<tr>
+							<th>Reference</th>
+							<th>Date</th>
+							<th>From</th>
+							<th>To</th>
+							<th>Item</th>
+							<th class="text-right">Qty</th>
+							<th>Status</th>
+							<th></th>
+						</tr>
+					</thead>
+					<tbody>
+						if len(vm.Transfers) == 0 {
+							<tr>
+								<td colspan="8" class="text-center text-base-content/50 py-8">
+									No transfers found.
+								</td>
+							</tr>
+						}
+						for _, tr := range vm.Transfers {
+							<tr>
+								<td class="font-mono text-sm">
+									if tr.Reference != "" {
+										{ tr.Reference }
+									} else {
+										<span class="text-base-content/30">—</span>
+									}
+								</td>
+								<td class="text-sm">{ tr.TransferDate.Format("02 Jan 2006") }</td>
+								<td class="text-sm">
+									if tr.FromWarehouse != nil {
+										{ tr.FromWarehouse.Code }
+									}
+								</td>
+								<td class="text-sm">
+									if tr.ToWarehouse != nil {
+										{ tr.ToWarehouse.Code }
+									}
+								</td>
+								<td class="text-sm">
+									if tr.Item != nil {
+										{ tr.Item.Name }
+									}
+								</td>
+								<td class="text-right font-mono text-sm">{ tr.Quantity.String() }</td>
+								<td><span class={ transferStatusBadge(tr.Status) }>{ models.TransferStatusLabel(tr.Status) }</span></td>
+								<td class="text-right">
+									<a href={ templ.SafeURL(fmt.Sprintf("/inventory/transfers/%d", tr.ID)) } class="btn btn-ghost btn-xs">View</a>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+}
+
+func transferStatusBadge(s models.WarehouseTransferStatus) string {
+	switch s {
+	case models.TransferStatusPosted:
+		return "badge badge-success"
+	case models.TransferStatusCancelled:
+		return "badge badge-ghost"
+	default:
+		return "badge badge-warning"
+	}
+}
+
+func transferFilterClass(val, current string) string {
+	if val == current {
+		return "btn btn-sm btn-primary"
+	}
+	return "btn btn-sm btn-ghost"
+}

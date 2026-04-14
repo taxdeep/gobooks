@@ -30,11 +30,11 @@ var _ CostingEngine = (*MovingAverageCostingEngine)(nil)
 // PreviewOutbound returns the cost that would apply for a sale/outbound without
 // modifying state. Used by invoice posting pre-flight validation.
 func (e *MovingAverageCostingEngine) PreviewOutbound(db *gorm.DB, req OutboundRequest) (*OutboundResult, error) {
-	if req.LocationType == "" {
+	if req.LocationType == "" && req.WarehouseID == nil {
 		req.LocationType = models.LocationTypeInternal
 	}
 
-	bal, err := readBalance(db, req.CompanyID, req.ItemID, req.LocationType, req.LocationRef, false)
+	bal, err := readBalance(db, req.CompanyID, req.ItemID, req.LocationType, req.LocationRef, req.WarehouseID, false)
 	if err != nil {
 		return nil, err
 	}
@@ -58,11 +58,11 @@ func (e *MovingAverageCostingEngine) PreviewOutbound(db *gorm.DB, req OutboundRe
 // ApplyInbound processes a receipt (purchase, opening, positive adjustment).
 // Updates the balance with weighted average cost. Must run inside a transaction.
 func (e *MovingAverageCostingEngine) ApplyInbound(tx *gorm.DB, req InboundRequest) (*InboundResult, error) {
-	if req.LocationType == "" {
+	if req.LocationType == "" && req.WarehouseID == nil {
 		req.LocationType = models.LocationTypeInternal
 	}
 
-	bal, err := readBalance(tx, req.CompanyID, req.ItemID, req.LocationType, req.LocationRef, true)
+	bal, err := readBalance(tx, req.CompanyID, req.ItemID, req.LocationType, req.LocationRef, req.WarehouseID, true)
 	if err != nil {
 		return nil, err
 	}
@@ -101,11 +101,11 @@ func (e *MovingAverageCostingEngine) ApplyInbound(tx *gorm.DB, req InboundReques
 // Uses the current average cost as the unit cost for COGS.
 // Rejects if insufficient stock. Must run inside a transaction.
 func (e *MovingAverageCostingEngine) ApplyOutbound(tx *gorm.DB, req OutboundRequest) (*OutboundResult, error) {
-	if req.LocationType == "" {
+	if req.LocationType == "" && req.WarehouseID == nil {
 		req.LocationType = models.LocationTypeInternal
 	}
 
-	bal, err := readBalance(tx, req.CompanyID, req.ItemID, req.LocationType, req.LocationRef, true)
+	bal, err := readBalance(tx, req.CompanyID, req.ItemID, req.LocationType, req.LocationRef, req.WarehouseID, true)
 	if err != nil {
 		return nil, err
 	}
@@ -138,10 +138,20 @@ func (e *MovingAverageCostingEngine) ApplyOutbound(tx *gorm.DB, req OutboundRequ
 
 // readBalance loads or creates the inventory balance row for the given item+location.
 // If forUpdate is true, applies SELECT FOR UPDATE (row lock).
-func readBalance(db *gorm.DB, companyID, itemID uint, locType models.LocationType, locRef string, forUpdate bool) (*models.InventoryBalance, error) {
+//
+// Routing logic:
+//   - warehouseID != nil  → query by (company_id, item_id, warehouse_id)
+//   - warehouseID == nil  → legacy path: query by (company_id, item_id, location_type, location_ref)
+func readBalance(db *gorm.DB, companyID, itemID uint, locType models.LocationType, locRef string, warehouseID *uint, forUpdate bool) (*models.InventoryBalance, error) {
 	var bal models.InventoryBalance
-	q := db.Where("company_id = ? AND item_id = ? AND location_type = ? AND location_ref = ?",
-		companyID, itemID, locType, locRef)
+	var q *gorm.DB
+	if warehouseID != nil {
+		q = db.Where("company_id = ? AND item_id = ? AND warehouse_id = ?",
+			companyID, itemID, *warehouseID)
+	} else {
+		q = db.Where("company_id = ? AND item_id = ? AND location_type = ? AND location_ref = ?",
+			companyID, itemID, locType, locRef)
+	}
 	if forUpdate {
 		q = applyLockForUpdate(q)
 	}
@@ -152,6 +162,7 @@ func readBalance(db *gorm.DB, companyID, itemID uint, locType models.LocationTyp
 			ItemID:         itemID,
 			LocationType:   locType,
 			LocationRef:    locRef,
+			WarehouseID:    warehouseID,
 			QuantityOnHand: decimal.Zero,
 			AverageCost:    decimal.Zero,
 		}

@@ -1,0 +1,231 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"fmt"
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+templ WarehouseTransferDetail(vm WarehouseTransferDetailVM) {
+	@layout.Layout(
+		"GoBooks - "+transferDetailTitle(vm),
+		ui.SidebarVM{Active: "Warehouse Transfers", HasCompany: vm.HasCompany},
+		bodyWarehouseTransferDetail(vm),
+	)
+}
+
+templ bodyWarehouseTransferDetail(vm WarehouseTransferDetailVM) {
+	<div class="max-w-2xl">
+		<div class="mb-6">
+			<a href="/inventory/transfers" class="text-sm text-base-content/60 hover:underline">← Transfers</a>
+			<h1 class="text-title font-semibold mt-1">{ transferDetailTitle(vm) }</h1>
+		</div>
+
+		if vm.Saved {
+			<div class="alert alert-success mb-4">Transfer saved.</div>
+		}
+		if vm.Posted {
+			<div class="alert alert-success mb-4">Transfer posted — stock movements applied.</div>
+		}
+		if vm.Cancelled {
+			<div class="alert alert-warning mb-4">Transfer cancelled.</div>
+		}
+		if vm.FormError != "" {
+			<div class="alert alert-error mb-4">{ vm.FormError }</div>
+		}
+
+		if vm.Transfer.Status == models.TransferStatusDraft || vm.Transfer.ID == 0 {
+			@transferEditForm(vm)
+		} else {
+			@transferReadOnlyView(vm)
+		}
+	</div>
+}
+
+templ transferEditForm(vm WarehouseTransferDetailVM) {
+	<div class="card bg-base-100 shadow">
+		<div class="card-body">
+			<form method="POST" action={ templ.SafeURL(transferSaveAction(vm)) }>
+				<input type="hidden" name="transfer_id" value={ fmt.Sprintf("%d", vm.Transfer.ID) }/>
+
+				<div class="grid grid-cols-2 gap-4">
+					<div class="form-control">
+						<label class="label"><span class="label-text">Reference</span></label>
+						<input type="text" name="reference" value={ vm.Transfer.Reference }
+							class="input input-bordered" placeholder="e.g. TRF-0001"/>
+					</div>
+					<div class="form-control">
+						<label class="label"><span class="label-text">Date <span class="text-error">*</span></span></label>
+						<input type="date" name="transfer_date" value={ transferDateVal(vm.Transfer) }
+							class="input input-bordered" required/>
+					</div>
+				</div>
+
+				<div class="grid grid-cols-2 gap-4 mt-4">
+					<div class="form-control">
+						<label class="label"><span class="label-text">From Warehouse <span class="text-error">*</span></span></label>
+						<select name="from_warehouse_id" class="select select-bordered" required>
+							<option value="">— select —</option>
+							for _, w := range vm.Warehouses {
+								if w.IsActive {
+									if vm.Transfer.FromWarehouseID == w.ID {
+										<option value={ fmt.Sprintf("%d", w.ID) } selected>{ w.Code } — { w.Name }</option>
+									} else {
+										<option value={ fmt.Sprintf("%d", w.ID) }>{ w.Code } — { w.Name }</option>
+									}
+								}
+							}
+						</select>
+					</div>
+					<div class="form-control">
+						<label class="label"><span class="label-text">To Warehouse <span class="text-error">*</span></span></label>
+						<select name="to_warehouse_id" class="select select-bordered" required>
+							<option value="">— select —</option>
+							for _, w := range vm.Warehouses {
+								if w.IsActive {
+									if vm.Transfer.ToWarehouseID == w.ID {
+										<option value={ fmt.Sprintf("%d", w.ID) } selected>{ w.Code } — { w.Name }</option>
+									} else {
+										<option value={ fmt.Sprintf("%d", w.ID) }>{ w.Code } — { w.Name }</option>
+									}
+								}
+							}
+						</select>
+					</div>
+				</div>
+
+				<div class="grid grid-cols-2 gap-4 mt-4">
+					<div class="form-control">
+						<label class="label"><span class="label-text">Item <span class="text-error">*</span></span></label>
+						<select name="item_id" class="select select-bordered" required>
+							<option value="">— select —</option>
+							for _, p := range vm.Items {
+								if vm.Transfer.ItemID == p.ID {
+									<option value={ fmt.Sprintf("%d", p.ID) } selected>{ p.Name }</option>
+								} else {
+									<option value={ fmt.Sprintf("%d", p.ID) }>{ p.Name }</option>
+								}
+							}
+						</select>
+					</div>
+					<div class="form-control">
+						<label class="label"><span class="label-text">Quantity <span class="text-error">*</span></span></label>
+						<input type="number" name="quantity" value={ vm.Transfer.Quantity.String() }
+							class="input input-bordered" step="0.0001" min="0.0001" required/>
+					</div>
+				</div>
+
+				<div class="form-control mt-4">
+					<label class="label"><span class="label-text">Notes</span></label>
+					<textarea name="notes" class="textarea textarea-bordered" rows="2">{ vm.Transfer.Notes }</textarea>
+				</div>
+
+				<div class="flex justify-end gap-3 mt-6">
+					<a href="/inventory/transfers" class="btn btn-ghost">Cancel</a>
+					<button type="submit" class="btn btn-primary">Save Transfer</button>
+				</div>
+			</form>
+		</div>
+	</div>
+}
+
+templ transferReadOnlyView(vm WarehouseTransferDetailVM) {
+	<div class="card bg-base-100 shadow">
+		<div class="card-body space-y-3">
+			<div class="grid grid-cols-2 gap-4 text-sm">
+				<div>
+					<span class="text-base-content/60">Reference</span>
+					<div class="font-medium mt-0.5">
+						if vm.Transfer.Reference != "" {
+							{ vm.Transfer.Reference }
+						} else {
+							<span class="text-base-content/30">—</span>
+						}
+					</div>
+				</div>
+				<div>
+					<span class="text-base-content/60">Date</span>
+					<div class="font-medium mt-0.5">{ vm.Transfer.TransferDate.Format("02 Jan 2006") }</div>
+				</div>
+				<div>
+					<span class="text-base-content/60">From Warehouse</span>
+					<div class="font-medium mt-0.5">
+						if vm.Transfer.FromWarehouse != nil {
+							{ vm.Transfer.FromWarehouse.Code } — { vm.Transfer.FromWarehouse.Name }
+						}
+					</div>
+				</div>
+				<div>
+					<span class="text-base-content/60">To Warehouse</span>
+					<div class="font-medium mt-0.5">
+						if vm.Transfer.ToWarehouse != nil {
+							{ vm.Transfer.ToWarehouse.Code } — { vm.Transfer.ToWarehouse.Name }
+						}
+					</div>
+				</div>
+				<div>
+					<span class="text-base-content/60">Item</span>
+					<div class="font-medium mt-0.5">
+						if vm.Transfer.Item != nil {
+							{ vm.Transfer.Item.Name }
+						}
+					</div>
+				</div>
+				<div>
+					<span class="text-base-content/60">Quantity</span>
+					<div class="font-medium mt-0.5">{ vm.Transfer.Quantity.String() }</div>
+				</div>
+			</div>
+
+			if vm.Transfer.Notes != "" {
+				<div class="text-sm">
+					<span class="text-base-content/60">Notes</span>
+					<div class="mt-0.5">{ vm.Transfer.Notes }</div>
+				</div>
+			}
+
+			<div class="divider my-2"></div>
+
+			<div class="flex items-center justify-between">
+				<span class={ transferStatusBadge(vm.Transfer.Status) }>{ models.TransferStatusLabel(vm.Transfer.Status) }</span>
+				<div class="flex gap-2">
+					if vm.Transfer.Status == models.TransferStatusDraft {
+						<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/inventory/transfers/%d/cancel", vm.Transfer.ID)) }>
+							<button type="submit" class="btn btn-ghost btn-sm"
+								onclick="return confirm('Cancel this transfer?')">Cancel</button>
+						</form>
+						<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/inventory/transfers/%d/post", vm.Transfer.ID)) }>
+							<button type="submit" class="btn btn-success btn-sm">Post Transfer</button>
+						</form>
+					}
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+func transferDetailTitle(vm WarehouseTransferDetailVM) string {
+	if vm.Transfer.ID == 0 {
+		return "New Transfer"
+	}
+	if vm.Transfer.Reference != "" {
+		return "Transfer: " + vm.Transfer.Reference
+	}
+	return fmt.Sprintf("Transfer #%d", vm.Transfer.ID)
+}
+
+func transferSaveAction(vm WarehouseTransferDetailVM) string {
+	if vm.Transfer.ID == 0 {
+		return "/inventory/transfers/save"
+	}
+	return fmt.Sprintf("/inventory/transfers/%d/save", vm.Transfer.ID)
+}
+
+func transferDateVal(t models.WarehouseTransfer) string {
+	if t.TransferDate.IsZero() {
+		return ""
+	}
+	return t.TransferDate.Format("2006-01-02")
+}

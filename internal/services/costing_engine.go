@@ -35,6 +35,9 @@ const (
 // ── Request / Result types ───────────────────────────────────────────────────
 
 // InboundRequest describes an inventory receipt (purchase, opening, positive adjustment).
+//
+// WarehouseID (optional): when set, routes the movement to the named Warehouse row.
+// When nil, falls back to LocationType/LocationRef (legacy single-warehouse path).
 type InboundRequest struct {
 	CompanyID    uint
 	ItemID       uint
@@ -43,6 +46,7 @@ type InboundRequest struct {
 	MovementType models.InventoryMovementType
 	LocationType models.LocationType
 	LocationRef  string
+	WarehouseID  *uint // multi-warehouse routing (nil = legacy path)
 	Date         time.Time
 }
 
@@ -55,6 +59,9 @@ type InboundResult struct {
 }
 
 // OutboundRequest describes an inventory issue (sale, negative adjustment).
+//
+// WarehouseID (optional): when set, routes the movement to the named Warehouse row.
+// When nil, falls back to LocationType/LocationRef (legacy single-warehouse path).
 type OutboundRequest struct {
 	CompanyID    uint
 	ItemID       uint
@@ -62,6 +69,7 @@ type OutboundRequest struct {
 	MovementType models.InventoryMovementType
 	LocationType models.LocationType
 	LocationRef  string
+	WarehouseID  *uint // multi-warehouse routing (nil = legacy path)
 	Date         time.Time
 }
 

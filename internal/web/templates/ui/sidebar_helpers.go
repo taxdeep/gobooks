@@ -17,11 +17,14 @@ func SectionKeyForActivePage(active string) string {
 		return "expenses"
 	case "Bank Reconcile", "Reports", "Accounts":
 		return "accounting"
+	case "Stock Report", "Warehouse Transfers":
+		return "inventory"
 	case "AI Connect Settings", "Members Settings", "Audit Log", "Products & Services",
 		"Payment Gateways", "Gateway Settlement Review", "Gateway Payouts", "Gateway Disputes",
 		"Recon Exceptions", "Investigation Workspace",
 		"User Preferences Hub", "User Preferences System Setup",
-		"Accounting Books", "AR/AP Control":
+		"Accounting Books", "AR/AP Control",
+		"Warehouses":
 		return "settings"
 	default:
 		if IsCompanySettingsNavActive(active) {

@@ -1,0 +1,99 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"fmt"
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+// warehouseStatusBadge returns a badge class for the warehouse's active state.
+func warehouseStatusBadge(w models.Warehouse) string {
+	if !w.IsActive {
+		return "badge badge-ghost"
+	}
+	if w.IsDefault {
+		return "badge badge-primary"
+	}
+	return "badge badge-success"
+}
+
+func warehouseStatusLabel(w models.Warehouse) string {
+	if !w.IsActive {
+		return "Inactive"
+	}
+	if w.IsDefault {
+		return "Default"
+	}
+	return "Active"
+}
+
+templ Warehouses(vm WarehousesVM) {
+	@layout.Layout(
+		"GoBooks - Warehouses",
+		ui.SidebarVM{Active: "Warehouses", HasCompany: vm.HasCompany},
+		bodyWarehouses(vm),
+	)
+}
+
+templ bodyWarehouses(vm WarehousesVM) {
+	<div class="max-w-5xl">
+		<div class="flex items-center justify-between mb-6">
+			<h1 class="text-title font-semibold">Warehouses</h1>
+			<a href="/warehouses/new" class="btn btn-primary btn-sm">+ New Warehouse</a>
+		</div>
+
+		if vm.Created {
+			<div class="alert alert-success mb-4">Warehouse created successfully.</div>
+		}
+
+		<div class="card bg-base-100 shadow">
+			<div class="card-body p-0">
+				<table class="table table-zebra">
+					<thead>
+						<tr>
+							<th>Code</th>
+							<th>Name</th>
+							<th>Location</th>
+							<th>Status</th>
+							<th></th>
+						</tr>
+					</thead>
+					<tbody>
+						if len(vm.Warehouses) == 0 {
+							<tr>
+								<td colspan="5" class="text-center text-base-content/50 py-8">
+									No warehouses found. <a href="/warehouses/new" class="link">Create one.</a>
+								</td>
+							</tr>
+						}
+						for _, w := range vm.Warehouses {
+							<tr>
+								<td class="font-mono font-semibold">{ w.Code }</td>
+								<td>{ w.Name }</td>
+								<td class="text-sm text-base-content/70">
+									if w.City != "" && w.Country != "" {
+										{ w.City }, { w.Country }
+									} else if w.City != "" {
+										{ w.City }
+									} else if w.Country != "" {
+										{ w.Country }
+									} else {
+										<span class="text-base-content/30">—</span>
+									}
+								</td>
+								<td>
+									<span class={ warehouseStatusBadge(w) }>{ warehouseStatusLabel(w) }</span>
+								</td>
+								<td class="text-right">
+									<a href={ templ.SafeURL(fmt.Sprintf("/warehouses/%d", w.ID)) } class="btn btn-ghost btn-xs">Edit</a>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+}
