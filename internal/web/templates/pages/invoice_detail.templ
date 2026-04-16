@@ -1,6 +1,7 @@
 // 遵循project_guide.md
 package pages
 
+import "fmt"
 import "gobooks/internal/models"
 import "gobooks/internal/web/templates/layout"
 import "gobooks/internal/web/templates/ui"
@@ -403,6 +404,38 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 				</div>
 			</div>
 		</div>
+
+		// ── Applied Credits section ──────────────────────────────────────────
+		if len(vm.CreditNoteApplications) > 0 {
+			<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+				<h2 class="text-section font-semibold text-text">Applied Credit Notes</h2>
+				<p class="mt-1 text-small text-text-muted2">Credit notes applied against this invoice's balance.</p>
+				<div class="mt-4 overflow-x-auto">
+					<table class="w-full text-left text-body">
+						<thead class="text-small uppercase tracking-wider text-text-muted">
+							<tr class="border-b border-border">
+								<th class="py-2 pr-6">Credit Note</th>
+								<th class="py-2 pr-6 text-right">Amount Applied</th>
+								<th class="py-2 pr-0">Applied On</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, a := range vm.CreditNoteApplications {
+								<tr class="border-b border-border-subtle text-small">
+									<td class="py-2 pr-6">
+										<a href={ templ.SafeURL(fmt.Sprintf("/credit-notes/%d", a.CreditNoteID)) } class="text-primary hover:underline">
+											CN #{ Uitoa(a.CreditNoteID) }
+										</a>
+									</td>
+									<td class="py-2 pr-6 text-right tabular-nums"><span data-numfmt>{ a.AmountApplied.StringFixed(2) }</span></td>
+									<td class="py-2 pr-0 text-text-muted2">{ a.AppliedAt.Format("Jan 2, 2006") }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		}
 
 		// ── Payment Requests section ─────────────────────────────────────────
 		// Shown for non-draft/non-voided, non-channel-origin invoices.

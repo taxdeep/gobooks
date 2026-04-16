@@ -75,8 +75,10 @@ func testPostingDB(t *testing.T) *gorm.DB {
 		&models.AuditLog{},
 		&models.InventoryMovement{},
 		&models.InventoryBalance{},
-		&models.PaymentTransaction{},   // required by VoidInvoice payment-transaction guard
-		&models.SettlementAllocation{}, // required by VoidInvoice settlement-allocation guard
+		&models.PaymentTransaction{},    // required by VoidInvoice payment-transaction guard
+		&models.SettlementAllocation{},  // required by VoidInvoice settlement-allocation guard
+		&models.CreditNoteApplication{}, // required by VoidInvoice credit-application reversal
+		&models.APCreditApplication{},   // required by VoidBill credit-application reversal
 	); err != nil {
 		t.Fatal(err)
 	}

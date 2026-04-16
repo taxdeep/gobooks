@@ -24,8 +24,10 @@ type CreditNoteDetailVM struct {
 	HasCompany bool
 	CreditNote models.CreditNote
 	// Open invoices for the customer (for apply-to-invoice form).
-	OpenInvoices   []models.Invoice
-	FormError      string
+	OpenInvoices    []models.Invoice
+	FormError       string
+	RemoveError     string
+	Removed         bool
 	ApplyDrawerOpen bool
 }
 
@@ -133,6 +135,13 @@ templ bodyCreditNoteDetail(vm CreditNoteDetailVM) {
 			<div class="mt-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-body text-red-700">{ vm.FormError }</div>
 		}
 
+		if vm.Removed {
+			<div class="mt-4 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-body text-green-700">Credit application removed.</div>
+		}
+		if vm.RemoveError != "" {
+			<div class="mt-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-body text-red-700">{ vm.RemoveError }</div>
+		}
+
 		<!-- Header info -->
 		<div class="mt-6 grid grid-cols-2 gap-6 md:grid-cols-4">
 			<div>
@@ -198,19 +207,36 @@ templ bodyCreditNoteDetail(vm CreditNoteDetailVM) {
 				<table class="w-full text-body">
 					<thead class="bg-surface-raised">
 						<tr>
-							<th class="px-4 py-3 text-left font-medium text-text-muted">Invoice ID</th>
+							<th class="px-4 py-3 text-left font-medium text-text-muted">Invoice</th>
 							<th class="px-4 py-3 text-right font-medium text-text-muted">Amount Applied</th>
 							<th class="px-4 py-3 text-left font-medium text-text-muted">Date</th>
+							<th class="px-4 py-3"></th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-border">
 						for _, a := range vm.CreditNote.Applications {
 							<tr>
 								<td class="px-4 py-3 text-primary">
-									<a href={ templ.SafeURL(fmt.Sprintf("/invoices/%d", a.InvoiceID)) } class="hover:underline">Invoice #{ fmt.Sprintf("%d", a.InvoiceID) }</a>
+									<a href={ templ.SafeURL(fmt.Sprintf("/invoices/%d", a.InvoiceID)) } class="hover:underline">
+										if a.Invoice.InvoiceNumber != "" {
+											{ a.Invoice.InvoiceNumber }
+										} else {
+											Invoice #{ fmt.Sprintf("%d", a.InvoiceID) }
+										}
+									</a>
 								</td>
 								<td class="px-4 py-3 text-right" data-numfmt>{ a.AmountApplied.StringFixed(2) }</td>
 								<td class="px-4 py-3 text-text-muted2">{ a.AppliedAt.Format("Jan 2, 2006") }</td>
+								<td class="px-4 py-3">
+									if vm.CreditNote.Status != models.CreditNoteStatusVoided && vm.CreditNote.Status != models.CreditNoteStatusFullyApplied {
+										<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/credit-notes/applications/%d/remove", a.ID)) }>
+											<input type="hidden" name="cn_id" value={ fmt.Sprintf("%d", vm.CreditNote.ID) }/>
+											<button type="submit" class="text-small text-red-600 hover:text-red-700" onclick="return confirm('Remove this credit application?')">
+												Remove
+											</button>
+										</form>
+									}
+								</td>
 							</tr>
 						}
 					</tbody>

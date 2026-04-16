@@ -1,0 +1,188 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"fmt"
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+// BillDetailVM is the view-model for the read-only bill detail page.
+type BillDetailVM struct {
+	HasCompany bool
+	Bill       models.Bill
+	// APCreditApplications lists all VCN allocations applied to this bill.
+	APCreditApplications []models.APCreditApplication
+	JournalNo            string
+}
+
+templ BillDetail(vm BillDetailVM) {
+	@layout.Layout(
+		"GoBooks - Bill "+vm.Bill.BillNumber,
+		ui.SidebarVM{Active: "Bills", HasCompany: vm.HasCompany},
+		bodyBillDetail(vm),
+	)
+}
+
+templ bodyBillDetail(vm BillDetailVM) {
+	<div class="max-w-[95%]">
+		// Header
+		<div class="flex flex-wrap items-start justify-between gap-4">
+			<div class="min-w-0 flex-1">
+				<div class="text-small text-text-muted2">
+					<a href="/bills" class="text-primary hover:underline">Bills</a> / { vm.Bill.BillNumber }
+				</div>
+				<h1 class="mt-1 text-title font-semibold">{ vm.Bill.BillNumber }</h1>
+			</div>
+			<div class="flex shrink-0 gap-3">
+				if vm.Bill.Status == models.BillStatusDraft {
+					<a
+						href={ templ.SafeURL(fmt.Sprintf("/bills/%d/edit", vm.Bill.ID)) }
+						class="rounded-md border border-border-input px-4 py-2 text-body font-medium text-text hover:bg-background"
+					>Edit</a>
+				}
+				if vm.Bill.Status == models.BillStatusPosted || vm.Bill.Status == models.BillStatusPartiallyPaid {
+					<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/bills/%d/void", vm.Bill.ID)) }>
+						<button type="submit" class="rounded-md border border-red-300 px-4 py-2 text-body font-medium text-red-600 hover:bg-red-50" onclick="return confirm('Void this bill? This will reverse all accounting entries.')">
+							Void Bill
+						</button>
+					</form>
+				}
+			</div>
+		</div>
+
+		// Status + key info
+		<div class="mt-6 grid grid-cols-2 gap-6 md:grid-cols-4">
+			<div>
+				<div class="text-small text-text-muted2">Status</div>
+				<div class="mt-1">@billStatusBadge(vm.Bill.Status)</div>
+			</div>
+			<div>
+				<div class="text-small text-text-muted2">Vendor</div>
+				<div class="mt-1 font-medium">{ vm.Bill.Vendor.Name }</div>
+			</div>
+			<div>
+				<div class="text-small text-text-muted2">Bill Date</div>
+				<div class="mt-1">{ vm.Bill.BillDate.Format("Jan 2, 2006") }</div>
+			</div>
+			if vm.Bill.DueDate != nil {
+				<div>
+					<div class="text-small text-text-muted2">Due Date</div>
+					<div class="mt-1">{ vm.Bill.DueDate.Format("Jan 2, 2006") }</div>
+				</div>
+			}
+			if vm.JournalNo != "" {
+				<div>
+					<div class="text-small text-text-muted2">Journal Entry</div>
+					<div class="mt-1 font-mono text-small">{ vm.JournalNo }</div>
+				</div>
+			}
+			if vm.Bill.Memo != "" {
+				<div class="col-span-2">
+					<div class="text-small text-text-muted2">Memo</div>
+					<div class="mt-1">{ vm.Bill.Memo }</div>
+				</div>
+			}
+		</div>
+
+		// Lines table
+		<div class="mt-8 overflow-hidden rounded-lg border border-border">
+			<table class="w-full text-body">
+				<thead class="bg-surface-raised">
+					<tr>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Description</th>
+						<th class="px-4 py-3 text-right font-medium text-text-muted">Amount</th>
+						<th class="px-4 py-3 text-right font-medium text-text-muted">Tax</th>
+						<th class="px-4 py-3 text-right font-medium text-text-muted">Total</th>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-border">
+					for _, l := range vm.Bill.Lines {
+						<tr>
+							<td class="px-4 py-3">{ l.Description }</td>
+							<td class="px-4 py-3 text-right tabular-nums" data-numfmt>{ l.LineNet.StringFixed(2) }</td>
+							<td class="px-4 py-3 text-right tabular-nums" data-numfmt>{ l.LineTax.StringFixed(2) }</td>
+							<td class="px-4 py-3 text-right tabular-nums font-medium" data-numfmt>{ l.LineTotal.StringFixed(2) }</td>
+						</tr>
+					}
+				</tbody>
+				<tfoot class="border-t border-border bg-surface-raised">
+					<tr>
+						<td colspan="3" class="px-4 py-3 text-right font-medium">Subtotal</td>
+						<td class="px-4 py-3 text-right tabular-nums" data-numfmt>{ vm.Bill.Subtotal.StringFixed(2) }</td>
+					</tr>
+					if vm.Bill.TaxTotal.IsPositive() {
+						<tr>
+							<td colspan="3" class="px-4 py-3 text-right text-text-muted2">Tax</td>
+							<td class="px-4 py-3 text-right tabular-nums text-text-muted2" data-numfmt>{ vm.Bill.TaxTotal.StringFixed(2) }</td>
+						</tr>
+					}
+					<tr>
+						<td colspan="3" class="px-4 py-3 text-right font-semibold">Total</td>
+						<td class="px-4 py-3 text-right tabular-nums font-semibold" data-numfmt>{ vm.Bill.Amount.StringFixed(2) }</td>
+					</tr>
+					if vm.Bill.Status != models.BillStatusDraft && vm.Bill.Status != models.BillStatusVoided {
+						<tr>
+							<td colspan="3" class="px-4 py-3 text-right text-text-muted2">Balance Due</td>
+							<td class="px-4 py-3 text-right tabular-nums font-semibold text-text-muted2" data-numfmt>{ vm.Bill.BalanceDue.StringFixed(2) }</td>
+						</tr>
+					}
+				</tfoot>
+			</table>
+		</div>
+
+		// Applied Credits
+		if len(vm.APCreditApplications) > 0 {
+			<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+				<h2 class="text-section font-semibold text-text">Applied Vendor Credit Notes</h2>
+				<p class="mt-1 text-small text-text-muted2">Vendor credit notes applied against this bill's balance.</p>
+				<div class="mt-4 overflow-x-auto">
+					<table class="w-full text-left text-body">
+						<thead class="text-small uppercase tracking-wider text-text-muted">
+							<tr class="border-b border-border">
+								<th class="py-2 pr-6">Credit Note</th>
+								<th class="py-2 pr-6 text-right">Amount Applied</th>
+								<th class="py-2 pr-0">Applied On</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, a := range vm.APCreditApplications {
+								<tr class="border-b border-border-subtle text-small">
+									<td class="py-2 pr-6">
+										<a href={ templ.SafeURL(fmt.Sprintf("/vendor-credit-notes/%d", a.VendorCreditNoteID)) } class="text-primary hover:underline">
+											if a.VendorCreditNote.CreditNoteNumber != "" {
+												{ a.VendorCreditNote.CreditNoteNumber }
+											} else {
+												VCN #{ Uitoa(a.VendorCreditNoteID) }
+											}
+										</a>
+									</td>
+									<td class="py-2 pr-6 text-right tabular-nums" data-numfmt>{ a.AmountApplied.StringFixed(2) }</td>
+									<td class="py-2 pr-0 text-text-muted2">{ a.AppliedAt.Format("Jan 2, 2006") }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		}
+	</div>
+}
+
+templ billStatusBadge(s models.BillStatus) {
+	switch s {
+	case models.BillStatusDraft:
+		<span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-small font-medium text-gray-700">Draft</span>
+	case models.BillStatusPosted:
+		<span class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-small font-medium text-blue-700">Posted</span>
+	case models.BillStatusPartiallyPaid:
+		<span class="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-small font-medium text-yellow-700">Partially Paid</span>
+	case models.BillStatusPaid:
+		<span class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-small font-medium text-green-700">Paid</span>
+	case models.BillStatusVoided:
+		<span class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-small font-medium text-red-700">Voided</span>
+	default:
+		<span class="text-text-muted2">{ string(s) }</span>
+	}
+}

@@ -142,6 +142,41 @@ func VoidBill(db *gorm.DB, companyID, billID uint, actor string, userID *uuid.UU
 			return fmt.Errorf("reverse inventory movements: %w", err)
 		}
 
+		// f2. Reverse any AP credit applications against this bill.
+		// The VCN's RemainingAmount was reduced when each application was created;
+		// voiding the bill restores those balances so credits can be reused.
+		var apApps []models.APCreditApplication
+		if err := tx.Where("bill_id = ? AND company_id = ?", bill.ID, companyID).
+			Find(&apApps).Error; err != nil {
+			return fmt.Errorf("load AP credit applications: %w", err)
+		}
+		for _, app := range apApps {
+			var vcn models.VendorCreditNote
+			if err := tx.Where("id = ? AND company_id = ?", app.VendorCreditNoteID, companyID).
+				First(&vcn).Error; err != nil {
+				return fmt.Errorf("load vendor credit note %d: %w", app.VendorCreditNoteID, err)
+			}
+			newRemaining := vcn.RemainingAmount.Add(app.AmountApplied)
+			newApplied := vcn.AppliedAmount.Sub(app.AmountApplied)
+			if newApplied.IsNegative() {
+				newApplied = decimal.Zero
+			}
+			newVCNStatus := models.VendorCreditNoteStatusPartiallyApplied
+			if newApplied.IsZero() {
+				newVCNStatus = models.VendorCreditNoteStatusPosted
+			}
+			if err := tx.Model(&vcn).Updates(map[string]any{
+				"remaining_amount": newRemaining,
+				"applied_amount":   newApplied,
+				"status":           string(newVCNStatus),
+			}).Error; err != nil {
+				return fmt.Errorf("restore vendor credit note %d: %w", app.VendorCreditNoteID, err)
+			}
+			if err := tx.Delete(&app).Error; err != nil {
+				return fmt.Errorf("delete AP credit application %d: %w", app.ID, err)
+			}
+		}
+
 		// g. Mark bill voided and zero out the balance fields.
 		// Voided bills owe nothing; keeping non-zero balance_due / balance_due_base
 		// would corrupt any code path that reads those fields (reports, recalculation, etc.).

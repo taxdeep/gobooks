@@ -738,7 +738,7 @@ func (s *Server) handleBillPost(c *fiber.Ctx) error {
 	}
 	s.ReportCache.InvalidateCompany(companyID)
 
-	return redirectTo(c, "/bills?posted=1")
+	return redirectTo(c, fmt.Sprintf("/bills/%d", billID))
 }
 
 func (s *Server) billsForCompany(companyID uint) ([]models.Bill, error) {
@@ -903,6 +903,53 @@ func isBillPlaceholderLine(desc, amountRaw, expenseAccountIDRaw, taxCodeIDRaw, t
 		return false
 	}
 	return amt.IsZero()
+}
+
+// handleBillDetail renders the read-only bill detail page.
+// GET /bills/:id
+func (s *Server) handleBillDetail(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/select-company", fiber.StatusSeeOther)
+	}
+
+	idRaw := strings.TrimSpace(c.Params("id"))
+	id64, err := strconv.ParseUint(idRaw, 10, 64)
+	if err != nil || id64 == 0 {
+		return c.Redirect("/bills", fiber.StatusSeeOther)
+	}
+	billID := uint(id64)
+
+	var bill models.Bill
+	if err := s.DB.
+		Preload("Vendor").
+		Preload("Lines", func(db *gorm.DB) *gorm.DB { return db.Order("sort_order asc") }).
+		Preload("JournalEntry").
+		Where("id = ? AND company_id = ?", billID, companyID).
+		First(&bill).Error; err != nil {
+		return c.Redirect("/bills", fiber.StatusSeeOther)
+	}
+
+	// Draft bills redirect to the edit page.
+	if bill.Status == models.BillStatusDraft {
+		return c.Redirect(fmt.Sprintf("/bills/%d/edit", billID), fiber.StatusSeeOther)
+	}
+
+	// Load AP credit applications with VCN info.
+	var apApps []models.APCreditApplication
+	s.DB.Preload("VendorCreditNote").
+		Where("bill_id = ? AND company_id = ?", billID, companyID).
+		Order("applied_at asc").Find(&apApps)
+
+	vm := pages.BillDetailVM{
+		HasCompany:           true,
+		Bill:                 bill,
+		APCreditApplications: apApps,
+	}
+	if bill.JournalEntry != nil {
+		vm.JournalNo = bill.JournalEntry.JournalNo
+	}
+	return pages.BillDetail(vm).Render(c.Context(), c)
 }
 
 // handleBillVoid voids a posted bill and creates a reversal JE.

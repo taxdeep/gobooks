@@ -78,13 +78,19 @@ func (s *Server) handleVendorCreditNoteDetail(c *fiber.Ctx) error {
 		return c.Redirect("/vendor-credit-notes", fiber.StatusSeeOther)
 	}
 
+	removeErr := ""
+	if c.Query("removeerr") == "1" {
+		removeErr = "Failed to remove credit application."
+	}
 	vm := pages.VendorCreditNoteDetailVM{
-		HasCompany: true,
-		CreditNote: *vcn,
-		Saved:      c.Query("saved") == "1",
-		Posted:     c.Query("posted") == "1",
-		Voided:     c.Query("voided") == "1",
-		Applied:    c.Query("applied") == "1",
+		HasCompany:  true,
+		CreditNote:  *vcn,
+		Saved:       c.Query("saved") == "1",
+		Posted:      c.Query("posted") == "1",
+		Voided:      c.Query("voided") == "1",
+		Applied:     c.Query("applied") == "1",
+		Removed:     c.Query("removed") == "1",
+		RemoveError: removeErr,
 	}
 	s.loadVCNFormData(companyID, &vm)
 	return pages.VendorCreditNoteDetail(vm).Render(c.Context(), c)
@@ -209,6 +215,34 @@ func (s *Server) handleVCNApplyToBill(c *fiber.Ctx) error {
 		return pages.VendorCreditNoteDetail(vm).Render(c.Context(), c)
 	}
 	return c.Redirect("/vendor-credit-notes/"+strconv.FormatUint(uint64(id), 10)+"?applied=1", fiber.StatusSeeOther)
+}
+
+// ── Remove application ────────────────────────────────────────────────────────
+
+// handleVCNRemoveApplication handles POST /vendor-credit-notes/applications/:id/remove
+func (s *Server) handleVCNRemoveApplication(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/select-company", fiber.StatusSeeOther)
+	}
+	appID, err := parseIDParam(c)
+	if err != nil {
+		return c.Redirect("/vendor-credit-notes", fiber.StatusSeeOther)
+	}
+
+	// Load the application to get the VCN ID for the redirect.
+	vcnID := strings.TrimSpace(c.FormValue("vcn_id"))
+
+	if removeErr := services.ReverseAPCreditApplication(s.DB, companyID, appID); removeErr != nil {
+		if vcnID != "" {
+			return c.Redirect("/vendor-credit-notes/"+vcnID+"?removeerr=1", fiber.StatusSeeOther)
+		}
+		return c.Redirect("/vendor-credit-notes", fiber.StatusSeeOther)
+	}
+	if vcnID != "" {
+		return c.Redirect("/vendor-credit-notes/"+vcnID+"?removed=1", fiber.StatusSeeOther)
+	}
+	return c.Redirect("/vendor-credit-notes", fiber.StatusSeeOther)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -359,7 +359,7 @@ func GetCreditNote(db *gorm.DB, companyID, cnID uint) (*models.CreditNote, error
 		Preload("Lines.RevenueAccount").
 		Preload("Customer").
 		Preload("Invoice").
-		Preload("Applications").
+		Preload("Applications").Preload("Applications.Invoice").
 		Where("id = ? AND company_id = ?", cnID, companyID).
 		First(&cn).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -368,6 +368,72 @@ func GetCreditNote(db *gorm.DB, companyID, cnID uint) (*models.CreditNote, error
 		return nil, fmt.Errorf("get credit note: %w", err)
 	}
 	return &cn, nil
+}
+
+// ReverseARCreditNoteApplication removes a single credit note application,
+// restoring the credit note's BalanceRemaining and the invoice's BalanceDue.
+// Only valid when neither the credit note nor the invoice is voided.
+func ReverseARCreditNoteApplication(db *gorm.DB, companyID, applicationID uint) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		var app models.CreditNoteApplication
+		if err := tx.Where("id = ? AND company_id = ?", applicationID, companyID).
+			First(&app).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("credit note application not found")
+			}
+			return fmt.Errorf("load application: %w", err)
+		}
+
+		var cn models.CreditNote
+		if err := tx.Where("id = ? AND company_id = ?", app.CreditNoteID, companyID).
+			First(&cn).Error; err != nil {
+			return fmt.Errorf("load credit note: %w", err)
+		}
+		if cn.Status == models.CreditNoteStatusVoided {
+			return errors.New("cannot reverse: credit note is voided")
+		}
+
+		var inv models.Invoice
+		if err := tx.Where("id = ? AND company_id = ?", app.InvoiceID, companyID).
+			First(&inv).Error; err != nil {
+			return fmt.Errorf("load invoice: %w", err)
+		}
+		if inv.Status == models.InvoiceStatusVoided {
+			return errors.New("cannot reverse: invoice is voided")
+		}
+
+		// Restore credit note balance.
+		newBalance := cn.BalanceRemaining.Add(app.AmountApplied)
+		newCNStatus := models.CreditNoteStatusPartiallyApplied
+		if newBalance.Equal(cn.Amount) {
+			newCNStatus = models.CreditNoteStatusIssued
+		}
+		if err := tx.Model(&cn).Updates(map[string]any{
+			"balance_remaining": newBalance,
+			"status":            string(newCNStatus),
+		}).Error; err != nil {
+			return fmt.Errorf("restore credit note: %w", err)
+		}
+
+		// Restore invoice balance.
+		newInvBalance := inv.BalanceDue.Add(app.AmountApplied)
+		newInvStatus := models.InvoiceStatusPartiallyPaid
+		if newInvBalance.Equal(inv.Amount) {
+			newInvStatus = models.InvoiceStatusSent
+		}
+		if err := tx.Model(&inv).Updates(map[string]any{
+			"balance_due": newInvBalance,
+			"status":      string(newInvStatus),
+		}).Error; err != nil {
+			return fmt.Errorf("restore invoice: %w", err)
+		}
+
+		// Delete application.
+		if err := tx.Delete(&app).Error; err != nil {
+			return fmt.Errorf("delete application: %w", err)
+		}
+		return nil
+	})
 }
 
 // computeLineTax is a helper that computes tax for a line given a TaxCode.

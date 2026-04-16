@@ -177,11 +177,17 @@ func (s *Server) handleCreditNoteDetail(c *fiber.Ctx) error {
 			}).Order("invoice_date asc").Find(&openInvoices)
 	}
 
+	removeErr := ""
+	if c.Query("removeerr") == "1" {
+		removeErr = "Failed to remove credit application."
+	}
 	return pages.CreditNoteDetail(pages.CreditNoteDetailVM{
 		HasCompany:      true,
 		CreditNote:      *cn,
 		OpenInvoices:    openInvoices,
 		ApplyDrawerOpen: c.Query("apply_drawer") == "1",
+		Removed:         c.Query("removed") == "1",
+		RemoveError:     removeErr,
 	}).Render(c.Context(), c)
 }
 
@@ -276,6 +282,30 @@ func (s *Server) handleCreditNoteApply(c *fiber.Ctx) error {
 		}).Render(c.Context(), c)
 	}
 	return c.Redirect(c.Path()[:len(c.Path())-len("/apply")], fiber.StatusSeeOther)
+}
+
+// POST /credit-notes/applications/:id/remove
+func (s *Server) handleCreditNoteRemoveApplication(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/setup", fiber.StatusSeeOther)
+	}
+	appID, err := strconv.ParseUint(c.Params("id"), 10, 64)
+	if err != nil || appID == 0 {
+		return c.Redirect("/credit-notes", fiber.StatusSeeOther)
+	}
+	cnID := strings.TrimSpace(c.FormValue("cn_id"))
+
+	if removeErr := services.ReverseARCreditNoteApplication(s.DB, companyID, uint(appID)); removeErr != nil {
+		if cnID != "" {
+			return c.Redirect("/credit-notes/"+cnID+"?removeerr=1", fiber.StatusSeeOther)
+		}
+		return c.Redirect("/credit-notes", fiber.StatusSeeOther)
+	}
+	if cnID != "" {
+		return c.Redirect("/credit-notes/"+cnID+"?removed=1", fiber.StatusSeeOther)
+	}
+	return c.Redirect("/credit-notes", fiber.StatusSeeOther)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

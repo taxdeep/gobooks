@@ -238,6 +238,7 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Post("/credit-notes/:id/issue", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceApprove), s.handleCreditNoteIssue)
 	app.Post("/credit-notes/:id/void", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceApprove), s.handleCreditNoteVoid)
 	app.Post("/credit-notes/:id/apply", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleCreditNoteApply)
+	app.Post("/credit-notes/applications/:id/remove", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleCreditNoteRemoveApplication)
 
 	// AR Phase 2: Quotes + SalesOrders (real handlers)
 	// Quotes
@@ -340,6 +341,7 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Post("/vendor-credit-notes/:id/post", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleVendorCreditNotePost)
 	app.Post("/vendor-credit-notes/:id/void", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleVendorCreditNoteVoid)
 	app.Post("/vendor-credit-notes/:id/apply-to-bill", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleVCNApplyToBill)
+	app.Post("/vendor-credit-notes/applications/:id/remove", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleVCNRemoveApplication)
 
 	// AP Phase A: Vendor Refunds
 	app.Get("/vendor-refunds", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleVendorRefundList)
@@ -423,6 +425,7 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	// 查看列表对所有成员开放；创建 / 编辑需要 ap_access（ap 及以上）
 	app.Get("/bills", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleBills)
 	app.Get("/bills/new", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionBillCreate), s.handleBillNew)
+	app.Get("/bills/:id", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleBillDetail)
 	app.Get("/bills/:id/edit", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionBillUpdate), s.handleBillEdit)
 	app.Post("/bills/save-draft", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionBillCreate), s.handleBillSaveDraft)
 	app.Post("/bills/:id/post", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionBillUpdate), s.handleBillPost)

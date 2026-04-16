@@ -19,10 +19,12 @@ import (
 // APCreditApplication records one application of a VendorCreditNote amount against a Bill.
 // A credit note may be split across multiple bills.
 type APCreditApplication struct {
-	ID                 uint `gorm:"primaryKey"`
-	CompanyID          uint `gorm:"not null;index"`
-	VendorCreditNoteID uint `gorm:"not null;index"`
-	BillID             uint `gorm:"not null;index"`
+	ID                 uint             `gorm:"primaryKey"`
+	CompanyID          uint             `gorm:"not null;index"`
+	VendorCreditNoteID uint             `gorm:"not null;index"`
+	VendorCreditNote   VendorCreditNote `gorm:"foreignKey:VendorCreditNoteID"`
+	BillID             uint             `gorm:"not null;index"`
+	Bill               Bill             `gorm:"foreignKey:BillID"`
 
 	// AmountApplied is in the credit note's document currency.
 	AmountApplied decimal.Decimal `gorm:"type:numeric(18,2);not null"`

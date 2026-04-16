@@ -183,6 +183,36 @@ func VoidInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 			return fmt.Errorf("reverse inventory movements: %w", err)
 		}
 
+		// g2. Reverse any credit note applications against this invoice.
+		// The CreditNote's BalanceRemaining was reduced when each application was created;
+		// voiding the invoice restores those balances so credits can be reused.
+		var cnApps []models.CreditNoteApplication
+		if err := tx.Where("invoice_id = ? AND company_id = ?", inv.ID, companyID).
+			Find(&cnApps).Error; err != nil {
+			return fmt.Errorf("load credit note applications: %w", err)
+		}
+		for _, app := range cnApps {
+			var cn models.CreditNote
+			if err := tx.Where("id = ? AND company_id = ?", app.CreditNoteID, companyID).
+				First(&cn).Error; err != nil {
+				return fmt.Errorf("load credit note %d: %w", app.CreditNoteID, err)
+			}
+			newBalance := cn.BalanceRemaining.Add(app.AmountApplied)
+			newCNStatus := models.CreditNoteStatusPartiallyApplied
+			if newBalance.Equal(cn.Amount) {
+				newCNStatus = models.CreditNoteStatusIssued
+			}
+			if err := tx.Model(&cn).Updates(map[string]any{
+				"balance_remaining": newBalance,
+				"status":            string(newCNStatus),
+			}).Error; err != nil {
+				return fmt.Errorf("restore credit note %d: %w", app.CreditNoteID, err)
+			}
+			if err := tx.Delete(&app).Error; err != nil {
+				return fmt.Errorf("delete credit note application %d: %w", app.ID, err)
+			}
+		}
+
 		// h. Mark invoice voided and zero out the balance fields.
 		// Voided invoices owe nothing; keeping non-zero balance_due / balance_due_base
 		// would corrupt any code path that reads those fields (reports, recalculation, etc.).

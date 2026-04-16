@@ -91,4 +91,8 @@ type InvoiceDetailVM struct {
 	// internal users do not receive a 500 from a missing PDF engine.
 	// Mirrors the CanDownload flag used on the hosted invoice page.
 	PDFAvailable bool
+
+	// CreditNoteApplications lists all credit note allocations against this invoice.
+	// Populated for non-draft invoices.
+	CreditNoteApplications []models.CreditNoteApplication
 }

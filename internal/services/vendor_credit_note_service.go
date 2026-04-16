@@ -113,7 +113,7 @@ func GetVendorCreditNote(db *gorm.DB, companyID, vcnID uint) (*models.VendorCred
 	var vcn models.VendorCreditNote
 	err := db.Preload("Vendor").Preload("APAccount").Preload("OffsetAccount").
 		Preload("Bill").Preload("VendorReturn").
-		Preload("Applications").
+		Preload("Applications").Preload("Applications.Bill").
 		Where("id = ? AND company_id = ?", vcnID, companyID).First(&vcn).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrVendorCreditNoteNotFound
@@ -411,4 +411,75 @@ func ListVCNApplicationsForBill(db *gorm.DB, companyID, billID uint) ([]models.A
 	err := db.Where("company_id = ? AND bill_id = ?", companyID, billID).
 		Order("applied_at asc").Find(&apps).Error
 	return apps, err
+}
+
+// ReverseAPCreditApplication removes a single credit application, restoring
+// the VCN's remaining balance and the bill's balance due.
+// Only valid when neither the VCN nor the bill is voided.
+func ReverseAPCreditApplication(db *gorm.DB, companyID, applicationID uint) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		var app models.APCreditApplication
+		if err := tx.Where("id = ? AND company_id = ?", applicationID, companyID).
+			First(&app).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("credit application not found")
+			}
+			return fmt.Errorf("load application: %w", err)
+		}
+
+		var vcn models.VendorCreditNote
+		if err := tx.Where("id = ? AND company_id = ?", app.VendorCreditNoteID, companyID).
+			First(&vcn).Error; err != nil {
+			return fmt.Errorf("load vendor credit note: %w", err)
+		}
+		if vcn.Status == models.VendorCreditNoteStatusVoided {
+			return errors.New("cannot reverse: vendor credit note is voided")
+		}
+
+		var bill models.Bill
+		if err := tx.Where("id = ? AND company_id = ?", app.BillID, companyID).
+			First(&bill).Error; err != nil {
+			return fmt.Errorf("load bill: %w", err)
+		}
+		if bill.Status == models.BillStatusVoided {
+			return errors.New("cannot reverse: bill is voided")
+		}
+
+		// Restore VCN balance.
+		newRemaining := vcn.RemainingAmount.Add(app.AmountApplied)
+		newApplied := vcn.AppliedAmount.Sub(app.AmountApplied)
+		if newApplied.IsNegative() {
+			newApplied = decimal.Zero
+		}
+		newVCNStatus := models.VendorCreditNoteStatusPartiallyApplied
+		if newApplied.IsZero() {
+			newVCNStatus = models.VendorCreditNoteStatusPosted
+		}
+		if err := tx.Model(&vcn).Updates(map[string]any{
+			"remaining_amount": newRemaining,
+			"applied_amount":   newApplied,
+			"status":           string(newVCNStatus),
+		}).Error; err != nil {
+			return fmt.Errorf("restore vendor credit note: %w", err)
+		}
+
+		// Restore Bill balance.
+		newBillBalance := bill.BalanceDue.Add(app.AmountApplied)
+		newBillStatus := models.BillStatusPartiallyPaid
+		if newBillBalance.Equal(bill.Amount) {
+			newBillStatus = models.BillStatusPosted
+		}
+		if err := tx.Model(&bill).Updates(map[string]any{
+			"balance_due": newBillBalance,
+			"status":      string(newBillStatus),
+		}).Error; err != nil {
+			return fmt.Errorf("restore bill: %w", err)
+		}
+
+		// Delete application.
+		if err := tx.Delete(&app).Error; err != nil {
+			return fmt.Errorf("delete application: %w", err)
+		}
+		return nil
+	})
 }

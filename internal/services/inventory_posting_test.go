@@ -37,9 +37,11 @@ func testInventoryPostingDB(t *testing.T) *gorm.DB {
 		&models.InventoryMovement{},
 		&models.InventoryBalance{},
 		&models.AuditLog{},
-		&models.PaymentTransaction{},   // required by VoidInvoice payment-transaction guard
-		&models.SettlementAllocation{}, // required by VoidInvoice settlement-allocation guard
-		&models.TaskInvoiceSource{},    // required by task invoice source release hook
+		&models.PaymentTransaction{},    // required by VoidInvoice payment-transaction guard
+		&models.SettlementAllocation{},  // required by VoidInvoice settlement-allocation guard
+		&models.CreditNoteApplication{}, // required by VoidInvoice credit-application reversal
+		&models.APCreditApplication{},   // required by VoidBill credit-application reversal
+		&models.TaskInvoiceSource{},     // required by task invoice source release hook
 	)
 	return db
 }

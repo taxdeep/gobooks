@@ -191,10 +191,11 @@ type CreditNoteLine struct {
 // This record is purely an AR open-item allocation — it tracks which invoice's
 // BalanceDue was reduced and by how much.
 type CreditNoteApplication struct {
-	ID           uint `gorm:"primaryKey"`
-	CompanyID    uint `gorm:"not null;index"`
-	CreditNoteID uint `gorm:"not null;index"`
-	InvoiceID    uint `gorm:"not null;index"`
+	ID           uint    `gorm:"primaryKey"`
+	CompanyID    uint    `gorm:"not null;index"`
+	CreditNoteID uint    `gorm:"not null;index"`
+	InvoiceID    uint    `gorm:"not null;index"`
+	Invoice      Invoice `gorm:"foreignKey:InvoiceID"`
 
 	// AmountApplied is in the credit note's document currency.
 	AmountApplied decimal.Decimal `gorm:"type:numeric(18,2);not null"`

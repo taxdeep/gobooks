@@ -37,6 +37,8 @@ func testTaskInvoiceDraftDB(t *testing.T) *gorm.DB {
 		&models.LedgerEntry{},
 		&models.PaymentTransaction{},
 		&models.SettlementAllocation{},
+		&models.CreditNoteApplication{}, // required by VoidInvoice credit-application reversal
+		&models.APCreditApplication{},   // required by VoidBill credit-application reversal
 		&models.PaymentReceipt{},
 		&models.AuditLog{},
 		&models.InventoryMovement{},

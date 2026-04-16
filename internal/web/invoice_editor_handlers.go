@@ -68,6 +68,14 @@ func (s *Server) handleInvoiceDetail(c *fiber.Ctx) error {
 		templates, _ = services.ListInvoiceTemplates(s.DB, companyID)
 	}
 
+	// Load credit note applications for this invoice.
+	var cnApplications []models.CreditNoteApplication
+	if inv.Status != models.InvoiceStatusDraft {
+		s.DB.Preload("Invoice").
+			Where("invoice_id = ? AND company_id = ?", inv.ID, companyID).
+			Order("applied_at asc").Find(&cnApplications)
+	}
+
 	// Load payment requests for this invoice.
 	paymentReqs, _ := services.ListPaymentRequestsForInvoice(s.DB, companyID, inv.ID)
 
@@ -120,6 +128,7 @@ func (s *Server) handleInvoiceDetail(c *fiber.Ctx) error {
 		GatewaySettlementStatus: gatewaySettlementStatus,
 		GatewaySettlementReason: gatewaySettlementReason,
 		JustSettled:             c.Query("settled") == "1",
+		CreditNoteApplications:  cnApplications,
 	}
 	if inv.JournalEntry != nil {
 		vm.JournalNo = inv.JournalEntry.JournalNo
