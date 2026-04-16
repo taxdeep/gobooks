@@ -42,10 +42,10 @@ templ bodyAccountingBooksHub(vm AccountingBooksVM) {
 		</div>
 
 		if vm.Saved {
-			<div class="mt-4 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-body text-green-700">Book created successfully.</div>
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success-hover">Book created successfully.</div>
 		}
 		if vm.FormError != "" {
-			<div class="mt-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-body text-red-700">{ vm.FormError }</div>
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover">{ vm.FormError }</div>
 		}
 
 		<!-- Books table -->
@@ -96,13 +96,13 @@ templ bodyAccountingBooksHub(vm AccountingBooksVM) {
 templ bookTypeBadge(bt models.AccountingBookType) {
 	switch bt {
 	case models.AccountingBookTypePrimary:
-		<span class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-small font-medium text-blue-700">Primary</span>
+		<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-primary-soft text-primary border border-primary-soft">Primary</span>
 	case models.AccountingBookTypeSecondary:
-		<span class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-small font-medium text-green-700">Secondary</span>
+		<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-success-soft text-success-hover border border-success-border">Secondary</span>
 	case models.AccountingBookTypeAdjustment:
-		<span class="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-small font-medium text-yellow-700">Adjustment</span>
+		<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-warning-soft text-warning border border-warning-soft">Adjustment</span>
 	case models.AccountingBookTypeTax:
-		<span class="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-small font-medium text-purple-700">Tax</span>
+		<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-background text-text-muted border border-border">Tax</span>
 	default:
 		<span class="text-text-muted2">{ string(bt) }</span>
 	}

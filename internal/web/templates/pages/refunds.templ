@@ -9,17 +9,18 @@ import (
 )
 
 func refundStatusBadgeClass(s models.ARRefundStatus) string {
+	const base = "inline-block rounded px-2 py-0.5 text-small font-medium "
 	switch s {
 	case models.ARRefundStatusDraft:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600"
+		return base + "bg-background text-text-muted border border-border"
 	case models.ARRefundStatusPosted:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700"
+		return base + "bg-success-soft text-success-hover border border-success-border"
 	case models.ARRefundStatusReversed:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700"
+		return base + "bg-danger-soft text-danger border border-danger-soft"
 	case models.ARRefundStatusVoided:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700"
+		return base + "bg-danger-soft text-danger border border-danger-soft"
 	default:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600"
+		return base + "bg-background text-text-muted border border-border"
 	}
 }
 

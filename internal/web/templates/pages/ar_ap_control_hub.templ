@@ -50,10 +50,10 @@ templ bodyARAPControlHub(vm ARAPControlVM) {
 		</div>
 
 		if vm.Saved {
-			<div class="mt-4 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-body text-green-700">Saved.</div>
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success-hover">Saved.</div>
 		}
 		if vm.FormError != "" {
-			<div class="mt-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-body text-red-700">{ vm.FormError }</div>
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover">{ vm.FormError }</div>
 		}
 
 		<div class="mt-6 overflow-hidden rounded-lg border border-border">
@@ -246,8 +246,8 @@ func arapDocTypeLabel(dt models.ARAPControlDocType) string {
 
 templ arapSideBadge(dt models.ARAPControlDocType) {
 	if models.ARAPDocTypeSide[dt] == "AR" {
-		<span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-small font-medium text-blue-700">AR</span>
+		<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-primary-soft text-primary border border-primary-soft">AR</span>
 	} else {
-		<span class="inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-small font-medium text-orange-700">AP</span>
+		<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-warning-soft text-warning border border-warning-soft">AP</span>
 	}
 }

@@ -53,7 +53,7 @@ templ bodyCreditNotesList(vm CreditNotesListVM) {
 			</a>
 		</div>
 		if vm.Saved {
-			<div class="mt-4 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-body text-green-700">Credit note saved.</div>
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success-hover">Credit note saved.</div>
 		}
 		<div class="mt-6 overflow-hidden rounded-lg border border-border">
 			<table class="w-full text-body">
@@ -125,21 +125,21 @@ templ bodyCreditNoteDetail(vm CreditNoteDetailVM) {
 				}
 				if vm.CreditNote.Status == models.CreditNoteStatusDraft || vm.CreditNote.Status == models.CreditNoteStatusIssued {
 					<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/credit-notes/%d/void", vm.CreditNote.ID)) }>
-						<button type="submit" class="rounded-md border border-red-300 px-4 py-2 text-body font-medium text-red-600 hover:bg-red-50">Void</button>
+						<button type="submit" class="rounded-md border border-border-danger px-4 py-2 text-body font-medium text-danger hover:bg-danger-soft">Void</button>
 					</form>
 				}
 			</div>
 		</div>
 
 		if vm.FormError != "" {
-			<div class="mt-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-body text-red-700">{ vm.FormError }</div>
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover">{ vm.FormError }</div>
 		}
 
 		if vm.Removed {
-			<div class="mt-4 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-body text-green-700">Credit application removed.</div>
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success-hover">Credit application removed.</div>
 		}
 		if vm.RemoveError != "" {
-			<div class="mt-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-body text-red-700">{ vm.RemoveError }</div>
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover">{ vm.RemoveError }</div>
 		}
 
 		<!-- Header info -->
@@ -231,7 +231,7 @@ templ bodyCreditNoteDetail(vm CreditNoteDetailVM) {
 									if vm.CreditNote.Status != models.CreditNoteStatusVoided && vm.CreditNote.Status != models.CreditNoteStatusFullyApplied {
 										<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/credit-notes/applications/%d/remove", a.ID)) }>
 											<input type="hidden" name="cn_id" value={ fmt.Sprintf("%d", vm.CreditNote.ID) }/>
-											<button type="submit" class="text-small text-red-600 hover:text-red-700" onclick="return confirm('Remove this credit application?')">
+											<button type="submit" class="text-small text-danger hover:text-danger-hover" onclick="return confirm('Remove this credit application?')">
 												Remove
 											</button>
 										</form>
@@ -328,12 +328,12 @@ templ bodyCreditNoteForm(vm CreditNoteFormVM) {
 		<div class="mb-6 text-small text-text-muted2"><a href="/credit-notes" class="hover:underline text-primary">Credit Notes</a> / New</div>
 		<h1 class="text-title font-semibold">New Credit Note</h1>
 		if vm.FormError != "" {
-			<div class="mt-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-body text-red-700">{ vm.FormError }</div>
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover">{ vm.FormError }</div>
 		}
 		<form method="POST" action="/credit-notes/new" class="mt-6 space-y-6">
 			<div class="grid grid-cols-2 gap-4">
 				<div>
-					<label class="block text-body font-medium text-text">Customer <span class="text-red-500">*</span></label>
+					<label class="block text-body font-medium text-text">Customer <span class="text-danger">*</span></label>
 					<select name="customer_id" required class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body">
 						<option value="">— select —</option>
 						for _, c := range vm.Customers {
@@ -342,7 +342,7 @@ templ bodyCreditNoteForm(vm CreditNoteFormVM) {
 					</select>
 				</div>
 				<div>
-					<label class="block text-body font-medium text-text">Date <span class="text-red-500">*</span></label>
+					<label class="block text-body font-medium text-text">Date <span class="text-danger">*</span></label>
 					<input type="date" name="credit_note_date" required value={ time.Now().Format("2006-01-02") } class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body"/>
 				</div>
 			</div>
@@ -400,7 +400,7 @@ templ bodyCreditNoteForm(vm CreditNoteFormVM) {
 								</select>
 							</div>
 							<div class="col-span-1 flex items-center justify-end pt-1">
-								<button type="button" @click="removeLine(idx)" class="text-red-400 hover:text-red-600">✕</button>
+								<button type="button" @click="removeLine(idx)" class="text-danger hover:text-danger-hover">✕</button>
 							</div>
 						</div>
 					</template>
@@ -425,15 +425,15 @@ func creditNoteFormData() string {
 templ creditNoteStatusBadge(s models.CreditNoteStatus) {
 	switch s {
 	case models.CreditNoteStatusDraft:
-		<span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-small font-medium text-gray-700">Draft</span>
+		<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-background text-text-muted border border-border">Draft</span>
 	case models.CreditNoteStatusIssued:
-		<span class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-small font-medium text-blue-700">Issued</span>
+		<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-primary-soft text-primary border border-primary-soft">Issued</span>
 	case models.CreditNoteStatusPartiallyApplied:
-		<span class="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-small font-medium text-yellow-700">Partially Applied</span>
+		<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-warning-soft text-warning border border-warning-soft">Partially Applied</span>
 	case models.CreditNoteStatusFullyApplied:
-		<span class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-small font-medium text-green-700">Fully Applied</span>
+		<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-success-soft text-success-hover border border-success-border">Fully Applied</span>
 	case models.CreditNoteStatusVoided:
-		<span class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-small font-medium text-red-700">Voided</span>
+		<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-danger-soft text-danger border border-danger-soft">Voided</span>
 	default:
 		<span class="text-text-muted2">{ string(s) }</span>
 	}

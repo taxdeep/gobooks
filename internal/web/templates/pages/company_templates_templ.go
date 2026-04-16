@@ -84,7 +84,7 @@ func bodyCompanyTemplates(vm CompanyTemplatesVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if vm.Saved {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800\">Default template updated.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"mt-4 rounded-lg border border-success-border bg-success-soft px-4 py-3 text-body text-success-hover\">Default template updated.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -157,7 +157,7 @@ func templateRow(t models.InvoiceTemplate) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if t.IsDefault {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<span class=\"ml-2 inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800\">Default</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<span class=\"ml-2 inline-block rounded px-2 py-0.5 text-small font-semibold bg-primary-soft text-primary border border-primary-soft\">Default</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -180,12 +180,12 @@ func templateRow(t models.InvoiceTemplate) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if t.IsActive {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<span class=\"inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800\">Active</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-semibold bg-success-soft text-success-hover border border-success-border\">Active</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<span class=\"inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-500\">Inactive</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-semibold bg-background text-text-muted border border-border\">Inactive</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

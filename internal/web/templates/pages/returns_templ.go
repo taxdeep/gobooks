@@ -18,21 +18,22 @@ import (
 )
 
 func returnStatusBadgeClass(s models.ARReturnStatus) string {
+	const base = "inline-block rounded px-2 py-0.5 text-small font-medium "
 	switch s {
 	case models.ARReturnStatusDraft:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600"
+		return base + "bg-background text-text-muted border border-border"
 	case models.ARReturnStatusSubmitted:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700"
+		return base + "bg-primary-soft text-primary border border-primary-soft"
 	case models.ARReturnStatusApproved:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-700"
+		return base + "bg-warning-soft text-warning border border-warning-soft"
 	case models.ARReturnStatusProcessed:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700"
+		return base + "bg-success-soft text-success-hover border border-success-border"
 	case models.ARReturnStatusRejected:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700"
+		return base + "bg-danger-soft text-danger border border-danger-soft"
 	case models.ARReturnStatusCancelled:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700"
+		return base + "bg-danger-soft text-danger border border-danger-soft"
 	default:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600"
+		return base + "bg-background text-text-muted border border-border"
 	}
 }
 
@@ -112,7 +113,7 @@ func bodyReturns(vm ReturnsVM) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(string(s))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 68, Col: 30}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 69, Col: 30}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -135,7 +136,7 @@ func bodyReturns(vm ReturnsVM) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(models.ARReturnStatusLabel(s))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 69, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 70, Col: 37}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -158,7 +159,7 @@ func bodyReturns(vm ReturnsVM) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", cust.ID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 80, Col: 47}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 81, Col: 47}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -181,7 +182,7 @@ func bodyReturns(vm ReturnsVM) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(cust.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 81, Col: 17}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 82, Col: 17}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -210,7 +211,7 @@ func bodyReturns(vm ReturnsVM) templ.Component {
 			var templ_7745c5c3_Var7 templ.SafeURL
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/returns/" + fmt.Sprintf("%d", ret.ID)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 109, Col: 72}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 110, Col: 72}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -223,7 +224,7 @@ func bodyReturns(vm ReturnsVM) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(ret.ReturnNumber)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 110, Col: 27}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 111, Col: 27}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -236,7 +237,7 @@ func bodyReturns(vm ReturnsVM) templ.Component {
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(ret.Customer.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 113, Col: 58}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 114, Col: 58}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -249,7 +250,7 @@ func bodyReturns(vm ReturnsVM) templ.Component {
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(ret.ReturnDate.Format("2006-01-02"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 114, Col: 76}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 115, Col: 76}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
@@ -262,7 +263,7 @@ func bodyReturns(vm ReturnsVM) templ.Component {
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(models.ARReturnReasonLabel(ret.Reason))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 115, Col: 79}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 116, Col: 79}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
@@ -275,7 +276,7 @@ func bodyReturns(vm ReturnsVM) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(ret.ReturnAmount.StringFixed(2))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 117, Col: 59}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 118, Col: 59}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
@@ -288,7 +289,7 @@ func bodyReturns(vm ReturnsVM) templ.Component {
 			var templ_7745c5c3_Var13 string
 			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(ret.CurrencyCode)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 117, Col: 87}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 118, Col: 87}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 			if templ_7745c5c3_Err != nil {
@@ -323,7 +324,7 @@ func bodyReturns(vm ReturnsVM) templ.Component {
 			var templ_7745c5c3_Var16 string
 			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(models.ARReturnStatusLabel(ret.Status))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 121, Col: 49}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/returns.templ`, Line: 122, Col: 49}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 			if templ_7745c5c3_Err != nil {

@@ -194,12 +194,12 @@ templ poEditForm(vm PurchaseOrderDetailVM) {
 			</button>
 			if vm.PurchaseOrder.ID != 0 {
 				<form method="POST" action={ templ.SafeURL("/purchase-orders/" + fmt.Sprintf("%d", vm.PurchaseOrder.ID) + "/confirm") }>
-					<button type="submit" class="rounded-md bg-green-600 px-4 py-2 text-body font-semibold text-white hover:bg-green-700">
+					<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
 						Confirm PO
 					</button>
 				</form>
 				<form method="POST" action={ templ.SafeURL("/purchase-orders/" + fmt.Sprintf("%d", vm.PurchaseOrder.ID) + "/cancel") }>
-					<button type="submit" class="rounded-md bg-red-600 px-4 py-2 text-body font-semibold text-white hover:bg-red-700">
+					<button type="submit" class="rounded-md border border-border-danger px-4 py-2 text-body font-semibold text-danger hover:bg-danger-soft">
 						Cancel
 					</button>
 				</form>
@@ -219,7 +219,7 @@ templ poEditForm(vm PurchaseOrderDetailVM) {
 					<td class="px-3 py-2"><input type="text" name="lines[${lineIdx}][qty]" value="1" class="w-20 rounded border border-border bg-surface px-2 py-1 text-body text-text text-right"/></td>
 					<td class="px-3 py-2"><input type="text" name="lines[${lineIdx}][unit_price]" value="0.00" class="w-28 rounded border border-border bg-surface px-2 py-1 text-body text-text text-right"/></td>
 					<td class="px-3 py-2 text-right text-text">—</td>
-					<td class="px-3 py-2 text-center"><button type="button" onclick="this.closest('tr').remove()" class="text-red-500 hover:text-red-700">✕</button></td>
+					<td class="px-3 py-2 text-center"><button type="button" onclick="this.closest('tr').remove()" class="text-danger hover:text-danger-hover">✕</button></td>
 				`;
 				tbody.appendChild(row);
 				lineIdx++;
@@ -259,7 +259,7 @@ templ poLineRow(i int, line models.PurchaseOrderLine) {
 			<span data-numfmt>{ line.LineNet.StringFixed(2) }</span>
 		</td>
 		<td class="px-3 py-2 text-center">
-			<button type="button" onclick="this.closest('tr').remove()" class="text-red-500 hover:text-red-700">✕</button>
+			<button type="button" onclick="this.closest('tr').remove()" class="text-danger hover:text-danger-hover">✕</button>
 		</td>
 	</tr>
 }
@@ -327,7 +327,7 @@ templ poReadOnlyView(vm PurchaseOrderDetailVM) {
 	<div class="mt-4 flex flex-wrap gap-3">
 		if vm.PurchaseOrder.Status == models.POStatusConfirmed {
 			<form method="POST" action={ templ.SafeURL("/purchase-orders/" + fmt.Sprintf("%d", vm.PurchaseOrder.ID) + "/mark-received") }>
-				<button type="submit" class="rounded-md bg-green-600 px-4 py-2 text-body font-semibold text-white hover:bg-green-700">
+				<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
 					Mark as Received
 				</button>
 			</form>
@@ -339,7 +339,7 @@ templ poReadOnlyView(vm PurchaseOrderDetailVM) {
 		}
 		if vm.PurchaseOrder.Status == models.POStatusReceived {
 			<form method="POST" action={ templ.SafeURL("/purchase-orders/" + fmt.Sprintf("%d", vm.PurchaseOrder.ID) + "/close") }>
-				<button type="submit" class="rounded-md bg-purple-600 px-4 py-2 text-body font-semibold text-white hover:bg-purple-700">
+				<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
 					Close PO
 				</button>
 			</form>

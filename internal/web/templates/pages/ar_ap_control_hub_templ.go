@@ -94,20 +94,20 @@ func bodyARAPControlHub(vm ARAPControlVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if vm.Saved {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div class=\"mt-4 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-body text-green-700\">Saved.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div class=\"mt-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success-hover\">Saved.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if vm.FormError != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<div class=\"mt-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-body text-red-700\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<div class=\"mt-4 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(vm.FormError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/ar_ap_control_hub.templ`, Line: 56, Col: 111}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/ar_ap_control_hub.templ`, Line: 56, Col: 127}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -463,12 +463,12 @@ func arapSideBadge(dt models.ARAPControlDocType) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if models.ARAPDocTypeSide[dt] == "AR" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<span class=\"inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-small font-medium text-blue-700\">AR</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-primary-soft text-primary border border-primary-soft\">AR</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "<span class=\"inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-small font-medium text-orange-700\">AP</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-warning-soft text-warning border border-warning-soft\">AP</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

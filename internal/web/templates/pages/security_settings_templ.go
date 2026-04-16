@@ -232,7 +232,7 @@ func securityComingSoonRow(title string, description string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</span> <span class=\"rounded-md border border-border bg-surface px-2 py-0.5 text-xs font-medium text-text-muted3\">Coming soon</span></div><p class=\"mt-1 text-small text-text-muted\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</span> <span class=\"rounded-md border border-border bg-surface px-2 py-0.5 text-small font-medium text-text-muted3\">Coming soon</span></div><p class=\"mt-1 text-small text-text-muted\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

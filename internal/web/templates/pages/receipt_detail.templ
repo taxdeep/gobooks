@@ -366,13 +366,14 @@ templ receiptReadOnlyView(vm ReceiptDetailVM) {
 }
 
 func payAppStatusBadge(s models.PaymentApplicationStatus) string {
+	const base = "inline-block rounded px-2 py-0.5 text-small font-medium "
 	switch s {
 	case models.PaymentApplicationStatusActive:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700"
+		return base + "bg-success-soft text-success-hover border border-success-border"
 	case models.PaymentApplicationStatusReversed:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-500"
+		return base + "bg-background text-text-muted border border-border"
 	default:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600"
+		return base + "bg-background text-text-muted border border-border"
 	}
 }
 

@@ -143,7 +143,7 @@ func bodyBillDetail(vm BillDetailVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\"><button type=\"submit\" class=\"rounded-md border border-red-300 px-4 py-2 text-body font-medium text-red-600 hover:bg-red-50\" onclick=\"return confirm('Void this bill? This will reverse all accounting entries.')\">Void Bill</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\"><button type=\"submit\" class=\"rounded-md border border-border-danger px-4 py-2 text-body font-medium text-danger hover:bg-danger-soft\" onclick=\"return confirm('Void this bill? This will reverse all accounting entries.')\">Void Bill</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -496,27 +496,27 @@ func billStatusBadge(s models.BillStatus) templ.Component {
 		ctx = templ.ClearChildren(ctx)
 		switch s {
 		case models.BillStatusDraft:
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<span class=\"inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-small font-medium text-gray-700\">Draft</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-background text-text-muted border border-border\">Draft</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		case models.BillStatusPosted:
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<span class=\"inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-small font-medium text-blue-700\">Posted</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-primary-soft text-primary border border-primary-soft\">Posted</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		case models.BillStatusPartiallyPaid:
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "<span class=\"inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-small font-medium text-yellow-700\">Partially Paid</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-warning-soft text-warning border border-warning-soft\">Partially Paid</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		case models.BillStatusPaid:
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<span class=\"inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-small font-medium text-green-700\">Paid</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-success-soft text-success-hover border border-success-border\">Paid</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		case models.BillStatusVoided:
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<span class=\"inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-small font-medium text-red-700\">Voided</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-danger-soft text-danger border border-danger-soft\">Voided</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

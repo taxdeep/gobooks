@@ -18,19 +18,20 @@ import (
 )
 
 func vcnStatusBadgeClass(s models.VendorCreditNoteStatus) string {
+	const base = "inline-block rounded px-2 py-0.5 text-small font-medium "
 	switch s {
 	case models.VendorCreditNoteStatusDraft:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600"
+		return base + "bg-background text-text-muted border border-border"
 	case models.VendorCreditNoteStatusPosted:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700"
+		return base + "bg-primary-soft text-primary border border-primary-soft"
 	case models.VendorCreditNoteStatusPartiallyApplied:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-700"
+		return base + "bg-warning-soft text-warning border border-warning-soft"
 	case models.VendorCreditNoteStatusFullyApplied:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700"
+		return base + "bg-success-soft text-success-hover border border-success-border"
 	case models.VendorCreditNoteStatusVoided:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700"
+		return base + "bg-danger-soft text-danger border border-danger-soft"
 	default:
-		return "inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600"
+		return base + "bg-background text-text-muted border border-border"
 	}
 }
 
@@ -110,7 +111,7 @@ func bodyVendorCreditNotes(vm VendorCreditNotesVM) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(string(s))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 66, Col: 30}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 67, Col: 30}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -133,7 +134,7 @@ func bodyVendorCreditNotes(vm VendorCreditNotesVM) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(models.VendorCreditNoteStatusLabel(s))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 67, Col: 45}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 68, Col: 45}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -156,7 +157,7 @@ func bodyVendorCreditNotes(vm VendorCreditNotesVM) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", v.ID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 78, Col: 44}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 79, Col: 44}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -179,7 +180,7 @@ func bodyVendorCreditNotes(vm VendorCreditNotesVM) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(v.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 79, Col: 14}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 80, Col: 14}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -208,7 +209,7 @@ func bodyVendorCreditNotes(vm VendorCreditNotesVM) templ.Component {
 			var templ_7745c5c3_Var7 templ.SafeURL
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/vendor-credit-notes/" + fmt.Sprintf("%d", vcn.ID)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 107, Col: 84}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 108, Col: 84}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -221,7 +222,7 @@ func bodyVendorCreditNotes(vm VendorCreditNotesVM) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(vcn.CreditNoteNumber)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 108, Col: 31}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 109, Col: 31}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -234,7 +235,7 @@ func bodyVendorCreditNotes(vm VendorCreditNotesVM) templ.Component {
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(vcn.Vendor.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 111, Col: 56}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 112, Col: 56}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -247,7 +248,7 @@ func bodyVendorCreditNotes(vm VendorCreditNotesVM) templ.Component {
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(vcn.CreditNoteDate.Format("2006-01-02"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 112, Col: 80}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 113, Col: 80}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
@@ -260,7 +261,7 @@ func bodyVendorCreditNotes(vm VendorCreditNotesVM) templ.Component {
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(vcn.Amount.StringFixed(2))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 114, Col: 53}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 115, Col: 53}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
@@ -273,7 +274,7 @@ func bodyVendorCreditNotes(vm VendorCreditNotesVM) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(vcn.CurrencyCode)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 114, Col: 81}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 115, Col: 81}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
@@ -286,7 +287,7 @@ func bodyVendorCreditNotes(vm VendorCreditNotesVM) templ.Component {
 			var templ_7745c5c3_Var13 string
 			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(vcn.RemainingAmount.StringFixed(2))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 117, Col: 62}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 118, Col: 62}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 			if templ_7745c5c3_Err != nil {
@@ -321,7 +322,7 @@ func bodyVendorCreditNotes(vm VendorCreditNotesVM) templ.Component {
 			var templ_7745c5c3_Var16 string
 			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(models.VendorCreditNoteStatusLabel(vcn.Status))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 121, Col: 57}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_notes.templ`, Line: 122, Col: 57}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 			if templ_7745c5c3_Err != nil {

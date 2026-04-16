@@ -579,7 +579,7 @@ func refundEditForm(vm RefundDetailVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "\"><button type=\"submit\" class=\"rounded-md bg-red-600 px-4 py-2 text-body font-semibold text-white hover:bg-red-700\">Void</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "\"><button type=\"submit\" class=\"rounded-md border border-border-danger px-4 py-2 text-body font-semibold text-danger hover:bg-danger-soft\">Void</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -651,7 +651,7 @@ func refundEditForm(vm RefundDetailVM) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "</select></div><button type=\"submit\" class=\"rounded-md bg-green-600 px-4 py-2 text-body font-semibold text-white hover:bg-green-700\">Post</button></form></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "</select></div><button type=\"submit\" class=\"rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover\">Post</button></form></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -832,7 +832,7 @@ func refundReadOnlyView(vm RefundDetailVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "\"><button type=\"submit\" class=\"rounded-md bg-red-600 px-4 py-2 text-body font-semibold text-white hover:bg-red-700\">Reverse Refund</button></form></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "\"><button type=\"submit\" class=\"rounded-md border border-border-danger px-4 py-2 text-body font-semibold text-danger hover:bg-danger-soft\">Reverse Refund</button></form></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -94,20 +94,20 @@ func bodyAccountingBooksHub(vm AccountingBooksVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if vm.Saved {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div class=\"mt-4 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-body text-green-700\">Book created successfully.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div class=\"mt-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success-hover\">Book created successfully.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if vm.FormError != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<div class=\"mt-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-body text-red-700\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<div class=\"mt-4 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(vm.FormError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/accounting_books_hub.templ`, Line: 48, Col: 111}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/accounting_books_hub.templ`, Line: 48, Col: 127}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -235,22 +235,22 @@ func bookTypeBadge(bt models.AccountingBookType) templ.Component {
 		ctx = templ.ClearChildren(ctx)
 		switch bt {
 		case models.AccountingBookTypePrimary:
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<span class=\"inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-small font-medium text-blue-700\">Primary</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-primary-soft text-primary border border-primary-soft\">Primary</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		case models.AccountingBookTypeSecondary:
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<span class=\"inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-small font-medium text-green-700\">Secondary</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-success-soft text-success-hover border border-success-border\">Secondary</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		case models.AccountingBookTypeAdjustment:
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<span class=\"inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-small font-medium text-yellow-700\">Adjustment</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-warning-soft text-warning border border-warning-soft\">Adjustment</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		case models.AccountingBookTypeTax:
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<span class=\"inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-small font-medium text-purple-700\">Tax</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-background text-text-muted border border-border\">Tax</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

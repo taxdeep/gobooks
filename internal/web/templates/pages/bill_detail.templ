@@ -44,7 +44,7 @@ templ bodyBillDetail(vm BillDetailVM) {
 				}
 				if vm.Bill.Status == models.BillStatusPosted || vm.Bill.Status == models.BillStatusPartiallyPaid {
 					<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/bills/%d/void", vm.Bill.ID)) }>
-						<button type="submit" class="rounded-md border border-red-300 px-4 py-2 text-body font-medium text-red-600 hover:bg-red-50" onclick="return confirm('Void this bill? This will reverse all accounting entries.')">
+						<button type="submit" class="rounded-md border border-border-danger px-4 py-2 text-body font-medium text-danger hover:bg-danger-soft" onclick="return confirm('Void this bill? This will reverse all accounting entries.')">
 							Void Bill
 						</button>
 					</form>
@@ -173,15 +173,15 @@ templ bodyBillDetail(vm BillDetailVM) {
 templ billStatusBadge(s models.BillStatus) {
 	switch s {
 	case models.BillStatusDraft:
-		<span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-small font-medium text-gray-700">Draft</span>
+		<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-background text-text-muted border border-border">Draft</span>
 	case models.BillStatusPosted:
-		<span class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-small font-medium text-blue-700">Posted</span>
+		<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-primary-soft text-primary border border-primary-soft">Posted</span>
 	case models.BillStatusPartiallyPaid:
-		<span class="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-small font-medium text-yellow-700">Partially Paid</span>
+		<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-warning-soft text-warning border border-warning-soft">Partially Paid</span>
 	case models.BillStatusPaid:
-		<span class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-small font-medium text-green-700">Paid</span>
+		<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-success-soft text-success-hover border border-success-border">Paid</span>
 	case models.BillStatusVoided:
-		<span class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-small font-medium text-red-700">Voided</span>
+		<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-danger-soft text-danger border border-danger-soft">Voided</span>
 	default:
 		<span class="text-text-muted2">{ string(s) }</span>
 	}

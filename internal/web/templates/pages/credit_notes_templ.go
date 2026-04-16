@@ -99,7 +99,7 @@ func bodyCreditNotesList(vm CreditNotesListVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if vm.Saved {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"mt-4 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-body text-green-700\">Credit note saved.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"mt-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success-hover\">Credit note saved.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -351,7 +351,7 @@ func bodyCreditNoteDetail(vm CreditNoteDetailVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\"><button type=\"submit\" class=\"rounded-md border border-red-300 px-4 py-2 text-body font-medium text-red-600 hover:bg-red-50\">Void</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\"><button type=\"submit\" class=\"rounded-md border border-border-danger px-4 py-2 text-body font-medium text-danger hover:bg-danger-soft\">Void</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -361,14 +361,14 @@ func bodyCreditNoteDetail(vm CreditNoteDetailVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if vm.FormError != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<div class=\"mt-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-body text-red-700\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<div class=\"mt-4 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var16 string
 			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(vm.FormError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/credit_notes.templ`, Line: 135, Col: 111}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/credit_notes.templ`, Line: 135, Col: 127}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 			if templ_7745c5c3_Err != nil {
@@ -380,20 +380,20 @@ func bodyCreditNoteDetail(vm CreditNoteDetailVM) templ.Component {
 			}
 		}
 		if vm.Removed {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<div class=\"mt-4 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-body text-green-700\">Credit application removed.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<div class=\"mt-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success-hover\">Credit application removed.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if vm.RemoveError != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<div class=\"mt-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-body text-red-700\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<div class=\"mt-4 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var17 string
 			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(vm.RemoveError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/credit_notes.templ`, Line: 142, Col: 113}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/credit_notes.templ`, Line: 142, Col: 129}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 			if templ_7745c5c3_Err != nil {
@@ -674,7 +674,7 @@ func bodyCreditNoteDetail(vm CreditNoteDetailVM) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "\"> <button type=\"submit\" class=\"text-small text-red-600 hover:text-red-700\" onclick=\"return confirm('Remove this credit application?')\">Remove</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "\"> <button type=\"submit\" class=\"text-small text-danger hover:text-danger-hover\" onclick=\"return confirm('Remove this credit application?')\">Remove</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -936,14 +936,14 @@ func bodyCreditNoteForm(vm CreditNoteFormVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if vm.FormError != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "<div class=\"mt-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-body text-red-700\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "<div class=\"mt-4 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var49 string
 			templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(vm.FormError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/credit_notes.templ`, Line: 331, Col: 111}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/credit_notes.templ`, Line: 331, Col: 127}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 			if templ_7745c5c3_Err != nil {
@@ -954,7 +954,7 @@ func bodyCreditNoteForm(vm CreditNoteFormVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "<form method=\"POST\" action=\"/credit-notes/new\" class=\"mt-6 space-y-6\"><div class=\"grid grid-cols-2 gap-4\"><div><label class=\"block text-body font-medium text-text\">Customer <span class=\"text-red-500\">*</span></label> <select name=\"customer_id\" required class=\"mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body\"><option value=\"\">— select —</option> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "<form method=\"POST\" action=\"/credit-notes/new\" class=\"mt-6 space-y-6\"><div class=\"grid grid-cols-2 gap-4\"><div><label class=\"block text-body font-medium text-text\">Customer <span class=\"text-danger\">*</span></label> <select name=\"customer_id\" required class=\"mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body\"><option value=\"\">— select —</option> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1000,7 +1000,7 @@ func bodyCreditNoteForm(vm CreditNoteFormVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "</select></div><div><label class=\"block text-body font-medium text-text\">Date <span class=\"text-red-500\">*</span></label> <input type=\"date\" name=\"credit_note_date\" required value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "</select></div><div><label class=\"block text-body font-medium text-text\">Date <span class=\"text-danger\">*</span></label> <input type=\"date\" name=\"credit_note_date\" required value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1160,7 +1160,7 @@ func bodyCreditNoteForm(vm CreditNoteFormVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "</select></div><div class=\"col-span-1 flex items-center justify-end pt-1\"><button type=\"button\" @click=\"removeLine(idx)\" class=\"text-red-400 hover:text-red-600\">✕</button></div></div></template></div></div><div class=\"flex gap-3 pt-2\"><button type=\"submit\" class=\"rounded-md bg-primary px-6 py-2 text-body font-medium text-onPrimary hover:bg-primary-hover\">Save Draft</button> <a href=\"/credit-notes\" class=\"rounded-md border border-border px-6 py-2 text-body hover:bg-background\">Cancel</a></div></form></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "</select></div><div class=\"col-span-1 flex items-center justify-end pt-1\"><button type=\"button\" @click=\"removeLine(idx)\" class=\"text-danger hover:text-danger-hover\">✕</button></div></div></template></div></div><div class=\"flex gap-3 pt-2\"><button type=\"submit\" class=\"rounded-md bg-primary px-6 py-2 text-body font-medium text-onPrimary hover:bg-primary-hover\">Save Draft</button> <a href=\"/credit-notes\" class=\"rounded-md border border-border px-6 py-2 text-body hover:bg-background\">Cancel</a></div></form></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1197,27 +1197,27 @@ func creditNoteStatusBadge(s models.CreditNoteStatus) templ.Component {
 		ctx = templ.ClearChildren(ctx)
 		switch s {
 		case models.CreditNoteStatusDraft:
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "<span class=\"inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-small font-medium text-gray-700\">Draft</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-background text-text-muted border border-border\">Draft</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		case models.CreditNoteStatusIssued:
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "<span class=\"inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-small font-medium text-blue-700\">Issued</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-primary-soft text-primary border border-primary-soft\">Issued</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		case models.CreditNoteStatusPartiallyApplied:
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "<span class=\"inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-small font-medium text-yellow-700\">Partially Applied</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-warning-soft text-warning border border-warning-soft\">Partially Applied</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		case models.CreditNoteStatusFullyApplied:
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "<span class=\"inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-small font-medium text-green-700\">Fully Applied</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-success-soft text-success-hover border border-success-border\">Fully Applied</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		case models.CreditNoteStatusVoided:
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, "<span class=\"inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-small font-medium text-red-700\">Voided</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-danger-soft text-danger border border-danger-soft\">Voided</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

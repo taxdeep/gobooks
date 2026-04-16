@@ -438,7 +438,7 @@ func poEditForm(vm PurchaseOrderDetailVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "\"><button type=\"submit\" class=\"rounded-md bg-green-600 px-4 py-2 text-body font-semibold text-white hover:bg-green-700\">Confirm PO</button></form><form method=\"POST\" action=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "\"><button type=\"submit\" class=\"rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover\">Confirm PO</button></form><form method=\"POST\" action=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -451,12 +451,12 @@ func poEditForm(vm PurchaseOrderDetailVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "\"><button type=\"submit\" class=\"rounded-md bg-red-600 px-4 py-2 text-body font-semibold text-white hover:bg-red-700\">Cancel</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "\"><button type=\"submit\" class=\"rounded-md border border-border-danger px-4 py-2 text-body font-semibold text-danger hover:bg-danger-soft\">Cancel</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</div></form><script>\n\t\t(function(){\n\t\t\tlet lineIdx = document.querySelectorAll('#po-lines tr').length;\n\t\t\tdocument.getElementById('add-line-btn').addEventListener('click', function(){\n\t\t\t\tconst tbody = document.getElementById('po-lines');\n\t\t\t\tconst row = document.createElement('tr');\n\t\t\t\trow.className = 'divide-x divide-border';\n\t\t\t\trow.innerHTML = `\n\t\t\t\t\t<td class=\"px-3 py-2\"><input type=\"text\" name=\"lines[${lineIdx}][description]\" class=\"w-full rounded border border-border bg-surface px-2 py-1 text-body text-text\" placeholder=\"Description\"/></td>\n\t\t\t\t\t<td class=\"px-3 py-2\"><input type=\"text\" name=\"lines[${lineIdx}][qty]\" value=\"1\" class=\"w-20 rounded border border-border bg-surface px-2 py-1 text-body text-text text-right\"/></td>\n\t\t\t\t\t<td class=\"px-3 py-2\"><input type=\"text\" name=\"lines[${lineIdx}][unit_price]\" value=\"0.00\" class=\"w-28 rounded border border-border bg-surface px-2 py-1 text-body text-text text-right\"/></td>\n\t\t\t\t\t<td class=\"px-3 py-2 text-right text-text\">—</td>\n\t\t\t\t\t<td class=\"px-3 py-2 text-center\"><button type=\"button\" onclick=\"this.closest('tr').remove()\" class=\"text-red-500 hover:text-red-700\">✕</button></td>\n\t\t\t\t`;\n\t\t\t\ttbody.appendChild(row);\n\t\t\t\tlineIdx++;\n\t\t\t});\n\t\t})();\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</div></form><script>\n\t\t(function(){\n\t\t\tlet lineIdx = document.querySelectorAll('#po-lines tr').length;\n\t\t\tdocument.getElementById('add-line-btn').addEventListener('click', function(){\n\t\t\t\tconst tbody = document.getElementById('po-lines');\n\t\t\t\tconst row = document.createElement('tr');\n\t\t\t\trow.className = 'divide-x divide-border';\n\t\t\t\trow.innerHTML = `\n\t\t\t\t\t<td class=\"px-3 py-2\"><input type=\"text\" name=\"lines[${lineIdx}][description]\" class=\"w-full rounded border border-border bg-surface px-2 py-1 text-body text-text\" placeholder=\"Description\"/></td>\n\t\t\t\t\t<td class=\"px-3 py-2\"><input type=\"text\" name=\"lines[${lineIdx}][qty]\" value=\"1\" class=\"w-20 rounded border border-border bg-surface px-2 py-1 text-body text-text text-right\"/></td>\n\t\t\t\t\t<td class=\"px-3 py-2\"><input type=\"text\" name=\"lines[${lineIdx}][unit_price]\" value=\"0.00\" class=\"w-28 rounded border border-border bg-surface px-2 py-1 text-body text-text text-right\"/></td>\n\t\t\t\t\t<td class=\"px-3 py-2 text-right text-text\">—</td>\n\t\t\t\t\t<td class=\"px-3 py-2 text-center\"><button type=\"button\" onclick=\"this.closest('tr').remove()\" class=\"text-danger hover:text-danger-hover\">✕</button></td>\n\t\t\t\t`;\n\t\t\t\ttbody.appendChild(row);\n\t\t\t\tlineIdx++;\n\t\t\t});\n\t\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -576,7 +576,7 @@ func poLineRow(i int, line models.PurchaseOrderLine) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "</span></td><td class=\"px-3 py-2 text-center\"><button type=\"button\" onclick=\"this.closest('tr').remove()\" class=\"text-red-500 hover:text-red-700\">✕</button></td></tr>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "</span></td><td class=\"px-3 py-2 text-center\"><button type=\"button\" onclick=\"this.closest('tr').remove()\" class=\"text-danger hover:text-danger-hover\">✕</button></td></tr>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -881,7 +881,7 @@ func poReadOnlyView(vm PurchaseOrderDetailVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "\"><button type=\"submit\" class=\"rounded-md bg-green-600 px-4 py-2 text-body font-semibold text-white hover:bg-green-700\">Mark as Received</button></form><form method=\"POST\" action=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "\"><button type=\"submit\" class=\"rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover\">Mark as Received</button></form><form method=\"POST\" action=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -913,7 +913,7 @@ func poReadOnlyView(vm PurchaseOrderDetailVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "\"><button type=\"submit\" class=\"rounded-md bg-purple-600 px-4 py-2 text-body font-semibold text-white hover:bg-purple-700\">Close PO</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "\"><button type=\"submit\" class=\"rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover\">Close PO</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

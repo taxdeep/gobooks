@@ -518,7 +518,7 @@ func returnEditForm(vm ReturnDetailVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "\"><button type=\"submit\" class=\"rounded-md bg-red-600 px-4 py-2 text-body font-semibold text-white hover:bg-red-700\">Cancel</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "\"><button type=\"submit\" class=\"rounded-md border border-border-danger px-4 py-2 text-body font-semibold text-danger hover:bg-danger-soft\">Cancel</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -703,7 +703,7 @@ func returnReadOnlyView(vm ReturnDetailVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "\"><button type=\"submit\" class=\"rounded-md bg-green-600 px-4 py-2 text-body font-semibold text-white hover:bg-green-700\">Approve</button></form><form method=\"POST\" action=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "\"><button type=\"submit\" class=\"rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover\">Approve</button></form><form method=\"POST\" action=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -716,7 +716,7 @@ func returnReadOnlyView(vm ReturnDetailVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "\"><button type=\"submit\" class=\"rounded-md bg-red-600 px-4 py-2 text-body font-semibold text-white hover:bg-red-700\">Reject</button></form><form method=\"POST\" action=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "\"><button type=\"submit\" class=\"rounded-md border border-border-danger px-4 py-2 text-body font-semibold text-danger hover:bg-danger-soft\">Reject</button></form><form method=\"POST\" action=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

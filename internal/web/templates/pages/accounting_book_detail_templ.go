@@ -80,20 +80,20 @@ func bodyAccountingBookDetail(vm AccountingBookDetailVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if vm.Saved {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"mt-4 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-body text-green-700\">Changes saved.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"mt-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success-hover\">Changes saved.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if vm.FormError != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"mt-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-body text-red-700\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"mt-4 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(vm.FormError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/accounting_book_detail.templ`, Line: 27, Col: 111}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/accounting_book_detail.templ`, Line: 27, Col: 127}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -208,12 +208,12 @@ func bodyAccountingBookDetail(vm AccountingBookDetailVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\" hx-target=\"body\" hx-swap=\"outerHTML\" class=\"shrink-0 rounded-md border border-amber-300 px-4 py-2 text-body text-amber-700 hover:bg-amber-50\">Change Standard (Wizard)</button>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\" hx-target=\"body\" hx-swap=\"outerHTML\" class=\"shrink-0 rounded-md border border-warning-soft px-4 py-2 text-body text-warning hover:bg-warning-soft\">Change Standard (Wizard)</button>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<span class=\"shrink-0 rounded-md bg-red-50 px-3 py-2 text-small text-red-600\">Locked — add a secondary book</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<span class=\"shrink-0 rounded-md bg-danger-soft px-3 py-2 text-small text-danger\">Locked — add a secondary book</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -223,7 +223,7 @@ func bodyAccountingBookDetail(vm AccountingBookDetailVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if vm.Book.StandardChangePolicy == models.StandardChangePolicyForbidDirect {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<div class=\"mt-3 rounded-md bg-red-50 border border-red-200 px-4 py-3 text-small text-red-700\">This book has closed periods. In-place standard changes are not permitted. To report under a different standard, add a secondary book via the Accounting Books hub.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<div class=\"mt-3 rounded-md bg-danger-soft border border-border-danger px-4 py-3 text-small text-danger-hover\">This book has closed periods. In-place standard changes are not permitted. To report under a different standard, add a secondary book via the Accounting Books hub.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -459,7 +459,7 @@ func bodyAccountingBookDetail(vm AccountingBookDetailVM) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "\"><button type=\"submit\" onclick=\"return confirm('Close this fiscal period? This action triggers ForbidDirect policy on the book and cannot be undone.')\" class=\"rounded px-2 py-1 text-small text-red-600 hover:bg-red-50\">Close</button></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "\"><button type=\"submit\" onclick=\"return confirm('Close this fiscal period? This action triggers ForbidDirect policy on the book and cannot be undone.')\" class=\"rounded px-2 py-1 text-small text-danger hover:bg-danger-soft\">Close</button></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -573,7 +573,7 @@ func accountingBookChangeStandardDrawer(vm AccountingBookDetailVM) templ.Compone
 			return templ_7745c5c3_Err
 		}
 		if vm.Book.StandardChangePolicy == models.StandardChangePolicyRequireWizard {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "<div class=\"rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-small text-amber-800\">This book has posted history. You must specify a cutover date and confirm the change. All posted entries before the cutover date will retain their original standard labels.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "<div class=\"rounded-md border border-warning-soft bg-warning-soft px-4 py-3 text-small text-warning\">This book has posted history. You must specify a cutover date and confirm the change. All posted entries before the cutover date will retain their original standard labels.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -825,17 +825,17 @@ func changePolicyBadge(p models.StandardChangePolicy) templ.Component {
 		ctx = templ.ClearChildren(ctx)
 		switch p {
 		case models.StandardChangePolicyAllowDirect:
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "<span class=\"inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-small font-medium text-green-700\">Allow direct change</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-success-soft text-success-hover border border-success-border\">Allow direct change</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		case models.StandardChangePolicyRequireWizard:
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "<span class=\"inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-small font-medium text-amber-700\">Requires migration wizard</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-warning-soft text-warning border border-warning-soft\">Requires migration wizard</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		case models.StandardChangePolicyForbidDirect:
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "<span class=\"inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-small font-medium text-red-700\">Locked (closed periods)</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-danger-soft text-danger border border-danger-soft\">Locked (closed periods)</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -886,17 +886,17 @@ func fiscalPeriodStatusBadge(s models.FiscalPeriodStatus) templ.Component {
 		ctx = templ.ClearChildren(ctx)
 		switch s {
 		case models.FiscalPeriodStatusOpen:
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "<span class=\"inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-small font-medium text-green-700\">Open</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-success-soft text-success-hover border border-success-border\">Open</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		case models.FiscalPeriodStatusClosed:
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "<span class=\"inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-small font-medium text-gray-600\">Closed</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-background text-text-muted border border-border\">Closed</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		case models.FiscalPeriodStatusLocked:
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "<span class=\"inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-small font-medium text-red-700\">Locked</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "<span class=\"inline-block rounded px-2 py-0.5 text-small font-medium bg-danger-soft text-danger border border-danger-soft\">Locked</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -637,7 +637,7 @@ func vrfEditForm(vm VendorRefundDetailVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "\"><button type=\"submit\" class=\"rounded-md bg-green-600 px-4 py-2 text-body font-semibold text-white hover:bg-green-700\">Post to Accounting</button></form><form method=\"POST\" action=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "\"><button type=\"submit\" class=\"rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover\">Post to Accounting</button></form><form method=\"POST\" action=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -650,7 +650,7 @@ func vrfEditForm(vm VendorRefundDetailVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "\"><button type=\"submit\" class=\"rounded-md bg-red-600 px-4 py-2 text-body font-semibold text-white hover:bg-red-700\">Void</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "\"><button type=\"submit\" class=\"rounded-md border border-border-danger px-4 py-2 text-body font-semibold text-danger hover:bg-danger-soft\">Void</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -835,7 +835,7 @@ func vrfReadOnlyView(vm VendorRefundDetailVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "\"><button type=\"submit\" class=\"rounded-md bg-red-600 px-4 py-2 text-body font-semibold text-white hover:bg-red-700\">Reverse Refund</button></form></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "\"><button type=\"submit\" class=\"rounded-md border border-border-danger px-4 py-2 text-body font-semibold text-danger hover:bg-danger-soft\">Reverse Refund</button></form></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

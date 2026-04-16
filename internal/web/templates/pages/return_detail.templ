@@ -192,7 +192,7 @@ templ returnEditForm(vm ReturnDetailVM) {
 					</button>
 				</form>
 				<form method="POST" action={ templ.SafeURL("/returns/" + fmt.Sprintf("%d", vm.Return.ID) + "/cancel") }>
-					<button type="submit" class="rounded-md bg-red-600 px-4 py-2 text-body font-semibold text-white hover:bg-red-700">
+					<button type="submit" class="rounded-md border border-border-danger px-4 py-2 text-body font-semibold text-danger hover:bg-danger-soft">
 						Cancel
 					</button>
 				</form>
@@ -225,12 +225,12 @@ templ returnReadOnlyView(vm ReturnDetailVM) {
 	<div class="mt-4 flex flex-wrap gap-3">
 		if vm.Return.Status == models.ARReturnStatusSubmitted {
 			<form method="POST" action={ templ.SafeURL("/returns/" + fmt.Sprintf("%d", vm.Return.ID) + "/approve") }>
-				<button type="submit" class="rounded-md bg-green-600 px-4 py-2 text-body font-semibold text-white hover:bg-green-700">
+				<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
 					Approve
 				</button>
 			</form>
 			<form method="POST" action={ templ.SafeURL("/returns/" + fmt.Sprintf("%d", vm.Return.ID) + "/reject") }>
-				<button type="submit" class="rounded-md bg-red-600 px-4 py-2 text-body font-semibold text-white hover:bg-red-700">
+				<button type="submit" class="rounded-md border border-border-danger px-4 py-2 text-body font-semibold text-danger hover:bg-danger-soft">
 					Reject
 				</button>
 			</form>
