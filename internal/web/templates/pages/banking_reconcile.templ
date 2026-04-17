@@ -70,7 +70,7 @@ templ bodyBankReconcile(vm BankReconcileVM) {
 							<label class="block text-body font-medium text-text">Bank Account (GL) *</label>
 							<select
 								name="account_id"
-								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
 							>
 								<option value="">-- Select --</option>
 								for _, a := range vm.Accounts {
@@ -114,7 +114,7 @@ templ bodyBankReconcile(vm BankReconcileVM) {
 								type="date"
 								name="statement_date"
 								value={ vm.StatementDate }
-								class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus [color-scheme:dark]"
 							/>
 						</div>
 						<div>
@@ -125,7 +125,7 @@ templ bodyBankReconcile(vm BankReconcileVM) {
 								name="ending_balance"
 								value={ vm.EndingBalance }
 								placeholder="0.00"
-								class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus [color-scheme:dark]"
 							/>
 						</div>
 					</div>
@@ -144,7 +144,7 @@ templ bodyBankReconcile(vm BankReconcileVM) {
 									inputmode="decimal"
 									name="service_charge"
 									placeholder="0.00"
-									class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+									class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus [color-scheme:dark]"
 								/>
 							</div>
 							<div>
@@ -153,14 +153,14 @@ templ bodyBankReconcile(vm BankReconcileVM) {
 									type="date"
 									name="service_charge_date"
 									value={ vm.StatementDate }
-									class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+									class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus [color-scheme:dark]"
 								/>
 							</div>
 							<div>
 								<label class="block text-body font-medium text-text">Expense Account</label>
 								<select
 									name="service_charge_account_id"
-									class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+									class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
 								>
 									<option value="">-- None --</option>
 									for _, a := range vm.ExpenseAccounts {
@@ -179,7 +179,7 @@ templ bodyBankReconcile(vm BankReconcileVM) {
 									inputmode="decimal"
 									name="interest_earned"
 									placeholder="0.00"
-									class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+									class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus [color-scheme:dark]"
 								/>
 							</div>
 							<div>
@@ -188,14 +188,14 @@ templ bodyBankReconcile(vm BankReconcileVM) {
 									type="date"
 									name="interest_earned_date"
 									value={ vm.StatementDate }
-									class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+									class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus [color-scheme:dark]"
 								/>
 							</div>
 							<div>
 								<label class="block text-body font-medium text-text">Income Account</label>
 								<select
 									name="interest_earned_account_id"
-									class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+									class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
 								>
 									<option value="">-- None --</option>
 									for _, a := range vm.IncomeAccounts {
@@ -599,7 +599,7 @@ templ bodyBankReconcile(vm BankReconcileVM) {
 							x-model="voidReason"
 							maxlength="500"
 							placeholder="Enter reason for voiding..."
-							class="mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+							class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus [color-scheme:dark]"
 						/>
 						<p x-show="voidSubmitted && !voidReason.trim()" class="mt-1 text-small text-danger">Reason is required.</p>
 					</div>
