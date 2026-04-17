@@ -26,141 +26,107 @@ package services
 
 import (
 	"fmt"
+	"time"
 
-	"github.com/shopspring/decimal"
-	"gobooks/internal/models"
 	"gorm.io/gorm"
+
+	"gobooks/internal/models"
+	"gobooks/internal/services/inventory"
 )
 
 // ReverseSaleMovements creates reversal inventory movements for a voided invoice.
-// Restores stock for each stock item line using CostingEngine.ApplyInbound.
-// Must be called inside the same transaction as the JE reversal.
+//
+// Phase D.0 slice 5: now a thin facade over inventory.ReverseMovement.
+// For each original sale movement the facade books one reversal, inheriting
+// the original's UnitCostBase (snapshot cost) — March's COGS reverses at
+// March's cost, not the current-period weighted average.
 func ReverseSaleMovements(tx *gorm.DB, companyID uint, inv models.Invoice, reversalJEID uint) error {
-	// Load original sale movements for this invoice.
-	var origMovements []models.InventoryMovement
-	if err := tx.Where("company_id = ? AND source_type = ? AND source_id = ?",
-		companyID, "invoice", inv.ID).
-		Find(&origMovements).Error; err != nil {
-		return fmt.Errorf("load sale movements: %w", err)
-	}
-
-	if len(origMovements) == 0 {
-		return nil // no stock movements to reverse (service-only invoice)
-	}
-
-	engine, err := ResolveCostingEngineForCompany(tx, companyID)
-	if err != nil {
-		return fmt.Errorf("resolve costing engine: %w", err)
-	}
-
-	for _, orig := range origMovements {
-		// Original sale movement has negative qty_delta; we restore the absolute qty.
-		restoreQty := orig.QuantityDelta.Abs()
-		if restoreQty.IsZero() {
-			continue
-		}
-
-		// Use the original unit cost (what was recorded as COGS at posting time).
-		unitCost := decimal.Zero
-		if orig.UnitCost != nil {
-			unitCost = *orig.UnitCost
-		}
-
-		// Apply inbound to restore stock and update weighted average cost.
-		result, err := engine.ApplyInbound(tx, InboundRequest{
-			CompanyID:    companyID,
-			ItemID:       orig.ItemID,
-			Quantity:     restoreQty,
-			UnitCost:     unitCost,
-			MovementType: models.MovementTypeAdjustment, // engine doesn't care about type
-			LocationType: models.LocationTypeInternal,
+	return reverseDocumentMovements(tx, companyID, reversalJEID,
+		reverseDocumentScope{
+			sourceType:         "invoice",
+			sourceID:           inv.ID,
+			reversalSourceType: "invoice_reversal",
+			movementDate:       inv.InvoiceDate,
+			memo:               "Void: " + inv.InvoiceNumber,
+			reason:             inventory.ReversalReasonCancellation,
 		})
-		if err != nil {
-			return fmt.Errorf("restore stock for item %d: %w", orig.ItemID, err)
-		}
-
-		sourceID := inv.ID
-		mov := models.InventoryMovement{
-			CompanyID:      companyID,
-			ItemID:         orig.ItemID,
-			MovementType:   models.MovementTypeSale, // keeps the business context
-			QuantityDelta:  restoreQty,              // positive = stock returned
-			UnitCost:       &unitCost,
-			TotalCost:      &result.TotalCost,
-			SourceType:     "invoice_reversal",
-			SourceID:       &sourceID,
-			JournalEntryID: &reversalJEID,
-			ReferenceNote:  "Void: " + inv.InvoiceNumber,
-			MovementDate:   inv.InvoiceDate,
-		}
-		if err := tx.Create(&mov).Error; err != nil {
-			return fmt.Errorf("create reversal movement for item %d: %w", orig.ItemID, err)
-		}
-	}
-
-	return nil
 }
 
 // ReversePurchaseMovements creates reversal inventory movements for a voided bill.
-// Reduces stock for each stock item line using CostingEngine.ApplyOutbound.
-// Returns an error if insufficient stock exists (negative inventory not allowed).
-// Must be called inside the same transaction as the JE reversal.
+//
+// Phase D.0 slice 5: facade over inventory.ReverseMovement. Returns an
+// ErrInsufficientStock-mapped error (via translateInventoryErr) if any
+// original receipt cannot be fully reversed because its units were
+// partially consumed by a later sale.
 func ReversePurchaseMovements(tx *gorm.DB, companyID uint, bill models.Bill, reversalJEID uint) error {
-	// Load original purchase movements for this bill.
-	var origMovements []models.InventoryMovement
+	return reverseDocumentMovements(tx, companyID, reversalJEID,
+		reverseDocumentScope{
+			sourceType:         "bill",
+			sourceID:           bill.ID,
+			reversalSourceType: "bill_reversal",
+			movementDate:       bill.BillDate,
+			memo:               "Void: " + bill.BillNumber,
+			reason:             inventory.ReversalReasonCancellation,
+		})
+}
+
+// reverseDocumentScope captures the header-level context shared by every
+// reversal movement generated from a single voided document. Kept private to
+// the facade — the new inventory API works one movement at a time.
+type reverseDocumentScope struct {
+	sourceType         string // original document source_type ("invoice" or "bill")
+	sourceID           uint   // original document ID
+	reversalSourceType string // reversal movement's source_type
+	movementDate       time.Time
+	memo               string
+	reason             inventory.ReversalReason
+}
+
+// reverseDocumentMovements iterates every original movement from the given
+// document and books a reversal for each. Skips already-reversed rows so the
+// function is safe to call on a partially-reversed document (defensive; not
+// expected in the current posting engine but cheap to guard).
+func reverseDocumentMovements(tx *gorm.DB, companyID, reversalJEID uint, scope reverseDocumentScope) error {
+	var origs []models.InventoryMovement
 	if err := tx.Where("company_id = ? AND source_type = ? AND source_id = ?",
-		companyID, "bill", bill.ID).
-		Find(&origMovements).Error; err != nil {
-		return fmt.Errorf("load purchase movements: %w", err)
+		companyID, scope.sourceType, scope.sourceID).
+		Find(&origs).Error; err != nil {
+		return fmt.Errorf("load %s movements: %w", scope.sourceType, err)
+	}
+	if len(origs) == 0 {
+		return nil // service-only invoice or non-inventory bill
 	}
 
-	if len(origMovements) == 0 {
-		return nil // no stock movements to reverse (non-inventory bill)
-	}
-
-	engine, err := ResolveCostingEngineForCompany(tx, companyID)
-	if err != nil {
-		return fmt.Errorf("resolve costing engine: %w", err)
-	}
-
-	for _, orig := range origMovements {
-		// Original purchase movement has positive qty_delta; we remove that qty.
-		removeQty := orig.QuantityDelta.Abs()
-		if removeQty.IsZero() {
+	for _, orig := range origs {
+		if orig.QuantityDelta.IsZero() {
 			continue
 		}
-
-		// Apply outbound — will fail if insufficient stock.
-		result, err := engine.ApplyOutbound(tx, OutboundRequest{
-			CompanyID:    companyID,
-			ItemID:       orig.ItemID,
-			Quantity:     removeQty,
-			MovementType: models.MovementTypePurchase,
-			LocationType: models.LocationTypeInternal,
+		if orig.ReversedByMovementID != nil {
+			continue
+		}
+		result, err := inventory.ReverseMovement(tx, inventory.ReverseMovementInput{
+			CompanyID:          companyID,
+			OriginalMovementID: orig.ID,
+			MovementDate:       scope.movementDate,
+			Reason:             scope.reason,
+			SourceType:         scope.reversalSourceType,
+			SourceID:           scope.sourceID,
+			IdempotencyKey:     fmt.Sprintf("%s:%d:reverse:%d:v1", scope.sourceType, scope.sourceID, orig.ID),
+			Memo:               scope.memo,
 		})
 		if err != nil {
-			return fmt.Errorf("reverse purchase stock for item %d: %w", orig.ItemID, err)
+			return fmt.Errorf("reverse movement %d: %w", orig.ID, translateInventoryErr(err))
 		}
 
-		unitCost := result.UnitCostUsed
-		sourceID := bill.ID
-		mov := models.InventoryMovement{
-			CompanyID:      companyID,
-			ItemID:         orig.ItemID,
-			MovementType:   models.MovementTypePurchase, // keeps the business context
-			QuantityDelta:  removeQty.Neg(),             // negative = stock removed
-			UnitCost:       &unitCost,
-			TotalCost:      &result.TotalCost,
-			SourceType:     "bill_reversal",
-			SourceID:       &sourceID,
-			JournalEntryID: &reversalJEID,
-			ReferenceNote:  "Void: " + bill.BillNumber,
-			MovementDate:   bill.BillDate,
-		}
-		if err := tx.Create(&mov).Error; err != nil {
-			return fmt.Errorf("create reversal movement for item %d: %w", orig.ItemID, err)
+		// Legacy JE linkage — removed in slice 8.
+		if reversalJEID > 0 {
+			if err := tx.Model(&models.InventoryMovement{}).
+				Where("id = ?", result.ReversalMovementID).
+				Update("journal_entry_id", reversalJEID).Error; err != nil {
+				return fmt.Errorf("link reversal movement %d to journal %d: %w",
+					result.ReversalMovementID, reversalJEID, err)
+			}
 		}
 	}
-
 	return nil
 }

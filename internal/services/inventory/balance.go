@@ -121,3 +121,44 @@ func applyOutboundToBalance(db *gorm.DB, bal *models.InventoryBalance, quantity 
 	}
 	return unitCost, nil
 }
+
+// applyReversalAtSnapshotCost updates the balance for a reversal, using the
+// ORIGINAL movement's snapshot cost rather than the current average. This
+// is the subtle but critical correctness property of ReverseMovement: if
+// an old purchase at $5 is voided after avg has drifted to $6 (because of
+// later receipts), the value removed must be the original $5 × qty, not
+// the current $6. Otherwise the remaining inventory retains cost traces
+// of a receipt that (for ledger purposes) never happened.
+//
+// Quantity is signed: positive restores stock (reversal of an issue),
+// negative removes stock (reversal of a receipt).
+//
+// Math:
+//
+//	new_qty   = old_qty + delta
+//	new_value = old_qty × old_avg + delta × snapshot_cost
+//	new_avg   = new_value / new_qty    (or snapshot_cost when new_qty ≤ 0)
+func applyReversalAtSnapshotCost(db *gorm.DB, bal *models.InventoryBalance, quantityDelta, snapshotUnitCost decimal.Decimal) error {
+	oldValue := bal.QuantityOnHand.Mul(bal.AverageCost)
+	deltaValue := quantityDelta.Mul(snapshotUnitCost)
+	newQty := bal.QuantityOnHand.Add(quantityDelta)
+	newValue := oldValue.Add(deltaValue)
+
+	var newAvg decimal.Decimal
+	if newQty.IsPositive() {
+		newAvg = newValue.Div(newQty).Round(4)
+	} else {
+		// Edge case: reversal leaves the balance at zero or negative.
+		// Fall back to the snapshot cost so the avg remains sensible if
+		// another receipt later re-populates the balance.
+		newAvg = snapshotUnitCost
+	}
+
+	bal.QuantityOnHand = newQty
+	bal.AverageCost = newAvg
+	bal.UpdatedAt = time.Now()
+	if err := db.Save(bal).Error; err != nil {
+		return fmt.Errorf("inventory: save balance: %w", err)
+	}
+	return nil
+}
