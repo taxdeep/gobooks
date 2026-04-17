@@ -64,15 +64,71 @@ type InventoryMovement struct {
 	Item          ProductService        `gorm:"foreignKey:ItemID"`
 	MovementType  InventoryMovementType `gorm:"type:text;not null"`
 	QuantityDelta decimal.Decimal       `gorm:"type:numeric(18,4);not null"`
-	UnitCost      *decimal.Decimal      `gorm:"type:numeric(18,4)"`
-	TotalCost     *decimal.Decimal      `gorm:"type:numeric(18,2)"`
 
-	SourceType     string `gorm:"type:text;not null;default:''"`
-	SourceID       *uint
-	JournalEntryID *uint `gorm:"index"` // links to the JE created in the same transaction
-	ReferenceNote  string `gorm:"type:text;not null;default:''"`
+	// Document-currency unit cost (as captured at event time, raw input).
+	UnitCost  *decimal.Decimal `gorm:"type:numeric(18,4)"`
+	// Document-currency total cost = abs(QuantityDelta) × UnitCost.
+	TotalCost *decimal.Decimal `gorm:"type:numeric(18,2)"`
 
-	// Multi-warehouse routing (nullable for backward compatibility)
+	// ── Inventory API contract fields (Phase D.0, migration 056) ────────────
+	// See INVENTORY_MODULE_API.md §6.
+
+	// CurrencyCode is the ISO-4217 code of the document that drove this
+	// movement. Empty when the movement was booked in company base currency
+	// via a legacy path.
+	CurrencyCode string `gorm:"type:varchar(3);not null;default:''"`
+
+	// ExchangeRate converts UnitCost (document currency) into UnitCostBase
+	// (company base). Base-currency movements use 1. Null on legacy rows.
+	ExchangeRate *decimal.Decimal `gorm:"type:numeric(20,8)"`
+
+	// UnitCostBase is the base-currency unit cost actually booked. Includes
+	// apportioned landed cost for receipts. GL uses this × |QuantityDelta|
+	// to post Dr Inventory / Cr COGS.
+	UnitCostBase *decimal.Decimal `gorm:"type:numeric(18,4)"`
+
+	// LandedCostAllocation is the per-line apportioned freight / duty / etc.
+	// in base currency. Included in UnitCostBase on receive; kept separately
+	// for reporting ("what part of cost is landed?").
+	LandedCostAllocation *decimal.Decimal `gorm:"type:numeric(18,2)"`
+
+	// ── Traceability ────────────────────────────────────────────────────────
+	SourceType   string `gorm:"type:text;not null;default:''"`
+	SourceID     *uint
+	// SourceLineID narrows the reference to a specific document line (one
+	// Bill has many lines, each producing its own movement). Nullable for
+	// header-level sources like opening balances or stock counts.
+	SourceLineID *uint `gorm:"index"`
+
+	// JournalEntryID: DEPRECATED reverse coupling to GL. Will be removed in
+	// a follow-up cleanup once all readers resolve JE via source_type +
+	// source_id -> business document -> document.journal_entry_id. Do not
+	// populate from new code paths.
+	JournalEntryID *uint `gorm:"index"`
+
+	ReferenceNote string `gorm:"type:text;not null;default:''"`
+	// Memo is the human-readable context written by the IN event caller
+	// ("Received under PO-2026-045"). Independent from ReferenceNote which
+	// predates the API contract.
+	Memo string `gorm:"type:text;not null;default:''"`
+
+	// ── Audit + idempotency ────────────────────────────────────────────────
+	// IdempotencyKey guards against replay. Format convention:
+	// "<source_type>:<source_id>:line:<line_id>:v<version>". Unique per
+	// company when non-null (partial index, migration 056).
+	IdempotencyKey string `gorm:"type:text"`
+
+	// ActorUserID: who triggered this movement; nullable for system events
+	// (nightly FBA sync, scheduled revaluation).
+	ActorUserID *uint `gorm:"index"`
+
+	// ── Reversal linkage ───────────────────────────────────────────────────
+	// Bidirectional: the original points to its reversal, the reversal
+	// points to its original. Mutually exclusive on any given row.
+	ReversedByMovementID *uint `gorm:"index"`
+	ReversalOfMovementID *uint `gorm:"index"`
+
+	// ── Location ───────────────────────────────────────────────────────────
 	WarehouseID *uint      `gorm:"index"`
 	Warehouse   *Warehouse `gorm:"foreignKey:WarehouseID"`
 
