@@ -108,6 +108,21 @@ func (s *Server) handleCustomerDetail(c *fiber.Ctx) error {
 			companyID, uint(customerID64), models.ARRefundStatusPosted).
 		Scan(&refundTotalResult)
 
+	// Pre-invoice commercial-commitment tables — quotes and sales orders.
+	// Capped at 25 rows to match the vendor detail Recent POs section.
+	const customerDetailCommercialCap = 25
+	var recentQuotes []models.Quote
+	s.DB.Where("company_id = ? AND customer_id = ?", companyID, uint(customerID64)).
+		Order("quote_date desc, id desc").
+		Limit(customerDetailCommercialCap).
+		Find(&recentQuotes)
+
+	var recentSOs []models.SalesOrder
+	s.DB.Where("company_id = ? AND customer_id = ?", companyID, uint(customerID64)).
+		Order("order_date desc, id desc").
+		Limit(customerDetailCommercialCap).
+		Find(&recentSOs)
+
 	// Phase 12: load currency policy data.
 	allowedCurrencies, _ := services.ListCustomerAllowedCurrencies(s.DB, companyID, uint(customerID64))
 	var company models.Company
@@ -129,6 +144,8 @@ func (s *Server) handleCustomerDetail(c *fiber.Ctx) error {
 		CreditRemaining:         creditRemaining,
 		RefundCount:             int(refundCount),
 		RefundTotal:             refundTotalResult.Total,
+		RecentQuotes:            recentQuotes,
+		RecentSalesOrders:       recentSOs,
 		AllowedCurrencies:       allowedCurrencies,
 		BaseCurrencyCode:        baseCurrencyCode,
 		CurrencyPolicySaved:     c.Query("policy_saved") == "1",

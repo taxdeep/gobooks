@@ -220,6 +220,113 @@ templ bodyCustomerDetail(vm CustomerDetailVM) {
 			}
 		</div>
 
+		<!-- Recent Quotes — earliest stage of the AR pipeline (Customer →
+		     Quote → SalesOrder → Invoice). Only rendered when the customer
+		     has at least one quote on file. -->
+		if len(vm.RecentQuotes) > 0 {
+			<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+				<div class="flex items-baseline justify-between">
+					<h2 class="text-section font-semibold text-text">Recent Quotes</h2>
+					<a href={ templ.SafeURL("/quotes?customer_id=" + Uitoa(vm.Customer.ID)) } class="text-small text-primary hover:underline">View all →</a>
+				</div>
+				<div class="mt-4 overflow-hidden rounded-lg border border-border">
+					<table class="w-full text-body">
+						<thead class="bg-surface-raised text-small uppercase tracking-wider text-text-muted">
+							<tr>
+								<th class="px-4 py-3 text-left">Quote #</th>
+								<th class="px-4 py-3 text-left">Date</th>
+								<th class="px-4 py-3 text-left">Expiry</th>
+								<th class="px-4 py-3 text-left">Status</th>
+								<th class="px-4 py-3 text-right">Total</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-border">
+							for _, q := range vm.RecentQuotes {
+								<tr>
+									<td class="px-4 py-3">
+										<a href={ templ.SafeURL("/quotes/" + Uitoa(q.ID)) } class="text-primary hover:underline">
+											if q.QuoteNumber != "" {
+												{ q.QuoteNumber }
+											} else {
+												{ "#" + Uitoa(q.ID) }
+											}
+										</a>
+									</td>
+									<td class="px-4 py-3 text-text-muted2">{ q.QuoteDate.Format("2006-01-02") }</td>
+									<td class="px-4 py-3 text-text-muted2">
+										if q.ExpiryDate != nil {
+											{ q.ExpiryDate.Format("2006-01-02") }
+										} else {
+											<span class="text-text-muted3">-</span>
+										}
+									</td>
+									<td class="px-4 py-3">{ models.QuoteStatusLabel(q.Status) }</td>
+									<td class="px-4 py-3 text-right tabular-nums">
+										<span data-numfmt>{ q.Total.StringFixed(2) }</span>
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		}
+
+		<!-- Recent Sales Orders — middle stage of the AR pipeline. Each SO may
+		     link back to a Quote and forward to one or more Invoices. -->
+		if len(vm.RecentSalesOrders) > 0 {
+			<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+				<div class="flex items-baseline justify-between">
+					<h2 class="text-section font-semibold text-text">Recent Sales Orders</h2>
+					<a href={ templ.SafeURL("/sales-orders?customer_id=" + Uitoa(vm.Customer.ID)) } class="text-small text-primary hover:underline">View all →</a>
+				</div>
+				<div class="mt-4 overflow-hidden rounded-lg border border-border">
+					<table class="w-full text-body">
+						<thead class="bg-surface-raised text-small uppercase tracking-wider text-text-muted">
+							<tr>
+								<th class="px-4 py-3 text-left">Order #</th>
+								<th class="px-4 py-3 text-left">Date</th>
+								<th class="px-4 py-3 text-left">Required By</th>
+								<th class="px-4 py-3 text-left">Status</th>
+								<th class="px-4 py-3 text-right">Invoiced</th>
+								<th class="px-4 py-3 text-right">Total</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-border">
+							for _, so := range vm.RecentSalesOrders {
+								<tr>
+									<td class="px-4 py-3">
+										<a href={ templ.SafeURL("/sales-orders/" + Uitoa(so.ID)) } class="text-primary hover:underline">
+											if so.OrderNumber != "" {
+												{ so.OrderNumber }
+											} else {
+												{ "#" + Uitoa(so.ID) }
+											}
+										</a>
+									</td>
+									<td class="px-4 py-3 text-text-muted2">{ so.OrderDate.Format("2006-01-02") }</td>
+									<td class="px-4 py-3 text-text-muted2">
+										if so.RequiredBy != nil {
+											{ so.RequiredBy.Format("2006-01-02") }
+										} else {
+											<span class="text-text-muted3">-</span>
+										}
+									</td>
+									<td class="px-4 py-3">{ models.SalesOrderStatusLabel(so.Status) }</td>
+									<td class="px-4 py-3 text-right tabular-nums text-text-muted2">
+										<span data-numfmt>{ so.InvoicedAmount.StringFixed(2) }</span>
+									</td>
+									<td class="px-4 py-3 text-right tabular-nums">
+										<span data-numfmt>{ so.Total.StringFixed(2) }</span>
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		}
+
 		<!-- Credits & Refunds quick-view — show whenever either side has data.
 		     Links through to /customers/:id/credits, which hosts the full
 		     credit-note list + refund history table. -->

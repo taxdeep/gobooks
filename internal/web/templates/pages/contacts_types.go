@@ -81,6 +81,13 @@ type CustomerDetailVM struct {
 	RecentInvoices          []models.Invoice
 	MostRecentInvoice       *models.Invoice
 
+	// Commercial-commitment tables — mirror of vendor detail's Recent POs
+	// section. Quotes precede sales orders in the AR chain
+	// (Customer → Quote → SalesOrder → Invoice); showing both gives the
+	// page a full pre-invoice pipeline view.
+	RecentQuotes      []models.Quote
+	RecentSalesOrders []models.SalesOrder
+
 	// Batch 16: credit balance visibility
 	CreditCount     int
 	CreditRemaining decimal.Decimal
