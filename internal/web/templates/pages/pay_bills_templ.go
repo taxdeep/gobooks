@@ -83,7 +83,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\"><div><h1 class=\"text-title font-semibold text-text\">Pay Bills</h1><p class=\"mt-0.5 text-small text-text-muted2\">Select bills and enter payment amounts. Entering more than the balance due creates a vendor prepayment credit.</p></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\"><div class=\"flex flex-wrap items-start justify-between gap-3\"><div><h1 class=\"text-title font-semibold text-text\">Pay Bills</h1><p class=\"mt-0.5 text-small text-text-muted2\">Select bills and enter payment amounts. Entering more than the balance due creates a vendor prepayment credit.</p></div><a href=\"/vendor-prepayments\" class=\"text-small text-primary hover:underline\">View prepayments →</a></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -103,7 +103,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var4 = []any{"mt-1 block w-full rounded-md border px-2.5 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus " + fieldBorderClass(vm.DateError != "")}
+		var templ_7745c5c3_Var4 = []any{"mt-1 block w-full rounded-md border bg-surface px-2.5 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus [color-scheme:dark] " + fieldBorderClass(vm.DateError != "")}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var4...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -115,7 +115,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(vm.EntryDate)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 46, Col: 26}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 49, Col: 26}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -134,7 +134,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\" style=\"color-scheme:dark\"> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\"> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -146,7 +146,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(vm.DateError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 51, Col: 64}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 53, Col: 64}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -161,7 +161,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var8 = []any{"mt-1 block w-full rounded-md border px-2.5 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus bg-surface " + fieldBorderClass(vm.BankError != "")}
+		var templ_7745c5c3_Var8 = []any{"mt-1 block w-full rounded-md border bg-surface px-2.5 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus " + fieldBorderClass(vm.BankError != "")}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var8...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -192,7 +192,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 				var templ_7745c5c3_Var10 string
 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(Uitoa(a.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 66, Col: 35}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 68, Col: 35}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 				if templ_7745c5c3_Err != nil {
@@ -215,7 +215,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 				var templ_7745c5c3_Var11 string
 				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(a.Code)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 66, Col: 92}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 68, Col: 92}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 				if templ_7745c5c3_Err != nil {
@@ -228,7 +228,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 				var templ_7745c5c3_Var12 string
 				templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(a.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 66, Col: 107}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 68, Col: 107}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 				if templ_7745c5c3_Err != nil {
@@ -252,7 +252,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 			var templ_7745c5c3_Var13 string
 			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(vm.BankError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 71, Col: 64}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 73, Col: 64}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 			if templ_7745c5c3_Err != nil {
@@ -270,13 +270,13 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(vm.Memo)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 81, Col: 21}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 83, Col: 21}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" placeholder=\"Optional note\" autocomplete=\"off\" class=\"mt-1 block w-full rounded-md border border-border-input px-2.5 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus\"></div><div class=\"flex-1\"></div><div class=\"text-right shrink-0\"><div class=\"text-[11px] uppercase tracking-wider font-semibold text-text-muted2\">Total Payment Amount</div><div class=\"mt-0.5 text-2xl font-bold tabular-nums text-text\" x-text=\"formatMoney(totalPayment())\"></div><div class=\"mt-0.5 text-[11px] text-text-muted2\"><span x-text=\"selectedCount()\"></span> bill(s) selected <span x-show=\"totalOverpayment() > 0\" x-cloak class=\"ml-2 text-warning-hover\">+<span x-text=\"formatMoney(totalOverpayment())\"></span> prepayment</span></div></div></div><div x-show=\"showExchangeRate()\" x-cloak class=\"rounded-md border border-warning-border bg-warning-soft px-4 py-3\"><div class=\"flex flex-wrap items-start gap-4\"><div class=\"flex-1 min-w-[220px]\"><p class=\"text-body font-medium text-text\">Exchange Rate <span class=\"ml-1 font-normal text-text-muted2\" x-text=\"exchangeRateLabel()\"></span></p><p class=\"mt-0.5 text-small text-text-muted2\">Bills are in a foreign currency. Enter a rate or leave blank to use the system rate table.</p></div><div class=\"w-44\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" placeholder=\"Optional note\" autocomplete=\"off\" class=\"mt-1 block w-full rounded-md border border-border-input bg-surface px-2.5 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus\"></div><div class=\"flex-1\"></div><div class=\"text-right shrink-0\"><div class=\"text-[11px] uppercase tracking-wider font-semibold text-text-muted2\">Total Payment Amount</div><div class=\"mt-0.5 text-2xl font-bold tabular-nums text-text\" x-text=\"formatMoney(totalPayment())\"></div><div class=\"mt-0.5 text-[11px] text-text-muted2\"><span x-text=\"selectedCount()\"></span> bill(s) selected <span x-show=\"totalOverpayment() > 0\" x-cloak class=\"ml-2 text-warning-hover\">+<span x-text=\"formatMoney(totalOverpayment())\"></span> prepayment</span></div></div></div><div x-show=\"showExchangeRate()\" x-cloak class=\"rounded-md border border-warning-border bg-warning-soft px-4 py-3\"><div class=\"flex flex-wrap items-start gap-4\"><div class=\"flex-1 min-w-[220px]\"><p class=\"text-body font-medium text-text\">Exchange Rate <span class=\"ml-1 font-normal text-text-muted2\" x-text=\"exchangeRateLabel()\"></span></p><p class=\"mt-0.5 text-small text-text-muted2\">Bills are in a foreign currency. Enter a rate or leave blank to use the system rate table.</p></div><div class=\"w-44\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -292,7 +292,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(vm.ExchangeRate)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 121, Col: 30}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 123, Col: 30}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
@@ -323,7 +323,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 			var templ_7745c5c3_Var18 string
 			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(vm.ExchangeRateError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 128, Col: 73}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 130, Col: 73}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 			if templ_7745c5c3_Err != nil {
@@ -339,7 +339,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if len(vm.OpenBills) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<div class=\"px-6 py-10 text-center text-body text-text-muted2\">No outstanding bills to pay.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<div class=\"flex flex-col items-center gap-3 px-6 py-10 text-center\"><p class=\"text-body text-text-muted2\">No outstanding bills to pay.</p><p class=\"text-small text-text-muted3\">Need to record an advance to a vendor instead? <a href=\"/vendor-prepayments/new\" class=\"ml-1 font-medium text-primary hover:underline\">Record a prepayment →</a></p></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -356,7 +356,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 				var templ_7745c5c3_Var19 string
 				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("isOnCurrentPage(%d)", i))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 165, Col: 55}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 173, Col: 55}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 				if templ_7745c5c3_Err != nil {
@@ -369,7 +369,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 				var templ_7745c5c3_Var20 string
 				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("rows['%d'] && rows['%d'].checked ? 'bg-primary-soft/10' : ''", b.ID, b.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 167, Col: 105}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 175, Col: 105}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 				if templ_7745c5c3_Err != nil {
@@ -382,7 +382,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 				var templ_7745c5c3_Var21 string
 				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(Uitoa(b.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 174, Col: 30}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 182, Col: 30}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 				if templ_7745c5c3_Err != nil {
@@ -395,7 +395,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 				var templ_7745c5c3_Var22 string
 				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("rows['%d'].checked", b.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 176, Col: 60}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 184, Col: 60}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 				if templ_7745c5c3_Err != nil {
@@ -408,7 +408,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 				var templ_7745c5c3_Var23 string
 				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("onCheck('%d')", b.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 177, Col: 55}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 185, Col: 55}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 				if templ_7745c5c3_Err != nil {
@@ -426,7 +426,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 					var templ_7745c5c3_Var24 string
 					templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(b.CurrencyCode)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 185, Col: 73}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 193, Col: 73}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 					if templ_7745c5c3_Err != nil {
@@ -439,7 +439,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 					var templ_7745c5c3_Var25 string
 					templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(currencyFlag(b.CurrencyCode))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 185, Col: 106}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 193, Col: 106}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 					if templ_7745c5c3_Err != nil {
@@ -457,7 +457,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 						var templ_7745c5c3_Var26 string
 						templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(b.CurrencyCode)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 187, Col: 131}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 195, Col: 131}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 						if templ_7745c5c3_Err != nil {
@@ -476,7 +476,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 				var templ_7745c5c3_Var27 string
 				templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(b.Vendor.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 190, Col: 72}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 198, Col: 72}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 				if templ_7745c5c3_Err != nil {
@@ -489,7 +489,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 				var templ_7745c5c3_Var28 string
 				templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(b.BillNumber)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 195, Col: 85}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 203, Col: 85}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 				if templ_7745c5c3_Err != nil {
@@ -503,7 +503,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 					var templ_7745c5c3_Var29 string
 					templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(b.DueDate.Format("Jan 02, 2006"))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 200, Col: 45}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 208, Col: 45}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 					if templ_7745c5c3_Err != nil {
@@ -527,7 +527,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 					var templ_7745c5c3_Var30 string
 					templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%dd ago", -billDaysFromToday(b)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 211, Col: 110}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 219, Col: 110}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 					if templ_7745c5c3_Err != nil {
@@ -550,7 +550,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 					var templ_7745c5c3_Var31 string
 					templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("Due in %dd", billDaysFromToday(b)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 217, Col: 61}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 225, Col: 61}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 					if templ_7745c5c3_Err != nil {
@@ -578,7 +578,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 				var templ_7745c5c3_Var32 string
 				templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(Money(billBalanceDue(b)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 228, Col: 36}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 236, Col: 36}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 				if templ_7745c5c3_Err != nil {
@@ -591,7 +591,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 				var templ_7745c5c3_Var33 string
 				templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("pay_amount_%d", b.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 236, Col: 52}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 244, Col: 52}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 				if templ_7745c5c3_Err != nil {
@@ -604,7 +604,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 				var templ_7745c5c3_Var34 string
 				templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("rows['%d'].amount", b.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 237, Col: 59}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 245, Col: 59}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 				if templ_7745c5c3_Err != nil {
@@ -617,7 +617,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 				var templ_7745c5c3_Var35 string
 				templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("onAmountInput('%d')", b.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 238, Col: 60}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 246, Col: 60}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 				if templ_7745c5c3_Err != nil {
@@ -630,7 +630,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 				var templ_7745c5c3_Var36 string
 				templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("rows['%d'].checked = true; onCheck('%d')", b.ID, b.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 239, Col: 87}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 247, Col: 87}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 				if templ_7745c5c3_Err != nil {
@@ -643,7 +643,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 				var templ_7745c5c3_Var37 string
 				templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("hasOverpayment('%d')", b.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 244, Col: 61}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 252, Col: 61}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 				if templ_7745c5c3_Err != nil {
@@ -656,7 +656,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 				var templ_7745c5c3_Var38 string
 				templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("rowOverpayment('%d')", b.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 248, Col: 68}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 256, Col: 68}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 				if templ_7745c5c3_Err != nil {
@@ -674,7 +674,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 			var templ_7745c5c3_Var39 string
 			templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(Money(totalBillBalanceDue(vm.OpenBills)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 260, Col: 51}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/pay_bills.templ`, Line: 268, Col: 51}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 			if templ_7745c5c3_Err != nil {
@@ -699,7 +699,7 @@ func bodyPayBills(vm PayBillsVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "<button type=\"submit\" class=\"rounded-md bg-primary px-5 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover disabled:bg-disabled-bg disabled:text-disabled-text disabled:cursor-not-allowed\" :disabled=\"selectedCount() === 0 || mixedCurrencies()\">Record Payment</button></div></form><script>\r\n\t\t\tfunction payBillsData(bills, accountCurrencies, baseCurrency) {\r\n\t\t\t\tvar rows = {};\r\n\t\t\t\tvar billCurrencies = {};\r\n\t\t\t\tbills.forEach(function(b) {\r\n\t\t\t\t\tvar preAmt = b.amount && parseFloat(b.amount) > 0 ? b.amount : '0.00';\r\n\t\t\t\t\trows[b.id] = { checked: parseFloat(preAmt) > 0, amount: preAmt, max: b.balance };\r\n\t\t\t\t\tbillCurrencies[b.id] = b.currency || baseCurrency;\r\n\t\t\t\t});\r\n\t\t\t\treturn {\r\n\t\t\t\t\trows: rows,\r\n\t\t\t\t\tbillCurrencies: billCurrencies,\r\n\t\t\t\t\taccountCurrencies: accountCurrencies || {},\r\n\t\t\t\t\tbaseCurrency: baseCurrency || 'CAD',\r\n\t\t\t\t\tselectedBankID: '',\r\n\t\t\t\t\ttotalBillCount: bills.length,\r\n\t\t\t\t\tpageSize: 20,\r\n\t\t\t\t\tcurrentPage: 1,\r\n\r\n\t\t\t\t\t// ── Selection ──────────────────────────────────────────────────\r\n\t\t\t\t\ttoggleAll: function(checked) {\r\n\t\t\t\t\t\tvar self = this;\r\n\t\t\t\t\t\tObject.keys(self.rows).forEach(function(id) {\r\n\t\t\t\t\t\t\tself.rows[id].checked = checked;\r\n\t\t\t\t\t\t\tif (checked) { self.rows[id].amount = self.rows[id].max; }\r\n\t\t\t\t\t\t\telse { self.rows[id].amount = '0.00'; }\r\n\t\t\t\t\t\t});\r\n\t\t\t\t\t},\r\n\t\t\t\t\tonCheck: function(id) {\r\n\t\t\t\t\t\tvar r = this.rows[id];\r\n\t\t\t\t\t\tif (r.checked && parseFloat(r.amount) === 0) { r.amount = r.max; }\r\n\t\t\t\t\t\tif (!r.checked) { r.amount = '0.00'; }\r\n\t\t\t\t\t},\r\n\t\t\t\t\tonAmountInput: function(id) {\r\n\t\t\t\t\t\tvar r = this.rows[id];\r\n\t\t\t\t\t\tr.checked = (parseFloat(r.amount) || 0) > 0;\r\n\t\t\t\t\t},\r\n\t\t\t\t\tselectedCount: function() {\r\n\t\t\t\t\t\tvar self = this;\r\n\t\t\t\t\t\treturn Object.keys(self.rows).filter(function(id) {\r\n\t\t\t\t\t\t\treturn self.rows[id].checked;\r\n\t\t\t\t\t\t}).length;\r\n\t\t\t\t\t},\r\n\r\n\t\t\t\t\t// ── Totals ─────────────────────────────────────────────────────\r\n\t\t\t\t\ttotalPayment: function() {\r\n\t\t\t\t\t\tvar self = this;\r\n\t\t\t\t\t\tvar t = 0;\r\n\t\t\t\t\t\tObject.keys(self.rows).forEach(function(id) {\r\n\t\t\t\t\t\t\tif (self.rows[id].checked) { t += parseFloat(self.rows[id].amount) || 0; }\r\n\t\t\t\t\t\t});\r\n\t\t\t\t\t\treturn t;\r\n\t\t\t\t\t},\r\n\t\t\t\t\trowOverpayment: function(id) {\r\n\t\t\t\t\t\tvar r = this.rows[id];\r\n\t\t\t\t\t\tif (!r || !r.checked) return '0.00';\r\n\t\t\t\t\t\tvar amt = parseFloat(r.amount) || 0;\r\n\t\t\t\t\t\tvar bal = parseFloat(r.max) || 0;\r\n\t\t\t\t\t\treturn Math.max(0, amt - bal).toFixed(2);\r\n\t\t\t\t\t},\r\n\t\t\t\t\thasOverpayment: function(id) {\r\n\t\t\t\t\t\treturn parseFloat(this.rowOverpayment(id)) > 0;\r\n\t\t\t\t\t},\r\n\t\t\t\t\ttotalOverpayment: function() {\r\n\t\t\t\t\t\tvar self = this;\r\n\t\t\t\t\t\tvar t = 0;\r\n\t\t\t\t\t\tObject.keys(self.rows).forEach(function(id) {\r\n\t\t\t\t\t\t\tt += parseFloat(self.rowOverpayment(id)) || 0;\r\n\t\t\t\t\t\t});\r\n\t\t\t\t\t\treturn t;\r\n\t\t\t\t\t},\r\n\t\t\t\t\tformatMoney: function(n) {\r\n\t\t\t\t\t\treturn '$' + parseFloat(n).toFixed(2).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',');\r\n\t\t\t\t\t},\r\n\r\n\t\t\t\t\t// ── Currency detection ─────────────────────────────────────────\r\n\t\t\t\t\tdetectedBillCurrency: function() {\r\n\t\t\t\t\t\tvar self = this;\r\n\t\t\t\t\t\tvar seen = null;\r\n\t\t\t\t\t\tvar mixed = false;\r\n\t\t\t\t\t\tObject.keys(self.rows).forEach(function(id) {\r\n\t\t\t\t\t\t\tif (!self.rows[id].checked) return;\r\n\t\t\t\t\t\t\tvar c = self.billCurrencies[id] || self.baseCurrency;\r\n\t\t\t\t\t\t\tif (seen === null) { seen = c; }\r\n\t\t\t\t\t\t\telse if (seen !== c) { mixed = true; }\r\n\t\t\t\t\t\t});\r\n\t\t\t\t\t\tif (mixed) return null;\r\n\t\t\t\t\t\treturn seen || self.baseCurrency;\r\n\t\t\t\t\t},\r\n\t\t\t\t\tmixedCurrencies: function() { return this.detectedBillCurrency() === null; },\r\n\t\t\t\t\tshowExchangeRate: function() {\r\n\t\t\t\t\t\tvar c = this.detectedBillCurrency();\r\n\t\t\t\t\t\treturn c !== null && c !== this.baseCurrency;\r\n\t\t\t\t\t},\r\n\t\t\t\t\texchangeRateLabel: function() {\r\n\t\t\t\t\t\tvar c = this.detectedBillCurrency();\r\n\t\t\t\t\t\tif (!c || c === this.baseCurrency) return '';\r\n\t\t\t\t\t\treturn '(1 ' + c + ' = ? ' + this.baseCurrency + ')';\r\n\t\t\t\t\t},\r\n\r\n\t\t\t\t\t// ── Pagination ─────────────────────────────────────────────────\r\n\t\t\t\t\tisOnCurrentPage: function(index) {\r\n\t\t\t\t\t\tvar start = (this.currentPage - 1) * this.pageSize;\r\n\t\t\t\t\t\treturn index >= start && index < start + this.pageSize;\r\n\t\t\t\t\t},\r\n\t\t\t\t\ttotalPagesCount: function() {\r\n\t\t\t\t\t\treturn Math.max(1, Math.ceil(this.totalBillCount / this.pageSize));\r\n\t\t\t\t\t},\r\n\t\t\t\t\tprevPage: function() { if (this.currentPage > 1) this.currentPage--; },\r\n\t\t\t\t\tnextPage: function() { if (this.currentPage < this.totalPagesCount()) this.currentPage++; },\r\n\t\t\t\t\tpaginationLabel: function() {\r\n\t\t\t\t\t\tvar start = (this.currentPage - 1) * this.pageSize + 1;\r\n\t\t\t\t\t\tvar end = Math.min(this.currentPage * this.pageSize, this.totalBillCount);\r\n\t\t\t\t\t\treturn start + '–' + end + ' of ' + this.totalBillCount + ' bills';\r\n\t\t\t\t\t}\r\n\t\t\t\t};\r\n\t\t\t}\r\n\t\t</script></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "<div class=\"flex items-center gap-3\"><a href=\"/vendor-prepayments/new\" class=\"rounded-md border border-border-input bg-surface px-4 py-2 text-body font-medium text-text hover:bg-background\">Record Prepayment</a> <button type=\"submit\" class=\"rounded-md bg-primary px-5 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover disabled:bg-disabled-bg disabled:text-disabled-text disabled:cursor-not-allowed\" :disabled=\"selectedCount() === 0 || mixedCurrencies()\">Record Payment</button></div></div></form><script>\r\n\t\t\tfunction payBillsData(bills, accountCurrencies, baseCurrency) {\r\n\t\t\t\tvar rows = {};\r\n\t\t\t\tvar billCurrencies = {};\r\n\t\t\t\tbills.forEach(function(b) {\r\n\t\t\t\t\tvar preAmt = b.amount && parseFloat(b.amount) > 0 ? b.amount : '0.00';\r\n\t\t\t\t\trows[b.id] = { checked: parseFloat(preAmt) > 0, amount: preAmt, max: b.balance };\r\n\t\t\t\t\tbillCurrencies[b.id] = b.currency || baseCurrency;\r\n\t\t\t\t});\r\n\t\t\t\treturn {\r\n\t\t\t\t\trows: rows,\r\n\t\t\t\t\tbillCurrencies: billCurrencies,\r\n\t\t\t\t\taccountCurrencies: accountCurrencies || {},\r\n\t\t\t\t\tbaseCurrency: baseCurrency || 'CAD',\r\n\t\t\t\t\tselectedBankID: '',\r\n\t\t\t\t\ttotalBillCount: bills.length,\r\n\t\t\t\t\tpageSize: 20,\r\n\t\t\t\t\tcurrentPage: 1,\r\n\r\n\t\t\t\t\t// ── Selection ──────────────────────────────────────────────────\r\n\t\t\t\t\ttoggleAll: function(checked) {\r\n\t\t\t\t\t\tvar self = this;\r\n\t\t\t\t\t\tObject.keys(self.rows).forEach(function(id) {\r\n\t\t\t\t\t\t\tself.rows[id].checked = checked;\r\n\t\t\t\t\t\t\tif (checked) { self.rows[id].amount = self.rows[id].max; }\r\n\t\t\t\t\t\t\telse { self.rows[id].amount = '0.00'; }\r\n\t\t\t\t\t\t});\r\n\t\t\t\t\t},\r\n\t\t\t\t\tonCheck: function(id) {\r\n\t\t\t\t\t\tvar r = this.rows[id];\r\n\t\t\t\t\t\tif (r.checked && parseFloat(r.amount) === 0) { r.amount = r.max; }\r\n\t\t\t\t\t\tif (!r.checked) { r.amount = '0.00'; }\r\n\t\t\t\t\t},\r\n\t\t\t\t\tonAmountInput: function(id) {\r\n\t\t\t\t\t\tvar r = this.rows[id];\r\n\t\t\t\t\t\tr.checked = (parseFloat(r.amount) || 0) > 0;\r\n\t\t\t\t\t},\r\n\t\t\t\t\tselectedCount: function() {\r\n\t\t\t\t\t\tvar self = this;\r\n\t\t\t\t\t\treturn Object.keys(self.rows).filter(function(id) {\r\n\t\t\t\t\t\t\treturn self.rows[id].checked;\r\n\t\t\t\t\t\t}).length;\r\n\t\t\t\t\t},\r\n\r\n\t\t\t\t\t// ── Totals ─────────────────────────────────────────────────────\r\n\t\t\t\t\ttotalPayment: function() {\r\n\t\t\t\t\t\tvar self = this;\r\n\t\t\t\t\t\tvar t = 0;\r\n\t\t\t\t\t\tObject.keys(self.rows).forEach(function(id) {\r\n\t\t\t\t\t\t\tif (self.rows[id].checked) { t += parseFloat(self.rows[id].amount) || 0; }\r\n\t\t\t\t\t\t});\r\n\t\t\t\t\t\treturn t;\r\n\t\t\t\t\t},\r\n\t\t\t\t\trowOverpayment: function(id) {\r\n\t\t\t\t\t\tvar r = this.rows[id];\r\n\t\t\t\t\t\tif (!r || !r.checked) return '0.00';\r\n\t\t\t\t\t\tvar amt = parseFloat(r.amount) || 0;\r\n\t\t\t\t\t\tvar bal = parseFloat(r.max) || 0;\r\n\t\t\t\t\t\treturn Math.max(0, amt - bal).toFixed(2);\r\n\t\t\t\t\t},\r\n\t\t\t\t\thasOverpayment: function(id) {\r\n\t\t\t\t\t\treturn parseFloat(this.rowOverpayment(id)) > 0;\r\n\t\t\t\t\t},\r\n\t\t\t\t\ttotalOverpayment: function() {\r\n\t\t\t\t\t\tvar self = this;\r\n\t\t\t\t\t\tvar t = 0;\r\n\t\t\t\t\t\tObject.keys(self.rows).forEach(function(id) {\r\n\t\t\t\t\t\t\tt += parseFloat(self.rowOverpayment(id)) || 0;\r\n\t\t\t\t\t\t});\r\n\t\t\t\t\t\treturn t;\r\n\t\t\t\t\t},\r\n\t\t\t\t\tformatMoney: function(n) {\r\n\t\t\t\t\t\treturn '$' + parseFloat(n).toFixed(2).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',');\r\n\t\t\t\t\t},\r\n\r\n\t\t\t\t\t// ── Currency detection ─────────────────────────────────────────\r\n\t\t\t\t\tdetectedBillCurrency: function() {\r\n\t\t\t\t\t\tvar self = this;\r\n\t\t\t\t\t\tvar seen = null;\r\n\t\t\t\t\t\tvar mixed = false;\r\n\t\t\t\t\t\tObject.keys(self.rows).forEach(function(id) {\r\n\t\t\t\t\t\t\tif (!self.rows[id].checked) return;\r\n\t\t\t\t\t\t\tvar c = self.billCurrencies[id] || self.baseCurrency;\r\n\t\t\t\t\t\t\tif (seen === null) { seen = c; }\r\n\t\t\t\t\t\t\telse if (seen !== c) { mixed = true; }\r\n\t\t\t\t\t\t});\r\n\t\t\t\t\t\tif (mixed) return null;\r\n\t\t\t\t\t\treturn seen || self.baseCurrency;\r\n\t\t\t\t\t},\r\n\t\t\t\t\tmixedCurrencies: function() { return this.detectedBillCurrency() === null; },\r\n\t\t\t\t\tshowExchangeRate: function() {\r\n\t\t\t\t\t\tvar c = this.detectedBillCurrency();\r\n\t\t\t\t\t\treturn c !== null && c !== this.baseCurrency;\r\n\t\t\t\t\t},\r\n\t\t\t\t\texchangeRateLabel: function() {\r\n\t\t\t\t\t\tvar c = this.detectedBillCurrency();\r\n\t\t\t\t\t\tif (!c || c === this.baseCurrency) return '';\r\n\t\t\t\t\t\treturn '(1 ' + c + ' = ? ' + this.baseCurrency + ')';\r\n\t\t\t\t\t},\r\n\r\n\t\t\t\t\t// ── Pagination ─────────────────────────────────────────────────\r\n\t\t\t\t\tisOnCurrentPage: function(index) {\r\n\t\t\t\t\t\tvar start = (this.currentPage - 1) * this.pageSize;\r\n\t\t\t\t\t\treturn index >= start && index < start + this.pageSize;\r\n\t\t\t\t\t},\r\n\t\t\t\t\ttotalPagesCount: function() {\r\n\t\t\t\t\t\treturn Math.max(1, Math.ceil(this.totalBillCount / this.pageSize));\r\n\t\t\t\t\t},\r\n\t\t\t\t\tprevPage: function() { if (this.currentPage > 1) this.currentPage--; },\r\n\t\t\t\t\tnextPage: function() { if (this.currentPage < this.totalPagesCount()) this.currentPage++; },\r\n\t\t\t\t\tpaginationLabel: function() {\r\n\t\t\t\t\t\tvar start = (this.currentPage - 1) * this.pageSize + 1;\r\n\t\t\t\t\t\tvar end = Math.min(this.currentPage * this.pageSize, this.totalBillCount);\r\n\t\t\t\t\t\treturn start + '–' + end + ' of ' + this.totalBillCount + ' bills';\r\n\t\t\t\t\t}\r\n\t\t\t\t};\r\n\t\t\t}\r\n\t\t</script></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -20,9 +20,12 @@ templ bodyPayBills(vm PayBillsVM) {
 		class="max-w-[95%] space-y-4"
 		x-data={ payBillsInitData(vm) }
 	>
-		<div>
-			<h1 class="text-title font-semibold text-text">Pay Bills</h1>
-			<p class="mt-0.5 text-small text-text-muted2">Select bills and enter payment amounts. Entering more than the balance due creates a vendor prepayment credit.</p>
+		<div class="flex flex-wrap items-start justify-between gap-3">
+			<div>
+				<h1 class="text-title font-semibold text-text">Pay Bills</h1>
+				<p class="mt-0.5 text-small text-text-muted2">Select bills and enter payment amounts. Entering more than the balance due creates a vendor prepayment credit.</p>
+			</div>
+			<a href="/vendor-prepayments" class="text-small text-primary hover:underline">View prepayments →</a>
 		</div>
 
 		if vm.Saved {
@@ -44,8 +47,7 @@ templ bodyPayBills(vm PayBillsVM) {
 						type="date"
 						name="entry_date"
 						value={ vm.EntryDate }
-						class={ "mt-1 block w-full rounded-md border px-2.5 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus " + fieldBorderClass(vm.DateError != "") }
-						style="color-scheme:dark"
+						class={ "mt-1 block w-full rounded-md border bg-surface px-2.5 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus [color-scheme:dark] " + fieldBorderClass(vm.DateError != "") }
 					/>
 					if vm.DateError != "" {
 						<div class="mt-0.5 text-[11px] text-danger">{ vm.DateError }</div>
@@ -58,7 +60,7 @@ templ bodyPayBills(vm PayBillsVM) {
 					<select
 						name="bank_account_id"
 						x-model="selectedBankID"
-						class={ "mt-1 block w-full rounded-md border px-2.5 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus bg-surface " + fieldBorderClass(vm.BankError != "") }
+						class={ "mt-1 block w-full rounded-md border bg-surface px-2.5 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus " + fieldBorderClass(vm.BankError != "") }
 					>
 						<option value="">— Select —</option>
 						for _, a := range vm.Accounts {
@@ -81,7 +83,7 @@ templ bodyPayBills(vm PayBillsVM) {
 						value={ vm.Memo }
 						placeholder="Optional note"
 						autocomplete="off"
-						class="mt-1 block w-full rounded-md border border-border-input px-2.5 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+						class="mt-1 block w-full rounded-md border border-border-input bg-surface px-2.5 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
 					/>
 				</div>
 
@@ -139,7 +141,13 @@ templ bodyPayBills(vm PayBillsVM) {
 			// ── Bills table ───────────────────────────────────────────────────────
 			<div class="rounded-lg border border-border bg-surface overflow-x-auto">
 				if len(vm.OpenBills) == 0 {
-					<div class="px-6 py-10 text-center text-body text-text-muted2">No outstanding bills to pay.</div>
+					<div class="flex flex-col items-center gap-3 px-6 py-10 text-center">
+						<p class="text-body text-text-muted2">No outstanding bills to pay.</p>
+						<p class="text-small text-text-muted3">
+							Need to record an advance to a vendor instead?
+							<a href="/vendor-prepayments/new" class="ml-1 font-medium text-primary hover:underline">Record a prepayment →</a>
+						</p>
+					</div>
 				} else {
 					<table class="w-full text-left">
 						<thead>
@@ -293,13 +301,24 @@ templ bodyPayBills(vm PayBillsVM) {
 			// ── Actions ───────────────────────────────────────────────────────────
 			<div class="flex flex-wrap items-center justify-between gap-3 pt-1">
 				@ui.ButtonLink("Cancel", "/banking/pay-bills")
-				<button
-					type="submit"
-					class="rounded-md bg-primary px-5 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover disabled:bg-disabled-bg disabled:text-disabled-text disabled:cursor-not-allowed"
-					:disabled="selectedCount() === 0 || mixedCurrencies()"
-				>
-					Record Payment
-				</button>
+				<div class="flex items-center gap-3">
+					// Secondary entry for the prepayment flow — sibling to Record Payment
+					// because both answer "I want to send money to a vendor"; prepayment
+					// is the no-bill-yet branch.
+					<a
+						href="/vendor-prepayments/new"
+						class="rounded-md border border-border-input bg-surface px-4 py-2 text-body font-medium text-text hover:bg-background"
+					>
+						Record Prepayment
+					</a>
+					<button
+						type="submit"
+						class="rounded-md bg-primary px-5 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover disabled:bg-disabled-bg disabled:text-disabled-text disabled:cursor-not-allowed"
+						:disabled="selectedCount() === 0 || mixedCurrencies()"
+					>
+						Record Payment
+					</button>
+				</div>
 			</div>
 
 		</form>

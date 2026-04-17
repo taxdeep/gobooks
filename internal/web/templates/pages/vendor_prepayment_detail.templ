@@ -199,7 +199,7 @@ templ vpEditForm(vm VendorPrepaymentDetailVM) {
 			<textarea name="memo" rows="2" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">{ vm.Prepayment.Memo }</textarea>
 		</div>
 
-		<div class="flex gap-3">
+		<div class="flex flex-wrap items-center gap-3">
 			<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
 				if vm.Prepayment.ID == 0 {
 					Create Prepayment
@@ -219,6 +219,15 @@ templ vpEditForm(vm VendorPrepaymentDetailVM) {
 					</button>
 				</form>
 			}
+			// Secondary entry to the prepayments list — the form is the primary
+			// landing page for prepayment flows (sidebar entry was removed), so
+			// exposing the history here keeps it one click away.
+			<a
+				href="/vendor-prepayments"
+				class="ml-auto text-small text-primary hover:underline"
+			>
+				View Prepayments →
+			</a>
 		</div>
 	</form>
 }
