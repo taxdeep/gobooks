@@ -17,8 +17,15 @@ func (s *Server) handleVendors(c *fiber.Ctx) error {
 		return c.Redirect("/select-company", fiber.StatusSeeOther)
 	}
 
+	showInactive := c.Query("show_inactive") == "1"
+
+	// Default to active-only; include inactive when the toggle is on.
+	listQuery := s.DB.Where("company_id = ?", companyID)
+	if !showInactive {
+		listQuery = listQuery.Where("is_active = true")
+	}
 	var vendors []models.Vendor
-	if err := s.DB.Where("company_id = ?", companyID).Order("name asc").Find(&vendors).Error; err != nil {
+	if err := listQuery.Order("name asc").Find(&vendors).Error; err != nil {
 		return pages.Vendors(pages.VendorsVM{
 			HasCompany: true,
 			FormError:  "Could not load vendors.",
@@ -26,19 +33,26 @@ func (s *Server) handleVendors(c *fiber.Ctx) error {
 		}).Render(c.Context(), c)
 	}
 
+	var inactiveCount int64
+	s.DB.Model(&models.Vendor{}).
+		Where("company_id = ? AND is_active = false", companyID).
+		Count(&inactiveCount)
+
 	var paymentTerms []models.PaymentTerm
 	_ = s.DB.Where("company_id = ? AND is_active = true", companyID).Order("sort_order asc, code asc").Find(&paymentTerms)
 
 	multiCurrency, baseCurrency, currencies := s.vendorCurrencyInfo(companyID)
 
 	return pages.Vendors(pages.VendorsVM{
-		HasCompany:       true,
-		Vendors:          vendors,
-		Created:          c.Query("created") == "1",
-		PaymentTerms:     paymentTerms,
-		MultiCurrency:    multiCurrency,
-		BaseCurrencyCode: baseCurrency,
-		Currencies:       currencies,
+		HasCompany:          true,
+		Vendors:             vendors,
+		Created:             c.Query("created") == "1",
+		PaymentTerms:        paymentTerms,
+		MultiCurrency:       multiCurrency,
+		BaseCurrencyCode:    baseCurrency,
+		Currencies:          currencies,
+		ShowInactive:        showInactive,
+		InactiveVendorCount: int(inactiveCount),
 	}).Render(c.Context(), c)
 }
 
@@ -143,7 +157,22 @@ func (s *Server) handleVendorCreate(c *fiber.Ctx) error {
 	return c.Redirect("/vendors?created=1", fiber.StatusSeeOther)
 }
 
+// vendorsForCompany returns ACTIVE vendors for a company, alphabetical.
+// Mirror of customersForCompany — same reasoning: use this for every new-
+// document picker (bill, PO, expense, VCN, vendor prepayment/refund/return)
+// and list-filter dropdown. Deactivated vendors are hidden unless the caller
+// explicitly asks via allVendorsForCompany.
 func (s *Server) vendorsForCompany(companyID uint) ([]models.Vendor, error) {
+	var vendors []models.Vendor
+	err := s.DB.
+		Where("company_id = ? AND is_active = true", companyID).
+		Order("name asc").
+		Find(&vendors).Error
+	return vendors, err
+}
+
+// allVendorsForCompany returns every vendor (active + inactive) alphabetically.
+func (s *Server) allVendorsForCompany(companyID uint) ([]models.Vendor, error) {
 	var vendors []models.Vendor
 	err := s.DB.Where("company_id = ?", companyID).Order("name asc").Find(&vendors).Error
 	return vendors, err

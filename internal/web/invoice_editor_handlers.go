@@ -815,7 +815,9 @@ func optUintStr(p *uint) string {
 // loadEditorDropdowns fills customers, products, taxCodes, paymentTerms + JSON blobs on vm.
 // Also loads multi-currency settings when the company has it enabled.
 func (s *Server) loadEditorDropdowns(companyID uint, vm *pages.InvoiceEditorVM) error {
-	if err := s.DB.Where("company_id = ?", companyID).Order("name asc").
+	// Active customers only — deactivated customers stay on historical
+	// invoices but aren't offered as a choice for new ones.
+	if err := s.DB.Where("company_id = ? AND is_active = true", companyID).Order("name asc").
 		Find(&vm.Customers).Error; err != nil {
 		return err
 	}

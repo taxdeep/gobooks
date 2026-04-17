@@ -750,7 +750,9 @@ func (s *Server) billsForCompany(companyID uint) ([]models.Bill, error) {
 // loadBillEditorDropdowns fills vendors, accounts, taxCodes, paymentTerms + JSON blobs on vm.
 // Also loads multi-currency settings when the company has it enabled.
 func (s *Server) loadBillEditorDropdowns(companyID uint, vm *pages.BillEditorVM) error {
-	if err := s.DB.Where("company_id = ?", companyID).Order("name asc").
+	// Active vendors only for the picker — deactivated vendors stay on
+	// historical bills but can't be selected for new ones.
+	if err := s.DB.Where("company_id = ? AND is_active = true", companyID).Order("name asc").
 		Find(&vm.Vendors).Error; err != nil {
 		return err
 	}

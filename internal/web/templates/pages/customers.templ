@@ -54,7 +54,18 @@ templ bodyCustomers(vm CustomersVM) {
 		}
 
 		<div class="mt-6 rounded-lg border border-border bg-surface p-6">
-			<h2 class="text-section font-semibold text-text">All Customers</h2>
+			<div class="flex items-center justify-between">
+				<h2 class="text-section font-semibold text-text">All Customers</h2>
+				if vm.ShowInactive || vm.InactiveCustomerCount > 0 {
+					if vm.ShowInactive {
+						<a href="/customers" class="text-small text-primary hover:underline">Hide inactive</a>
+					} else {
+						<a href="/customers?show_inactive=1" class="text-small text-primary hover:underline">
+							{ fmt.Sprintf("Show inactive (%d)", vm.InactiveCustomerCount) }
+						</a>
+					}
+				}
+			</div>
 			<div class="mt-4 overflow-x-auto">
 				<table class="w-full text-left text-body">
 					<thead class="text-small uppercase tracking-wider text-text-muted">
@@ -82,6 +93,9 @@ templ bodyCustomers(vm CustomersVM) {
 										href={ "/customers/" + Uitoa(c.ID) }
 										class="text-primary hover:text-primary-hover hover:underline"
 									>{ c.Name }</a>
+									if !c.IsActive {
+										<span class="ml-2 inline-block rounded px-2 py-0.5 text-small font-medium bg-background border border-border text-text-muted">Inactive</span>
+									}
 								</td>
 								<td class="py-3 pr-4 text-small text-text-muted2">
 									if c.Email != "" {

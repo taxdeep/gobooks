@@ -42,6 +42,12 @@ type CustomersVM struct {
 	PaymentTerms []models.PaymentTerm
 
 	BillableSummaries map[uint]services.CustomerBillableSummary
+
+	// ShowInactive mirrors the ?show_inactive=1 query param. When true the
+	// list includes deactivated customers (visually tagged); when false they
+	// are hidden.
+	ShowInactive      bool
+	InactiveCustomerCount int // total inactive count so the toggle link can hint at what's hidden
 }
 
 type CustomerNewVM struct {
@@ -163,4 +169,8 @@ type VendorsVM struct {
 	Vendors      []models.Vendor
 	PaymentTerms []models.PaymentTerm
 	Currencies   []models.Currency // enabled currencies (base + foreign); only used when MultiCurrency == true
+
+	// Inactive toggle — mirrors CustomersVM.ShowInactive semantics.
+	ShowInactive        bool
+	InactiveVendorCount int
 }

@@ -24,6 +24,8 @@ func (s *Server) handleCustomers(c *fiber.Ctx) error {
 
 	multiCurrency, baseCurrency, currencies := s.vendorCurrencyInfo(companyID)
 
+	showInactive := c.Query("show_inactive") == "1"
+
 	vm := pages.CustomersVM{
 		HasCompany:       true,
 		FormError:        strings.TrimSpace(c.Query("error")),
@@ -32,15 +34,27 @@ func (s *Server) handleCustomers(c *fiber.Ctx) error {
 		MultiCurrency:    multiCurrency,
 		BaseCurrencyCode: baseCurrency,
 		Currencies:       currencies,
+		ShowInactive:     showInactive,
 	}
 	_ = s.DB.Where("company_id = ? AND is_active = true", companyID).Order("sort_order asc, code asc").Find(&vm.PaymentTerms)
 
-	// Load customer list.
-	if err := s.DB.Where("company_id = ?", companyID).Order("name asc").Find(&vm.Customers).Error; err != nil {
+	// Load customer list — default to active-only; include inactive when the
+	// toggle is on. The unfiltered inactive count feeds the toggle label so
+	// users know what's hidden without having to flip it.
+	listQuery := s.DB.Where("company_id = ?", companyID)
+	if !showInactive {
+		listQuery = listQuery.Where("is_active = true")
+	}
+	if err := listQuery.Order("name asc").Find(&vm.Customers).Error; err != nil {
 		vm.FormError = "Could not load customers."
 		vm.Customers = []models.Customer{}
 		return pages.Customers(vm).Render(c.Context(), c)
 	}
+	var inactiveCount int64
+	s.DB.Model(&models.Customer{}).
+		Where("company_id = ? AND is_active = false", companyID).
+		Count(&inactiveCount)
+	vm.InactiveCustomerCount = int(inactiveCount)
 	if summaries, err := services.ListCustomerBillableSummaries(s.DB, companyID); err == nil {
 		vm.BillableSummaries = summaries
 	}
@@ -401,7 +415,23 @@ func (s *Server) handleCustomerUpdate(c *fiber.Ctx) error {
 	return c.Redirect("/customers?updated=1", fiber.StatusSeeOther)
 }
 
+// customersForCompany returns ACTIVE customers for a company, alphabetical.
+// This is the standard helper for populating pickers on new-document forms
+// (invoice, quote, deposit, receipt, refund, etc.) and list-filter dropdowns.
+// Deactivated customers are intentionally hidden — use allCustomersForCompany
+// if you need them (e.g. on the /customers list page when show_inactive=1).
 func (s *Server) customersForCompany(companyID uint) ([]models.Customer, error) {
+	var customers []models.Customer
+	err := s.DB.
+		Where("company_id = ? AND is_active = true", companyID).
+		Order("name asc").
+		Find(&customers).Error
+	return customers, err
+}
+
+// allCustomersForCompany returns every customer (active + inactive) alphabetically.
+// Only use on admin screens that explicitly display inactive parties.
+func (s *Server) allCustomersForCompany(companyID uint) ([]models.Customer, error) {
 	var customers []models.Customer
 	err := s.DB.Where("company_id = ?", companyID).Order("name asc").Find(&customers).Error
 	return customers, err

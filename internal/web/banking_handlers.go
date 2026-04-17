@@ -520,7 +520,7 @@ func (s *Server) handleReceivePaymentForm(c *fiber.Ctx) error {
 	}
 
 	var customers []models.Customer
-	_ = s.DB.Where("company_id = ?", companyID).Order("name asc").Find(&customers).Error
+	_ = s.DB.Where("company_id = ? AND is_active = true", companyID).Order("name asc").Find(&customers).Error
 
 	bankAccounts, _ := s.bankAccountsForCompany(companyID)
 
@@ -547,7 +547,7 @@ func (s *Server) handleReceivePaymentSubmit(c *fiber.Ctx) error {
 	}
 
 	var customers []models.Customer
-	_ = s.DB.Where("company_id = ?", companyID).Order("name asc").Find(&customers).Error
+	_ = s.DB.Where("company_id = ? AND is_active = true", companyID).Order("name asc").Find(&customers).Error
 	bankAccounts, _ := s.bankAccountsForCompany(companyID)
 
 	customerIDRaw := strings.TrimSpace(c.FormValue("customer_id"))

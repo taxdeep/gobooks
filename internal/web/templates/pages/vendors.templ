@@ -1,6 +1,7 @@
 // 遵循project_guide.md
 package pages
 
+import "fmt"
 import "gobooks/internal/web/templates/layout"
 import "gobooks/internal/web/templates/ui"
 
@@ -112,6 +113,19 @@ templ vendorAddForm(vm VendorsVM) {
 
 // vendorListTable renders the All Vendors data table.
 templ vendorListTable(vm VendorsVM) {
+	// Active/inactive toggle row. Only renders when there is at least one
+	// inactive vendor to reveal — otherwise the link is noise.
+	if vm.ShowInactive || vm.InactiveVendorCount > 0 {
+		<div class="mb-3 flex items-center justify-end text-small">
+			if vm.ShowInactive {
+				<a href="/vendors" class="text-primary hover:underline">Hide inactive</a>
+			} else {
+				<a href="/vendors?show_inactive=1" class="text-primary hover:underline">
+					{ fmt.Sprintf("Show inactive (%d)", vm.InactiveVendorCount) }
+				</a>
+			}
+		</div>
+	}
 	<div class="overflow-x-auto">
 		<table class="w-full text-left text-body">
 			<thead>
@@ -130,6 +144,9 @@ templ vendorListTable(vm VendorsVM) {
 					<tr class="hover:bg-surface-rowHover transition-colors duration-75">
 						<td class="py-2.5 pr-4 font-medium">
 							<a href={ templ.SafeURL("/vendors/" + Uitoa(v.ID)) } class="text-primary hover:underline">{ v.Name }</a>
+							if !v.IsActive {
+								<span class="ml-2 inline-block rounded px-2 py-0.5 text-small font-medium bg-background border border-border text-text-muted">Inactive</span>
+							}
 						</td>
 						<td class="py-2.5 pr-4 text-small text-text-muted2">
 							if v.Email != "" {
