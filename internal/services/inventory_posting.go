@@ -183,27 +183,34 @@ func ValidateStockForInvoice(db *gorm.DB, companyID uint, lines []models.Invoice
 // invoice. Handles both single stock items and bundle component items.
 // warehouseID routes movements to a specific warehouse (nil = legacy path).
 // Must be called inside the same transaction as the JE creation.
+//
+// Phase D.0 slice 3: this function is now a thin facade over
+// inventory.IssueStock. The outboundCosts parameter is kept for backward
+// compatibility — BuildCOGSFragments (called upstream to populate the JE
+// lines) still reads it, and those pre-computed costs come from
+// ValidateStockForInvoice running PreviewOutbound. Inside the same
+// transaction the locked balance row guarantees the cost IssueStock
+// returns matches the cost BuildCOGSFragments already consumed.
 func CreateSaleMovements(tx *gorm.DB, companyID uint, inv models.Invoice, jeID uint,
 	outboundCosts map[uint]*OutboundResult, bundleExpansions []ExpandedComponent, warehouseID *uint) error {
 
-	engine, err := ResolveCostingEngineForCompany(tx, companyID)
-	if err != nil {
-		return fmt.Errorf("resolve costing engine: %w", err)
-	}
+	_ = outboundCosts // passed through to BuildCOGSFragments upstream; facade itself no longer reads it
 
 	// 1. Single stock items.
 	for _, l := range inv.Lines {
 		if l.ProductService == nil || !l.ProductService.IsStockItem {
 			continue
 		}
-		if err := createSaleMovement(tx, engine, companyID, inv, jeID, l.ProductService.ID, l.Qty, warehouseID); err != nil {
+		if err := issueSaleLine(tx, companyID, inv, jeID, l.ProductService.ID, l.Qty, warehouseID, l.ID, false); err != nil {
 			return err
 		}
 	}
 
 	// 2. Bundle component items.
 	for _, ec := range bundleExpansions {
-		if err := createSaleMovement(tx, engine, companyID, inv, jeID, ec.ComponentItem.ID, ec.RequiredQty, warehouseID); err != nil {
+		// Bundle expansions are derived, not linked to a specific invoice
+		// line row — SourceLineID stays nil for them.
+		if err := issueSaleLine(tx, companyID, inv, jeID, ec.ComponentItem.ID, ec.RequiredQty, warehouseID, 0, true); err != nil {
 			return err
 		}
 	}
@@ -211,41 +218,55 @@ func CreateSaleMovements(tx *gorm.DB, companyID uint, inv models.Invoice, jeID u
 	return nil
 }
 
-func createSaleMovement(tx *gorm.DB, engine CostingEngine, companyID uint,
-	inv models.Invoice, jeID, itemID uint, qty decimal.Decimal, warehouseID *uint) error {
+// issueSaleLine delegates a single outbound to inventory.IssueStock and,
+// for backward compatibility during the D.0 transition, links the created
+// movement to the journal entry via the legacy journal_entry_id column.
+// The isBundle flag is used only to derive a distinct idempotency key per
+// bundle component vs standalone line item.
+func issueSaleLine(tx *gorm.DB, companyID uint, inv models.Invoice, jeID, itemID uint,
+	qty decimal.Decimal, warehouseID *uint, invoiceLineID uint, isBundle bool) error {
 
-	req := OutboundRequest{
+	warehouseValue := uint(0)
+	if warehouseID != nil {
+		warehouseValue = *warehouseID
+	}
+
+	in := inventory.IssueStockInput{
 		CompanyID:    companyID,
 		ItemID:       itemID,
+		WarehouseID:  warehouseValue,
 		Quantity:     qty,
-		MovementType: models.MovementTypeSale,
-		WarehouseID:  warehouseID,
-		Date:         inv.InvoiceDate,
+		MovementDate: inv.InvoiceDate,
+		SourceType:   "invoice",
+		SourceID:     inv.ID,
+		Memo:         "Sale: " + inv.InvoiceNumber,
 	}
-	if warehouseID == nil {
-		req.LocationType = models.LocationTypeInternal
+	if invoiceLineID != 0 {
+		lineID := invoiceLineID
+		in.SourceLineID = &lineID
 	}
-	result, err := engine.ApplyOutbound(tx, req)
-	if err != nil {
-		return fmt.Errorf("apply outbound for item %d: %w", itemID, err)
+	// Idempotency key scheme distinguishes bundle components from direct
+	// line items because both can reference the same item+invoice.
+	if isBundle {
+		in.IdempotencyKey = fmt.Sprintf("invoice:%d:bundle:item:%d:v1", inv.ID, itemID)
+	} else {
+		in.IdempotencyKey = fmt.Sprintf("invoice:%d:line:%d:v1", inv.ID, invoiceLineID)
 	}
 
-	sourceID := inv.ID
-	mov := models.InventoryMovement{
-		CompanyID:      companyID,
-		ItemID:         itemID,
-		MovementType:   models.MovementTypeSale,
-		QuantityDelta:  qty.Neg(),
-		UnitCost:       &result.UnitCostUsed,
-		TotalCost:      &result.TotalCost,
-		SourceType:     "invoice",
-		SourceID:       &sourceID,
-		JournalEntryID: &jeID,
-		ReferenceNote:  "Sale: " + inv.InvoiceNumber,
-		MovementDate:   inv.InvoiceDate,
-		WarehouseID:    warehouseID,
+	result, err := inventory.IssueStock(tx, in)
+	if err != nil {
+		return fmt.Errorf("issue stock for item %d: %w", itemID, translateInventoryErr(err))
 	}
-	return tx.Create(&mov).Error
+
+	// Legacy JE linkage — removed in slice 8.
+	if jeID > 0 {
+		if err := tx.Model(&models.InventoryMovement{}).
+			Where("id = ?", result.MovementID).
+			Update("journal_entry_id", jeID).Error; err != nil {
+			return fmt.Errorf("link movement %d to journal %d: %w", result.MovementID, jeID, err)
+		}
+	}
+	return nil
 }
 
 // CreatePurchaseMovements records inventory inflows for stock items on a posted

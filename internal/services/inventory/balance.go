@@ -101,3 +101,23 @@ func applyInboundToBalance(db *gorm.DB, bal *models.InventoryBalance, quantity, 
 	}
 	return nil
 }
+
+// applyOutboundToBalance updates the balance for an issue/outflow using the
+// weighted-average rule:
+//
+//	unit_cost used = current average_cost
+//	new_qty        = old_qty - out_qty
+//	new_avg        = old_avg   (unchanged on outbound)
+//
+// Returns the unit cost that applies to the outflow so the caller can
+// record it on the movement row and hand it to GL for the COGS posting.
+// Quantity must be positive.
+func applyOutboundToBalance(db *gorm.DB, bal *models.InventoryBalance, quantity decimal.Decimal) (decimal.Decimal, error) {
+	unitCost := bal.AverageCost
+	bal.QuantityOnHand = bal.QuantityOnHand.Sub(quantity)
+	bal.UpdatedAt = time.Now()
+	if err := db.Save(bal).Error; err != nil {
+		return decimal.Zero, fmt.Errorf("inventory: save balance: %w", err)
+	}
+	return unitCost, nil
+}
