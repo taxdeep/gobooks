@@ -202,7 +202,7 @@ templ depositEditForm(vm DepositDetailVM) {
 			>{ vm.Deposit.Memo }</textarea>
 		</div>
 
-		<div class="flex gap-3">
+		<div class="flex flex-wrap items-center gap-3">
 			<button
 				type="submit"
 				class="rounded-md bg-primary px-5 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
@@ -211,6 +211,11 @@ templ depositEditForm(vm DepositDetailVM) {
 			</button>
 			<a href="/deposits" class="rounded-md border border-border px-5 py-2 text-body font-medium text-text hover:bg-background">
 				Cancel
+			</a>
+			// Deposits sidebar entry was removed; make the history list reachable
+			// in one click from the form.
+			<a href="/deposits" class="ml-auto text-small text-primary hover:underline">
+				View Deposits →
 			</a>
 		</div>
 	</form>
