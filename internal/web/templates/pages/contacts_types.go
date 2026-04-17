@@ -90,6 +90,33 @@ type CustomerDetailVM struct {
 	BaseCurrencyCode  string
 	CurrencyPolicySaved bool
 	CurrencyPolicyError string
+
+	// Inline edit mode — set by ?edit=1 on the detail route. Mirrors the
+	// VendorDetailVM edit fields so the two pages stay aligned.
+	Editing bool
+	Saved   bool // flash "Customer saved" banner after a successful round-trip
+
+	// Form round-trip state (only populated in Editing mode or after a
+	// validation failure re-render).
+	FormName           string
+	FormEmail          string
+	FormCurrencyCode   string
+	FormPaymentTerm    string
+	FormAddrStreet1    string
+	FormAddrStreet2    string
+	FormAddrCity       string
+	FormAddrProvince   string
+	FormAddrPostalCode string
+	FormAddrCountry    string
+
+	NameError     string
+	CurrencyError string
+	FormError     string
+
+	// Dropdown data for the edit form.
+	PaymentTerms  []models.PaymentTerm
+	MultiCurrency bool
+	Currencies    []models.Currency
 }
 
 type VendorsVM struct {

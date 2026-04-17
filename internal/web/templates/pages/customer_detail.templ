@@ -27,44 +27,30 @@ templ bodyCustomerDetail(vm CustomerDetailVM) {
 				<p class="mt-2 text-text-muted2">Operational visibility only. This page summarizes current billable work, outstanding balances, and recent customer invoice activity.</p>
 			</div>
 			<div class="flex shrink-0 flex-wrap items-center gap-2">
+				if !vm.Editing {
+					<a href={ templ.SafeURL(fmt.Sprintf("/customers/%d?edit=1", vm.Customer.ID)) } class="rounded-md border border-border-input px-4 py-2 text-body font-medium text-text hover:bg-background">
+						Edit
+					</a>
+				}
 				<a href="/customers" class="text-body text-text-muted3 hover:text-text">Back to Customers</a>
 			</div>
 		</div>
 
-		<div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-			<div class="rounded-lg border border-border bg-surface p-6">
-				<h2 class="text-section font-semibold text-text">Customer Details</h2>
-				<div class="mt-4 grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
-					<div>
-						<p class="text-small font-medium uppercase tracking-wider text-text-muted">Name</p>
-						<p class="mt-1 text-body font-medium text-text">{ vm.Customer.Name }</p>
-					</div>
-					<div>
-						<p class="text-small font-medium uppercase tracking-wider text-text-muted">Email</p>
-						if vm.Customer.Email != "" {
-							<p class="mt-1 text-body text-text">{ vm.Customer.Email }</p>
-						} else {
-							<p class="mt-1 text-body text-text-muted2">-</p>
-						}
-					</div>
-					<div>
-						<p class="text-small font-medium uppercase tracking-wider text-text-muted">Billing Address</p>
-						if addr := vm.Customer.FormattedAddress(); addr != "" {
-							<p class="mt-1 whitespace-pre-wrap text-body text-text">{ addr }</p>
-						} else {
-							<p class="mt-1 text-body text-text-muted2">-</p>
-						}
-					</div>
-					<div>
-						<p class="text-small font-medium uppercase tracking-wider text-text-muted">Default Payment Term</p>
-						if vm.DefaultPaymentTermLabel != "" {
-							<p class="mt-1 text-body text-text">{ vm.DefaultPaymentTermLabel }</p>
-						} else {
-							<p class="mt-1 text-body text-text-muted2">Use company default</p>
-						}
-					</div>
-				</div>
+		if vm.Saved {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success-hover">
+				Customer saved.
 			</div>
+		}
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover">{ vm.FormError }</div>
+		}
+
+		<div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+			if vm.Editing {
+				@customerEditCard(vm)
+			} else {
+				@customerDisplayCard(vm)
+			}
 
 			<div class="rounded-lg border border-border bg-surface p-6">
 				<h2 class="text-section font-semibold text-text">Recent Activity</h2>
@@ -344,4 +330,138 @@ templ customerCurrencyPolicyBadge(p models.CustomerCurrencyPolicy) {
 		default:
 			<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-surface-raised text-text-muted">Single currency</span>
 	}
+}
+
+// customerDisplayCard — read-only rendering of the customer profile fields.
+// Used when the detail page is not in edit mode.
+templ customerDisplayCard(vm CustomerDetailVM) {
+	<div class="rounded-lg border border-border bg-surface p-6">
+		<h2 class="text-section font-semibold text-text">Customer Details</h2>
+		<div class="mt-4 grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
+			<div>
+				<p class="text-small font-medium uppercase tracking-wider text-text-muted">Name</p>
+				<p class="mt-1 text-body font-medium text-text">{ vm.Customer.Name }</p>
+			</div>
+			<div>
+				<p class="text-small font-medium uppercase tracking-wider text-text-muted">Email</p>
+				if vm.Customer.Email != "" {
+					<p class="mt-1 text-body text-text">{ vm.Customer.Email }</p>
+				} else {
+					<p class="mt-1 text-body text-text-muted2">-</p>
+				}
+			</div>
+			<div>
+				<p class="text-small font-medium uppercase tracking-wider text-text-muted">Billing Address</p>
+				if addr := vm.Customer.FormattedAddress(); addr != "" {
+					<p class="mt-1 whitespace-pre-wrap text-body text-text">{ addr }</p>
+				} else {
+					<p class="mt-1 text-body text-text-muted2">-</p>
+				}
+			</div>
+			<div>
+				<p class="text-small font-medium uppercase tracking-wider text-text-muted">Default Payment Term</p>
+				if vm.DefaultPaymentTermLabel != "" {
+					<p class="mt-1 text-body text-text">{ vm.DefaultPaymentTermLabel }</p>
+				} else {
+					<p class="mt-1 text-body text-text-muted2">Use company default</p>
+				}
+			</div>
+		</div>
+	</div>
+}
+
+// customerEditCard — inline form replacement for customerDisplayCard when
+// vm.Editing is true. POSTs to /customers/:id/update; on validation failure
+// the handler re-renders this card with field errors + preserved values.
+// Currency policy is intentionally NOT in this form — it has its own
+// dedicated section further down the page with single/multi toggle + allowed
+// currency management.
+templ customerEditCard(vm CustomerDetailVM) {
+	<div class="rounded-lg border border-border bg-surface p-6">
+		<h2 class="text-section font-semibold text-text">Edit Customer</h2>
+		<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/customers/%d/update", vm.Customer.ID)) } class="mt-4 space-y-4">
+			<div class="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
+				<div class="md:col-span-2">
+					<label class="block text-small font-medium text-text-muted">Name *</label>
+					<input
+						type="text"
+						name="name"
+						value={ vm.FormName }
+						required
+						class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"
+					/>
+					if vm.NameError != "" {
+						<p class="mt-1 text-small text-danger">{ vm.NameError }</p>
+					}
+				</div>
+				<div>
+					<label class="block text-small font-medium text-text-muted">Email</label>
+					<input type="email" name="email" value={ vm.FormEmail } class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"/>
+				</div>
+				if vm.MultiCurrency {
+					<div>
+						<label class="block text-small font-medium text-text-muted">Default Currency</label>
+						<select name="currency_code" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+							<option value="" selected?={ vm.FormCurrencyCode == "" }>— Use company base ({ vm.BaseCurrencyCode }) —</option>
+							for _, cur := range vm.Currencies {
+								<option value={ cur.Code } selected?={ vm.FormCurrencyCode == cur.Code }>{ cur.Code }</option>
+							}
+						</select>
+						if vm.CurrencyError != "" {
+							<p class="mt-1 text-small text-danger">{ vm.CurrencyError }</p>
+						}
+					</div>
+				}
+				<div>
+					<label class="block text-small font-medium text-text-muted">Default Payment Term</label>
+					<select name="payment_term" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
+						<option value="" selected?={ vm.FormPaymentTerm == "" }>— Use company default —</option>
+						for _, pt := range vm.PaymentTerms {
+							<option value={ pt.Code } selected?={ vm.FormPaymentTerm == pt.Code }>{ pt.Description }</option>
+						}
+					</select>
+				</div>
+
+				<div class="md:col-span-2">
+					<p class="mt-2 text-small font-semibold uppercase tracking-wider text-text-muted">Billing Address</p>
+				</div>
+				<div class="md:col-span-2">
+					<label class="block text-small font-medium text-text-muted">Street 1</label>
+					<input type="text" name="addr_street1" value={ vm.FormAddrStreet1 } class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"/>
+				</div>
+				<div class="md:col-span-2">
+					<label class="block text-small font-medium text-text-muted">Street 2</label>
+					<input type="text" name="addr_street2" value={ vm.FormAddrStreet2 } class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"/>
+				</div>
+				<div>
+					<label class="block text-small font-medium text-text-muted">City</label>
+					<input type="text" name="addr_city" value={ vm.FormAddrCity } class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"/>
+				</div>
+				<div>
+					<label class="block text-small font-medium text-text-muted">Province / State</label>
+					<input type="text" name="addr_province" value={ vm.FormAddrProvince } class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"/>
+				</div>
+				<div>
+					<label class="block text-small font-medium text-text-muted">Postal / ZIP</label>
+					<input type="text" name="addr_postal_code" value={ vm.FormAddrPostalCode } class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"/>
+				</div>
+				<div>
+					<label class="block text-small font-medium text-text-muted">Country</label>
+					<input type="text" name="addr_country" value={ vm.FormAddrCountry } class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text"/>
+				</div>
+			</div>
+
+			<div class="flex gap-3 pt-2">
+				<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
+					Save
+				</button>
+				<a
+					href={ templ.SafeURL(fmt.Sprintf("/customers/%d", vm.Customer.ID)) }
+					class="rounded-md border border-border-input px-4 py-2 text-body font-medium text-text hover:bg-background"
+				>
+					Cancel
+				</a>
+			</div>
+		</form>
+	</div>
 }

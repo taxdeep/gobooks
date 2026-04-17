@@ -99,7 +99,7 @@ func (s *Server) handleCustomerDetail(c *fiber.Ctx) error {
 		baseCurrencyCode = company.BaseCurrencyCode
 	}
 
-	return pages.CustomerDetail(pages.CustomerDetailVM{
+	vm := pages.CustomerDetailVM{
 		HasCompany:              true,
 		Customer:                workspace.Customer,
 		DefaultPaymentTermLabel: workspace.DefaultPaymentTermLabel,
@@ -113,7 +113,38 @@ func (s *Server) handleCustomerDetail(c *fiber.Ctx) error {
 		AllowedCurrencies:       allowedCurrencies,
 		BaseCurrencyCode:        baseCurrencyCode,
 		CurrencyPolicySaved:     c.Query("policy_saved") == "1",
-	}).Render(c.Context(), c)
+		Editing:                 c.Query("edit") == "1",
+		Saved:                   c.Query("saved") == "1",
+	}
+
+	// Seed the edit form from the current customer record when entering edit
+	// mode. On validation failure handleCustomerDetailUpdate re-renders with
+	// these fields overwritten by the POSTed values.
+	if vm.Editing {
+		s.loadCustomerEditFormData(companyID, &vm)
+		vm.FormName = workspace.Customer.Name
+		vm.FormEmail = workspace.Customer.Email
+		vm.FormCurrencyCode = workspace.Customer.CurrencyCode
+		vm.FormPaymentTerm = workspace.Customer.DefaultPaymentTermCode
+		vm.FormAddrStreet1 = workspace.Customer.AddrStreet1
+		vm.FormAddrStreet2 = workspace.Customer.AddrStreet2
+		vm.FormAddrCity = workspace.Customer.AddrCity
+		vm.FormAddrProvince = workspace.Customer.AddrProvince
+		vm.FormAddrPostalCode = workspace.Customer.AddrPostalCode
+		vm.FormAddrCountry = workspace.Customer.AddrCountry
+	}
+
+	return pages.CustomerDetail(vm).Render(c.Context(), c)
+}
+
+// loadCustomerEditFormData populates dropdown data for the inline edit form.
+// Uses vendorCurrencyInfo since customer + vendor share the same company-level
+// currency configuration (base + allowed list).
+func (s *Server) loadCustomerEditFormData(companyID uint, vm *pages.CustomerDetailVM) {
+	_ = s.DB.Where("company_id = ? AND is_active = true", companyID).
+		Order("sort_order asc, code asc").
+		Find(&vm.PaymentTerms)
+	vm.MultiCurrency, vm.BaseCurrencyCode, vm.Currencies = s.vendorCurrencyInfo(companyID)
 }
 
 func (s *Server) handleCustomerNew(c *fiber.Ctx) error {
