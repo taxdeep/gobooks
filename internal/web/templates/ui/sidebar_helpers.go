@@ -17,21 +17,29 @@ func SectionKeyForActivePage(active string) string {
 		return "expenses"
 	case "Bank Reconcile", "Reports", "Accounts":
 		return "accounting"
-	case "Stock Report", "Warehouse Transfers":
+	case "Products & Services", "Warehouses", "Warehouse Transfers", "Stock Report":
 		return "inventory"
-	case "AI Connect Settings", "Members Settings", "Audit Log", "Products & Services",
-		"Payment Gateways", "Gateway Settlement Review", "Gateway Payouts", "Gateway Disputes",
-		"Recon Exceptions", "Investigation Workspace",
-		"User Preferences Hub", "User Preferences System Setup",
-		"Accounting Books", "AR/AP Control",
-		"Warehouses":
-		return "settings"
 	default:
-		if IsCompanySettingsNavActive(active) {
+		if IsSettingsNavActive(active) {
 			return "settings"
 		}
 		return ""
 	}
+}
+
+// IsSettingsNavActive is true on the top-level /settings hub and every /settings/* sub-page.
+// Used by the collapsed sidebar Settings entry so it stays highlighted anywhere inside settings.
+func IsSettingsNavActive(active string) bool {
+	switch active {
+	case "Settings Hub",
+		"AI Connect Settings", "Members Settings", "Audit Log",
+		"Channels",
+		"Payment Gateways", "Gateway Settlement Review", "Gateway Payouts", "Gateway Disputes",
+		"Recon Exceptions", "Investigation Workspace",
+		"Accounting Books", "AR/AP Control":
+		return true
+	}
+	return IsCompanySettingsNavActive(active) || IsUserPreferencesNavActive(active)
 }
 
 // IsCompanySettingsNavActive is true on Settings > Company hub and all company sub-pages.

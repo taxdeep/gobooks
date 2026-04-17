@@ -31,12 +31,47 @@ templ sidebarShell(vm SidebarVM) {
 						x-transition:leave="transition ease-in duration-75"
 						x-transition:leave-start="opacity-100 scale-100"
 						x-transition:leave-end="opacity-0 scale-95"
-						class="absolute left-0 right-0 top-full z-50 mt-1 rounded-md border border-border bg-surface py-1 shadow-lg"
+						class="absolute left-0 top-full z-50 mt-1 w-[640px] rounded-md border border-border bg-surface p-4 shadow-lg"
 					>
-						@createNewItem("/journal-entry", "Journal Entry", "journal")
-						@createNewItem("/invoices/new", "Invoice", "invoice")
-						@createNewItem("/bills/new", "Bill", "bill")
-						@createNewItem("/tasks/new", "Task", "tasks")
+						<div class="grid grid-cols-3 gap-x-4 gap-y-1">
+							// Customers column
+							<div>
+								<h3 class="mb-2 text-small font-semibold uppercase tracking-wider text-text-muted">Customers</h3>
+								@megaMenuItem("/invoices/new", "Invoice")
+								@megaMenuItem("/quotes/new", "Quote")
+								@megaMenuItem("/sales-orders/new", "Sales Order")
+								@megaMenuItem("/deposits/new", "Customer Deposit")
+								@megaMenuItem("/receipts/new", "Customer Receipt")
+								@megaMenuItem("/banking/receive-payment", "Receive Payment")
+								@megaMenuItem("/credit-notes/new", "Credit Note")
+								@megaMenuItem("/returns/new", "AR Return")
+								@megaMenuItem("/refunds/new", "AR Refund")
+								@megaMenuItem("/write-offs/new", "AR Write-Off")
+								@megaMenuItem("/customers/new", "Add Customer")
+							</div>
+							// Suppliers column
+							<div>
+								<h3 class="mb-2 text-small font-semibold uppercase tracking-wider text-text-muted">Suppliers</h3>
+								@megaMenuItem("/bills/new", "Bill")
+								@megaMenuItem("/purchase-orders/new", "Purchase Order")
+								@megaMenuItem("/expenses/new", "Expense")
+								@megaMenuItem("/vendor-prepayments/new", "Vendor Prepayment")
+								@megaMenuItem("/banking/pay-bills", "Pay Bills")
+								@megaMenuItem("/vendor-credit-notes/new", "Vendor Credit Note")
+								@megaMenuItem("/vendor-returns/new", "Vendor Return")
+								@megaMenuItem("/vendor-refunds/new", "Vendor Refund")
+								@megaMenuItem("/vendors", "Add Vendor")
+							</div>
+							// Other column
+							<div>
+								<h3 class="mb-2 text-small font-semibold uppercase tracking-wider text-text-muted">Other</h3>
+								@megaMenuItem("/journal-entry", "Journal Entry")
+								@megaMenuItem("/inventory/transfers/new", "Warehouse Transfer")
+								@megaMenuItem("/warehouses/new", "Add Warehouse")
+								@megaMenuItem("/products-services?new=1", "Add Product/Service")
+								@megaMenuItem("/tasks/new", "Task")
+							</div>
+						</div>
 					</div>
 				</div>
 			}
@@ -128,8 +163,10 @@ templ sidebarShell(vm SidebarVM) {
 						</svg>
 					</button>
 					<div class="sidebar-section-panel mt-1 space-y-0.5" data-sidebar-panel>
-						@navItem("/inventory/stock", "Stock Report", "reports", vm.Active == "Stock Report")
+						@navItem("/products-services", "Products & Services", "bill", vm.Active == "Products & Services")
+						@navItem("/warehouses", "Warehouses", "warehouse", vm.Active == "Warehouses")
 						@navItem("/inventory/transfers", "Warehouse Transfers", "warehouse", vm.Active == "Warehouse Transfers")
+						@navItem("/inventory/stock", "Stock Report", "reports", vm.Active == "Stock Report")
 					</div>
 				</div>
 
@@ -149,7 +186,6 @@ templ sidebarShell(vm SidebarVM) {
 						@navItem("/banking/reconcile", "Reconciliation", "reconcile", vm.Active == "Bank Reconcile")
 						@navItem("/reports", "Reports", "reports", vm.Active == "Reports")
 						@navItem("/accounts", "Chart of Accounts", "accounts", vm.Active == "Accounts")
-						@navItem("/products-services", "Products & Services", "bill", vm.Active == "Products")
 					</div>
 				</div>
 
@@ -166,16 +202,7 @@ templ sidebarShell(vm SidebarVM) {
 						</svg>
 					</button>
 					<div class="sidebar-section-panel mt-1 space-y-0.5" data-sidebar-panel>
-						@navItem("/settings/company", "Company", "company", IsCompanySettingsNavActive(vm.Active))
-						@navItem("/settings/user-preferences", "User Preferences", "company", IsUserPreferencesNavActive(vm.Active))
-						@navItem("/warehouses", "Warehouses", "warehouse", vm.Active == "Warehouses")
-						@navItem("/settings/channels", "Channels", "company", vm.Active == "Channels")
-						@navItem("/settings/payment-gateways", "Payments", "company", vm.Active == "Payment Gateways")
-						@navItem("/settings/accounting-books", "Accounting Books", "accounts", vm.Active == "Accounting Books")
-						@navItem("/settings/ar-ap-control", "AR/AP Control", "accounts", vm.Active == "AR/AP Control")
-						@navItem("/settings/ai-connect", "AI Connect", "ai", vm.Active == "AI Connect Settings")
-						@navItem("/settings/members", "Members", "members", vm.Active == "Members Settings")
-						@navItem("/settings/audit-log", "Audit Log", "audit", vm.Active == "Audit Log")
+						@navItem("/settings", "Settings", "company", IsSettingsNavActive(vm.Active))
 					</div>
 				</div>
 			}
@@ -262,13 +289,12 @@ templ sidebarCollapseScript() {
 	</script>
 }
 
-templ createNewItem(href string, label string, iconKind string) {
+templ megaMenuItem(href string, label string) {
 	<a
 		href={ href }
-		class="flex items-center gap-3 px-4 py-2 text-body font-medium text-text hover:bg-background"
+		class="block rounded px-2 py-1.5 text-body text-text-muted3 hover:bg-background hover:text-text"
 	>
-		@icon(iconKind)
-		<span>{ label }</span>
+		{ label }
 	</a>
 }
 

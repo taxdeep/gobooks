@@ -24,7 +24,7 @@ func (s *Server) handlePaymentGatewaysHub(c *fiber.Ctx) error {
 	vm := pages.PaymentGatewaysHubVM{
 		HasCompany: true,
 		Breadcrumb: []pages.SettingsBreadcrumbPart{
-			{Label: "Settings", Href: "/settings/company"},
+			{Label: "Settings", Href: "/settings"},
 			{Label: "Payment Gateways"},
 		},
 	}
@@ -42,7 +42,7 @@ func (s *Server) handlePaymentGateways(c *fiber.Ctx) error {
 	vm := pages.PaymentGatewaysVM{
 		HasCompany: true,
 		Breadcrumb: []pages.SettingsBreadcrumbPart{
-			{Label: "Settings", Href: "/settings/company"},
+			{Label: "Settings", Href: "/settings"},
 			{Label: "Payment Gateways", Href: "/settings/payment-gateways"},
 			{Label: "Processors"},
 		},

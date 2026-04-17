@@ -9,6 +9,12 @@ type SettingsBreadcrumbPart struct {
 	Href  string // empty = current page (not a link)
 }
 
+// SettingsHubVM is the top-level Settings landing page (tile grid of every settings area).
+type SettingsHubVM struct {
+	HasCompany bool
+	Breadcrumb []SettingsBreadcrumbPart
+}
+
 // CompanyHubVM is the Company settings landing page.
 type CompanyHubVM struct {
 	HasCompany  bool

@@ -27,6 +27,10 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Get("/select-company", s.LoadSession(), s.RequireAuth(), s.handleSelectCompanyGet)
 	app.Post("/select-company", s.LoadSession(), s.RequireAuth(), s.handleSelectCompanyPost)
 
+	// ── 设置总入口 ────────────────────────────────────────────────────────────
+	// 单一 /settings hub 页，汇总所有公司级设置入口。GET 对所有成员开放。
+	app.Get("/settings", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleSettingsHub)
+
 	// ── 设置：公司档案 ───────────────────────────────────────────────────────────
 	// GET 页面对所有成员开放；POST 变更需要 manage_settings（owner / admin）
 	app.Get("/settings/company/profile", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCompanyProfileForm)

@@ -5,14 +5,14 @@ import "gobooks/internal/web/templates/pages"
 
 func breadcrumbSettingsCompanyHub() []pages.SettingsBreadcrumbPart {
 	return []pages.SettingsBreadcrumbPart{
-		{Label: "Settings", Href: "/settings/company"},
+		{Label: "Settings", Href: "/settings"},
 		{Label: "Company", Href: ""},
 	}
 }
 
 func breadcrumbSettingsCompanyProfile() []pages.SettingsBreadcrumbPart {
 	return []pages.SettingsBreadcrumbPart{
-		{Label: "Settings", Href: "/settings/company"},
+		{Label: "Settings", Href: "/settings"},
 		{Label: "Company", Href: "/settings/company"},
 		{Label: "Profile", Href: ""},
 	}
@@ -20,7 +20,7 @@ func breadcrumbSettingsCompanyProfile() []pages.SettingsBreadcrumbPart {
 
 func breadcrumbSettingsCompanyTemplates() []pages.SettingsBreadcrumbPart {
 	return []pages.SettingsBreadcrumbPart{
-		{Label: "Settings", Href: "/settings/company"},
+		{Label: "Settings", Href: "/settings"},
 		{Label: "Company", Href: "/settings/company"},
 		{Label: "Templates", Href: ""},
 	}
@@ -28,7 +28,7 @@ func breadcrumbSettingsCompanyTemplates() []pages.SettingsBreadcrumbPart {
 
 func breadcrumbSettingsCompanySalesTax() []pages.SettingsBreadcrumbPart {
 	return []pages.SettingsBreadcrumbPart{
-		{Label: "Settings", Href: "/settings/company"},
+		{Label: "Settings", Href: "/settings"},
 		{Label: "Company", Href: "/settings/company"},
 		{Label: "Sales Tax", Href: ""},
 	}
@@ -36,7 +36,7 @@ func breadcrumbSettingsCompanySalesTax() []pages.SettingsBreadcrumbPart {
 
 func breadcrumbSettingsCompanyNumbering() []pages.SettingsBreadcrumbPart {
 	return []pages.SettingsBreadcrumbPart{
-		{Label: "Settings", Href: "/settings/company"},
+		{Label: "Settings", Href: "/settings"},
 		{Label: "Company", Href: "/settings/company"},
 		{Label: "Numbering", Href: ""},
 	}
@@ -44,14 +44,14 @@ func breadcrumbSettingsCompanyNumbering() []pages.SettingsBreadcrumbPart {
 
 func breadcrumbSettingsAIConnect() []pages.SettingsBreadcrumbPart {
 	return []pages.SettingsBreadcrumbPart{
-		{Label: "Settings", Href: "/settings/company"},
+		{Label: "Settings", Href: "/settings"},
 		{Label: "AI Connect", Href: ""},
 	}
 }
 
 func breadcrumbSettingsCompanyNotifications() []pages.SettingsBreadcrumbPart {
 	return []pages.SettingsBreadcrumbPart{
-		{Label: "Settings", Href: "/settings/company"},
+		{Label: "Settings", Href: "/settings"},
 		{Label: "Company", Href: "/settings/company"},
 		{Label: "Notifications", Href: ""},
 	}
@@ -59,7 +59,7 @@ func breadcrumbSettingsCompanyNotifications() []pages.SettingsBreadcrumbPart {
 
 func breadcrumbSettingsCompanySecurity() []pages.SettingsBreadcrumbPart {
 	return []pages.SettingsBreadcrumbPart{
-		{Label: "Settings", Href: "/settings/company"},
+		{Label: "Settings", Href: "/settings"},
 		{Label: "Company", Href: "/settings/company"},
 		{Label: "Security", Href: ""},
 	}
@@ -67,7 +67,7 @@ func breadcrumbSettingsCompanySecurity() []pages.SettingsBreadcrumbPart {
 
 func breadcrumbSettingsCompanyPaymentTerms() []pages.SettingsBreadcrumbPart {
 	return []pages.SettingsBreadcrumbPart{
-		{Label: "Settings", Href: "/settings/company"},
+		{Label: "Settings", Href: "/settings"},
 		{Label: "Company", Href: "/settings/company"},
 		{Label: "Payment Terms", Href: ""},
 	}
@@ -75,7 +75,7 @@ func breadcrumbSettingsCompanyPaymentTerms() []pages.SettingsBreadcrumbPart {
 
 func breadcrumbSettingsCompanyCurrency() []pages.SettingsBreadcrumbPart {
 	return []pages.SettingsBreadcrumbPart{
-		{Label: "Settings", Href: "/settings/company"},
+		{Label: "Settings", Href: "/settings"},
 		{Label: "Company", Href: "/settings/company"},
 		{Label: "Currency", Href: ""},
 	}
@@ -83,7 +83,7 @@ func breadcrumbSettingsCompanyCurrency() []pages.SettingsBreadcrumbPart {
 
 func breadcrumbSettingsExchangeRates() []pages.SettingsBreadcrumbPart {
 	return []pages.SettingsBreadcrumbPart{
-		{Label: "Settings", Href: "/settings/company"},
+		{Label: "Settings", Href: "/settings"},
 		{Label: "Company", Href: "/settings/company"},
 		{Label: "Currency", Href: "/settings/company/currency"},
 		{Label: "Exchange Rates", Href: ""},
