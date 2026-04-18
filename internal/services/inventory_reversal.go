@@ -104,7 +104,7 @@ func reverseDocumentMovements(tx *gorm.DB, companyID, reversalJEID uint, scope r
 		if orig.ReversedByMovementID != nil {
 			continue
 		}
-		result, err := inventory.ReverseMovement(tx, inventory.ReverseMovementInput{
+		if _, err := inventory.ReverseMovement(tx, inventory.ReverseMovementInput{
 			CompanyID:          companyID,
 			OriginalMovementID: orig.ID,
 			MovementDate:       scope.movementDate,
@@ -113,20 +113,10 @@ func reverseDocumentMovements(tx *gorm.DB, companyID, reversalJEID uint, scope r
 			SourceID:           scope.sourceID,
 			IdempotencyKey:     fmt.Sprintf("%s:%d:reverse:%d:v1", scope.sourceType, scope.sourceID, orig.ID),
 			Memo:               scope.memo,
-		})
-		if err != nil {
+		}); err != nil {
 			return fmt.Errorf("reverse movement %d: %w", orig.ID, translateInventoryErr(err))
 		}
-
-		// Legacy JE linkage — removed in slice 8.
-		if reversalJEID > 0 {
-			if err := tx.Model(&models.InventoryMovement{}).
-				Where("id = ?", result.ReversalMovementID).
-				Update("journal_entry_id", reversalJEID).Error; err != nil {
-				return fmt.Errorf("link reversal movement %d to journal %d: %w",
-					result.ReversalMovementID, reversalJEID, err)
-			}
-		}
 	}
+	_ = reversalJEID // intentionally unused post-slice-8; retained in caller signatures for compat
 	return nil
 }

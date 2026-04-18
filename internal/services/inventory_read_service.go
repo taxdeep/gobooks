@@ -116,19 +116,22 @@ func ListItemValuations(db *gorm.DB, companyID uint) map[uint]ItemValuation {
 // ── Movement history ─────────────────────────────────────────────────────────
 
 // MovementRow is a display-ready inventory movement for the ledger page.
+// Phase D.0 slice 8: the JournalEntryID field was removed when the
+// underlying column was dropped. Consumers that need the JE for a
+// movement resolve it via SourceType + SourceID → business document →
+// document.journal_entry_id.
 type MovementRow struct {
-	ID             uint
-	Date           string
-	MovementType   string
-	MovementLabel  string // human-friendly label
-	SourceType     string
-	SourceLabel    string // human-friendly label
-	SourceID       *uint
-	QuantityDelta  string
-	UnitCost       string
-	TotalCost      string
-	JournalEntryID *uint
-	Note           string
+	ID            uint
+	Date          string
+	MovementType  string
+	MovementLabel string // human-friendly label
+	SourceType    string
+	SourceLabel   string // human-friendly label
+	SourceID      *uint
+	QuantityDelta string
+	UnitCost      string
+	TotalCost     string
+	Note          string
 	// Warehouse info (empty string = legacy movement, no warehouse routing)
 	WarehouseCode string
 	WarehouseName string
@@ -163,20 +166,19 @@ func ListMovements(db *gorm.DB, companyID, itemID uint, limit, offset int) ([]Mo
 			whName = m.Warehouse.Name
 		}
 		rows[i] = MovementRow{
-			ID:             m.ID,
-			Date:           m.MovementDate.Format("2006-01-02"),
-			MovementType:   string(m.MovementType),
-			MovementLabel:  movementTypeLabel(string(m.MovementType)),
-			SourceType:     m.SourceType,
-			SourceLabel:    sourceTypeLabel(m.SourceType),
-			SourceID:       m.SourceID,
-			QuantityDelta:  m.QuantityDelta.String(),
-			UnitCost:       formatOptDecimal(m.UnitCost),
-			TotalCost:      formatOptDecimal(m.TotalCost),
-			JournalEntryID: m.JournalEntryID,
-			Note:           m.ReferenceNote,
-			WarehouseCode:  whCode,
-			WarehouseName:  whName,
+			ID:            m.ID,
+			Date:          m.MovementDate.Format("2006-01-02"),
+			MovementType:  string(m.MovementType),
+			MovementLabel: movementTypeLabel(string(m.MovementType)),
+			SourceType:    m.SourceType,
+			SourceLabel:   sourceTypeLabel(m.SourceType),
+			SourceID:      m.SourceID,
+			QuantityDelta: m.QuantityDelta.String(),
+			UnitCost:      formatOptDecimal(m.UnitCost),
+			TotalCost:     formatOptDecimal(m.TotalCost),
+			Note:          m.ReferenceNote,
+			WarehouseCode: whCode,
+			WarehouseName: whName,
 		}
 	}
 	return rows, total, nil

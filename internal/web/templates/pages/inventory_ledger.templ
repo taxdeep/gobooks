@@ -186,14 +186,13 @@ templ bodyInventoryLedger(vm InventoryLedgerVM) {
 							<th class="py-3 pr-4 text-right">Qty Change</th>
 							<th class="py-3 pr-4 text-right">Unit Cost</th>
 							<th class="py-3 pr-4 text-right">Total Cost</th>
-							<th class="py-3 pr-4">JE</th>
 							<th class="py-3 pr-0">Notes</th>
 						</tr>
 					</thead>
 					<tbody class="text-text">
 						if len(vm.Movements) == 0 {
 							<tr>
-								<td colspan="9" class="py-6 text-center text-text-muted2">
+								<td colspan="8" class="py-6 text-center text-text-muted2">
 									No inventory movements recorded yet.
 								</td>
 							</tr>
@@ -224,13 +223,6 @@ templ bodyInventoryLedger(vm InventoryLedgerVM) {
 								</td>
 								<td class="py-3 pr-4 text-right tabular-nums text-text-muted2">{ m.UnitCost }</td>
 								<td class="py-3 pr-4 text-right tabular-nums">{ m.TotalCost }</td>
-								<td class="py-3 pr-4 text-small text-text-muted2">
-									if m.JournalEntryID != nil {
-										#{ Uitoa(*m.JournalEntryID) }
-									} else {
-										<span class="text-text-muted3">—</span>
-									}
-								</td>
 								<td class="py-3 pr-0 text-small text-text-muted2 max-w-xs truncate">
 									if m.Note != "" {
 										{ m.Note }

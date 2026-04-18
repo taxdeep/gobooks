@@ -100,11 +100,10 @@ type InventoryMovement struct {
 	// header-level sources like opening balances or stock counts.
 	SourceLineID *uint `gorm:"index"`
 
-	// JournalEntryID: DEPRECATED reverse coupling to GL. Will be removed in
-	// a follow-up cleanup once all readers resolve JE via source_type +
-	// source_id -> business document -> document.journal_entry_id. Do not
-	// populate from new code paths.
-	JournalEntryID *uint `gorm:"index"`
+	// (The old JournalEntryID reverse coupling was dropped in Phase D.0
+	// slice 8 — migration 057. Readers that need the JE for a movement
+	// resolve it via source_type + source_id -> business document ->
+	// document.journal_entry_id.)
 
 	ReferenceNote string `gorm:"type:text;not null;default:''"`
 	// Memo is the human-readable context written by the IN event caller
