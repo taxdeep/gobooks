@@ -1357,6 +1357,188 @@ adopt Receipt-first immediately after Phase H stabilises; old companies
 retain Bill-direct-to-inventory only behind a legacy flag. Phase G is
 not an architecture; it's a transition window.
 
+### Phase H — Receipt as first-class inventory document  *(scope locked, H.0 pinned)*
+
+Phase G's transitional exit condition now comes due. Phase H lifts
+Receipt to a first-class inventory document, retires Bill's long-term
+role as an inventory-truth producer, and introduces GR/IR clearing as
+the accounting bridge between receiving goods and receiving an
+invoice. These three shifts are coupled by design: each individually
+is incomplete, and any one without the other two produces a broken
+half-state. Phase H is **not** "better Bill receiving"; it is the
+architectural settle-up that Phase G was designed to survive until.
+
+#### Scope
+
+1. New document type: `Receipt` + `ReceiptLine` (company-scoped,
+   draft/posted lifecycle, minimum-viable CRUD). First-class — not a
+   Bill attachment, not a field container hung off `bill_lines`.
+2. New capability flag: `companies.receipt_required BOOLEAN NOT NULL
+   DEFAULT FALSE`. Installed as a **dormant rail** in H.1 — the
+   column and the audited admin surface exist; no real company is
+   flipped; the flag does not gate anything operationally until H.5.
+3. Receipt posting produces inventory truth
+   (`ReceiveStockFromReceipt`) and accrues `Dr Inventory / Cr GR/IR`
+   at the business-document layer.
+4. Tracked inbound data (`lot_number`, `lot_expiry_date`,
+   `warehouse_id`) migrates in *semantic ownership* to ReceiptLine.
+   The Phase G.4 columns on `bill_lines` are preserved physically
+   for legacy companies but stop being the authoritative source once
+   `receipt_required=true`.
+5. Bill posting, under `receipt_required=true`, no longer forms
+   inventory. Bill clears GR/IR against posted Receipts; unmatched /
+   partial / over / under cases have explicit rules. Price deltas
+   flow to a Purchase-Price-Variance (PPV) account in H.5.
+
+#### Non-scope
+
+- **Sell-side Shipment / tracked invoicing / customer returns.**
+  All sell-side document separation is Phase I. Phase H does not
+  touch the outbound path.
+- **Manufacturing receipt / work-order receipt.** Build-side
+  tracked inbound is Phase K.
+- **Admin UI for `receipt_required`.** No customer-visible toggle
+  ships in Phase H. Enablement stays engineering-only until H.5
+  locks safety. A UI lands separately, deliberately after H.5.
+- **Bulk backfill of historical Bills into synthetic Receipts.**
+  Legacy receiving history stays on Bill. Phase H is forward-
+  looking; it does not rewrite the past.
+- **Changes to Bill's state machine.** §Phase G.3 contract stands
+  verbatim — `draft → posted → partially_paid → paid` and
+  `posted|partially_paid → voided`. Phase H changes what Bill
+  *does* at post, never what states it inhabits.
+- **Multi-company or cross-warehouse Receipt.** One Receipt lives
+  in one company, lands in one warehouse. Split / transfer /
+  multi-warehouse receiving is explicitly not a Phase H shape.
+- **`inventory_costing_method` changes.** FIFO / moving-average
+  semantics are untouched. Receipt feeds the same costing pipeline
+  that Bill fed in Phase G.
+- **Permission catalog implementation.** `receipt.*` permission
+  strings are reserved (§10 naming convention) but their
+  enforcement lands with Phase J.
+
+#### Exit conditions (all must hold before Phase H closes)
+
+1. `receipts` + `receipt_lines` tables persisted, CRUD surfaced,
+   lifecycle tested (draft → posted, posted → voided).
+2. `receipt_required` rail present, audited on flip, and **NOT
+   flipped ON for any real company** — dormant by design until
+   H.5.
+3. Under `receipt_required=true` (test companies only, during
+   engineering verification):
+   - Receipt posting forms inventory movements **and** a
+     business-document-layer journal `Dr Inventory / Cr GR/IR`.
+   - Bill posting forms AP only; `CreatePurchaseMovements` is not
+     called; no inventory movement, no stock row touched by Bill.
+   - Bill post attempts GR/IR clearing against matching Receipts;
+     differences land in PPV. Over / under / partial cases have
+     deterministic outcomes locked by test.
+   - BillLine tracking fields (`lot_number` / `lot_expiry_date` /
+     `warehouse_id`) are not read by the inventory integration
+     and not written by any new code path.
+4. Under `receipt_required=false` (legacy default, every existing
+   company), Phase G behavior is **byte-identical** — no
+   regression, no stealth migration, no audit noise from flags
+   that didn't flip.
+5. Smoke suite covers at minimum: happy-path Receipt →
+   matching-Bill clearing, over-match, under-match, unmatched-
+   Bill (GR/IR accrual with no clearing yet), unmatched-Receipt
+   aging, tracked Receipt (lot + expiry), serial-tracked Receipt
+   (the pattern Phase G.4 could not support).
+6. Only **after** all of the above, `receipt_required=true`
+   becomes a permitted operational state. No company flip before
+   H.5 close, under any pretext.
+
+#### Three hard rules (non-negotiable)
+
+1. **Receipt is the inventory-truth entry.** Under Phase H's
+   receipt-first semantics, inbound `ReceiveStock` originates from
+   Receipt posting. Bill MAY carry tracking fields for legacy
+   (`receipt_required=false`) companies, but the inventory module
+   treats Bill-originated inbound as a legacy path gated by the
+   flag. Any new code path that needs to form inbound inventory
+   under Phase H rules MUST route through Receipt. A Bill-shaped
+   backdoor into `ReceiveStock` under `receipt_required=true` is
+   a spec violation.
+
+2. **Bill stops being a long-term inventory-truth producer.**
+   Under `receipt_required=true`, `CreatePurchaseMovements` does
+   not fire on bill post. The `bill_lines.lot_number` /
+   `.lot_expiry_date` / `.warehouse_id` columns remain in schema
+   for legacy compatibility, but they are **frozen as a
+   transitional home**: no new feature may extend their semantics,
+   and no new capture path may write them. New tracked-receipt
+   capture lands on `receipt_lines`. Legacy companies
+   (`receipt_required=false`) retain Phase G behavior
+   indefinitely; they are not forced off.
+
+3. **GR/IR is the bridge, not a leak.** The GR/IR clearing account
+   and all accrual / clearing / PPV logic live in the business-
+   document layer (bill-post and receipt-post orchestration). The
+   inventory package continues to return cost-only shapes and stays
+   GL-agnostic: it must remain production-import-free of
+   accounting, chart-of-accounts, and journal-entry packages. Any
+   GR/IR posting logic belongs in the business-document layer, not
+   in the inventory package. A test lock (added in H.3) enforces
+   this at the semantic level; the concrete import-path matcher in
+   the test may be updated if packages are renamed or relocated,
+   but the rule being tested is directional and does not depend on
+   specific paths. Any future pressure to "push GR/IR into the
+   inventory module for convenience" is rejected on sight.
+
+#### Slice plan (binding)
+
+| Slice | Scope | Entry gate |
+|---|---|---|
+| **H.0** | This spec section. Scope / non-scope / exit / hard rules / slice plan / borders pinned in the canonical API doc. | — |
+| **H.1** | `companies.receipt_required BOOLEAN NOT NULL DEFAULT FALSE` column. `ChangeCompanyReceiptRequired(companyID, required, actor)` audited admin surface, F.7 capability-gate pattern. **Dormant rail.** No UI, no default-true, no existing company flipped, no consumer reads the flag yet. | H.0 approved |
+| **H.2** | `receipts` + `receipt_lines` tables. `models.Receipt`, `models.ReceiptLine`. Minimal lifecycle (`draft`, `posted`, `voided`). CRUD in services. Source-identity reservation fields for future Phase I linkage (purchase-order-line anchor, at minimum). **No Bill decoupling yet, no matching yet, no inventory formation yet.** | H.1 shipped |
+| **H.3** | `ReceiveStockFromReceipt` inventory service. Receipt post → inventory movements (through the existing `ReceiveStock` path, tracked data read from `receipt_lines`) + business-document-layer journal `Dr Inventory / Cr GR/IR`. Inventory module stays GL-agnostic; GR/IR journal lives in `receipt_post.go`. | H.2 shipped |
+| **H.4** | Transitional decoupling. Under `receipt_required=true`, `CreatePurchaseMovements` is a no-op for inventory and BillLine tracking fields are neither read nor written by the inventory integration. Under `receipt_required=false` (legacy, default), Phase G behavior is byte-identical. Fields stay physically on `bill_lines`. Documented as frozen transitional home. | H.3 shipped |
+| **H.5** | Bill ↔ Receipt matching. On bill post under `receipt_required=true`: clear GR/IR against posted Receipts; compute variance on price mismatch → PPV account; define behavior for unmatched, partial, over, under. **Operational enablement unlocked only at H.5 close.** Before H.5 ships, no real company may run `receipt_required=true`. | H.4 shipped |
+
+#### Two hard borders
+
+**Border 1 — Phase H entering ≠ `receipt_required` enabling.**
+H.1 installs the column and the admin surface; every real company
+stays `receipt_required=false` until H.5 closes. Any flip before
+H.5 produces a half-bridged state (Receipt forms inventory, Bill
+cannot clear GR/IR) that is strictly worse than Phase G. This
+border is enforced by engineering discipline, not by code — code
+cannot distinguish a "test company" from a "real company" — so the
+rule lives in this spec and in review. A reviewer seeing a PR that
+flips a real company's `receipt_required` before H.5 close rejects
+it on sight, citing this paragraph.
+
+**Border 2 — H.4 and H.5 stay separated.** H.4 is a
+data-ownership migration (where tracking truth comes from). H.5 is
+a financial-clearing addition (how GR/IR resolves against Bill).
+They fail in completely different ways: H.4 regressions corrupt
+tracking capture; H.5 regressions produce stuck GR/IR balances,
+wrong variance signs, or silent over-clearing. Reviewing both
+together obscures which side broke. Any proposal to bundle these
+slices for "simplicity" is rejected by this border.
+
+#### Deliberately-deferred-to-later-phase
+
+- **Phase I** — Shipment as first-class document, sell-side source
+  identity (SO → Shipment → Sales-Issue → Invoice), tracked
+  invoicing, customer return workflow.
+- **Phase J** — permission catalog enforcement (the `receipt.*`
+  strings become real permissions with assignable roles).
+- **Phase K** — manufacturing: tracked component consumption via
+  Build, work-order receipt flow.
+- **Legacy Bill-forms-inventory path.** Remains available only as
+  a transitional compatibility mode for companies on
+  `receipt_required=false`, and only until a separate migration /
+  deprecation slice retires it. It is **not** part of the long-
+  term authoritative architecture — consistent with Phase G's
+  framing as a transition window, not a permanent shape. Phase H
+  does not schedule the retirement; a future slice will, and that
+  slice is where the deprecation clock starts. The `bill_lines`
+  tracking columns live on the same clock: transitional home, not
+  long-term home.
+
 ---
 
 ## 8. Open questions — status after Phase D / E / F
