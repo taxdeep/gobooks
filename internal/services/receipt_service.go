@@ -385,9 +385,24 @@ func ListReceipts(db *gorm.DB, companyID uint, filter ListReceiptsFilter) ([]mod
 	return rows, nil
 }
 
-// PostReceipt flips a draft Receipt to posted. Writes one audit row
-// with action = `receipt.posted`. No inventory, no JE — those wire
-// in H.3.
+// PostReceipt flips a draft Receipt to posted and, under Phase H
+// Receipt-first semantics (companies.receipt_required=true), drives
+// the full Receipt → receive truth → inventory effect chain and
+// books the business-document-layer JE (Dr Inventory / Cr GR/IR).
+//
+// Flag gating (H.3):
+//   - receipt_required=false (legacy default): status flip + audit
+//     only. Byte-identical to H.2 behavior. Legacy companies continue
+//     on the Bill-forms-inventory path; Receipt under flag=false is
+//     effectively a dress-rehearsal document with no system truth.
+//   - receipt_required=true: the full Receipt-first flow runs.
+//     Receive truth lands as inventory_movements rows with
+//     source_type='receipt'; inventory effect propagates through the
+//     inventory module's standard cost-layer / balance machinery;
+//     the JE is constructed from the base-currency values returned
+//     by inventory.ReceiveStock and linked back via receipts.journal_entry_id.
+//
+// Writes exactly one audit row (`receipt.posted`) in both branches.
 func PostReceipt(db *gorm.DB, companyID, id uint, actor string, actorUserID *uuid.UUID) (*models.Receipt, error) {
 	var out models.Receipt
 	err := db.Transaction(func(tx *gorm.DB) error {
@@ -398,9 +413,36 @@ func PostReceipt(db *gorm.DB, companyID, id uint, actor string, actorUserID *uui
 		if r.Status != models.ReceiptStatusDraft {
 			return fmt.Errorf("%w: current=%s", ErrInboundReceiptAlreadyPosted, r.Status)
 		}
+
+		// Re-read the company inside the tx to pick up the latest
+		// receipt_required flag (its admin surface commits before
+		// PostReceipt begins; read-then-act is safe inside this tx).
+		var company models.Company
+		if err := tx.Where("id = ?", companyID).First(&company).Error; err != nil {
+			return fmt.Errorf("load company: %w", err)
+		}
+
+		// Preload lines with ProductService resolved so
+		// CreateReceiptMovements / JE builder can read inventory
+		// accounts without a second round trip.
+		if err := tx.Preload("Lines.ProductService").
+			First(r, r.ID).Error; err != nil {
+			return fmt.Errorf("preload receipt: %w", err)
+		}
+
+		var postedJEID *uint
+		if company.ReceiptRequired {
+			jeID, err := postReceiptReceiveTruthAndJE(tx, companyID, *r, actor)
+			if err != nil {
+				return err
+			}
+			postedJEID = jeID
+		}
+
 		now := time.Now().UTC()
 		r.Status = models.ReceiptStatusPosted
 		r.PostedAt = &now
+		r.JournalEntryID = postedJEID
 		if err := tx.Save(r).Error; err != nil {
 			return fmt.Errorf("save receipt: %w", err)
 		}
@@ -411,7 +453,11 @@ func PostReceipt(db *gorm.DB, companyID, id uint, actor string, actorUserID *uui
 			"receipt",
 			r.ID,
 			actorOrSystem(actor),
-			map[string]any{"receipt_number": r.ReceiptNumber},
+			map[string]any{
+				"receipt_number":   r.ReceiptNumber,
+				"journal_entry_id": nilableUintAsAny(postedJEID),
+				"receipt_required": company.ReceiptRequired,
+			},
 			&cid,
 			actorUserID,
 			map[string]any{"status": string(models.ReceiptStatusDraft)},
@@ -426,9 +472,114 @@ func PostReceipt(db *gorm.DB, companyID, id uint, actor string, actorUserID *uui
 	return &out, nil
 }
 
-// VoidReceipt flips a posted Receipt to voided. Writes one audit row
-// with action = `receipt.voided`. No inventory reversal, no JE
-// reversal — those wire in H.3.
+// postReceiptReceiveTruthAndJE runs the H.3 flag=true branch of
+// PostReceipt: project receipt lines to receive-truth via
+// CreateReceiptMovements, then build the JE (Dr Inventory per line,
+// Cr GR/IR total) and post it through the standard journal pipeline.
+// Returns the created JournalEntry ID (may be nil when the receipt
+// has no stock-item lines — legit: a receipt of pure services has no
+// inventory accrual to book).
+func postReceiptReceiveTruthAndJE(tx *gorm.DB, companyID uint, receipt models.Receipt, actor string) (*uint, error) {
+	results, err := CreateReceiptMovements(tx, receipt)
+	if err != nil {
+		return nil, fmt.Errorf("create receipt movements: %w", err)
+	}
+	if len(results) == 0 {
+		// No stock lines → no inventory accrual → no JE. Still a
+		// valid posted Receipt (e.g. a service-only delivery note).
+		return nil, nil
+	}
+
+	grirAccountID, err := resolveGRIRAccount(tx, companyID)
+	if err != nil {
+		return nil, err
+	}
+	frags, err := buildReceiptPostingFragments(results, grirAccountID, receipt.ReceiptNumber)
+	if err != nil {
+		return nil, err
+	}
+	if len(frags) == 0 {
+		return nil, nil
+	}
+	jeLines, err := AggregateJournalLines(frags)
+	if err != nil {
+		return nil, fmt.Errorf("aggregate journal lines: %w", err)
+	}
+	// Double-entry balance check: sums must equal in base currency.
+	debitSum := sumPostingDebits(jeLines)
+	creditSum := sumPostingCredits(jeLines)
+	if !debitSum.Equal(creditSum) {
+		return nil, fmt.Errorf(
+			"receipt JE imbalance: debit %s, credit %s",
+			debitSum.StringFixed(2), creditSum.StringFixed(2),
+		)
+	}
+
+	je := models.JournalEntry{
+		CompanyID:  companyID,
+		EntryDate:  receipt.ReceiptDate,
+		JournalNo:  receipt.ReceiptNumber,
+		Status:     models.JournalEntryStatusPosted,
+		SourceType: models.LedgerSourceReceipt,
+		SourceID:   receipt.ID,
+	}
+	if err := wrapUniqueViolation(tx.Create(&je).Error, "create receipt journal entry"); err != nil {
+		return nil, fmt.Errorf("create journal entry: %w", err)
+	}
+
+	createdLines := make([]models.JournalLine, 0, len(jeLines))
+	for _, jl := range jeLines {
+		line := models.JournalLine{
+			CompanyID:      companyID,
+			JournalEntryID: je.ID,
+			AccountID:      jl.AccountID,
+			TxDebit:        jl.Debit,
+			TxCredit:       jl.Credit,
+			Debit:          jl.Debit,
+			Credit:         jl.Credit,
+			Memo:           jl.Memo,
+		}
+		// Vendor linkage carried at party level so the GR/IR line is
+		// traceable back to the supplier on reports.
+		if receipt.VendorID != nil && *receipt.VendorID != 0 {
+			line.PartyType = models.PartyTypeVendor
+			line.PartyID = *receipt.VendorID
+		}
+		if err := tx.Create(&line).Error; err != nil {
+			return nil, fmt.Errorf("create receipt journal line: %w", err)
+		}
+		createdLines = append(createdLines, line)
+	}
+
+	if err := ProjectToLedger(tx, companyID, LedgerPostInput{
+		JournalEntry: je,
+		Lines:        createdLines,
+		SourceType:   models.LedgerSourceReceipt,
+		SourceID:     receipt.ID,
+	}); err != nil {
+		return nil, fmt.Errorf("project receipt to ledger: %w", err)
+	}
+	return &je.ID, nil
+}
+
+// VoidReceipt flips a posted Receipt to voided. When the receipt was
+// posted under receipt_required=true (presence of journal_entry_id
+// is the signal), also reverses:
+//   1. The inventory movements (receive truth) via ReverseReceiptMovements
+//      — the inventory module books reversal movements; balances /
+//      cost layers unwind internally through the same machinery that
+//      supports VoidBill.
+//   2. The JE — a reversal JE is posted (debit/credit swapped),
+//      original JE flips to status=reversed, ledger entries for the
+//      original are marked reversed, and the reversal JE is projected
+//      to the ledger.
+//
+// When the receipt was posted without a JE (flag=false, or flag=true
+// with no stock lines), void is a status flip + audit only, matching
+// the H.2 behavior.
+//
+// Writes exactly one audit row (`receipt.voided`) regardless of
+// branch.
 func VoidReceipt(db *gorm.DB, companyID, id uint, actor string, actorUserID *uuid.UUID) (*models.Receipt, error) {
 	var out models.Receipt
 	err := db.Transaction(func(tx *gorm.DB) error {
@@ -439,6 +590,26 @@ func VoidReceipt(db *gorm.DB, companyID, id uint, actor string, actorUserID *uui
 		if r.Status != models.ReceiptStatusPosted {
 			return fmt.Errorf("%w: current=%s", ErrInboundReceiptNotPosted, r.Status)
 		}
+
+		// If the receipt had inventory effect at post time (JE linked),
+		// reverse the JE + movements. Otherwise, pure status flip.
+		var reversedJEID *uint
+		if r.JournalEntryID != nil {
+			// Load the receipt with lines for the reversal helper.
+			// ReceiptLine rows carry enough identity for
+			// reverseDocumentMovements to find the original movements
+			// by (company, source_type='receipt', source_id=r.ID).
+			if err := tx.Preload("Lines.ProductService").
+				First(r, r.ID).Error; err != nil {
+				return fmt.Errorf("preload receipt for void: %w", err)
+			}
+			jeID, err := voidReceiptReverseJEAndMovements(tx, companyID, *r)
+			if err != nil {
+				return err
+			}
+			reversedJEID = jeID
+		}
+
 		now := time.Now().UTC()
 		r.Status = models.ReceiptStatusVoided
 		r.VoidedAt = &now
@@ -452,7 +623,11 @@ func VoidReceipt(db *gorm.DB, companyID, id uint, actor string, actorUserID *uui
 			"receipt",
 			r.ID,
 			actorOrSystem(actor),
-			map[string]any{"receipt_number": r.ReceiptNumber},
+			map[string]any{
+				"receipt_number":    r.ReceiptNumber,
+				"original_je_id":    nilableUintAsAny(r.JournalEntryID),
+				"reversal_je_id":    nilableUintAsAny(reversedJEID),
+			},
 			&cid,
 			actorUserID,
 			map[string]any{"status": string(models.ReceiptStatusPosted)},
@@ -605,4 +780,85 @@ func loadReceiptForUpdate(tx *gorm.DB, companyID, id uint) (*models.Receipt, err
 		return nil, fmt.Errorf("load receipt: %w", err)
 	}
 	return &r, nil
+}
+
+// voidReceiptReverseJEAndMovements reverses the JE and the inventory
+// movements associated with a previously-posted Receipt. Mirrors the
+// VoidBill reversal pattern so that the same void semantics apply
+// regardless of which document produced the inbound. Returns the
+// reversal JE ID for audit capture.
+func voidReceiptReverseJEAndMovements(tx *gorm.DB, companyID uint, receipt models.Receipt) (*uint, error) {
+	if receipt.JournalEntryID == nil {
+		return nil, nil
+	}
+
+	// Load original JE with lines for the debit/credit swap.
+	var origJE models.JournalEntry
+	if err := tx.Preload("Lines").
+		Where("id = ? AND company_id = ?", *receipt.JournalEntryID, companyID).
+		First(&origJE).Error; err != nil {
+		return nil, fmt.Errorf("load original receipt JE: %w", err)
+	}
+	if len(origJE.Lines) == 0 {
+		return nil, fmt.Errorf("original receipt JE %d has no lines", origJE.ID)
+	}
+
+	// Reversal JE header.
+	reversalJE := models.JournalEntry{
+		CompanyID:      companyID,
+		EntryDate:      origJE.EntryDate,
+		JournalNo:      "VOID-" + receipt.ReceiptNumber,
+		ReversedFromID: &origJE.ID,
+		Status:         models.JournalEntryStatusPosted,
+		SourceType:     models.LedgerSourceReversal,
+		SourceID:       receipt.ID,
+	}
+	if err := wrapUniqueViolation(tx.Create(&reversalJE).Error, "create reversal receipt JE"); err != nil {
+		return nil, fmt.Errorf("create reversal JE: %w", err)
+	}
+
+	createdRevLines := make([]models.JournalLine, 0, len(origJE.Lines))
+	for _, l := range origJE.Lines {
+		line := models.JournalLine{
+			CompanyID:      companyID,
+			JournalEntryID: reversalJE.ID,
+			AccountID:      l.AccountID,
+			Debit:          l.Credit,
+			Credit:         l.Debit,
+			Memo:           "VOID: " + l.Memo,
+			PartyType:      l.PartyType,
+			PartyID:        l.PartyID,
+		}
+		if err := tx.Create(&line).Error; err != nil {
+			return nil, fmt.Errorf("create reversal line: %w", err)
+		}
+		createdRevLines = append(createdRevLines, line)
+	}
+
+	// Mark original JE reversed.
+	if err := tx.Model(&models.JournalEntry{}).
+		Where("id = ? AND company_id = ?", origJE.ID, companyID).
+		Update("status", models.JournalEntryStatusReversed).Error; err != nil {
+		return nil, fmt.Errorf("mark original JE reversed: %w", err)
+	}
+	// Flip original ledger entries + project reversal.
+	if err := MarkLedgerEntriesReversed(tx, companyID, origJE.ID); err != nil {
+		return nil, fmt.Errorf("mark ledger entries reversed: %w", err)
+	}
+	if err := ProjectToLedger(tx, companyID, LedgerPostInput{
+		JournalEntry: reversalJE,
+		Lines:        createdRevLines,
+		SourceType:   models.LedgerSourceReversal,
+		SourceID:     receipt.ID,
+	}); err != nil {
+		return nil, fmt.Errorf("project reversal to ledger: %w", err)
+	}
+
+	// Reverse inventory movements (receive truth → unwound; inventory
+	// module internally unwinds balances and cost layers).
+	if err := ReverseReceiptMovements(tx, companyID, receipt); err != nil {
+		return nil, fmt.Errorf("reverse receipt movements: %w", err)
+	}
+
+	return &reversalJE.ID, nil
 }

@@ -131,6 +131,21 @@ type Receipt struct {
 	PostedAt *time.Time
 	VoidedAt *time.Time
 
+	// JournalEntryID links this Receipt to the JE that booked its
+	// inventory accrual (Dr Inventory / Cr GR/IR) at post time. Set
+	// only when PostReceipt ran under `companies.receipt_required=true`
+	// and the receipt had at least one stock-item line. Nil means
+	// either (a) posted under flag=false (H.2 byte-identical status
+	// flip) or (b) no stock lines on the receipt.
+	//
+	// VoidReceipt uses the presence of this link to decide whether
+	// to reverse a JE + movements (non-nil) or to status-flip only
+	// (nil). The column is deliberately not FK'd to journal_entries
+	// at the schema layer, matching the existing convention used by
+	// bills.journal_entry_id.
+	JournalEntryID *uint         `gorm:"index"`
+	JournalEntry   *JournalEntry `gorm:"foreignKey:JournalEntryID"`
+
 	Lines []ReceiptLine `gorm:"foreignKey:ReceiptID"`
 
 	CreatedAt time.Time

@@ -183,6 +183,20 @@ type Company struct {
 	// H.5 closes — see INVENTORY_MODULE_API.md §Phase H Border 1.
 	ReceiptRequired bool `gorm:"not null;default:false"`
 
+	// GRIRClearingAccountID is the liability (clearing) account that
+	// Phase H Receipt posting credits when it forms inventory truth
+	// (migration 070, slice H.3). Bill posting under
+	// receipt_required=true will later debit this same account in
+	// H.5 when Bill ↔ Receipt matching clears the accrual.
+	//
+	// Nullable: only companies that opt into Receipt-first flow need
+	// a value. When `receipt_required=true` is effective at PostReceipt
+	// time, this must be set or PostReceipt fails with
+	// ErrGRIRAccountNotConfigured. The configuration surface is
+	// `services.ChangeCompanyGRIRClearingAccount`, audited in the
+	// same family as the tracking-capability / receipt-required flips.
+	GRIRClearingAccountID *uint `gorm:"column:gr_ir_clearing_account_id;index"`
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

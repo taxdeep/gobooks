@@ -27,6 +27,9 @@ type LedgerSourceType string
 const (
 	LedgerSourceInvoice        LedgerSourceType = "invoice"
 	LedgerSourceBill           LedgerSourceType = "bill"
+	// LedgerSourceReceipt is used by Phase H inbound-Receipt posting
+	// (Dr Inventory / Cr GR/IR) under companies.receipt_required=true.
+	LedgerSourceReceipt        LedgerSourceType = "receipt"
 	LedgerSourcePayment        LedgerSourceType = "payment"
 	LedgerSourceReversal       LedgerSourceType = "reversal"
 	LedgerSourceManual         LedgerSourceType = "manual"

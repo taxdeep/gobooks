@@ -17,6 +17,8 @@ package services
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,6 +28,15 @@ import (
 	"gorm.io/gorm/logger"
 
 	"gobooks/internal/models"
+)
+
+// osReadDir / osReadFile are local aliases so the inventory import-
+// guard test (TestInventoryPackage_DoesNotImportAccountingPackages)
+// can walk production files without bringing extra stdlib calls into
+// the public surface of this test file.
+var (
+	osReadDir  = os.ReadDir
+	osReadFile = os.ReadFile
 )
 
 // testReceiptDocDB spins an in-memory DB with the full Phase H.2
@@ -53,8 +64,11 @@ func testReceiptDocDB(t *testing.T) *gorm.DB {
 		&models.InventoryCostLayer{},
 		&models.InventoryLot{},
 		&models.InventorySerialUnit{},
+		&models.InventoryLayerConsumption{},
+		&models.InventoryTrackingConsumption{},
 		&models.JournalEntry{},
 		&models.JournalLine{},
+		&models.LedgerEntry{},
 		&models.AuditLog{},
 	); err != nil {
 		t.Fatalf("automigrate: %v", err)
@@ -474,32 +488,365 @@ func TestDeleteReceipt_RefusedOnPosted(t *testing.T) {
 	}
 }
 
-// ── Dormancy lock: receipt_required is NOT consulted in H.2 ──────────────────
+// ── H.3 flag-off regression lock (byte-identical to H.2) ─────────────────────
 
-// H.2 must be rail-agnostic. Even on a company with receipt_required=
-// true, Receipt Post/Void leaves inventory and GL untouched. Doubles
-// as a forward-compatibility test for the H.4 decoupling slice: when
-// H.4 lands, receipt_required=true will START producing inventory
-// truth by wiring H.3's consumer; until then, the flag is inert here.
-func TestReceipt_Lifecycle_DoesNotConsultReceiptRequired(t *testing.T) {
+// Under `receipt_required=false` (the default), PostReceipt remains a
+// pure document-layer status flip. This locks the H.3 exit condition
+// "Under receipt_required=false, Phase G behavior is byte-identical"
+// for the Receipt side: legacy companies continue with Bill-forms-
+// inventory and Receipt produces no parallel inventory / GL effect.
+func TestPostReceipt_FlagOff_ByteIdenticalToH2_NoInventoryOrGL(t *testing.T) {
 	db := testReceiptDocDB(t)
 	fx := seedReceiptFixture(t, db)
-	// Force the rail ON for this company.
+	// Default is flag=false; make it explicit.
+	if err := db.Model(&models.Company{}).
+		Where("id = ?", fx.CompanyID).
+		Update("receipt_required", false).Error; err != nil {
+		t.Fatalf("set flag off: %v", err)
+	}
+	out, err := CreateReceipt(db, buildSimpleCreateInput(fx))
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	posted, err := PostReceipt(db, fx.CompanyID, out.ID, "admin@test", nil)
+	if err != nil {
+		t.Fatalf("post: %v", err)
+	}
+	if posted.JournalEntryID != nil {
+		t.Fatalf("flag=false post must not link a JE; got %d", *posted.JournalEntryID)
+	}
+	assertNoInventoryOrGLEffect(t, db, fx.CompanyID)
+}
+
+// ── H.3 flag-on happy path: the 3-layer chain materialises ───────────────────
+
+// seedGRIRAccount creates a liability account and configures it as
+// the company's GR/IR clearing account, satisfying the precondition
+// for PostReceipt under flag=true.
+func seedGRIRAccount(t *testing.T, db *gorm.DB, companyID uint) uint {
+	t.Helper()
+	acct := models.Account{
+		CompanyID:         companyID,
+		Code:              "2100",
+		Name:              "GR/IR Clearing",
+		RootAccountType:   models.RootLiability,
+		DetailAccountType: models.DetailOtherCurrentLiability,
+		IsActive:          true,
+	}
+	if err := db.Create(&acct).Error; err != nil {
+		t.Fatalf("seed GR/IR account: %v", err)
+	}
+	if err := db.Model(&models.Company{}).
+		Where("id = ?", companyID).
+		Update("gr_ir_clearing_account_id", acct.ID).Error; err != nil {
+		t.Fatalf("wire GR/IR: %v", err)
+	}
+	return acct.ID
+}
+
+// seedInventoryAccountOnItem configures the product's InventoryAccountID
+// so the Dr Inventory side of the GR/IR journal is postable.
+func seedInventoryAccountOnItem(t *testing.T, db *gorm.DB, companyID, itemID uint) uint {
+	t.Helper()
+	acct := models.Account{
+		CompanyID:         companyID,
+		Code:              "1300",
+		Name:              "Inventory Asset",
+		RootAccountType:   models.RootAsset,
+		DetailAccountType: models.DetailInventory,
+		IsActive:          true,
+	}
+	if err := db.Create(&acct).Error; err != nil {
+		t.Fatalf("seed inventory account: %v", err)
+	}
+	if err := db.Model(&models.ProductService{}).
+		Where("id = ?", itemID).
+		Update("inventory_account_id", acct.ID).Error; err != nil {
+		t.Fatalf("wire inventory account on item: %v", err)
+	}
+	return acct.ID
+}
+
+// flagOnFixture primes a company fully for PostReceipt flag=true: rail
+// flipped ON, GR/IR account configured, InventoryAccountID set on the
+// item. Returns the three relevant account IDs for assertions.
+type flagOnAccountSetup struct {
+	InventoryAccountID uint
+	GRIRAccountID      uint
+}
+
+func seedFlagOnFixture(t *testing.T, db *gorm.DB, fx receiptFixture) flagOnAccountSetup {
+	t.Helper()
 	if err := db.Model(&models.Company{}).
 		Where("id = ?", fx.CompanyID).
 		Update("receipt_required", true).Error; err != nil {
-		t.Fatalf("flip rail: %v", err)
+		t.Fatalf("flip receipt_required: %v", err)
 	}
+	invID := seedInventoryAccountOnItem(t, db, fx.CompanyID, fx.ItemID)
+	grirID := seedGRIRAccount(t, db, fx.CompanyID)
+	return flagOnAccountSetup{InventoryAccountID: invID, GRIRAccountID: grirID}
+}
+
+func TestPostReceipt_FlagOn_ProducesReceiveTruthAndGRIRJournal(t *testing.T) {
+	db := testReceiptDocDB(t)
+	fx := seedReceiptFixture(t, db)
+	accts := seedFlagOnFixture(t, db, fx)
 
 	out, err := CreateReceipt(db, buildSimpleCreateInput(fx))
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if _, err := PostReceipt(db, fx.CompanyID, out.ID, "admin@test", nil); err != nil {
+	posted, err := PostReceipt(db, fx.CompanyID, out.ID, "admin@test", nil)
+	if err != nil {
 		t.Fatalf("post: %v", err)
 	}
-	// Still no inventory or GL effect — H.2 ignores the flag.
-	assertNoInventoryOrGLEffect(t, db, fx.CompanyID)
+
+	// (1) Layer one: document — status flipped + JE linked.
+	if posted.Status != models.ReceiptStatusPosted {
+		t.Fatalf("status: got %q", posted.Status)
+	}
+	if posted.JournalEntryID == nil {
+		t.Fatalf("JE not linked; flag=true with stock lines must link JE")
+	}
+
+	// (2) Layer two: receive truth — one inventory_movements row per
+	// stock-item line, source_type='receipt', source_id=receipt.ID.
+	var mvs []models.InventoryMovement
+	if err := db.Where("company_id = ? AND source_type = ? AND source_id = ?",
+		fx.CompanyID, "receipt", out.ID).Find(&mvs).Error; err != nil {
+		t.Fatalf("load movements: %v", err)
+	}
+	if len(mvs) != 1 {
+		t.Fatalf("movements: got %d want 1 (one per stock line)", len(mvs))
+	}
+	if !mvs[0].QuantityDelta.Equal(decimal.NewFromInt(10)) {
+		t.Fatalf("qty_delta: got %s want 10", mvs[0].QuantityDelta)
+	}
+
+	// (3) Layer three: inventory effect — balance updated by the
+	// inventory module's internal machinery.
+	var bal models.InventoryBalance
+	if err := db.Where("company_id = ? AND item_id = ?",
+		fx.CompanyID, fx.ItemID).First(&bal).Error; err != nil {
+		t.Fatalf("load balance: %v", err)
+	}
+	if !bal.QuantityOnHand.Equal(decimal.NewFromInt(10)) {
+		t.Fatalf("on_hand: got %s want 10", bal.QuantityOnHand)
+	}
+
+	// (4) Parallel: JE posted, balanced. Dr Inventory (per line), Cr GR/IR (total).
+	var je models.JournalEntry
+	if err := db.Preload("Lines").
+		Where("id = ?", *posted.JournalEntryID).
+		First(&je).Error; err != nil {
+		t.Fatalf("load JE: %v", err)
+	}
+	if je.SourceType != models.LedgerSourceReceipt || je.SourceID != out.ID {
+		t.Fatalf("JE source linkage: got %s/%d want receipt/%d", je.SourceType, je.SourceID, out.ID)
+	}
+	var invDebit, grirCredit decimal.Decimal
+	for _, l := range je.Lines {
+		switch l.AccountID {
+		case accts.InventoryAccountID:
+			invDebit = invDebit.Add(l.Debit)
+		case accts.GRIRAccountID:
+			grirCredit = grirCredit.Add(l.Credit)
+		}
+	}
+	wantValue := decimal.NewFromFloat(50.00) // qty 10 × unit_cost 5.00
+	if !invDebit.Equal(wantValue) {
+		t.Fatalf("inventory debit: got %s want %s", invDebit, wantValue)
+	}
+	if !grirCredit.Equal(wantValue) {
+		t.Fatalf("GR/IR credit: got %s want %s", grirCredit, wantValue)
+	}
+}
+
+func TestPostReceipt_FlagOn_ButGRIRNotConfigured_Rejected(t *testing.T) {
+	db := testReceiptDocDB(t)
+	fx := seedReceiptFixture(t, db)
+	// Flag ON, inventory account set, but NO GR/IR configured.
+	if err := db.Model(&models.Company{}).
+		Where("id = ?", fx.CompanyID).
+		Update("receipt_required", true).Error; err != nil {
+		t.Fatalf("flip flag: %v", err)
+	}
+	seedInventoryAccountOnItem(t, db, fx.CompanyID, fx.ItemID)
+
+	out, err := CreateReceipt(db, buildSimpleCreateInput(fx))
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	_, err = PostReceipt(db, fx.CompanyID, out.ID, "admin@test", nil)
+	if !isErr(err, ErrGRIRAccountNotConfigured) {
+		t.Fatalf("got %v want ErrGRIRAccountNotConfigured", err)
+	}
+	// Receipt must remain in draft — tx rolled back.
+	var stillDraft models.Receipt
+	db.First(&stillDraft, out.ID)
+	if stillDraft.Status != models.ReceiptStatusDraft {
+		t.Fatalf("status: got %q want draft (tx should roll back)", stillDraft.Status)
+	}
+}
+
+func TestPostReceipt_FlagOn_InventoryAccountMissing_Rejected(t *testing.T) {
+	db := testReceiptDocDB(t)
+	fx := seedReceiptFixture(t, db)
+	// Flag ON, GR/IR configured, but item has no inventory_account_id.
+	if err := db.Model(&models.Company{}).
+		Where("id = ?", fx.CompanyID).
+		Update("receipt_required", true).Error; err != nil {
+		t.Fatalf("flip flag: %v", err)
+	}
+	seedGRIRAccount(t, db, fx.CompanyID)
+
+	out, err := CreateReceipt(db, buildSimpleCreateInput(fx))
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	_, err = PostReceipt(db, fx.CompanyID, out.ID, "admin@test", nil)
+	if !isErr(err, ErrInboundReceiptInventoryAccountMissing) {
+		t.Fatalf("got %v want ErrInboundReceiptInventoryAccountMissing", err)
+	}
+}
+
+func TestPostReceipt_FlagOn_ServiceOnlyReceipt_NoJEBooked(t *testing.T) {
+	db := testReceiptDocDB(t)
+	fx := seedReceiptFixture(t, db)
+	accts := seedFlagOnFixture(t, db, fx)
+	_ = accts
+
+	// Create a service (non-stock) item and use it on the receipt
+	// instead of the default stock item.
+	svc := models.ProductService{
+		CompanyID: fx.CompanyID, Name: "Consulting",
+		Type: models.ProductServiceTypeService, IsActive: true,
+	}
+	svc.ApplyTypeDefaults()
+	if err := db.Create(&svc).Error; err != nil {
+		t.Fatalf("seed service: %v", err)
+	}
+	in := buildSimpleCreateInput(fx)
+	in.Lines[0].ProductServiceID = svc.ID
+	in.Lines[0].Description = "Delivery labour"
+	out, err := CreateReceipt(db, in)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	posted, err := PostReceipt(db, fx.CompanyID, out.ID, "admin@test", nil)
+	if err != nil {
+		t.Fatalf("post: %v", err)
+	}
+	// Non-stock lines → no movements, no JE booked.
+	if posted.JournalEntryID != nil {
+		t.Fatalf("service-only receipt must not link JE; got %d", *posted.JournalEntryID)
+	}
+	var mvCount int64
+	db.Model(&models.InventoryMovement{}).
+		Where("company_id = ? AND source_type = ?", fx.CompanyID, "receipt").
+		Count(&mvCount)
+	if mvCount != 0 {
+		t.Fatalf("service-only receipt produced %d movements want 0", mvCount)
+	}
+}
+
+func TestVoidReceipt_FlagOn_ReversesJournalAndMovements(t *testing.T) {
+	db := testReceiptDocDB(t)
+	fx := seedReceiptFixture(t, db)
+	seedFlagOnFixture(t, db, fx)
+
+	out, err := CreateReceipt(db, buildSimpleCreateInput(fx))
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	posted, err := PostReceipt(db, fx.CompanyID, out.ID, "admin@test", nil)
+	if err != nil {
+		t.Fatalf("post: %v", err)
+	}
+	origJEID := *posted.JournalEntryID
+
+	voided, err := VoidReceipt(db, fx.CompanyID, out.ID, "admin@test", nil)
+	if err != nil {
+		t.Fatalf("void: %v", err)
+	}
+	if voided.Status != models.ReceiptStatusVoided {
+		t.Fatalf("status: got %q", voided.Status)
+	}
+
+	// Original JE flipped to reversed.
+	var origJE models.JournalEntry
+	if err := db.First(&origJE, origJEID).Error; err != nil {
+		t.Fatalf("load orig JE: %v", err)
+	}
+	if origJE.Status != models.JournalEntryStatusReversed {
+		t.Fatalf("orig JE status: got %q want reversed", origJE.Status)
+	}
+
+	// Reversal JE exists, ReversedFromID -> orig.
+	var revJEs []models.JournalEntry
+	db.Where("reversed_from_id = ?", origJEID).Find(&revJEs)
+	if len(revJEs) != 1 {
+		t.Fatalf("reversal JEs: got %d want 1", len(revJEs))
+	}
+
+	// Reversal inventory movement exists.
+	var revMvs []models.InventoryMovement
+	db.Where("company_id = ? AND source_type = ?",
+		fx.CompanyID, "receipt_reversal").Find(&revMvs)
+	if len(revMvs) != 1 {
+		t.Fatalf("reversal movements: got %d want 1", len(revMvs))
+	}
+
+	// Balance back to zero.
+	var bal models.InventoryBalance
+	db.Where("company_id = ? AND item_id = ?",
+		fx.CompanyID, fx.ItemID).First(&bal)
+	if !bal.QuantityOnHand.IsZero() {
+		t.Fatalf("balance after void: got %s want 0", bal.QuantityOnHand)
+	}
+}
+
+// ── Hard Rule #3: GL-agnostic inventory package ──────────────────────────────
+
+// Locks H.0 Hard Rule #3 at the compile-boundary level. The inventory
+// package must remain production-import-free of accounting,
+// chart-of-accounts, and journal-entry packages. The rule is stated
+// at the semantic level; this test maps the rule to concrete
+// production-file import inspection. If the project ever renames or
+// relocates those packages, update the forbidden-prefix list, not
+// the rule itself.
+func TestInventoryPackage_DoesNotImportAccountingPackages(t *testing.T) {
+	const invDir = "inventory"
+	entries, err := osReadDir(invDir)
+	if err != nil {
+		t.Fatalf("read inventory package dir: %v", err)
+	}
+	forbidden := []string{
+		"gobooks/internal/services/accounts",
+		"gobooks/internal/accounting",
+		"gobooks/internal/ledger",
+	}
+	// Permitted within inventory: models (for InventoryMovement,
+	// InventoryBalance, InventoryCostLayer shapes), decimal, gorm.
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") {
+			continue
+		}
+		// Skip test files — H.0 rule is for production code.
+		if strings.HasSuffix(e.Name(), "_test.go") {
+			continue
+		}
+		path := invDir + "/" + e.Name()
+		data, err := osReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		for _, bad := range forbidden {
+			if strings.Contains(string(data), `"`+bad+`"`) {
+				t.Fatalf("%s imports forbidden package %s — violates Phase H Hard Rule #3 (INVENTORY_MODULE_API.md §Phase H)", path, bad)
+			}
+		}
+	}
 }
 
 // ── Cross-company scope guards ───────────────────────────────────────────────
