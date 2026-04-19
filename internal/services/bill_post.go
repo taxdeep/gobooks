@@ -191,40 +191,42 @@ func PostBill(db *gorm.DB, companyID, billID uint, actor string, userID *uuid.UU
 	// (inventory-forming). Phase H.4 (receipt_required=true with stock
 	// lines): Expense → GR/IR Clearing (Bill is financial-only; Receipt
 	// owns inventory formation). Non-stock lines untouched on both paths.
+	// Phase H.5 (receipt_required=true with receipt-line-matched stock
+	// lines) runs INSIDE the tx below to read cumulative matching state
+	// with current row locks; outside-tx reads could let a concurrent
+	// post double-match the same receipt line.
 	if billUsesGRIRClearing {
 		frags = AdjustBillFragmentsForGRIRClearing(frags, bill, *company.GRIRClearingAccountID)
 	} else {
 		frags = AdjustBillFragmentsForInventory(frags, bill)
 	}
 
-	// ── 5. Aggregate by account + side ────────────────────────────────────────
-	// Lines sharing the same expense account are merged. ITC lines sharing the
-	// same recoverable-tax account are merged. AP credit is always a single line.
-	// Debit and credit sides are never merged together.
-	jeLines, err := AggregateJournalLines(frags)
-	if err != nil {
-		return fmt.Errorf("aggregate journal lines: %w", err)
+	// ── 4c. Phase H.5 PPV pre-guard (fail before tx if config missing) ──────
+	// Configuration errors surface before any DB write. Actual matching
+	// computation runs inside the tx (needs stable reads).
+	hasReceiptRef := false
+	for _, l := range bill.Lines {
+		if l.ReceiptLineID != nil && *l.ReceiptLineID != 0 {
+			hasReceiptRef = true
+			break
+		}
 	}
-	txJournalLines := make([]PostingFragment, len(jeLines))
-	copy(txJournalLines, jeLines)
-
-	// ── 5b. Apply FX scaling (foreign bills only) ────────────────────────────
-	// Capture document-currency AP total before scaling; this is stored in bill.Amount
-	// (preserving the original document-currency total).
-	docCreditSum := sumPostingCredits(jeLines)
-	if isForeignCurrency {
-		jeLines = applyFXScaling(jeLines, exchangeRate, apAccount.ID, false)
+	if billUsesGRIRClearing && hasReceiptRef && company.PurchasePriceVarianceAccountID == nil {
+		return ErrPPVAccountNotConfigured
 	}
 
-	// ── 6. Double-entry balance check (amounts are now in base currency) ──────
-	debitSum := sumPostingDebits(jeLines)
-	creditSum := sumPostingCredits(jeLines)
-	if !debitSum.Equal(creditSum) {
-		return fmt.Errorf(
-			"journal entry imbalance: debit sum %s, credit sum %s — check line totals",
-			debitSum.StringFixed(2), creditSum.StringFixed(2),
-		)
-	}
+	// ── 5-6. Aggregate + FX scaling + balance check happen INSIDE the tx so
+	// that the H.5 matching transform (which must read cumulative state
+	// from other posted bills) can be stitched in before aggregation,
+	// avoiding a two-pass outside-then-inside-tx pattern. Legacy bills
+	// (flag=false) and flag=true bills without matching pass through the
+	// same tx-local finalization with zero matching work performed.
+	var (
+		jeLines         []PostingFragment
+		txJournalLines  []PostingFragment
+		docCreditSum    decimal.Decimal
+		creditSum       decimal.Decimal
+	)
 
 	// ── 7. Transaction ────────────────────────────────────────────────────────
 	return db.Transaction(func(tx *gorm.DB) error {
@@ -238,6 +240,60 @@ func PostBill(db *gorm.DB, companyID, billID uint, actor string, userID *uuid.UU
 		}
 		if locked.Status != models.BillStatusDraft {
 			return ErrAlreadyPosted
+		}
+
+		// a2. H.5 matching transform (when engaged): preload ReceiptLine
+		// rows, compute per-line match context, and split the relevant
+		// fragments into precise GR/IR + PPV + blind-GR/IR shapes.
+		if billUsesGRIRClearing && hasReceiptRef {
+			for i := range bill.Lines {
+				if bill.Lines[i].ReceiptLineID == nil || *bill.Lines[i].ReceiptLineID == 0 {
+					continue
+				}
+				var rl models.ReceiptLine
+				if err := tx.Preload("ProductService").
+					First(&rl, *bill.Lines[i].ReceiptLineID).Error; err != nil {
+					return fmt.Errorf("preload receipt line %d: %w",
+						*bill.Lines[i].ReceiptLineID, err)
+				}
+				bill.Lines[i].ReceiptLine = &rl
+			}
+			matchingCtx, err := resolveBillLineMatchingContext(tx, bill)
+			if err != nil {
+				return err
+			}
+			if len(matchingCtx) > 0 {
+				frags, err = applyBillLineMatchingToFragments(
+					frags, bill, matchingCtx,
+					*company.GRIRClearingAccountID,
+					*company.PurchasePriceVarianceAccountID,
+				)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		// a3. Aggregate + FX scaling + balance check (moved inside tx to
+		// share the tx-local frags with the matching transform above).
+		aggLines, err := AggregateJournalLines(frags)
+		if err != nil {
+			return fmt.Errorf("aggregate journal lines: %w", err)
+		}
+		jeLines = aggLines
+		txJournalLines = make([]PostingFragment, len(jeLines))
+		copy(txJournalLines, jeLines)
+		docCreditSum = sumPostingCredits(jeLines)
+		if isForeignCurrency {
+			jeLines = applyFXScaling(jeLines, exchangeRate, apAccount.ID, false)
+		}
+		debitSum := sumPostingDebits(jeLines)
+		creditSum = sumPostingCredits(jeLines)
+		if !debitSum.Equal(creditSum) {
+			return fmt.Errorf(
+				"journal entry imbalance: debit sum %s, credit sum %s — check line totals",
+				debitSum.StringFixed(2), creditSum.StringFixed(2),
+			)
 		}
 
 		// b. Journal entry header.

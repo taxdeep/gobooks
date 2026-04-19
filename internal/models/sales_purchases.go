@@ -442,6 +442,28 @@ type BillLine struct {
 	LotNumber      string     `gorm:"type:text;not null;default:''"`
 	LotExpiryDate  *time.Time `gorm:"type:date"`
 
+	// ReceiptLineID is the Phase H.5 matching pointer. When a Bill
+	// line is paid against goods that were previously receipted on a
+	// posted Receipt, the operator can link this Bill line to the
+	// corresponding ReceiptLine. PostBill (under receipt_required=true)
+	// then books:
+	//   Dr GR/IR   (matched_qty × ReceiptLine.UnitCost) — clears accrual
+	//   Dr/Cr PPV  (matched_qty × (Bill.UnitPrice − Receipt.UnitCost)) — variance
+	//   Dr GR/IR   (unmatched_qty × Bill.UnitPrice) — blind (H.4 style) for any excess
+	//
+	// Semantics:
+	//   - one Bill line → at most one Receipt line
+	//   - one Receipt line → may be referenced by multiple Bill lines
+	//     over time (sequential/partial settlements)
+	//   - matching is from the Bill side only; Receipt has no reverse
+	//     pointer — Bill is authoritative
+	//
+	// FK ON DELETE SET NULL at the schema layer (migration 071); the
+	// service layer additionally guarantees that only posted Receipt
+	// lines can be referenced.
+	ReceiptLineID *uint        `gorm:"index"`
+	ReceiptLine   *ReceiptLine `gorm:"foreignKey:ReceiptLineID"`
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

@@ -197,6 +197,25 @@ type Company struct {
 	// same family as the tracking-capability / receipt-required flips.
 	GRIRClearingAccountID *uint `gorm:"column:gr_ir_clearing_account_id;index"`
 
+	// PurchasePriceVarianceAccountID is the P&L account that absorbs
+	// the delta between Bill line amount and matched Receipt line
+	// amount on stock-backed lines (Phase H slice H.5, migration 071).
+	//
+	// Sign convention:
+	//   Bill amount > Receipt amount  → Dr PPV  (unfavorable variance)
+	//   Bill amount < Receipt amount  → Cr PPV  (favorable variance)
+	//
+	// Nullable: required only when a bill being posted under
+	// receipt_required=true has at least one matched stock line
+	// (receipt_line_id set). If absent at that moment, PostBill fails
+	// loud with ErrPPVAccountNotConfigured — same fail-loud pattern
+	// as GR/IR so configuration requirements are symmetric.
+	//
+	// Validation accepts Expense or CostOfSales root types; liability/
+	// asset/equity are rejected because a PPV posting into a non-P&L
+	// account silently distorts the balance sheet.
+	PurchasePriceVarianceAccountID *uint `gorm:"column:purchase_price_variance_account_id;index"`
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

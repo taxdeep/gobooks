@@ -1495,20 +1495,28 @@ architectural settle-up that Phase G was designed to survive until.
 | **H.2** | `receipts` + `receipt_lines` tables. `models.Receipt`, `models.ReceiptLine`. Minimal lifecycle (`draft`, `posted`, `voided`). CRUD in services. Source-identity reservation fields for future Phase I linkage (purchase-order-line anchor, at minimum). **No Bill decoupling yet, no matching yet, no inventory formation yet.** | H.1 shipped |
 | **H.3** | `ReceiveStockFromReceipt` inventory service. Receipt post → inventory movements (through the existing `ReceiveStock` path, tracked data read from `receipt_lines`) + business-document-layer journal `Dr Inventory / Cr GR/IR`. Inventory module stays GL-agnostic; GR/IR journal lives in `receipt_post.go`. | H.2 shipped |
 | **H.4** | Transitional decoupling. Under `receipt_required=true`, `CreatePurchaseMovements` is a no-op for inventory and BillLine tracking fields are neither read nor written by the inventory integration. Under `receipt_required=false` (legacy, default), Phase G behavior is byte-identical. Fields stay physically on `bill_lines`. Documented as frozen transitional home. | H.3 shipped |
-| **H.5** | Bill ↔ Receipt matching. On bill post under `receipt_required=true`: clear GR/IR against posted Receipts; compute variance on price mismatch → PPV account; define behavior for unmatched, partial, over, under. **Operational enablement unlocked only at H.5 close.** Before H.5 ships, no real company may run `receipt_required=true`. | H.4 shipped |
+| **H.5** *(shipped)* | Bill ↔ Receipt line-to-line matching via `bill_lines.receipt_line_id` (nullable FK to `receipt_lines`). Bill post under `receipt_required=true` with a matched stock line: Dr GR/IR at the Receipt's unit cost, Dr/Cr PPV for the per-unit variance (single account, sign-based), and continue H.4 blind GR/IR on any qty overflow. Cumulative partial settlement supported — one Receipt line may be referenced by multiple Bill lines over time; no reverse pointer on Receipt. Configuration requires `companies.purchase_price_variance_account_id` to be set (P&L root; Expense or CostOfSales) when any matched line is present at post time; otherwise `ErrPPVAccountNotConfigured` + rollback. **Operational enablement of `receipt_required=true` on real companies is now technically permitted** (Border 1 released), but remains deliberately opt-in — no auto-flip, `ChangeCompanyReceiptRequired` is still an explicit admin action with audit. | H.4 shipped |
 
 #### Two hard borders
 
 **Border 1 — Phase H entering ≠ `receipt_required` enabling.**
-H.1 installs the column and the admin surface; every real company
-stays `receipt_required=false` until H.5 closes. Any flip before
-H.5 produces a half-bridged state (Receipt forms inventory, Bill
-cannot clear GR/IR) that is strictly worse than Phase G. This
-border is enforced by engineering discipline, not by code — code
+*(Released at H.5 ship — see "H.5 released the border" below.)*
+H.1 installed the column and the admin surface; every real company
+stayed `receipt_required=false` through H.2–H.4 because any flip
+before H.5 produced a half-bridged state (Receipt formed inventory,
+Bill could not clear GR/IR precisely) that was strictly worse than
+Phase G. The border was enforced by engineering discipline — code
 cannot distinguish a "test company" from a "real company" — so the
-rule lives in this spec and in review. A reviewer seeing a PR that
-flips a real company's `receipt_required` before H.5 close rejects
-it on sight, citing this paragraph.
+rule lived in this spec and in review.
+
+**H.5 released the border.** With matching + PPV shipped, Bill now
+clears GR/IR at the Receipt's unit cost and posts the variance to
+PPV cleanly. `receipt_required=true` on real companies is now
+technically permitted. The flip is still **deliberately opt-in** via
+`ChangeCompanyReceiptRequired`, audited; there is no auto-migration
+of existing companies. Operational rollout is an onboarding / CS
+decision, not an engineering one — the spec only says "now safe",
+not "now done".
 
 **Border 2 — H.4 and H.5 stay separated.** H.4 is a
 data-ownership migration (where tracking truth comes from). H.5 is
