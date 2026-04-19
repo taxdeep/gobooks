@@ -45,6 +45,18 @@ func ReceiveStock(db *gorm.DB, in ReceiveStockInput) (*ReceiveStockResult, error
 		return nil, err
 	}
 
+	// Phase F2: validate lot/serial tracking shape matches the item's
+	// tracking_mode BEFORE any mutation. Guards against callers either
+	// forgetting to supply tracking data or silently passing it for an
+	// untracked item (where it would be dropped by the old code).
+	trackingMode, err := loadTrackingMode(db, in.CompanyID, in.ItemID)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateInboundTracking(trackingMode, in); err != nil {
+		return nil, err
+	}
+
 	// Warehouse validation — soft check. When WarehouseID is zero we fall
 	// back to the legacy LocationType path used by older code; Slice 2
 	// callers (Bill / Opening) always pass a warehouse or zero with the
@@ -116,6 +128,38 @@ func ReceiveStock(db *gorm.DB, in ReceiveStockInput) (*ReceiveStockResult, error
 	}
 	if err := db.Create(&mov).Error; err != nil {
 		return nil, fmt.Errorf("inventory.ReceiveStock: create movement: %w", err)
+	}
+
+	// Phase E2: every receipt produces a FIFO cost layer. Weighted-average
+	// costing does not read from this table, so the work is cheap insurance
+	// for companies that later switch to FIFO. See INVENTORY_MODULE_API.md
+	// §3.1 / §7 "Phase E2".
+	layer := models.InventoryCostLayer{
+		CompanyID:         in.CompanyID,
+		ItemID:            in.ItemID,
+		WarehouseID:       warehouseID,
+		SourceMovementID:  mov.ID,
+		OriginalQuantity:  in.Quantity,
+		RemainingQuantity: in.Quantity,
+		UnitCostBase:      unitCostBase,
+		ReceivedDate:      in.MovementDate,
+	}
+	if err := db.Create(&layer).Error; err != nil {
+		return nil, fmt.Errorf("inventory.ReceiveStock: create cost layer: %w", err)
+	}
+
+	// Phase F2: persist tracking truth for lot / serial items. Costing
+	// has already been computed (see above) and is NOT affected by the
+	// tracking structures — lot/serial capture is orthogonal.
+	switch trackingMode {
+	case models.TrackingLot:
+		if err := persistLotInbound(db, in); err != nil {
+			return nil, fmt.Errorf("inventory.ReceiveStock: lot persist: %w", err)
+		}
+	case models.TrackingSerial:
+		if err := persistSerialInbound(db, in); err != nil {
+			return nil, fmt.Errorf("inventory.ReceiveStock: serial persist: %w", err)
+		}
 	}
 
 	return &ReceiveStockResult{

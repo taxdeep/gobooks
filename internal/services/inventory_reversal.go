@@ -36,12 +36,12 @@ import (
 
 // ReverseSaleMovements creates reversal inventory movements for a voided invoice.
 //
-// Phase D.0 slice 5: now a thin facade over inventory.ReverseMovement.
-// For each original sale movement the facade books one reversal, inheriting
-// the original's UnitCostBase (snapshot cost) — March's COGS reverses at
-// March's cost, not the current-period weighted average.
-func ReverseSaleMovements(tx *gorm.DB, companyID uint, inv models.Invoice, reversalJEID uint) error {
-	return reverseDocumentMovements(tx, companyID, reversalJEID,
+// Thin facade over inventory.ReverseMovement. For each original sale
+// movement the facade books one reversal, inheriting the original's
+// UnitCostBase (snapshot cost) — March's COGS reverses at March's cost,
+// not the current-period weighted average.
+func ReverseSaleMovements(tx *gorm.DB, companyID uint, inv models.Invoice) error {
+	return reverseDocumentMovements(tx, companyID,
 		reverseDocumentScope{
 			sourceType:         "invoice",
 			sourceID:           inv.ID,
@@ -54,12 +54,12 @@ func ReverseSaleMovements(tx *gorm.DB, companyID uint, inv models.Invoice, rever
 
 // ReversePurchaseMovements creates reversal inventory movements for a voided bill.
 //
-// Phase D.0 slice 5: facade over inventory.ReverseMovement. Returns an
-// ErrInsufficientStock-mapped error (via translateInventoryErr) if any
-// original receipt cannot be fully reversed because its units were
-// partially consumed by a later sale.
-func ReversePurchaseMovements(tx *gorm.DB, companyID uint, bill models.Bill, reversalJEID uint) error {
-	return reverseDocumentMovements(tx, companyID, reversalJEID,
+// Facade over inventory.ReverseMovement. Returns an ErrInsufficientStock-
+// mapped error (via translateInventoryErr) if any original receipt cannot
+// be fully reversed because its units were partially consumed by a later
+// sale.
+func ReversePurchaseMovements(tx *gorm.DB, companyID uint, bill models.Bill) error {
+	return reverseDocumentMovements(tx, companyID,
 		reverseDocumentScope{
 			sourceType:         "bill",
 			sourceID:           bill.ID,
@@ -86,7 +86,7 @@ type reverseDocumentScope struct {
 // document and books a reversal for each. Skips already-reversed rows so the
 // function is safe to call on a partially-reversed document (defensive; not
 // expected in the current posting engine but cheap to guard).
-func reverseDocumentMovements(tx *gorm.DB, companyID, reversalJEID uint, scope reverseDocumentScope) error {
+func reverseDocumentMovements(tx *gorm.DB, companyID uint, scope reverseDocumentScope) error {
 	var origs []models.InventoryMovement
 	if err := tx.Where("company_id = ? AND source_type = ? AND source_id = ?",
 		companyID, scope.sourceType, scope.sourceID).
@@ -117,6 +117,5 @@ func reverseDocumentMovements(tx *gorm.DB, companyID, reversalJEID uint, scope r
 			return fmt.Errorf("reverse movement %d: %w", orig.ID, translateInventoryErr(err))
 		}
 	}
-	_ = reversalJEID // intentionally unused post-slice-8; retained in caller signatures for compat
 	return nil
 }

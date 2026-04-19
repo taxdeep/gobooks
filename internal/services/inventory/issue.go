@@ -47,6 +47,17 @@ func IssueStock(db *gorm.DB, in IssueStockInput) (*IssueStockResult, error) {
 		return nil, err
 	}
 
+	// Phase F3: validate lot/serial selections BEFORE any mutation.
+	// Consumption of lot remainings and serial state flips happens AFTER
+	// the movement is created (so consumption rows can FK the movement).
+	trackingMode, err := loadTrackingMode(db, in.CompanyID, in.ItemID)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateOutboundTracking(trackingMode, in); err != nil {
+		return nil, err
+	}
+
 	warehouseID := ptrUintIfNonZero(in.WarehouseID)
 	if warehouseID != nil {
 		if err := verifyWarehouseBelongsToCompany(db, in.CompanyID, *warehouseID); err != nil {
@@ -65,15 +76,42 @@ func IssueStock(db *gorm.DB, in IssueStockInput) (*IssueStockResult, error) {
 			ErrInsufficientStock, in.Quantity.String(), bal.QuantityOnHand.String())
 	}
 
-	// Weighted-average outflow: unit cost = current avg; avg unchanged.
-	// FIFO / Specific methods land in Phase E with per-layer consumption.
-	if in.CostingMethod != CostingMethodDefault &&
-		in.CostingMethod != CostingMethodWeightedAvg {
+	// Costing branch:
+	//   - Weighted-average (default): unit cost = current avg; avg unchanged.
+	//     Layer table is NOT consumed so FIFO/WA can coexist per company.
+	//   - FIFO (Phase E2): consume the oldest layers first; blended unit
+	//     cost = Σ(consumed_qty × layer_unit_cost) / quantity.
+	//   - Specific: deferred to Phase E2.1.
+	var (
+		unitCostBase decimal.Decimal
+		costLayers   []CostLayerConsumed
+	)
+	switch in.CostingMethod {
+	case CostingMethodDefault, CostingMethodWeightedAvg:
+		uc, err := applyOutboundToBalance(db, bal, in.Quantity)
+		if err != nil {
+			return nil, err
+		}
+		unitCostBase = uc
+	case CostingMethodFIFO:
+		blended, layers, err := consumeFIFOLayers(db, in.CompanyID, in.ItemID, warehouseID, in.Quantity)
+		if err != nil {
+			return nil, err
+		}
+		// Decrement on-hand on the balance row. The FIFO blended cost goes
+		// onto the movement and into the balance's avg recalculation so the
+		// cached avg still roughly reflects running cost — a harmless
+		// extension since weighted-avg callers never set CostingMethodFIFO.
+		bal.QuantityOnHand = bal.QuantityOnHand.Sub(in.Quantity)
+		if err := db.Save(bal).Error; err != nil {
+			return nil, fmt.Errorf("inventory.IssueStock: persist balance after FIFO: %w", err)
+		}
+		unitCostBase = blended
+		costLayers = layers
+	case CostingMethodSpecific:
 		return nil, fmt.Errorf("inventory.IssueStock: costing method %q not yet implemented", in.CostingMethod)
-	}
-	unitCostBase, err := applyOutboundToBalance(db, bal, in.Quantity)
-	if err != nil {
-		return nil, err
+	default:
+		return nil, fmt.Errorf("inventory.IssueStock: unknown costing method %q", in.CostingMethod)
 	}
 	costOfIssueBase := in.Quantity.Mul(unitCostBase).RoundBank(2)
 
@@ -101,12 +139,42 @@ func IssueStock(db *gorm.DB, in IssueStockInput) (*IssueStockResult, error) {
 		return nil, fmt.Errorf("inventory.IssueStock: create movement: %w", err)
 	}
 
+	// Phase E2.1: FIFO draws produce one inventory_layer_consumption row
+	// per touched layer so ReverseMovement can restore layer remainings.
+	// Weighted-average issues do not touch layers and skip this entirely.
+	for _, cl := range costLayers {
+		consumption := models.InventoryLayerConsumption{
+			CompanyID:       in.CompanyID,
+			IssueMovementID: mov.ID,
+			LayerID:         cl.LayerID,
+			QuantityDrawn:   cl.Quantity,
+			UnitCostBase:    cl.UnitCostBase,
+		}
+		if err := db.Create(&consumption).Error; err != nil {
+			return nil, fmt.Errorf("inventory.IssueStock: record layer consumption: %w", err)
+		}
+	}
+
+	// Phase F3: tracked outbound consumption. Decrement lot remainings
+	// or flip serial state, and write consumption anchors linked to
+	// this movement so ReverseMovement can unwind precisely. Untracked
+	// items skip this entirely.
+	switch trackingMode {
+	case models.TrackingLot:
+		if err := consumeLotSelections(db, in, mov.ID); err != nil {
+			return nil, fmt.Errorf("inventory.IssueStock: lot consume: %w", err)
+		}
+	case models.TrackingSerial:
+		if err := consumeSerialSelections(db, in, mov.ID); err != nil {
+			return nil, fmt.Errorf("inventory.IssueStock: serial consume: %w", err)
+		}
+	}
+
 	return &IssueStockResult{
 		MovementID:      mov.ID,
 		UnitCostBase:    unitCostBase,
 		CostOfIssueBase: costOfIssueBase,
-		// CostLayers stays nil under weighted-average; populated only under
-		// FIFO / Specific (Phase E).
+		CostLayers:      costLayers, // nil under weighted-avg; populated under FIFO
 	}, nil
 }
 

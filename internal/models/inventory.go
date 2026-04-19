@@ -163,5 +163,114 @@ type InventoryBalance struct {
 	QuantityOnHand decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`
 	AverageCost    decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`
 
+	// QuantityReserved is a live counter of units committed by upstream
+	// documents (e.g. confirmed SOs) but not yet shipped. Inventory.ReserveStock
+	// increments it; Inventory.ReleaseStock (or a downstream IssueStock with
+	// the matching reservation) decrements. Available = OnHand − Reserved.
+	// Added in Phase E1 (migration 058).
+	QuantityReserved decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`
+
 	UpdatedAt time.Time
 }
+
+// ── Inventory cost layer (Phase E2) ──────────────────────────────────────────
+
+// InventoryCostLayer represents one "bucket" of units received at a specific
+// unit cost. FIFO-costed issues draw from the oldest layers first. Every
+// ReceiveStock call produces exactly one layer row; the layer's
+// RemainingQuantity is decremented as later outbound events draw from it.
+//
+// Layers are written under every costing method so that a company switching
+// from weighted-average to FIFO has the historical receipts already laid
+// out as the starting FIFO stack. Companies on weighted-average ignore the
+// table on read; only IssueStock with method=FIFO (or a company default of
+// fifo) consumes from it.
+//
+// Provenance (Phase H2 / migration 061)
+// -------------------------------------
+// Two fields describe *how* a layer came to exist. Reports, audit trails,
+// and traceability paths MUST branch on ProvenanceType, not on
+// SourceMovementID, because synthetic layers (from RepairFIFOLayerDrift's
+// genesis path) carry an FK-anchor movement ID that does NOT represent
+// real provenance — see migration 061's header comment.
+type InventoryCostLayer struct {
+	ID                uint `gorm:"primaryKey"`
+	CompanyID         uint `gorm:"not null;index"`
+	ItemID            uint `gorm:"not null;index"`
+	WarehouseID       *uint
+
+	// SourceMovementID is the inbound InventoryMovement this layer
+	// originates from WHEN ProvenanceType == "receipt". For synthetic
+	// rows (ProvenanceType == "synthetic_genesis") this is ONLY an FK
+	// anchor satisfying the NOT NULL constraint — callers must NOT treat
+	// it as provenance. Check IsSynthetic / ProvenanceType before using
+	// this field for attribution.
+	SourceMovementID uint `gorm:"not null;index"`
+
+	// IsSynthetic is true for layers materialized by the reconcile job
+	// (RepairFIFOLayerDrift's genesis-no-layers path). Synthetic layers
+	// carry authoritative opening stock at the balance's current avg
+	// cost; they are NOT a historical reconstruction of any real receipt.
+	IsSynthetic bool `gorm:"not null;default:false"`
+
+	// ProvenanceType is the DB-level enum backing IsSynthetic.
+	// Values: "receipt" | "synthetic_genesis" (enforced by CHECK constraint
+	// in migration 061). Preferred read API — source-of-truth for
+	// reporting / traceability.
+	ProvenanceType string `gorm:"type:text;not null;default:'receipt'"`
+
+	OriginalQuantity  decimal.Decimal `gorm:"type:numeric(18,4);not null"`
+	RemainingQuantity decimal.Decimal `gorm:"type:numeric(18,4);not null"`
+	UnitCostBase      decimal.Decimal `gorm:"type:numeric(18,4);not null"`
+
+	ReceivedDate time.Time `gorm:"type:date;not null"`
+	CreatedAt    time.Time
+}
+
+// Cost-layer provenance constants. Readers comparing ProvenanceType MUST
+// use these rather than string literals.
+const (
+	// ProvenanceReceipt — layer was written by ReceiveStock; its
+	// SourceMovementID authoritatively identifies the inbound event.
+	ProvenanceReceipt = "receipt"
+	// ProvenanceSyntheticGenesis — layer was materialized by the E2.3
+	// reconcile job's genesis-no-layers repair. Represents current
+	// authoritative opening stock expressed as an FIFO-runnable layer;
+	// SourceMovementID is only an FK anchor, not provenance.
+	ProvenanceSyntheticGenesis = "synthetic_genesis"
+)
+
+// TableName pins the GORM table name so AutoMigrate finds the migration-058
+// table rather than the pluralised default.
+func (InventoryCostLayer) TableName() string { return "inventory_cost_layers" }
+
+// ── Inventory layer consumption log (Phase E2.1) ─────────────────────────────
+
+// InventoryLayerConsumption records each per-layer draw performed by a
+// FIFO-costed outbound event. One outbound typically produces N rows, one
+// per touched layer. Under weighted-average this table stays empty.
+//
+// Purpose:
+//   - Reversal correctness: reversing a FIFO issue reads these rows and
+//     restores each layer's RemainingQuantity, keeping the SUM(remaining)
+//     == QuantityOnHand invariant intact.
+//   - Historical FIFO valuation: combined with InventoryCostLayer rows,
+//     consumers can compute "layer X's remaining as-of date D" and derive
+//     point-in-time FIFO value correctly (see Phase E3).
+//
+// ReversedByMovementID is non-null once a reversal has unwound this
+// consumption row. The row itself is never deleted — keeping the history
+// append-only mirrors the movement ledger's immutability rule.
+type InventoryLayerConsumption struct {
+	ID                    uint            `gorm:"primaryKey"`
+	CompanyID             uint            `gorm:"not null;index"`
+	IssueMovementID       uint            `gorm:"not null;index"`
+	LayerID               uint            `gorm:"not null;index"`
+	QuantityDrawn         decimal.Decimal `gorm:"type:numeric(18,4);not null"`
+	UnitCostBase          decimal.Decimal `gorm:"type:numeric(18,4);not null"`
+	ReversedByMovementID  *uint
+	CreatedAt             time.Time
+}
+
+// TableName pins the GORM table name so migration and model stay aligned.
+func (InventoryLayerConsumption) TableName() string { return "inventory_layer_consumption" }

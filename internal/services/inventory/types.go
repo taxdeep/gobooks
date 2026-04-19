@@ -97,10 +97,18 @@ type ReceiveStockInput struct {
 	UoMCode   string
 	UoMFactor decimal.Decimal
 
-	// Lot / serial / expiry (Phase F).
-	LotNumber     string
-	SerialNumbers []string
-	ExpiryDate    *time.Time
+	// Lot / serial / expiry — captured when the item is lot- or
+	// serial-tracked (Phase F2). Validation:
+	//   - tracking_mode="none": all three MUST be empty (reject loud).
+	//   - tracking_mode="lot": LotNumber required; ExpiryDate optional;
+	//     SerialNumbers / SerialExpiryDates must be empty.
+	//   - tracking_mode="serial": SerialNumbers required, len==Quantity;
+	//     SerialExpiryDates (if provided) must be len==len(SerialNumbers);
+	//     LotNumber must be empty.
+	LotNumber         string
+	ExpiryDate        *time.Time
+	SerialNumbers     []string
+	SerialExpiryDates []*time.Time
 
 	// Audit + idempotency.
 	IdempotencyKey string
@@ -133,9 +141,32 @@ type IssueStockInput struct {
 	CostingMethod CostingMethod
 	SpecificLotID *uint // required iff CostingMethod == Specific
 
+	// ── Phase F3 tracked outbound selections ────────────────────────
+	// These fields are REQUIRED when the item's tracking_mode is
+	// 'lot' or 'serial'. They are validated against the item's
+	// configured mode, not the caller's intent.
+	//
+	// LotSelections: explicit lot-level allocation for lot-tracked
+	// items. SUM(LotSelections.Quantity) must equal Quantity. No
+	// allocator — the caller picks which lots and how much from each.
+	// (Phase F3 does not ship FEFO or any implicit allocator.)
+	//
+	// SerialSelections: explicit serial list for serial-tracked items.
+	// len(SerialSelections) must equal Quantity. Each must currently
+	// be in 'on_hand' state for the same (company, item).
+	LotSelections    []LotSelection
+	SerialSelections []string
+
 	IdempotencyKey string
 	ActorUserID    *uint
 	Memo           string
+}
+
+// LotSelection names one lot and the quantity to draw from it in a
+// tracked outbound event.
+type LotSelection struct {
+	LotID    uint
+	Quantity decimal.Decimal
 }
 
 // IssueStockResult returns the cost computed by inventory. Callers must not
@@ -151,7 +182,12 @@ type IssueStockResult struct {
 // CostLayerConsumed is non-empty only under FIFO or Specific methods. It
 // documents which historical receipts this issue draws from, so GL can
 // post multi-layer COGS if desired (or simply take the summed total).
+//
+// LayerID is the inventory_cost_layers row consumed; Phase E2.1 uses it
+// to write an inventory_layer_consumption record linking the layer to
+// the issue movement so reversal can restore RemainingQuantity.
 type CostLayerConsumed struct {
+	LayerID          uint
 	SourceMovementID uint
 	Quantity         decimal.Decimal
 	UnitCostBase     decimal.Decimal
@@ -210,6 +246,71 @@ type TransferStockResult struct {
 	ReceiveMovementID *uint
 	UnitCostBase      decimal.Decimal // from-warehouse avg at ship; applied to both legs
 	TransitValueBase  decimal.Decimal
+}
+
+// ── IN: PostInventoryBuild ──────────────────────────────────────────────────
+//
+// Builds (assemblies) consume N components and produce 1 finished good. The
+// orchestrator is a thin layer over IssueStock + ReceiveStock; it does not
+// own a separate header table — the paired movements (linked by SourceID)
+// are the system of record. A future business-document layer can persist a
+// Build header on top if richer reporting is needed.
+
+type PostInventoryBuildInput struct {
+	CompanyID      uint
+	ParentItemID   uint   // assembly being built; must be inventory-tracked
+	WarehouseID    uint   // both consume and produce hit the same warehouse
+	Quantity       decimal.Decimal // finished-good units to produce; > 0
+	BuildDate      time.Time
+	BuildRef       uint   // caller-provided reference (links the movement pair)
+
+	// Optional non-component costs blended into the finished-good unit cost.
+	// Both are in base currency for the whole build, not per-unit.
+	LaborCostBase    decimal.Decimal
+	OverheadCostBase decimal.Decimal
+
+	// Components: when nil, PostInventoryBuild reads the parent's BOM
+	// (item_components) and uses each row's per-unit quantity. When set,
+	// caller fully overrides the BOM for this build (supports rework /
+	// substitutes without mutating master data).
+	ComponentOverrides []BuildComponentInput
+
+	IdempotencyKey string
+	ActorUserID    *uint
+	Memo           string
+}
+
+// BuildComponentInput overrides one BOM row for this single build.
+// PerUnitQuantity is consumed × Quantity; for example PerUnitQuantity=2 +
+// Quantity=10 issues 20 of this component.
+type BuildComponentInput struct {
+	ItemID          uint
+	PerUnitQuantity decimal.Decimal
+}
+
+// PostInventoryBuildResult exposes both the produced movement and the
+// consumed-component breakdown so callers can post a journal entry that
+// debits the finished-good inventory account and credits each component's
+// inventory account by its blended-out cost.
+type PostInventoryBuildResult struct {
+	ProduceMovementID    uint
+	UnitCostBase         decimal.Decimal // sum(component cost) / produced qty + labor/overhead per unit
+	FinishedValueBase    decimal.Decimal // Quantity × UnitCostBase
+	ComponentCostBase    decimal.Decimal // raw materials only (excludes labor/overhead)
+	LaborCostBase        decimal.Decimal // echoed from input for completeness
+	OverheadCostBase     decimal.Decimal
+	Components           []BuildComponentConsumed
+}
+
+// BuildComponentConsumed reports each issued component leg so the caller
+// can render a build report and post a multi-leg JE if their COA splits
+// inventory accounts by item.
+type BuildComponentConsumed struct {
+	ItemID          uint
+	IssueMovementID uint
+	Quantity        decimal.Decimal // total consumed (PerUnit × build qty)
+	UnitCostBase    decimal.Decimal // weighted-avg at time of consumption
+	TotalCostBase   decimal.Decimal // Quantity × UnitCostBase
 }
 
 // ── IN: ReverseMovement ──────────────────────────────────────────────────────

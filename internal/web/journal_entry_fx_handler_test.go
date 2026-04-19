@@ -335,7 +335,19 @@ func TestJournalEntryPost_TxImbalanceRejected(t *testing.T) {
 	}
 }
 
-func TestJournalEntryPost_BaseImbalanceRejected(t *testing.T) {
+// Tx-balanced entries whose per-line base-currency conversion produces a
+// rounding residual are NOT rejected: the FX conversion engine (see
+// fx_conversion_engine.go) absorbs the residual into the last debit/credit
+// line via the anchor pattern, so the JE saves successfully with base
+// totals in balance. Engine-level behavior is covered by
+// TestConvertJournalLineAmounts_BaseImbalanceAbsorbedByAnchor; this test is
+// the integration guard at the handler boundary.
+//
+// Entry: USD 0.01 + USD 0.01 debits vs USD 0.02 credit at rate 1.5.
+// Per-line rounding: 0.02 + 0.02 debit vs 0.03 credit → residual +0.01.
+// Anchor absorbs on the last debit: 0.02 - 0.01 = 0.01.
+// Final base totals: debit 0.03 = credit 0.03.
+func TestJournalEntryPost_BaseImbalanceAbsorbedByAnchor(t *testing.T) {
 	db := testJournalRouteDB(t)
 	app := testRouteApp(t, db)
 	companyID, token := seedJournalCompanyContext(t, db)
@@ -355,7 +367,7 @@ func TestJournalEntryPost_BaseImbalanceRejected(t *testing.T) {
 
 	resp := performJournalFormRequest(t, app, "/journal-entry", url.Values{
 		"entry_date":                {"2026-04-10"},
-		"journal_no":                {"JE-BASE-IMBALANCE"},
+		"journal_no":                {"JE-ANCHOR-ABSORB"},
 		"transaction_currency_code": {"USD"},
 		"exchange_rate_source":      {services.JournalEntryExchangeRateSourceProviderFetched},
 		"exchange_rate":             {"1.50000000"},
@@ -368,16 +380,31 @@ func TestJournalEntryPost_BaseImbalanceRejected(t *testing.T) {
 		"lines[2][account_id]":      {decimal.NewFromInt(int64(revenueID)).String()},
 		"lines[2][credit]":          {"0.02"},
 	}, token)
-	if resp.StatusCode != fiber.StatusOK {
-		t.Fatalf("expected validation re-render, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusSeeOther {
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 303 redirect (save succeeds after anchor absorption), got %d; body=%q",
+			resp.StatusCode, string(body))
 	}
-	defer resp.Body.Close()
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatal(err)
+
+	// Verify the persisted JE has balanced base totals.
+	var je models.JournalEntry
+	if err := db.Where("company_id = ? AND journal_no = ?", companyID, "JE-ANCHOR-ABSORB").First(&je).Error; err != nil {
+		t.Fatalf("reload JE: %v", err)
 	}
-	if !strings.Contains(strings.ToLower(string(bodyBytes)), "base-currency totals do not balance exactly") {
-		t.Fatalf("expected base-imbalance message, got %q", string(bodyBytes))
+	var lines []models.JournalLine
+	if err := db.Where("journal_entry_id = ?", je.ID).Find(&lines).Error; err != nil {
+		t.Fatalf("reload JE lines: %v", err)
+	}
+
+	var baseDebit, baseCredit decimal.Decimal
+	for _, l := range lines {
+		baseDebit = baseDebit.Add(l.Debit)
+		baseCredit = baseCredit.Add(l.Credit)
+	}
+	if !baseDebit.Equal(baseCredit) {
+		t.Fatalf("base totals did not balance after anchor absorption: debit=%s credit=%s",
+			baseDebit, baseCredit)
 	}
 }
 

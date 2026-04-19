@@ -51,6 +51,8 @@ func testProdRejectDB(t *testing.T) *gorm.DB {
 		&models.AuditLog{},
 		&models.InventoryMovement{},
 		&models.InventoryBalance{},
+		&models.InventoryCostLayer{},
+		&models.InventoryLayerConsumption{},
 		&models.PaymentTransaction{},
 		&models.TaskInvoiceSource{},
 	); err != nil {

@@ -207,8 +207,10 @@ func TestHandleBillSaveDraftAndPostFlow(t *testing.T) {
 	if postResp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("expected %d, got %d", http.StatusSeeOther, postResp.StatusCode)
 	}
-	if got := postResp.Header.Get("Location"); got != "/bills?posted=1" {
-		t.Fatalf("expected redirect to %q, got %q", "/bills?posted=1", got)
+	// Post-handler redirects to the bill detail page after a successful post.
+	wantPostLocation := fmt.Sprintf("/bills/%d", bill.ID)
+	if got := postResp.Header.Get("Location"); got != wantPostLocation {
+		t.Fatalf("expected redirect to %q, got %q", wantPostLocation, got)
 	}
 
 	if err := db.First(&bill, bill.ID).Error; err != nil {

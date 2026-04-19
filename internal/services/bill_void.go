@@ -138,7 +138,7 @@ func VoidBill(db *gorm.DB, companyID, billID uint, actor string, userID *uuid.UU
 		}
 
 		// f. Reverse inventory purchase movements for stock items.
-		if err := ReversePurchaseMovements(tx, companyID, bill, reversalJE.ID); err != nil {
+		if err := ReversePurchaseMovements(tx, companyID, bill); err != nil {
 			return fmt.Errorf("reverse inventory movements: %w", err)
 		}
 

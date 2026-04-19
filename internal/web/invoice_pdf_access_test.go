@@ -70,6 +70,8 @@ func pdfAccessDB(t *testing.T) *gorm.DB {
 		&models.LedgerEntry{},
 		&models.InventoryMovement{},
 		&models.InventoryBalance{},
+		&models.InventoryCostLayer{},
+		&models.InventoryLayerConsumption{},
 		&models.PaymentReceipt{},
 		&models.SettlementAllocation{},
 		&models.PaymentTransaction{},

@@ -45,6 +45,8 @@ func testInvoiceDB(t *testing.T) *gorm.DB {
 		&models.AuditLog{},
 		&models.InventoryMovement{},
 		&models.InventoryBalance{},
+		&models.InventoryCostLayer{},
+		&models.InventoryLayerConsumption{},
 		&models.PaymentTransaction{},   // required by VoidInvoice payment-transaction guard
 		&models.SettlementAllocation{},   // required by VoidInvoice settlement-allocation guard
 		&models.CreditNoteApplication{}, // required by VoidInvoice credit-application reversal

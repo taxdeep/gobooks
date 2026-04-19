@@ -69,6 +69,24 @@ contract to the layer(s) it depends on:
    and returns it. This is the keystone.
 8. **Base currency values returned on every event** so GL can post
    without re-computing FX.
+9. **Authoritative cost principle** — the ONLY valid source of COGS / sale
+   cost for a journal entry is the result returned by `IssueStock`
+   (equivalently the cost map returned by `CreateSaleMovements`).
+   `GetCostingPreview` is for *pre-checks and UI estimates only*; its
+   output must never be persisted as the JE amount. Today's posting flow
+   obeys this: the transaction opens → `IssueStock` runs → its
+   `UnitCostBase` drives `BuildCOGSFragments` → the JE is created. Any
+   future mutation-intent code path must enforce the same order. The rule
+   exists because any read-before-mutate window admits a concurrent
+   re-average that silently de-synchronises the JE from the movement
+   ledger by rounding-level amounts — which is an *accounting-truth* bug,
+   not a cosmetic one.
+
+   Restated as a directional rule:
+
+   > *Inventory owns stock truth and cost truth; the document/posting
+   > layer owns accounting truth. COGS is not the posting layer's
+   > opinion — it is the value inventory returned to the posting layer.*
 
 ---
 
@@ -163,6 +181,7 @@ type IssueStockResult struct {
 }
 
 type CostLayerConsumed struct {
+    LayerID          uint  // inventory_cost_layers row drawn from
     SourceMovementID uint
     Quantity         decimal.Decimal
     UnitCostBase     decimal.Decimal
@@ -171,6 +190,18 @@ type CostLayerConsumed struct {
 
 func IssueStock(db *gorm.DB, in IssueStockInput) (*IssueStockResult, error)
 ```
+
+**FIFO draws produce an audit log (Phase E2.1).** Every consumed layer is
+recorded in `inventory_layer_consumption` with
+`(issue_movement_id, layer_id, quantity_drawn, unit_cost_base)`.
+`ReverseMovement` (§3.5) consumes this log to restore layer remainings
+during voids. Weighted-average issues write nothing to this log.
+
+**Unsupported: specific-identification costing.**
+`CostingMethod=CostingMethodSpecific` returns
+`"inventory.IssueStock: costing method "specific" not yet implemented"`.
+Callers that need lot-level cost tracking must stay on FIFO or
+weighted-avg and defer until that slice ships.
 
 ### 3.3 `AdjustStock` — count variance / damage / write-off
 
@@ -271,18 +302,242 @@ type ReverseMovementResult struct {
 func ReverseMovement(db *gorm.DB, in ReverseMovementInput) (*ReverseMovementResult, error)
 ```
 
-### 3.6 `ReserveStock` / `ReleaseStock` — Phase E
+**FIFO layer restoration (Phase E2.1).** When the original movement is a
+FIFO-costed issue, ReverseMovement walks the
+`inventory_layer_consumption` rows for that movement and adds each
+`quantity_drawn` back to its layer's `RemainingQuantity`, stamping the
+consumption row with `reversed_by_movement_id` so a second reversal
+attempt cannot double-restore. The invariant
+`SUM(cost_layers.remaining_quantity) == inventory_balances.quantity_on_hand`
+is preserved across post/void cycles for FIFO companies.
+
+**Guarded: legacy FIFO issues without a consumption log.** Movements
+created before Phase E2.1 have no rows in
+`inventory_layer_consumption`. Reversing them still succeeds — on-hand
+is correctly restored using the snapshot cost — but the FIFO layer
+counters stay stale against on-hand. Phase E2.3 ships
+`InspectFIFOLayerDrift` to surface these cells; the
+`genesis_no_layers` subclass is auto-repaired by
+`RepairFIFOLayerDrift`, while the `positive_needs_investigation`
+subclass (reversed pre-E2.1 issue) is reported with an explicit
+"cannot auto-restore without consumption history" note. Companies
+running heavy void traffic on legacy FIFO data should schedule a
+targeted manual re-seat until a repair policy is agreed.
+
+**Guarded: cannot reverse a reversal.** Reversal rows themselves cannot
+be reversed (`ReversalOfMovementID != nil` → error). Book a new forward
+movement instead. This keeps the reversal chain unambiguous.
+
+**Guarded: double reversal.** `ReversedByMovementID` on the original is
+set after the first successful reverse; a second attempt returns
+`ErrReversalAlreadyApplied`. Tests lock this guard for both FIFO and
+weighted-avg paths.
+
+### 3.6 `PostInventoryBuild` — assembly / manufacturing build
+
+A build is a value-transforming event: N component items are consumed at
+their current weighted-average cost, optional labor and overhead are added
+in base currency, and 1 finished-good item is produced at the blended
+unit cost. Thin orchestrator over `IssueStock` + `ReceiveStock`; does NOT
+own a header table. A build is identified by the caller-supplied
+`BuildRef` which appears as `SourceID` on both the N consume movements
+(`source_type="build_consume"`) and the 1 produce movement
+(`source_type="build_produce"`). The movement pair is the system of
+record; a business-document layer can persist its own Build header on top
+if richer reporting is needed (same pattern as `WarehouseTransfer` vs
+`TransferStock`).
+
+```go
+func PostInventoryBuild(db *gorm.DB, in PostInventoryBuildInput) (*PostInventoryBuildResult, error)
+
+type PostInventoryBuildInput struct {
+    CompanyID          uint
+    ParentItemID       uint            // assembly being built; must be inventory-tracked
+    WarehouseID        uint            // both consume and produce hit the same warehouse
+    Quantity           decimal.Decimal // finished-good units to produce; > 0
+    BuildDate          time.Time
+    BuildRef           uint            // caller reference; links the movement pair
+
+    // Optional non-component costs blended into the finished-good unit cost
+    // (base currency; total for the build, not per-unit).
+    LaborCostBase      decimal.Decimal
+    OverheadCostBase   decimal.Decimal
+
+    // nil = read the parent's item_components (BOM)
+    // non-nil = override the BOM for this single build (rework / substitutes)
+    ComponentOverrides []BuildComponentInput
+
+    IdempotencyKey string
+    ActorUserID    *uint
+    Memo           string
+}
+
+type PostInventoryBuildResult struct {
+    ProduceMovementID uint
+    UnitCostBase      decimal.Decimal // sum(component + labor + overhead) / qty
+    FinishedValueBase decimal.Decimal
+    ComponentCostBase decimal.Decimal // raw components only
+    LaborCostBase     decimal.Decimal
+    OverheadCostBase  decimal.Decimal
+    Components        []BuildComponentConsumed
+}
+```
+
+Atomicity: `PostInventoryBuild` does NOT open its own transaction. Callers
+MUST wrap the call in `db.Transaction(func(tx *gorm.DB)…)` so a mid-build
+failure (insufficient stock on component N of M) rolls every earlier leg
+back. Same contract as `TransferStock`.
+
+Idempotency: derived per-leg from the caller's build-level key —
+`"<key>:produce"` for the finished good and `"<key>:consume:<itemID>"` for
+each component. A replay returns the cached result reconstructed from the
+persisted movements; labor / overhead collapse into the cached
+`UnitCostBase` on replay.
+
+### 3.7 `ReserveStock` / `ReleaseStock` — *shipped in Phase E1*
 
 Reservation (SO confirmed, not shipped) is maintained on
-`inventory_balances.quantity_reserved`. No new movement rows; reservation
-is a live counter separate from on-hand. Signatures reserved:
+`inventory_balances.quantity_reserved` (added by migration 058). No
+movement rows are written; a reservation is a live counter separate from
+on-hand. `GetOnHand` surfaces it as `QuantityReserved` and derives
+`QuantityAvailable = QuantityOnHand − QuantityReserved`.
 
 ```go
 func ReserveStock(db *gorm.DB, in ReserveStockInput) (*ReserveStockResult, error)
 func ReleaseStock(db *gorm.DB, in ReleaseStockInput) error
 ```
 
-### 3.7 Event type matrix — self-check that IN is closed
+Bounds:
+- `Reserved` never goes below 0 — `ReleaseStock` past zero returns
+  `ErrReservationUnderflow`.
+- `Reserved` cannot exceed `OnHand` at reserve time — `ReserveStock` past
+  available returns `ErrInsufficientAvailable`. (A future flag could
+  permit "over-commit" backorder reservations; not in E1.)
+
+**E1 idempotency gap (intentional).** `ReserveStockInput` still carries an
+`IdempotencyKey` field for API surface stability, but the slice does not
+persist per-reservation rows so replay safety is the caller's
+responsibility. A later slice can introduce an `inventory_reservations`
+ledger table, enforce `(company_id, idempotency_key)` uniquely, and
+reconcile its SUM against the counter.
+
+### 3.8 Tracking truth — lot / serial / expiry  *(shipped in Phase F)*
+
+Tracking captures WHICH physical units moved, not HOW they're costed.
+The two concepts are orthogonal: a lot/serial identity never substitutes
+for a cost layer, and costing never consults tracking tables.
+
+#### ProductService.TrackingMode
+
+Each item opts into tracking via `product_services.tracking_mode`:
+
+| Value | Meaning |
+|---|---|
+| `none` (default) | No tracking. Aggregate quantity semantics only. |
+| `lot` | Units received together share a lot number and (optional) expiry. |
+| `serial` | Every unit has its own serial identity and (optional) expiry. |
+
+Hard rules enforced by `ValidateTrackingMode` + `ApplyTypeDefaults`:
+- Non-stock items (service / non_inventory / other_charge) MUST stay on
+  `none`. Stock items may be any of the three.
+- `ChangeTrackingMode` refuses to switch while any on-hand OR layer
+  remaining > 0 exists for the item. No silent conversion.
+- Every mode change writes `AuditLog{action: "product_service.tracking_mode.changed"}`
+  with before/after values.
+
+#### Inbound tracking capture — `ReceiveStock` extensions
+
+```go
+type ReceiveStockInput struct {
+    // ... existing fields ...
+    LotNumber         string
+    ExpiryDate        *time.Time  // lot-level; ignored for serial items
+    SerialNumbers     []string
+    SerialExpiryDates []*time.Time // optional, parallel to SerialNumbers
+}
+```
+
+Validation matrix:
+
+| tracking_mode | required inbound data | rejected |
+|---|---|---|
+| `none` | (nothing) | any lot/serial/expiry → `ErrTrackingDataOnUntrackedItem` |
+| `lot` | `LotNumber` | `SerialNumbers` / `SerialExpiryDates` non-empty → `ErrTrackingModeMismatch` |
+| `serial` | `len(SerialNumbers) == Quantity` | `LotNumber` / header `ExpiryDate` non-empty → `ErrTrackingModeMismatch`; duplicate live serial → `ErrDuplicateSerialInbound` |
+
+Lot top-up rule: a second inbound of the same `(company, item, lot_number)`
+increments `OriginalQuantity` and `RemainingQuantity`. A top-up with a
+different `ExpiryDate` is **rejected** — reusing a lot number across
+different shelf lives would make the expiry field meaningless.
+
+#### Outbound tracking — `IssueStock` extensions
+
+```go
+type IssueStockInput struct {
+    // ... existing fields ...
+    LotSelections    []LotSelection   // {LotID, Quantity}; lot-tracked only
+    SerialSelections []string         // serial-tracked only
+}
+```
+
+- Lot: `SUM(LotSelections.Quantity) == Quantity`; each lot must have
+  enough `RemainingQuantity`.
+- Serial: `len(SerialSelections) == Quantity`; each must be in
+  `on_hand` state for the same `(company, item)`.
+- **No allocator.** Phase F does not ship FEFO or any implicit
+  lot-picking. Callers supply explicit selections.
+- Every lot draw decrements `inventory_lots.RemainingQuantity`; every
+  serial issue flips `CurrentState` from `on_hand` to `issued`.
+- One `inventory_tracking_consumption` row per draw links it to the
+  issuing movement — the anchor ReverseMovement uses to unwind.
+
+#### Reversal — layer restoration by anchor
+
+On `ReverseMovement` of a tracked outbound:
+- `inventory_tracking_consumption` rows for the movement are loaded.
+- Lot rows: `RemainingQuantity` incremented back.
+- Serial rows: `CurrentState` flipped back from `issued` to `on_hand`.
+- Consumption rows stamped with `ReversedByMovementID` so a second
+  reversal attempt cannot double-restore.
+- **If no anchors exist for a tracked reversal, `ErrTrackingAnchorMissing`
+  is returned.** Same correctness-gate stance as E2.1 for FIFO layers —
+  legacy or missing trace data does not get "looks plausible" auto-
+  repair.
+
+#### Default policies (locked) vs future configurable policies
+
+The six decisions below are deliberate scope boundaries, not missing
+features. Anything in the "Default (today)" column is the canonical
+behaviour the codebase must preserve; anything in "Future configurable"
+is deferred work with an anchor name — do not implement until the
+corresponding slice is greenlit.
+
+| Area | Default (today) | Future configurable |
+|---|---|---|
+| Expired stock issue | Visibility + warning. `GetExpiringLots` / `GetExpiringSerials` surface risk; `IssueStock` does NOT block on expiry. | Per-company policy column selecting `warn_only` (default) / `hard_block` / `allow_with_override`. Override path must write a deviation audit. |
+| FEFO / auto-allocator | None. `IssueStock` always requires explicit `LotSelections` / `SerialSelections`. Recommendation layers MAY suggest lots but the authoritative selection stays in the caller. | Advisory-only suggestion API. **No silent auto-allocator, ever.** If/when promoted, opt-in per call, never implicit. |
+| Serial expiry required | Optional on both lot and serial rows. | Per-item / per-company "expiry required" flag for regulated industries (pharma, biologics, implants). |
+| Tracking-mode conversion with existing on-hand | Rejected — `ChangeTrackingMode` returns `ErrTrackingModeHasStock`. Operators drain stock and re-receive. | **Not scheduled.** An opening-tracking initialization wizard would bulk-create lot/serial rows; must NOT use the H2 synthetic-genesis pattern blindly — tracking truth demands real unit identity. |
+| E2.3b positive-with-layers drift repair | Manual-only. `InspectFIFOLayerDrift` surfaces the drift; `RepairFIFOLayerDrift` does NOT touch this class. | Deferred until a real incident forces the policy choice. An "assisted repair workspace" could drive Inspect-based manual selections, never auto-repair. |
+| Tracked TransferStock / PostInventoryBuild | Guarded fail: IssueStock rejects with `ErrLotSelectionMissing` / `ErrSerialSelectionMissing` bubbled up. | First-class support. If prioritised later: **TransferStock before Build** (transfers are more operationally fundamental). |
+
+#### Guarded / unsupported (call sites that fail loud today)
+
+- Tracked TransferStock / PostInventoryBuild — see row above.
+- `CostingMethodSpecific` — still `not yet implemented`. Phase F does
+  NOT use lot/serial identity as a cost identity (tracking truth ≠ cost
+  truth).
+- Reserve-a-specific-serial — reservation counter stays item-level.
+- Tracking-mode flip with on-hand — rejected by design.
+
+Locked by tests:
+`TestTransferStock_OnLotTrackedItem_FailsWithoutSelections`,
+`TestPostInventoryBuild_TrackedComponent_RejectsWithoutSelections`,
+`TestTracking_CostingOrthogonality_FIFOCompanyLotTracked`
+(proves tracking draws and FIFO layer draws are independent on the
+same issue).
+
+### 3.9 Event type matrix — self-check that IN is closed
 
 | Business event                     | IN call(s)                    | Cost source          |
 |------------------------------------|-------------------------------|----------------------|
@@ -294,7 +549,7 @@ func ReleaseStock(db *gorm.DB, in ReleaseStockInput) error
 | Vendor Return                      | ReverseMovement × N           | Original snapshots   |
 | Warehouse Transfer (shipped)       | TransferStock (issue only)    | From-warehouse avg   |
 | Warehouse Transfer (received)      | TransferStock (both legs)     | Same as above        |
-| Inventory Build (post)             | IssueStock × N + ReceiveStock × 1 | Inventory computed |
+| Inventory Build (post)             | PostInventoryBuild (IssueStock × N + ReceiveStock) | Inventory computed |
 | Inventory Unbuild                  | ReverseMovement on Build legs | Build snapshots      |
 | Stock count gain                   | AdjustStock (+)               | Caller or current avg|
 | Stock count loss / damage / theft  | AdjustStock (−)               | Current avg          |
@@ -303,6 +558,11 @@ func ReleaseStock(db *gorm.DB, in ReleaseStockInput) error
 
 Every row has a contractual IN call. No business scenario should write
 `InventoryMovement` rows directly.
+
+For items where `tracking_mode != "none"`, every IN call MUST carry the
+matching tracking data (lot/serial/expiry for inbound; selections for
+outbound). The IN layer rejects mismatches — there is no silent
+fall-through to untracked semantics.
 
 ---
 
@@ -331,6 +591,31 @@ type OnHandRow struct {
 
 func GetOnHand(db *gorm.DB, q OnHandQuery) ([]OnHandRow, error)
 ```
+
+**Historical valuation dispatch (Phase E3).** When `AsOfDate` is set,
+`GetOnHand` picks the algorithm based on the company's
+`inventory_costing_method`:
+
+| Costing method | As-of algorithm |
+|---|---|
+| `moving_average` | `replayHistoricalValue` — walk every movement chronologically, apply each row's recorded `UnitCostBase` signed by `QuantityDelta`, derive running avg. |
+| `fifo` | `historicalFIFOValue` — for each layer that existed by `AsOfDate`, subtract `SUM(consumption.quantity_drawn)` where the issue movement happened ≤ asOfDate and the reversal (if any) happened > asOfDate. Value = Σ(remaining × layer.unit_cost_base). |
+
+Cross-method aliasing is explicitly forbidden: a FIFO company must NOT
+be served weighted-avg replay as an approximation. Moving-average
+callers must NOT consume layer state. The two algorithms are incommensurable
+past the first issue.
+
+**Guarded: FIFO-company historical value before Phase E2.1.** Historical
+valuation for a FIFO company whose data predates the
+`inventory_layer_consumption` log will over-report — layers appear fully
+intact regardless of draws because the draw history is missing.
+`InspectFIFOLayerDrift` (§E2.3 in the migration plan) detects this class
+as `positive_needs_investigation` but does not auto-repair — restoring
+the specific layers the original issue drew from requires the history
+that got lost. The `genesis_no_layers` case (FIFO company migrating
+from pre-migration-059 data) IS auto-repaired by
+`RepairFIFOLayerDrift`.
 
 ### 4.2 `GetMovements`
 
@@ -402,6 +687,11 @@ type ItemLedgerReport struct {
 
 func GetItemLedger(db *gorm.DB, q ItemLedgerQuery) (*ItemLedgerReport, error)
 ```
+
+`OpeningUnitCost` / `OpeningValueBase` / `ClosingUnitCost` /
+`ClosingValueBase` all route through the same Phase E3 dispatcher as
+`GetOnHand` (§4.1) — moving-average companies get a replay, FIFO
+companies get layer-based point-in-time value. The same guards apply.
 
 ### 4.4 `ExplodeBOM`
 
@@ -475,7 +765,14 @@ func GetAvailableForBuild(db *gorm.DB, companyID, parentItemID, warehouseID uint
 ### 4.7 `GetCostingPreview`
 
 Cost of a hypothetical issue without actually issuing. For quotations,
-margin previews, pre-flight cost checks.
+margin previews, pre-flight stock-availability checks.
+
+**Not a persisting source of truth.** Per §2.9 the result of this function
+must never be written to a journal entry or any other authoritative
+record. The only valid flow is: preview → friendly error if infeasible →
+open tx → `IssueStock` → build JE from the returned cost. `WarehouseID=0`
+means "aggregate across warehouses" (blended company-level avg), matching
+`GetOnHand`'s semantics.
 
 ```go
 type CostingPreviewQuery struct {
@@ -496,6 +793,49 @@ type CostingPreviewResult struct {
 
 func GetCostingPreview(db *gorm.DB, q CostingPreviewQuery) (*CostingPreviewResult, error)
 ```
+
+### 4.8 Tracking inquiry  *(shipped in Phase F4)*
+
+Read-only views over the lot / serial / expiry tables. All queries are
+company-scoped unconditionally — passing a wrong company never leaks
+another tenant's data.
+
+```go
+// Lot inventory inspection. includeZero=false hides drained lots.
+func GetLotsForItem(db *gorm.DB, companyID, itemID uint, includeZero bool) ([]LotInfo, error)
+
+// Serial units for an item, optionally filtered by state(s).
+// Passing nil for stateFilter returns all states.
+func GetSerialsForItem(db *gorm.DB, companyID, itemID uint, stateFilter []models.SerialState) ([]SerialInfo, error)
+
+// Traceability: lot/serial anchors tied to a specific outbound
+// movement. Reversed anchors remain in the result with
+// ReversedByMovementID populated so auditors see full history.
+func GetTracesForMovement(db *gorm.DB, companyID, movementID uint) ([]TraceEntry, error)
+
+// Trace every tracking draw for (item, [fromDate, toDate]).
+func GetTracesForItem(db *gorm.DB, companyID, itemID uint, fromDate, toDate time.Time) ([]TraceEntry, error)
+
+// Lots / serials whose expiry ≤ asOf + withinDays AND remaining > 0
+// (lot) or live state (serial). Ordered expiry ASC; already-expired
+// rows report negative DaysUntilExpiry.
+func GetExpiringLots(db *gorm.DB, companyID uint, asOf time.Time, withinDays int) ([]ExpiringLotRow, error)
+func GetExpiringSerials(db *gorm.DB, companyID uint, asOf time.Time, withinDays int) ([]ExpiringSerialRow, error)
+```
+
+**Scope — visibility only (locked policy).** These queries do NOT block
+outbound on already-expired stock. The default expiry policy is
+**warn only**; `IssueStock` is intentionally not coupled to expiry in
+this slice. Per-company `warn_only | hard_block | allow_with_override`
+is catalogued as a future configurable surface — see §7 "Phase F
+post-decision upgrade anchors".
+
+**FEFO is advisory only (locked policy).** These queries expose the
+raw data that an advisory layer can use to suggest FIFO / FEFO lots
+to operators. The inventory module itself never auto-picks. Explicit
+`LotSelections` / `SerialSelections` remain the authoritative source
+for `IssueStock`. Any future recommendation surface is opt-in per
+call and wraps these queries — never replaces them.
 
 ---
 
@@ -576,36 +916,497 @@ CREATE UNIQUE INDEX uq_inventory_movement_idempotency
 6. Deprecate `InventoryMovement.JournalEntryID` — stop populating it;
    remove in a later cleanup commit once all readers migrate.
 
-### Phase D.1 — BOM and Kit sales
-1. `product_components` table + `ProductService.CompositionType` enum.
-2. `ExplodeBOM` query.
-3. Invoice post flow: if line item is a Kit, explode and issue leaves.
+### Phase D.1 — BOM and Kit sales  *(shipped)*
+1. Used the existing `item_components` table (discovered during design) —
+   no new schema needed. `ProductService.ItemStructureType`
+   (`single` / `bundle` / `assembly`) is the canonical structure enum.
+2. Real `ExplodeBOM` with cycle detection + depth cap (5), optional cost
+   estimate and availability enrichments.
+3. `GetAvailableForBuild` reports the bottleneck component.
+4. Kit / bundle sales cascade via the pre-existing `bundle_service.go`
+   path; no new work needed at the sales side.
 
-### Phase D.2 — Inventory Build (assembly)
-1. `inventory_builds` + `inventory_build_lines`.
-2. `PostInventoryBuild` orchestrator: issues components, receives finished
-   good, posts the single-entry JE (all internal to an inventory workflow).
-3. Unbuild via `ReverseMovement`.
+### Phase D.2 — Inventory Build (assembly)  *(shipped)*
+1. **No new tables.** The design decision was to treat a build as a pair
+   of movements sharing a `SourceID` — the movement ledger IS the system
+   of record. A future business-document layer can add a Build header if
+   needed; the inventory module does not require one.
+2. `PostInventoryBuild` orchestrator in
+   `internal/services/inventory/build.go`: issues N components (at
+   current avg cost), receives the finished good at the blended unit
+   cost (component cost + labor + overhead). Returns the full cost
+   breakdown so the caller can post its own GL entries.
+3. Unbuild via `ReverseMovement` on each build leg (same pattern as
+   voiding any other document).
 
-### Phase E — Reservations, UoM, FIFO layering
-Out of scope for the D series.
+### Phase D cleanup  *(shipped)*
+1. Dropped the legacy `InventoryMovement.JournalEntryID` reverse coupling
+   (migration 057).
+2. Retired the legacy `CostingEngine` from production code paths;
+   `ValidateStockForInvoice` now uses `inventory.GetCostingPreview`. The
+   engine survives as a test-only fixture until the remaining
+   `phase_*_inventory_test.go` suites are ported.
+3. Removed the unused `jeID` parameter from `CreatePurchaseMovements`,
+   `CreateSaleMovements`, `ReverseSaleMovements`,
+   `ReversePurchaseMovements` — GL linkage resolves through
+   `source_type + source_id -> document -> document.journal_entry_id`.
+4. Idempotency keys generated by the facades are now versioned
+   (`:v<n>`) so a voided document can, in the future, be re-posted
+   without colliding against its prior movements. The version is picked
+   once per post attempt via `nextIdempotencyVersion`.
 
-### Phase F — Serial / lot / expiry tracking
-Out of scope for D/E.
+### Phase E0 — Correctness hardening  *(shipped)*
+Gate before any Phase E feature work.
+
+1. **Authoritative COGS** — restructured `PostInvoice` so that
+   `CreateSaleMovements` (which calls `IssueStock`) runs *before* the JE
+   is created. The returned per-item cost map drives
+   `BuildCOGSFragments`, guaranteeing JE COGS equals
+   `UnitCostBase × |QuantityDelta|` exactly. Test
+   `TestPostInvoice_COGSAgreesWithMovementUnitCostBase` locks the
+   invariant. Side-benefit: removes the pre-existing double-FX-scaling of
+   COGS on foreign-currency invoices, since COGS is now built inside the
+   tx after FX scaling runs on the non-COGS side only.
+2. Stale web tests fixed (bill-post redirect, JE base-imbalance → anchor
+   absorption, report-cache invalidation test fixtures).
+
+### Phase E1 — Reservations  *(shipped)*
+1. Migration 058 adds `inventory_balances.quantity_reserved` (non-null,
+   default 0).
+2. `ReserveStock` / `ReleaseStock` implemented as atomic counter
+   operations in `internal/services/inventory/reserve.go`. No movement
+   rows; the counter is authoritative.
+3. `GetOnHand` now populates `QuantityReserved` and
+   `QuantityAvailable = OnHand − Reserved`.
+4. New sentinel errors `ErrInsufficientAvailable` /
+   `ErrReservationUnderflow`.
+5. **Known gap:** `IdempotencyKey` is on the input struct but not yet
+   enforced — callers own replay safety in E1. A future slice can add an
+   `inventory_reservations` ledger table to close this.
+
+### Phase E2 — FIFO layers  *(shipped)*
+1. Migration 059 adds `inventory_cost_layers` — one row per
+   `ReceiveStock`, tracking `original_quantity`, `remaining_quantity`,
+   `unit_cost_base`, and `received_date` for FIFO ordering.
+2. Every receipt writes a layer regardless of the company's costing
+   method, so switching a company to FIFO later starts from the correct
+   historical stack.
+3. `IssueStock` with `CostingMethod=CostingMethodFIFO` draws from the
+   oldest available layers (ordered by `received_date, id`) and populates
+   `CostLayerConsumed[]` on the result. Blended `UnitCostBase =
+   Σ(consumed_qty × layer_unit_cost) / total_qty`.
+4. Weighted-average callers are untouched — layers accumulate silently.
+
+### Phase E2.1 — FIFO correctness gate  *(shipped)*
+Required before FIFO can be considered production-ready.
+
+1. Migration 060 adds `inventory_layer_consumption` — per-layer draw log
+   linking `issue_movement_id` → `layer_id` with `quantity_drawn`,
+   `unit_cost_base`, and a nullable `reversed_by_movement_id`.
+2. `IssueStock` under FIFO writes one consumption row per touched layer
+   after the movement row persists.
+3. `ReverseMovement` on a FIFO issue walks the consumption rows, adds
+   each `quantity_drawn` back to its layer's `RemainingQuantity`, and
+   stamps the consumption row's `reversed_by_movement_id` so a second
+   reversal can't double-restore. Invariant
+   `SUM(cost_layers.remaining_quantity) == inventory_balances.quantity_on_hand`
+   holds across void cycles.
+4. Weighted-average path unaffected (no consumption rows written, none
+   read).
+5. **Guarded: legacy FIFO data (pre-E2.1).** Issues that predate the
+   consumption log fall back to snapshot-cost reversal on on-hand but
+   leave layer counters stale. Reconcile job needed for drift repair;
+   scheduled as E2.3.
+6. **Unsupported: specific-identification costing.**
+   `CostingMethodSpecific` still returns
+   `not yet implemented`. Layer-aware but per-lot selection requires its
+   own slice (E2.4).
+
+### Phase E2.3 — FIFO layer drift reconcile  *(shipped, scoped)*
+
+1. `InspectFIFOLayerDrift(db, companyID)` — read-only scan of every
+   balance row; reports each cell where
+   `SUM(cost_layers.remaining) != quantity_on_hand`. Each report carries
+   a `Drift` value and a `LayerRowCount`, plus diagnostic notes naming
+   the drift class.
+2. `RepairFIFOLayerDrift(db, companyID)` — Inspect + bounded auto-fix.
+3. Three drift classifications:
+   - `genesis_no_layers` — positive drift with zero layer rows.
+     Happens when a company flips to FIFO with pre-migration-059
+     inventory. **Auto-repaired** by synthesizing one layer at the
+     balance's current avg cost (see "Synthetic genesis layer
+     provenance" below).
+   - `positive_needs_investigation` — positive drift with existing
+     layers. Typically a post-E2.1 reversal of a pre-E2.1 issue.
+     **Not auto-repaired** — restoring layer remainings correctly
+     requires knowing which layer the original issue drew from, which
+     is precisely the history that got lost. A future slice (E2.3b) can
+     introduce a policy (restore to youngest layer, synthesize a new
+     layer at period avg cost, …) once operators pick one.
+   - `negative_needs_investigation` — layers exceed on-hand.
+     **Not auto-repaired** — typically a double-reversal or hand-edit.
+4. Both functions guard: only FIFO companies may call them. Moving-avg
+   companies get a clear error — drift there is designed, not a bug.
+5. `RepairFIFOLayerDrift` refuses to synthesize a genesis layer when
+   the cell has no inbound movement at all (data anomaly); the report
+   surfaces the refusal instead of silently fabricating stock.
+
+**Synthetic genesis layer provenance (Phase H2 / migration 061).**
+Every `inventory_cost_layers` row now carries two provenance fields:
+
+| Field | Receipt layer | Synthetic genesis layer |
+|---|---|---|
+| `IsSynthetic` | `false` | `true` |
+| `ProvenanceType` | `"receipt"` | `"synthetic_genesis"` |
+| `SourceMovementID` | Authoritative — the inbound movement that created the layer | **FK anchor only** — an oldest-inbound movement picked to satisfy NOT NULL |
+
+**Reading rule** — any report / audit / traceability path that needs to
+attribute a layer to a real event MUST branch on `ProvenanceType` /
+`IsSynthetic`. `SourceMovementID` on a synthetic row points at
+*whichever* inbound was handy; it is NOT provenance. A DB CHECK
+constraint enforces that the two fields stay in lock-step
+(`chk_inventory_cost_layers_provenance_consistency` in migration 061).
+
+**Repair semantics locked by tests**:
+- `TestRepairFIFOLayerDrift_GenesisLayer_HasExplicitProvenance` — repair
+  sets `IsSynthetic=true, ProvenanceType=synthetic_genesis`.
+- `TestRepairFIFOLayerDrift_GenesisRepair_Idempotent` — running repair
+  twice on the same cell does not create a second synthetic layer or
+  mutate the first (drift=0 after first run → second run skips).
+- `TestRepairFIFOLayerDrift_GenesisRollback_NoPartialState` — when the
+  anchor lookup fails (orphan balance, no inbound movement), the
+  transaction rolls back cleanly: no layer written, balance untouched.
+
+### Phase E2 remaining slices — still pending
+- **E2.2 (unsupported — specific-identification costing).** Requires
+  lot-aware IssueStock to honour `SpecificLotID`.
+- **E2.4 (lot tracking).** Phase F; serial / lot / expiry surface.
+
+### Phase E3 — Historical valuation  *(shipped, hardened to method)*
+1. Two algorithms, one dispatcher:
+   - `replayHistoricalValue(...)` — weighted-average replay walking
+     every movement chronologically, using each row's recorded
+     `UnitCostBase`.
+   - `historicalFIFOValue(...)` — layer-based point-in-time value. For
+     each layer that existed by `asOfDate`, subtract the live net
+     consumption (issue date ≤ asOfDate, reversal date > asOfDate or
+     null) and value the remaining units at the layer's unit cost.
+2. `historicalValueAt(...)` picks the algorithm by looking up the
+   company's `inventory_costing_method`. Hardened: FIFO companies are
+   NEVER served weighted-avg replay under any fallback.
+3. `GetOnHand(AsOfDate=…)` and `GetItemLedger` route through the
+   dispatcher. Moving-avg companies get their running-average history
+   populated; FIFO companies get true layer state.
+4. Legacy rows (pre-migration-056) with `UnitCost` but no
+   `UnitCostBase` fall back to `UnitCost` in weighted-avg replay.
+
+### Phase E4 — CostingEngine retirement  *(partially shipped)*
+1. All production call sites already migrated off the legacy engine in
+   earlier slices (E0.2 invoice COGS, D cleanup preview, D facades).
+2. `CostingMethod` enum in `services/` now includes
+   `CostingMethodFIFO` so callers touching the company field can reference
+   it symbolically. The authoritative costing enum is
+   `services/inventory.CostingMethod` — `services.CostingMethod` is kept
+   for the Company column only.
+3. The doc-comment at the top of `costing_engine.go` now states in plain
+   terms that new callers must NOT use the engine.
+
+**Rule — legacy engine is fixture-only.** The remaining
+`CostingEngine` surface is regression scaffolding: usable as a test
+seeder or to assert parity between legacy behavior and the new IN verbs.
+It must not be the truth oracle for any new feature, and code that
+shapes a new business flow around it fails review.
+
+**E4.1 — full engine removal.** Deferred. The `CostingEngine` interface,
+`MovingAverageCostingEngine` struct, `InboundRequest/Result`,
+`OutboundRequest`, and the `phase_*_inventory_test.go` +
+`costing_engine_test.go` suites still exist. Removing them is a
+standalone mechanical porting slice (~2,000 lines). No correctness debt
+— just dead-code hygiene. Schedule independently.
+
+### Phase F — Serial / lot / expiry tracking  *(shipped)*
+
+Foundation-quality tracking. Shipped in five slices:
+
+**F1 — Tracking model foundation.** Migration 062 adds
+`product_services.tracking_mode` with CHECK `IN ('none','lot','serial')`.
+Migrations 063 / 064 create `inventory_lots` and
+`inventory_serial_units` respectively, with their own uniqueness
+(unique `(company, item, lot_number)` for lots; partial-unique
+`(company, item, serial_number) WHERE state IN live_states` for
+serials). `ValidateTrackingMode` / `ApplyTypeDefaults` enforce that
+non-stock items stay on `none`. `ChangeTrackingMode` (service) refuses
+to switch while stock exists and writes an audit log entry on every
+change. Locked by `TestApplyTypeDefaults_NonStockForcedToNone`,
+`TestChangeTrackingMode_BlockedByOnHand`,
+`TestChangeTrackingMode_BlockedByLayerRemaining`.
+
+**F2 — Inbound tracked stock.** `ReceiveStock` validates + persists
+lot / serial / expiry alongside (not inside) the existing cost-layer
+path. Lot top-up semantics; per-serial expiry; rejects mismatches with
+sentinel errors (`ErrTrackingDataMissing`, `ErrTrackingDataOnUntrackedItem`,
+`ErrSerialCountMismatch`, `ErrDuplicateSerialInbound`,
+`ErrTrackingModeMismatch`). Untracked items keep working unchanged.
+
+**F3 — Outbound tracked issue + exact reversal.** Migration 065 adds
+`inventory_tracking_consumption` — one row per lot/serial consumed by
+an outbound movement. Exactly one of `lot_id` / `serial_unit_id` is
+set per row (CHECK constraint). `IssueStock` demands explicit
+selections for tracked items (no allocator). `ReverseMovement` unwinds
+anchors exactly: restores lot remaining or flips serial state back to
+on_hand, stamps `ReversedByMovementID`. Tracked reversal with no
+anchors returns `ErrTrackingAnchorMissing` — same correctness-gate
+stance as E2.1 for FIFO cost layers.
+
+**F4 — Tracking inquiry / traceability / expiry visibility.**
+`GetLotsForItem`, `GetSerialsForItem`, `GetTracesForMovement`,
+`GetTracesForItem`, `GetExpiringLots`, `GetExpiringSerials`. All
+company-scoped. Visibility-only — expiry does not yet block outbound.
+
+**F5 — Closeout / integration guardrails.** Self-audit + docs. Key
+cross-slice invariants verified:
+- Tracking truth and cost truth are independent paths on the same
+  `IssueStock` call (lot consumption + FIFO layer consumption write
+  distinct tables, exact-cardinality different by design).
+- TransferStock / PostInventoryBuild on tracked items fail loud
+  because their IssueStock legs don't populate selections — documented
+  unsupported until a first-class tracked transfer/build ships.
+
+### Phase F deferred / unsupported
+
+- **Tracked TransferStock + PostInventoryBuild.** Current behavior:
+  hard rejection (ErrLotSelectionMissing / ErrSerialSelectionMissing).
+  If promoted later, **TransferStock before PostInventoryBuild**.
+- **Specific-identification costing.** `CostingMethodSpecific` still
+  "not yet implemented". Tracking is tracking; costing is costing.
+- **Tracking mode conversion tool.** No migration path for items with
+  existing on-hand.
+- **FEFO / auto-allocator.** Not implemented; callers pick explicitly.
+  See "FEFO advisory-only" lock in §3.8.
+- **Expiry policy** (warn / hard block / override). Current default:
+  warn only. Per-company configurable policy is a future anchor below.
+- **Reserve-a-specific-serial.** Reservation counter remains
+  item-level.
+
+### Phase F post-decision upgrade anchors
+
+Catalogued with explicit names so a future slice can pick them up
+without rediscovering the requirements. **None are scheduled.**
+
+1. **Item-level expiry policy (per-item / per-company).** Surface:
+   `product_services.expiry_required` (bool) + `companies.expiry_issue_policy`
+   (`warn_only` default | `hard_block` | `allow_with_override`). Touches
+   `IssueStock` validation only. Override path MUST write a deviation
+   audit (see #2). Regulated industries (pharma, biologics, implants)
+   are the primary callers.
+
+2. **Deviation audit.** When `allow_with_override` is active and an
+   operator issues expired stock, a dedicated audit row captures
+   actor, item, lot/serial, expiry_date, override reason. Required
+   before #1's `allow_with_override` mode can be considered safe.
+
+3. **Opening tracking initialization wizard.** Bulk-create lot / serial
+   rows for items with existing on-hand when a company onboards
+   tracking. The wizard MUST capture real unit identities from the
+   operator (serials, lot numbers) rather than synthesize them. This
+   is explicitly NOT a copy of H2's synthetic-genesis pattern —
+   tracking truth demands real identity, not FK-anchor placeholders.
+
+4. **Assisted repair workspace.** Operator-facing UI driving
+   `InspectFIFOLayerDrift` output into manual selections for the
+   `positive_needs_investigation` drift class (E2.3b). Never
+   auto-repairs; every resolution is an explicit operator action with
+   its own audit trail.
+
+These anchors share one rule: each must be its own slice with a
+deliberate correctness review. They are NOT candidates for convenience
+add-ons to future feature work.
+
+### Phase G — Bill inventory-grade lifecycle + tracking integration  *(in progress)*
+
+Transitional bridge-to-Receipt phase. **This is not "better Bill
+inventory"** — the goal is to stop the correctness-debt bleed while
+Phase H's Receipt-first model is built. Exit conditions are fixed
+from the first slice; see the authority baseline for the full
+contract.
+
+#### Slice G.1 — `tracking_enabled` capability gate  *(shipped)*
+
+First concrete implementation of the F.7 capability-gate pattern:
+
+1. Migration 066 adds `companies.tracking_enabled BOOLEAN NOT NULL
+   DEFAULT FALSE`. Existing companies stay safe by default.
+2. `ChangeTrackingMode` enforces the gate before item-level checks
+   when `NewMode != TrackingNone`. The "flip-down-to-none" direction
+   stays unconditionally allowed (reducing tracking footprint never
+   introduces tracking truth).
+3. `ChangeCompanyTrackingCapability(companyID, enabled, actor)` is
+   the audited admin surface:
+   - Enabling: unconditional (company must exist).
+   - Disabling: rejected if any product_service still has
+     `tracking_mode != 'none'` — refuses to silently orphan live
+     tracking data.
+   - Every effective flip writes an audit row
+     (`company.tracking_capability.enabled` / `.disabled`) with
+     before/after state.
+4. New sentinels `ErrTrackingCapabilityNotEnabled` /
+   `ErrTrackingCapabilityHasTrackedItems`.
+
+Closes the §F.1 foot-gun documented in the Phase F closeout: no admin
+can flip an item into lot/serial tracking mode until the company
+owner has explicitly opted-in at the company level, and even then
+only while business-document integration for tracked items is
+understood to be on the operator's side.
+
+Tests locking the semantics:
+`TestChangeTrackingMode_BlockedByCapabilityGate`,
+`TestChangeTrackingMode_GateOffButReturnToNone_Allowed`,
+`TestChangeCompanyTrackingCapability_EnableWritesAuditAndUnlocksGate`,
+`TestChangeCompanyTrackingCapability_DisableBlockedByTrackedItems`,
+`TestChangeCompanyTrackingCapability_DisableAllowedWhenNoItemsTracked`,
+`TestChangeCompanyTrackingCapability_NoOpWhenAlreadyInState`.
+
+#### Slice G.2 — `ValidateStockForInvoice` tracking-aware  *(shipped)*
+
+Invoice preview now rejects tracked items early with
+`ErrTrackedItemNotSupportedByInvoice` instead of letting the IssueStock
+tracking guard surface a raw sentinel at post time. Both single lines
+and bundle-expanded components are checked. The error message names
+the item and the tracking mode, and points at the Phase I shipment-
+driven flow as the correct future path. Locked by
+`TestValidateStockForInvoice_RejectsTrackedSingleLine`.
+
+#### Slice G.3 — Bill lifecycle codification  *(shipped — doc anchor)*
+
+The Bill state machine already existed in code (`bill_post.go` /
+`bill_void.go` enforce transitions). G.3 codifies the canonical states
+and transitions in this spec so downstream phases build on a fixed
+contract rather than on the current handler's implicit assumptions.
+
+**States (`models.BillStatus`):**
+
+| State | Meaning |
+|---|---|
+| `draft` | Creator editing; no GL, no inventory, no AP. |
+| `posted` | JE generated, AP recorded. For stock bills this ALSO creates inventory movements (transitional — will narrow in Phase H). |
+| `partially_paid` | Posted + at least one payment applied; balance > 0. |
+| `paid` | Posted + fully paid; balance = 0. |
+| `voided` | Reversed. Source-doc identity preserved, JE + inventory movements fully reversed (E2.1 anchor-driven). |
+
+**Valid transitions (enforced by services today):**
+
+```
+draft      → posted   (via PostBill; requires Status==draft)
+posted     → partially_paid   (via payment application)
+posted     → paid             (via full payment)
+partially_paid → paid
+posted     → voided   (via VoidBill; requires Status∈{posted,partially_paid})
+partially_paid → voided
+```
+
+Terminal states: `paid`, `voided`. `draft` can also be deleted outright
+(no audit trail required since nothing has posted).
+
+**What G.3 does NOT add (deliberately deferred):**
+- `submitted` state + approval workflow — Phase J control hardening
+- `cancelled` distinct from `voided` — voided already covers both
+  "post then reverse" and "never-posted cancelled". If a future
+  control slice needs them distinct, that's a Phase J decision.
+
+Every G.4+ slice that touches Bill must preserve these transitions.
+Adding a new state requires its own slice + migration + doc update —
+not a quiet enum extension.
+
+#### Slice G.4 — Bill line tracking receipt data  *(shipped, lot-only)*
+
+Migration 067 adds `bill_lines.lot_number` and `bill_lines.lot_expiry_date`.
+`CreatePurchaseMovements` now forwards these to `ReceiveStock`, landing
+the lot into `inventory_lots` per F2 rules (create-or-top-up).
+
+**Supported:** lot-tracked items on Bill lines. Operator captures
+lot + optional expiry at line level; the post-bill flow persists the
+lot end-to-end.
+
+**Deliberately NOT supported:** serial-tracked items via Bill. The Bill
+format has no natural N-serials-per-line surface, and serialized items
+typically arrive through a dedicated receipt flow (Phase H Receipt).
+Serial-tracked Bill lines continue to fail loud at
+`inventory.validateInboundTracking` with `ErrTrackingDataMissing` —
+the pre-existing F2 guard acts as the backstop and is the intended
+outcome until Phase H.
+
+Tests locking the three cases:
+- `TestCreatePurchaseMovements_LotTrackedBillLine_PersistsLot`
+  (happy path: lot_number + expiry → inventory_lots row)
+- `TestCreatePurchaseMovements_LotTrackedBillLine_MissingLotRejected`
+  (operator forgot to fill lot → bubbles `ErrTrackingDataMissing`)
+- `TestCreatePurchaseMovements_SerialTrackedBillLine_RejectedAsUnsupported`
+  (serial via Bill → guarded fail, anchors the unsupported edge)
+
+Phase G.4 is **transitional** by §C.G.1. These fields live on BillLine
+only because Bill is still forming inventory in Phase G. In Phase H
+they migrate to ReceiptLine and BillLine reverts to financial-only.
+
+#### Slice G.5 — Permission catalog naming  *(shipped)*
+
+See §10 "Permission catalog naming" below. Convention anchor set;
+implementation lands in Phase J.
+
+Phase G carries a hard **exit condition** from day one: new companies
+adopt Receipt-first immediately after Phase H stabilises; old companies
+retain Bill-direct-to-inventory only behind a legacy flag. Phase G is
+not an architecture; it's a transition window.
 
 ---
 
-## 8. Open questions to revisit before D.1
+## 8. Open questions — status after Phase D / E / F
 
-1. Costing method default — weighted average for all products, or
-   configurable per product? Current code seems weighted-average only.
-   Decision needed before FIFO implementation in Phase E.
-2. Multi-currency bill with LandedCost — who owns the allocation logic?
-   Today: caller computes. Revisit if allocation proves repeated across
-   callers.
-3. `inventory_balances` as materialized cache vs. on-demand aggregate.
-   Current implementation: materialized. Fine for now; monitor for drift
-   issues.
+1. **Costing method default.** *Resolved for D, extended in E2:*
+   weighted average is the default; FIFO is opt-in per company via
+   `company.inventory_costing_method = "fifo"`. Specific-identification
+   still unimplemented — returns `not yet implemented` from
+   `IssueStock`.
+2. **LandedCost allocation ownership.** *Resolved:* caller computes
+   per-line apportionment and passes `LandedCostAllocation` on
+   `ReceiveStockInput`. No sign of needing a shared helper yet.
+3. **`inventory_balances` as cache vs. aggregate.** *Resolved for D:*
+   materialized. `GetOnHand(AsOfDate=…)` falls back to aggregate
+   replay when historical quantity is needed.
+4. **Historical average-cost reconstruction.** *Resolved in E3 +
+   hardened.* Moving-average companies get chronological replay; FIFO
+   companies get layer-based point-in-time value via
+   `historicalFIFOValue`. Cross-method aliasing forbidden.
+5. **COGS preview/apply window.** *Resolved in Phase E0.* The JE's COGS
+   amount now comes from `IssueStock`'s return value, not from the
+   pre-tx preview. Locked by
+   `TestPostInvoice_COGSAgreesWithMovementUnitCostBase`.
+6. **BOM scrap percentage.** Currently hardcoded to zero in
+   `ExplodeBOM`. `models.ItemComponent` has no scrap column; if one
+   is added, `queries.go` has a single line to update.
+7. **Expired stock issue policy.** *Resolved for Phase F:* default
+   `warn_only` (visibility + warning); `IssueStock` does NOT block on
+   expiry. Per-company `warn_only | hard_block | allow_with_override`
+   is a future anchor (§7 upgrade anchors #1), not scheduled.
+8. **FEFO / auto-allocator.** *Resolved for Phase F:* advisory-only
+   discipline. `IssueStock` always requires explicit
+   `LotSelections` / `SerialSelections`. An advisory recommendation
+   API is a future anchor, never a silent allocator.
+9. **Serial expiry required-vs-optional.** *Resolved for Phase F:*
+   optional. Per-item or per-company "expiry required" flag is a
+   future anchor for regulated industries.
+10. **Tracking-mode conversion with existing on-hand.**
+    *Resolved for Phase F:* rejected (`ErrTrackingModeHasStock`).
+    No conversion tool today; a future "opening tracking
+    initialization wizard" would capture real identities from the
+    operator, not synthesize them (§7 upgrade anchor #3).
+11. **E2.3b positive-with-layers drift repair.**
+    *Resolved — manual-only.* `InspectFIFOLayerDrift` surfaces the
+    drift; `RepairFIFOLayerDrift` does NOT touch this class. This
+    is a deliberate scope boundary. Future "assisted repair
+    workspace" (§7 upgrade anchor #4) is deferred.
+12. **Tracked TransferStock / PostInventoryBuild first-class support.**
+    *Resolved — deferred as guarded-fail.* If promoted, TransferStock
+    ships before PostInventoryBuild.
 
 ---
 
@@ -621,6 +1422,209 @@ onwards:
 - Transfer: `issue.UnitCostBase == receive.UnitCostBase` on the same transfer.
 - No two rows share the same `(company_id, idempotency_key)`.
 - BOM explosion of any product terminates (no cycle detected, depth ≤ max).
+- **FIFO invariant (E2.1 onward):** for companies on
+  `inventory_costing_method = "fifo"`,
+  `SUM(inventory_cost_layers.remaining_quantity) per (item, warehouse)
+  == inventory_balances.quantity_on_hand`.
+  `InspectFIFOLayerDrift` (Phase E2.3) surfaces any cell that breaks
+  the invariant so operators can schedule targeted repairs or run
+  `RepairFIFOLayerDrift` for the genesis-migration case.
+- **FIFO historical exactness:** `historicalFIFOValue` at `asOfDate T`
+  on a FIFO company must equal the on-hand state at the *first* instant
+  strictly after `T` — i.e. asking `AsOfDate = movementDate` includes
+  that day's movements. Locked by
+  `TestHistoricalValueAt_FIFOCompany_ReversalRestoresLayerAsOf`.
+- **Authoritative COGS:** JE COGS line debit must equal
+  `|QuantityDelta| × UnitCostBase` on the matching sale movement, to
+  the cent. Locked by
+  `TestPostInvoice_COGSAgreesWithMovementUnitCostBase`.
+- **Tracking / costing orthogonality (F5):** on a FIFO company
+  issuing a lot-tracked item, the FIFO layer consumption rows and
+  the lot tracking consumption rows are independent — a single
+  issue produces anchors in both tables at their own granularities
+  (multi-layer FIFO cost rows vs. one row per selected lot). Locked
+  by `TestTracking_CostingOrthogonality_FIFOCompanyLotTracked`.
+- **Tracked reversal requires anchors (F3):** reversing a tracked
+  outbound with no `inventory_tracking_consumption` rows returns
+  `ErrTrackingAnchorMissing`. No auto-guess. Locked by
+  `TestReverseMovement_LotTracked_MissingAnchorRejected`.
+- **Non-stock items can never carry lot/serial (F1):** enforced at
+  model + service layers. Locked by
+  `TestApplyTypeDefaults_NonStockForcedToNone`,
+  `TestValidateTrackingMode_NonStockRejectsLotSerial`,
+  `TestChangeTrackingMode_NonStockRejected`.
+- **Tracking mode cannot be silently flipped (F1):** any attempt
+  while `on_hand > 0` OR `layer.remaining > 0` returns
+  `ErrTrackingModeHasStock`. Locked by
+  `TestChangeTrackingMode_BlockedByOnHand`,
+  `TestChangeTrackingMode_BlockedByLayerRemaining`.
+- **Tracked company isolation (F3+F4):** no lot/serial query or
+  consumption can cross company boundaries. Locked by
+  `TestReceiveStock_SerialTracked_CompanyIsolationAllowsSameSerial`,
+  `TestIssueStock_LotTracked_CrossCompanyLotRejected`,
+  `TestGetTracesForMovement_CompanyIsolation`,
+  `TestGetExpiringLots_CompanyIsolation`.
+- **Company-level tracking gate (G.1):** no item may leave
+  `tracking_mode='none'` while `companies.tracking_enabled=FALSE`.
+  Disabling the gate is rejected while any item is still tracked.
+  Every flip produces an audit row. Locked by
+  `TestChangeTrackingMode_BlockedByCapabilityGate`,
+  `TestChangeCompanyTrackingCapability_DisableBlockedByTrackedItems`,
+  `TestChangeCompanyTrackingCapability_EnableWritesAuditAndUnlocksGate`.
 
 These are integration-test territory; a small seeded dataset that exercises
 each path lives in `internal/services/inventory/testdata/` (TBD).
+
+---
+
+## 10. Permission catalog naming (Phase G.5 — convention anchor)
+
+The full permission model lands in Phase J (control hardening). Ahead of
+that, this section **fixes the naming convention** so any handler work
+from Phase G onwards can introduce new permission identifiers without
+drifting.
+
+### Naming form
+
+```
+<domain>.<document>.<action>
+```
+
+- **Domain** — bounded context that owns the permission:
+  `inventory` / `ap` / `ar` / `company`.
+- **Document** — the specific document type the action operates on.
+  Use the document's canonical singular (`bill`, not `bills`; `receipt`,
+  not `receipts`).
+- **Action** — one of the canonical lifecycle verbs:
+  `create` / `submit` / `approve` / `post` / `cancel` / `reverse` /
+  `send` / `void` / plus role-split verbs where relevant
+  (`request` / `approve`, `ship` / `receive`).
+
+### Canonical permission list (anchor — do not rename without passing this doc)
+
+**Inventory documents:**
+
+```
+inventory.receipt.create
+inventory.receipt.post
+inventory.receipt.cancel
+inventory.receipt.reverse
+inventory.receipt.discrepancy_report
+
+inventory.shipment.create
+inventory.shipment.post
+inventory.shipment.cancel
+inventory.shipment.reverse
+
+inventory.transfer.draft
+inventory.transfer.ship
+inventory.transfer.receive
+inventory.transfer.cancel
+inventory.transfer.reverse
+inventory.transfer.discrepancy_report
+
+inventory.writeoff.request
+inventory.writeoff.approve
+inventory.writeoff.post
+inventory.writeoff.reverse
+
+inventory.return.receive
+inventory.return.inspect
+inventory.return.disposition
+
+inventory.adjustment.post
+inventory.adjustment.reverse
+
+inventory.build.post
+inventory.build.reverse
+```
+
+**AP documents:**
+
+```
+ap.bill.create
+ap.bill.submit
+ap.bill.approve
+ap.bill.post
+ap.bill.cancel
+ap.bill.reverse
+
+ap.payment.create
+ap.payment.post
+ap.payment.void
+```
+
+**AR documents:**
+
+```
+ar.invoice.create
+ar.invoice.send
+ar.invoice.post
+ar.invoice.cancel
+ar.invoice.reverse
+
+ar.receipt.create
+ar.receipt.post
+ar.receipt.void
+```
+
+**Company capability gates (F.7 family, governed by company admin):**
+
+```
+company.tracking_capability.enable
+company.tracking_capability.disable
+company.receipt_required.flip        (future, Phase H)
+company.shipment_required.flip       (future, Phase I)
+company.manufacturing_enabled.flip   (future, Phase K)
+```
+
+### Hard rules
+
+1. **One document / one lifecycle action = one permission.** Do NOT
+   collapse `create + post` into a single permission because "usually
+   the same person does both." Role composition is an orthogonal
+   layer (see below).
+2. **Reverse is always separate.** It is frequently an elevated
+   permission even where post is routine. Never bundle into post.
+3. **Approve exists iff the document has an approval semantic.** Do
+   not add approve permissions where no workflow consumes them.
+4. **No "admin" / "super" catch-all permissions.** Every permission
+   names a concrete action on a concrete document. The union-of-all
+   is expressed through role composition, not through a wildcard
+   permission.
+5. **Capability-gate permissions are named
+   `<domain>.<gate>.<enable|disable>` or `.flip`**, not
+   `company.<gate>.admin`. The audit trail needs to record which
+   direction the flip went.
+
+### Role composition (not shipped in G.5; anchor only)
+
+Roles are **compositions of permissions**, not aliases for them.
+System-provided role names should reflect business function, not
+privilege level:
+
+- `warehouse_clerk_shipping`: `inventory.shipment.create` +
+  `inventory.transfer.ship`
+- `warehouse_clerk_receiving`: `inventory.receipt.post` +
+  `inventory.transfer.receive` + `inventory.return.receive`
+- `inventory_controller`: `inventory.writeoff.request` +
+  `inventory.adjustment.post` + `inventory.return.inspect`
+- `inventory_controller_senior`: above + `inventory.writeoff.approve`
+  + `inventory.*.reverse`
+- `company_admin_inventory`: capability-gate permissions
+
+Client-defined roles may copy and extend the above. Clients may NOT
+mutate system-provided roles directly (prevents privilege escalation
+by silent edit).
+
+### Phase J commitments
+
+Phase J will:
+- Build the `permissions` + `role_permissions` schema that realises
+  this naming
+- Retrofit existing handlers to check the catalog instead of ad-hoc
+  `role == "admin"` checks
+- Add per-flip audit for every capability-gate permission
+- NOT expand the catalog beyond what this section names; additions
+  require a new permission-catalog slice (not a handler-driven
+  afterthought)

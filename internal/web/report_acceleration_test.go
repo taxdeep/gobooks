@@ -240,7 +240,19 @@ func ptrTime(v time.Time) *time.Time {
 
 func TestReportCacheInvalidatedAfterInvoicePostAndVoid(t *testing.T) {
 	db := testEditorFlowDB(t)
-	if err := db.AutoMigrate(&models.PaymentTransaction{}, &models.SettlementAllocation{}, &models.InventoryMovement{}, &models.InventoryBalance{}); err != nil {
+	// VoidInvoice walks payment transactions, settlement allocations,
+	// inventory ledger, and credit note applications — all of which must
+	// exist or the void returns an error and the handler redirects to
+	// ?voiderror=1 without invalidating the report cache.
+	if err := db.AutoMigrate(
+		&models.PaymentTransaction{},
+		&models.SettlementAllocation{},
+		&models.InventoryMovement{},
+		&models.InventoryBalance{},
+		&models.InventoryCostLayer{},
+		&models.InventoryLayerConsumption{},
+		&models.CreditNoteApplication{},
+	); err != nil {
 		t.Fatal(err)
 	}
 	server := &Server{DB: db, ReportCache: NewReportAcceleration()}
@@ -273,7 +285,16 @@ func TestReportCacheInvalidatedAfterInvoicePostAndVoid(t *testing.T) {
 
 func TestReportCacheInvalidatedAfterBillPostAndVoid(t *testing.T) {
 	db := testEditorFlowDB(t)
-	if err := db.AutoMigrate(&models.SettlementAllocation{}, &models.InventoryMovement{}, &models.InventoryBalance{}); err != nil {
+	// VoidBill walks settlement allocations, inventory ledger, and AP
+	// credit applications — missing any of those tables fails the void
+	// and the handler redirects to ?voiderror=1 without invalidating the
+	// report cache.
+	if err := db.AutoMigrate(
+		&models.SettlementAllocation{},
+		&models.InventoryMovement{},
+		&models.InventoryBalance{},
+		&models.APCreditApplication{},
+	); err != nil {
 		t.Fatal(err)
 	}
 	server := &Server{DB: db, ReportCache: NewReportAcceleration()}

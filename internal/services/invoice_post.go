@@ -197,57 +197,54 @@ func PostInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 		arAccount = acc
 	}
 
-	// ── 3b. Validate inventory stock (for stock items) ───────────────────────
-	// Must happen before the transaction to provide a clear error without
-	// acquiring locks. The actual deduction happens inside the transaction.
-	// Resolve the warehouse: inv.WarehouseID → company default → nil (legacy).
+	// ── 3b. Pre-flight stock check (friendly-error fast path) ────────────────
+	// Surfaces ErrInsufficientStock / item-not-tracked errors before we open
+	// a transaction and acquire any row locks. Cost figures from this
+	// preview are intentionally DISCARDED — the authoritative cost comes from
+	// IssueStock inside the transaction below (see §7.b). See
+	// INVENTORY_MODULE_API.md §2 "authoritative cost principle".
 	invWarehouseID := ResolveInventoryWarehouse(db, companyID, inv.WarehouseID)
-	outboundCosts, bundleExpansions, stockErr := ValidateStockForInvoice(db, companyID, inv.Lines, invWarehouseID)
+	_, bundleExpansions, stockErr := ValidateStockForInvoice(db, companyID, inv.Lines, invWarehouseID)
 	if stockErr != nil {
 		return stockErr
 	}
 
-	// ── 4. Build posting fragments ────────────────────────────────────────────
+	// ── 4. Build non-COGS posting fragments ──────────────────────────────────
 	// Pure function: one DR (AR) + one CR (revenue) per line + one CR (tax) per
-	// taxable line. No DB calls; validated against company above.
-	frags, err := BuildInvoiceFragments(inv, arAccount.ID)
+	// taxable line. No DB calls; validated against company above. COGS
+	// fragments are built later, inside the transaction, from authoritative
+	// IssueStock results.
+	nonCogsFrags, err := BuildInvoiceFragments(inv, arAccount.ID)
 	if err != nil {
 		return fmt.Errorf("build invoice fragments: %w", err)
 	}
 
-	// ── 4b. Add COGS fragments for inventory items ───────────────────────────
-	// Dr COGS / Cr Inventory Asset for each stock item, using current avg cost.
-	// These are self-balancing (Dr == Cr) so they don't affect the AR balance check.
-	cogsFrags := BuildCOGSFragments(inv.Lines, outboundCosts, bundleExpansions)
-	frags = append(frags, cogsFrags...)
-
-	// ── 5. Aggregate by account + side ────────────────────────────────────────
-	// Multiple lines pointing to the same revenue or tax account are merged into
-	// a single journal line. Debit and credit sides are never merged together.
-	jeLines, err := AggregateJournalLines(frags)
+	// ── 5. Aggregate + FX scale the non-COGS side ────────────────────────────
+	// Multiple lines pointing to the same revenue or tax account are merged.
+	// FX scaling uses AR as the anchor that absorbs rounding residuals.
+	nonCogsLines, err := AggregateJournalLines(nonCogsFrags)
 	if err != nil {
 		return fmt.Errorf("aggregate journal lines: %w", err)
 	}
-	txJournalLines := make([]PostingFragment, len(jeLines))
-	copy(txJournalLines, jeLines)
-	// ── 5b. Apply FX scaling (foreign-currency invoices only) ────────────────
-	// Scale all non-AR lines to base currency. The AR anchor absorbs rounding so
-	// that ΣDebit == ΣCredit after conversion.
+	txNonCogsLines := make([]PostingFragment, len(nonCogsLines))
+	copy(txNonCogsLines, nonCogsLines)
 	if isForeignCurrency {
-		jeLines = applyFXScaling(jeLines, exchangeRate, arAccount.ID, true)
+		nonCogsLines = applyFXScaling(nonCogsLines, exchangeRate, arAccount.ID, true)
 	}
 
-	companyCheckLines := make([]models.JournalLine, 0, len(jeLines))
-	for _, jl := range jeLines {
+	companyCheckLines := make([]models.JournalLine, 0, len(nonCogsLines))
+	for _, jl := range nonCogsLines {
 		companyCheckLines = append(companyCheckLines, models.JournalLine{AccountID: jl.AccountID})
 	}
 	if err := EnsureJournalLineAccountsBelongToCompany(db, companyID, companyCheckLines); err != nil {
 		return fmt.Errorf("journal line account validation: %w", err)
 	}
 
-	// ── 6. Double-entry balance check ─────────────────────────────────────────
-	creditSum := sumPostingCredits(jeLines)
-	debitSum := sumPostingDebits(jeLines)
+	// ── 6. Double-entry balance check on the non-COGS side ───────────────────
+	// AR == (Revenue + Tax). COGS added later is self-balancing (Dr == Cr on
+	// the same unit cost) so the combined JE remains balanced.
+	creditSum := sumPostingCredits(nonCogsLines)
+	debitSum := sumPostingDebits(nonCogsLines)
 	if !debitSum.Equal(creditSum) {
 		return fmt.Errorf(
 			"journal entry imbalance: debit sum %s ≠ credit sum %s — check line totals",
@@ -272,7 +269,25 @@ func PostInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 			return ErrAlreadyPosted
 		}
 
-		// b. Journal entry header.
+		// b. AUTHORITATIVE STEP — issue stock for every inventory line. The
+		//    returned map (item_id → OutboundResult) carries the unit cost
+		//    booked on inventory_movements. We will reuse these exact numbers
+		//    for the COGS journal lines below so JE and inventory ledger
+		//    agree to the cent. See INVENTORY_MODULE_API.md §2.
+		authoritativeCosts, err := CreateSaleMovements(tx, companyID, inv, bundleExpansions, invWarehouseID)
+		if err != nil {
+			return fmt.Errorf("inventory sale movements: %w", err)
+		}
+
+		// c. Build COGS fragments from the authoritative costs. Inventory
+		//    costing is always in base currency, so these rows skip the
+		//    FX-scaling pass — they are already base.
+		cogsLines, err := AggregateJournalLines(BuildCOGSFragments(inv.Lines, authoritativeCosts, bundleExpansions))
+		if err != nil {
+			return fmt.Errorf("aggregate COGS lines: %w", err)
+		}
+
+		// d. Journal entry header.
 		//    SourceType + SourceID enable the unique partial index backstop:
 		//    (company_id, source_type='invoice', source_id=inv.ID) WHERE status='posted'.
 		je := models.JournalEntry{
@@ -291,12 +306,11 @@ func PostInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 			return fmt.Errorf("create journal entry: %w", err)
 		}
 
-		// c. Journal lines — one per aggregated fragment.
-		//    Collect created rows: ProjectToLedger needs AccountID + Debit/Credit
-		//    from the persisted rows (company_id cross-check inside ProjectToLedger).
-		createdLines := make([]models.JournalLine, 0, len(jeLines))
-		for i, jl := range jeLines {
-			txLine := txJournalLines[i]
+		// e. Journal lines — non-COGS first (tx-currency aware), then COGS
+		//    (base currency; TxDebit/TxCredit mirror Debit/Credit).
+		createdLines := make([]models.JournalLine, 0, len(nonCogsLines)+len(cogsLines))
+		for i, jl := range nonCogsLines {
+			txLine := txNonCogsLines[i]
 			line := models.JournalLine{
 				CompanyID:      companyID,
 				JournalEntryID: je.ID,
@@ -314,15 +328,36 @@ func PostInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 			}
 			createdLines = append(createdLines, line)
 		}
+		for _, jl := range cogsLines {
+			// COGS is already booked in base currency by the inventory
+			// module; document-currency equivalents mirror the base amounts
+			// because COGS is not a tx-currency concept.
+			line := models.JournalLine{
+				CompanyID:      companyID,
+				JournalEntryID: je.ID,
+				AccountID:      jl.AccountID,
+				TxDebit:        jl.Debit,
+				TxCredit:       jl.Credit,
+				Debit:          jl.Debit,
+				Credit:         jl.Credit,
+				Memo:           jl.Memo,
+				PartyType:      models.PartyTypeCustomer,
+				PartyID:        inv.CustomerID,
+			}
+			if err := tx.Create(&line).Error; err != nil {
+				return fmt.Errorf("create COGS journal line: %w", err)
+			}
+			createdLines = append(createdLines, line)
+		}
 
-		// c2. Secondary book amounts — no-op when no secondary books are configured.
+		// f. Secondary book amounts — no-op when no secondary books are configured.
 		if err := WriteSecondaryBookAmounts(tx, companyID, createdLines,
 			transactionCurrencyCode, inv.InvoiceDate,
 			models.FXPostingReasonTransaction); err != nil {
 			return fmt.Errorf("write secondary book amounts: %w", err)
 		}
 
-		// d. Ledger projection — one ledger_entry per journal_line, status=active.
+		// g. Ledger projection — one ledger_entry per journal_line, status=active.
 		if err := ProjectToLedger(tx, companyID, LedgerPostInput{
 			JournalEntry: je,
 			Lines:        createdLines,
@@ -330,11 +365,6 @@ func PostInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 			SourceID:     inv.ID,
 		}); err != nil {
 			return fmt.Errorf("project to ledger: %w", err)
-		}
-
-		// e. Record inventory sale movements for stock items (same transaction).
-		if err := CreateSaleMovements(tx, companyID, inv, je.ID, outboundCosts, bundleExpansions, invWarehouseID); err != nil {
-			return fmt.Errorf("inventory sale movements: %w", err)
 		}
 
 		// f. Update invoice: mark issued (posted), link journal entry, snapshot base amounts.

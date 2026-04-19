@@ -275,7 +275,7 @@ func PostBill(db *gorm.DB, companyID, billID uint, actor string, userID *uuid.UU
 		}
 
 		// e. Record inventory purchase movements for stock items (same transaction).
-		if err := CreatePurchaseMovements(tx, companyID, bill, je.ID, billWarehouseID); err != nil {
+		if err := CreatePurchaseMovements(tx, companyID, bill, billWarehouseID); err != nil {
 			return fmt.Errorf("inventory purchase movements: %w", err)
 		}
 

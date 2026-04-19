@@ -145,7 +145,34 @@ type Company struct {
 	// Once inventory movements exist for the company, this should not be changed.
 	InventoryCostingMethod string `gorm:"type:text;not null;default:'moving_average'"`
 
+	// TrackingEnabled is the company-level capability gate for
+	// lot/serial/expiry tracking (Phase G slice G.1, migration 066).
+	//
+	// When FALSE (default), no item owned by this company may leave
+	// tracking_mode='none'. ChangeTrackingMode rejects the transition
+	// with ErrTrackingCapabilityNotEnabled, directing the caller to
+	// the admin-level capability switch.
+	//
+	// When TRUE, per-item tracking_mode can be flipped subject to
+	// the existing on-hand / layer-remaining guards.
+	//
+	// This field is the first concrete implementation of the
+	// capability-gate pattern defined in INVENTORY_MODULE_API.md §F.7.
+	// The remaining three gates (receipt_required, shipment_required,
+	// manufacturing_enabled) land in their respective phases with the
+	// same shape: conservative default, audited flip, no UI shortcut.
+	TrackingEnabled bool `gorm:"not null;default:false"`
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
+
+// Inventory costing method enum values, kept alongside the column they
+// represent so readers don't have to cross-reference services/inventory.
+// New code should compare against these constants rather than string
+// literals.
+const (
+	InventoryCostingMovingAverage = "moving_average"
+	InventoryCostingFIFO          = "fifo"
+)
 

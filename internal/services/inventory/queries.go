@@ -59,20 +59,21 @@ func GetOnHand(db *gorm.DB, q OnHandQuery) ([]OnHandRow, error) {
 
 	rows := make([]OnHandRow, 0, len(balances))
 	for _, bal := range balances {
-		if !q.IncludeZero && bal.QuantityOnHand.IsZero() {
+		if !q.IncludeZero && bal.QuantityOnHand.IsZero() && bal.QuantityReserved.IsZero() {
 			continue
 		}
 		whID := uint(0)
 		if bal.WarehouseID != nil {
 			whID = *bal.WarehouseID
 		}
-		reserved := decimal.Zero // Phase E surfaces reserved_quantity
+		// QuantityReserved now surfaces directly from the balance row
+		// (Phase E1, migration 058). Available = OnHand − Reserved.
 		rows = append(rows, OnHandRow{
 			ItemID:            bal.ItemID,
 			WarehouseID:       whID,
 			QuantityOnHand:    bal.QuantityOnHand,
-			QuantityReserved:  reserved,
-			QuantityAvailable: bal.QuantityOnHand.Sub(reserved),
+			QuantityReserved:  bal.QuantityReserved,
+			QuantityAvailable: bal.QuantityOnHand.Sub(bal.QuantityReserved),
 			AverageCostBase:   bal.AverageCost,
 			TotalValueBase:    bal.QuantityOnHand.Mul(bal.AverageCost).RoundBank(2),
 		})
@@ -80,20 +81,23 @@ func GetOnHand(db *gorm.DB, q OnHandQuery) ([]OnHandRow, error) {
 	return rows, nil
 }
 
-// getOnHandHistorical reconstructs on-hand quantity at AsOfDate by summing
-// quantity_delta for movements up to and including that date. Average cost
-// is not replayed — the cheapest correct thing to do is leave it at zero
-// and flag the limitation in the doc comment of GetOnHand above.
+// getOnHandHistorical reconstructs on-hand quantity, weighted-average cost
+// and total value at AsOfDate. Quantity comes from summing
+// QuantityDelta ≤ AsOfDate; average cost is replayed via
+// replayHistoricalValue so historical statements can render dollars, not
+// just units. Phase E3.
 func getOnHandHistorical(db *gorm.DB, q OnHandQuery) ([]OnHandRow, error) {
-	type historicalRow struct {
+	// First pick which (item, warehouse) pairs have any movement by the
+	// AsOfDate — this bounds the replay work. For each pair, replay the
+	// movements to derive (qty, avg, value).
+	type scopeRow struct {
 		ItemID      uint
 		WarehouseID *uint
-		QtyDelta    decimal.Decimal
 	}
-	var rows []historicalRow
+	var scopes []scopeRow
 
 	dbq := db.Model(&models.InventoryMovement{}).
-		Select("item_id, warehouse_id, COALESCE(SUM(quantity_delta), 0) AS qty_delta").
+		Select("item_id, warehouse_id").
 		Where("company_id = ? AND movement_date <= ?", q.CompanyID, *q.AsOfDate).
 		Group("item_id, warehouse_id")
 	if q.ItemID != 0 {
@@ -102,27 +106,217 @@ func getOnHandHistorical(db *gorm.DB, q OnHandQuery) ([]OnHandRow, error) {
 	if q.WarehouseID != 0 {
 		dbq = dbq.Where("warehouse_id = ?", q.WarehouseID)
 	}
-	if err := dbq.Scan(&rows).Error; err != nil {
+	if err := dbq.Scan(&scopes).Error; err != nil {
 		return nil, fmt.Errorf("inventory.GetOnHand historical: %w", err)
 	}
 
-	result := make([]OnHandRow, 0, len(rows))
-	for _, r := range rows {
-		if !q.IncludeZero && r.QtyDelta.IsZero() {
+	result := make([]OnHandRow, 0, len(scopes))
+	for _, s := range scopes {
+		qty, avg, value, err := historicalValueAt(db, q.CompanyID, s.ItemID, s.WarehouseID, *q.AsOfDate)
+		if err != nil {
+			return nil, err
+		}
+		if !q.IncludeZero && qty.IsZero() {
 			continue
 		}
 		whID := uint(0)
-		if r.WarehouseID != nil {
-			whID = *r.WarehouseID
+		if s.WarehouseID != nil {
+			whID = *s.WarehouseID
 		}
 		result = append(result, OnHandRow{
-			ItemID:         r.ItemID,
-			WarehouseID:    whID,
-			QuantityOnHand: r.QtyDelta,
-			// Historical cost reconstruction is Phase E work; leave blank.
+			ItemID:          s.ItemID,
+			WarehouseID:     whID,
+			QuantityOnHand:  qty,
+			AverageCostBase: avg,
+			TotalValueBase:  value,
 		})
 	}
 	return result, nil
+}
+
+// historicalValueAt routes to the right algorithm based on the company's
+// costing method. FIFO companies get layer-based point-in-time value
+// (correct per-layer state); weighted-average companies get replay-based
+// value (running avg across the full movement history).
+//
+// E3 hardening: moving-average replay must NOT be served to FIFO
+// companies — that would silently alias FIFO semantics behind
+// weighted-avg numbers. See INVENTORY_MODULE_API.md §4.1 "FIFO historical
+// valuation goes through layers".
+func historicalValueAt(db *gorm.DB, companyID, itemID uint, warehouseID *uint, asOfDate time.Time) (qty, avg, value decimal.Decimal, err error) {
+	method := companyCostingMethod(db, companyID)
+	if method == models.InventoryCostingFIFO {
+		return historicalFIFOValue(db, companyID, itemID, warehouseID, asOfDate)
+	}
+	return replayHistoricalValue(db, companyID, itemID, warehouseID, asOfDate)
+}
+
+// companyCostingMethod looks up the company's configured costing method.
+// Defaults to moving-average for companies whose row can't be loaded (the
+// legacy path, and an explicit choice: it's the algorithm replayHistorical
+// is correct for, so treating unknown as weighted-avg is safe).
+func companyCostingMethod(db *gorm.DB, companyID uint) string {
+	var c models.Company
+	if err := db.Select("id", "inventory_costing_method").First(&c, companyID).Error; err != nil {
+		return models.InventoryCostingMovingAverage
+	}
+	if c.InventoryCostingMethod == "" {
+		return models.InventoryCostingMovingAverage
+	}
+	return c.InventoryCostingMethod
+}
+
+// historicalFIFOValue reconstructs point-in-time FIFO value from the cost
+// layer table + consumption log. For each layer that existed by asOfDate,
+// the function:
+//
+//  1. Starts from OriginalQuantity.
+//  2. Subtracts every consumption row whose issue movement_date ≤ asOfDate.
+//  3. Adds back each subtraction whose reversal movement_date ≤ asOfDate.
+//
+// The result is the layer's RemainingQuantity *as-of that date*. Summing
+// (remaining × unit_cost_base) across layers gives the true FIFO value at
+// that point in time — no weighted-avg approximation.
+//
+// Layers received strictly after asOfDate are excluded; consumption rows
+// whose issue movement post-dates asOfDate are ignored entirely.
+func historicalFIFOValue(db *gorm.DB, companyID, itemID uint, warehouseID *uint, asOfDate time.Time) (qty, avg, value decimal.Decimal, err error) {
+	lq := db.Where("company_id = ? AND item_id = ? AND received_date <= ?",
+		companyID, itemID, asOfDate)
+	if warehouseID != nil {
+		lq = lq.Where("warehouse_id = ?", *warehouseID)
+	}
+	var layers []models.InventoryCostLayer
+	if err := lq.Find(&layers).Error; err != nil {
+		return decimal.Zero, decimal.Zero, decimal.Zero, fmt.Errorf("inventory: load layers: %w", err)
+	}
+	if len(layers) == 0 {
+		return decimal.Zero, decimal.Zero, decimal.Zero, nil
+	}
+
+	// Gather layer IDs so we can fetch consumption in one query.
+	layerIDs := make([]uint, 0, len(layers))
+	for _, l := range layers {
+		layerIDs = append(layerIDs, l.ID)
+	}
+
+	// Pull consumption rows for these layers and join each side's
+	// movement_date so we can filter by asOfDate in Go.
+	type consumptionRow struct {
+		LayerID       uint
+		QuantityDrawn decimal.Decimal
+		IssueDate     time.Time
+		ReversalDate  *time.Time
+	}
+	var rows []consumptionRow
+	raw := db.Table("inventory_layer_consumption AS c").
+		Select(`c.layer_id, c.quantity_drawn,
+			im.movement_date AS issue_date,
+			rm.movement_date AS reversal_date`).
+		Joins("JOIN inventory_movements AS im ON im.id = c.issue_movement_id").
+		Joins("LEFT JOIN inventory_movements AS rm ON rm.id = c.reversed_by_movement_id").
+		Where("c.company_id = ? AND c.layer_id IN ?", companyID, layerIDs)
+	if err := raw.Scan(&rows).Error; err != nil {
+		return decimal.Zero, decimal.Zero, decimal.Zero, fmt.Errorf("inventory: load consumption: %w", err)
+	}
+
+	// Net-drawn per layer at asOfDate.
+	netDrawn := map[uint]decimal.Decimal{}
+	for _, r := range rows {
+		if r.IssueDate.After(asOfDate) {
+			continue // consumption hadn't happened yet
+		}
+		// Reversal only "counts" if it happened by asOfDate too.
+		if r.ReversalDate != nil && !r.ReversalDate.After(asOfDate) {
+			continue // draw was undone by asOfDate → net zero
+		}
+		netDrawn[r.LayerID] = netDrawn[r.LayerID].Add(r.QuantityDrawn)
+	}
+
+	for _, l := range layers {
+		drawn := netDrawn[l.ID]
+		remaining := l.OriginalQuantity.Sub(drawn)
+		if !remaining.IsPositive() {
+			continue
+		}
+		qty = qty.Add(remaining)
+		value = value.Add(remaining.Mul(l.UnitCostBase))
+	}
+
+	if qty.IsPositive() {
+		avg = value.Div(qty).Round(4)
+		value = value.RoundBank(2)
+	} else {
+		qty = decimal.Zero
+		avg = decimal.Zero
+		value = decimal.Zero
+	}
+	return qty, avg, value, nil
+}
+
+// replayHistoricalValue walks every movement for (company, item,
+// warehouse) up to and including asOfDate, in chronological order, and
+// returns the final (quantity, average unit cost, total value).
+//
+// Weighted-average ONLY. FIFO companies must route through
+// historicalFIFOValue — calling this function for a FIFO company would
+// silently produce a weighted-avg approximation instead of true FIFO
+// state. The public entry point historicalValueAt enforces the dispatch.
+//
+// Rules:
+//
+//   - Positive delta (receipt): value += delta × UnitCostBase;
+//     qty += delta.
+//   - Negative delta (issue / reversal): value += delta × UnitCostBase
+//     (delta is negative, so this reduces); qty += delta.
+//
+// The critical invariant is that the *recorded* UnitCostBase on each
+// movement is always "the cost that applied at that event" — the running
+// avg at issue time for outbound events, the receipt cost for inbound
+// events, or the snapshot cost for reversal events. Using it verbatim in
+// the replay therefore preserves the correct running avg at every step.
+//
+// warehouseID=nil aggregates across warehouses.
+func replayHistoricalValue(db *gorm.DB, companyID, itemID uint, warehouseID *uint, asOfDate time.Time) (qty, avg, value decimal.Decimal, err error) {
+	q := db.Model(&models.InventoryMovement{}).
+		Where("company_id = ? AND item_id = ? AND movement_date <= ?",
+			companyID, itemID, asOfDate)
+	if warehouseID != nil {
+		q = q.Where("warehouse_id = ?", *warehouseID)
+	}
+	var movs []models.InventoryMovement
+	if err := q.Order("movement_date asc, id asc").Find(&movs).Error; err != nil {
+		return decimal.Zero, decimal.Zero, decimal.Zero, fmt.Errorf("inventory: load movements for replay: %w", err)
+	}
+
+	for _, m := range movs {
+		unit := decimal.Zero
+		if m.UnitCostBase != nil {
+			unit = *m.UnitCostBase
+		} else if m.UnitCost != nil {
+			// Legacy rows may not have UnitCostBase set; fall back to UnitCost
+			// (doc currency = base currency for pre-FX rows).
+			unit = *m.UnitCost
+		}
+		delta := m.QuantityDelta
+		if delta.IsZero() {
+			continue
+		}
+		qty = qty.Add(delta)
+		// Value follows the signed delta: positive delta adds cost, negative
+		// delta removes cost at its recorded unit rate.
+		value = value.Add(delta.Mul(unit))
+	}
+
+	if qty.IsPositive() {
+		avg = value.Div(qty).Round(4)
+		value = value.RoundBank(2)
+	} else {
+		// Zero or negative on-hand: avg is not meaningful.
+		avg = decimal.Zero
+		value = decimal.Zero
+	}
+	return qty, avg, value, nil
 }
 
 // ── GetMovements ─────────────────────────────────────────────────────────────
@@ -228,23 +422,25 @@ func GetItemLedger(db *gorm.DB, q ItemLedgerQuery) (*ItemLedgerReport, error) {
 		return nil, fmt.Errorf("inventory.GetItemLedger: CompanyID and ItemID required")
 	}
 
-	// Opening: sum of movements strictly before FromDate.
-	openingQty, err := sumDeltas(db, q.CompanyID, q.ItemID, q.WarehouseID, nil, dayBefore(q.FromDate))
-	if err != nil {
-		return nil, err
-	}
-	openingValue := decimal.Zero // full historical valuation = Phase E
-
-	// Closing: sum of movements up to and including ToDate.
-	closingQty, err := sumDeltas(db, q.CompanyID, q.ItemID, q.WarehouseID, nil, ptrTime(q.ToDate))
+	// Opening: reconstruct state strictly before FromDate. Routes to
+	// historicalFIFOValue for FIFO companies or weighted-avg replay
+	// otherwise (see historicalValueAt).
+	openingCutoff := q.FromDate.Add(-1 * 24 * time.Hour)
+	openingQty, openingUnit, openingValue, err := historicalValueAt(
+		db, q.CompanyID, q.ItemID, q.WarehouseID, openingCutoff)
 	if err != nil {
 		return nil, err
 	}
 
-	// Current balance to pick up the authoritative AverageCost when ToDate
-	// is today (or later). For historical closing we leave it zero.
-	closingUnitCost := decimal.Zero
-	closingValue := decimal.Zero
+	// Closing: reconstruct state up to and including ToDate. Prefer the
+	// authoritative cached InventoryBalance when ToDate is today (or
+	// later) so current-period statements match what GetOnHand returns
+	// without replay.
+	closingQty, closingUnitCost, closingValue, err := historicalValueAt(
+		db, q.CompanyID, q.ItemID, q.WarehouseID, q.ToDate)
+	if err != nil {
+		return nil, err
+	}
 	if isRecent(q.ToDate) {
 		balQ := db.Model(&models.InventoryBalance{}).Where("company_id = ? AND item_id = ?", q.CompanyID, q.ItemID)
 		if q.WarehouseID != nil {
@@ -258,6 +454,7 @@ func GetItemLedger(db *gorm.DB, q ItemLedgerQuery) (*ItemLedgerReport, error) {
 			totalValue = totalValue.Add(b.QuantityOnHand.Mul(b.AverageCost))
 		}
 		if totalQty.IsPositive() {
+			closingQty = totalQty
 			closingUnitCost = totalValue.Div(totalQty).Round(4)
 			closingValue = totalValue.RoundBank(2)
 		}
@@ -294,7 +491,7 @@ func GetItemLedger(db *gorm.DB, q ItemLedgerQuery) (*ItemLedgerReport, error) {
 		WarehouseID:      q.WarehouseID,
 		OpeningQuantity:  openingQty,
 		OpeningValueBase: openingValue,
-		OpeningUnitCost:  decimal.Zero, // Phase E: historical avg reconstruction
+		OpeningUnitCost:  openingUnit, // Phase E3: replayed weighted-avg
 		Movements:        movementRows,
 		ClosingQuantity:  closingQty,
 		ClosingValueBase: closingValue,
@@ -376,26 +573,26 @@ func GetValuationSnapshot(db *gorm.DB, q ValuationQuery) ([]ValuationRow, decima
 
 // GetCostingPreview reports the cost a hypothetical IssueStock would book,
 // without touching state. Used for quotations and margin previews.
+//
+// WarehouseID=0 means "aggregate across all warehouses for this company /
+// item" — useful for legacy single-warehouse callers and any company that
+// has not opted into multi-warehouse routing. The returned UnitCostBase is
+// the company-level weighted-average cost (sum(qty × avg) / sum(qty)) and
+// the feasibility check uses the summed on-hand quantity.
 func GetCostingPreview(db *gorm.DB, q CostingPreviewQuery) (*CostingPreviewResult, error) {
-	if q.CompanyID == 0 || q.ItemID == 0 || q.WarehouseID == 0 {
-		return nil, fmt.Errorf("inventory.GetCostingPreview: CompanyID, ItemID, WarehouseID required")
+	if q.CompanyID == 0 || q.ItemID == 0 {
+		return nil, fmt.Errorf("inventory.GetCostingPreview: CompanyID and ItemID required")
 	}
 	if !q.Quantity.IsPositive() {
 		return nil, ErrNegativeQuantity
 	}
 
-	var bal models.InventoryBalance
-	err := db.Where("company_id = ? AND item_id = ? AND warehouse_id = ?",
-		q.CompanyID, q.ItemID, q.WarehouseID).First(&bal).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		// No balance row yet — the item is effectively zero at this warehouse.
-		return &CostingPreviewResult{
-			UnitCostBase:  decimal.Zero,
-			TotalCostBase: decimal.Zero,
-			Feasible:      false,
-			ShortBy:       q.Quantity,
-		}, nil
+	var whPtr *uint
+	if q.WarehouseID != 0 {
+		id := q.WarehouseID
+		whPtr = &id
 	}
+	bal, err := lookupComponentBalance(db, q.CompanyID, q.ItemID, whPtr)
 	if err != nil {
 		return nil, fmt.Errorf("inventory.GetCostingPreview: %w", err)
 	}
@@ -644,41 +841,7 @@ func GetAvailableForBuild(db *gorm.DB, companyID, parentItemID, warehouseID uint
 
 // ── Internal helpers ─────────────────────────────────────────────────────────
 
-// sumDeltas returns the signed sum of QuantityDelta for (company, item) over
-// the given warehouse and date range. FromDate inclusive; ToDate inclusive.
-// Either bound can be nil to leave that side unbounded.
-func sumDeltas(db *gorm.DB, companyID, itemID uint, warehouseID *uint, fromDate, toDate *time.Time) (decimal.Decimal, error) {
-	q := db.Model(&models.InventoryMovement{}).
-		Where("company_id = ? AND item_id = ?", companyID, itemID)
-	if warehouseID != nil {
-		q = q.Where("warehouse_id = ?", *warehouseID)
-	}
-	if fromDate != nil {
-		q = q.Where("movement_date >= ?", *fromDate)
-	}
-	if toDate != nil {
-		q = q.Where("movement_date <= ?", *toDate)
-	}
-	var sum decimal.Decimal
-	type row struct {
-		Total decimal.Decimal
-	}
-	var r row
-	if err := q.Select("COALESCE(SUM(quantity_delta), 0) AS total").Scan(&r).Error; err != nil {
-		return decimal.Zero, fmt.Errorf("inventory: sum deltas: %w", err)
-	}
-	sum = r.Total
-	return sum, nil
-}
-
 func ptrTime(t time.Time) *time.Time { return &t }
-func dayBefore(t time.Time) *time.Time {
-	if t.IsZero() {
-		return nil
-	}
-	d := t.Add(-1 * 24 * time.Hour)
-	return &d
-}
 func isRecent(t time.Time) bool {
 	return t.IsZero() || !t.Before(time.Now().Add(-24*time.Hour))
 }

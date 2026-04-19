@@ -27,6 +27,8 @@ func testPhaseEDB(t *testing.T) *gorm.DB {
 		&models.Warehouse{},
 		&models.InventoryMovement{},
 		&models.InventoryBalance{},
+		&models.InventoryCostLayer{},
+		&models.InventoryLayerConsumption{},
 	)
 	return db
 }

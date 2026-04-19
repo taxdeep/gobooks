@@ -43,6 +43,8 @@ func testTaskInvoiceDraftDB(t *testing.T) *gorm.DB {
 		&models.AuditLog{},
 		&models.InventoryMovement{},
 		&models.InventoryBalance{},
+		&models.InventoryCostLayer{},
+		&models.InventoryLayerConsumption{},
 		&models.Bill{},
 		&models.BillLine{},
 		&models.Task{},

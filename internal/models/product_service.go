@@ -79,6 +79,16 @@ const (
 	ItemStructureAssembly ItemStructureType = "assembly"
 )
 
+// ── Tracking mode (Phase F1) ─────────────────────────────────────────────────
+
+// TrackingMode values. Lot/serial/expiry capture is governed by this field
+// on ProductService. Costing remains orthogonal (moving-avg / FIFO).
+const (
+	TrackingNone   = "none"
+	TrackingLot    = "lot"
+	TrackingSerial = "serial"
+)
+
 // ── Capability defaults ──────────────────────────────────────────────────────
 
 // ApplyTypeDefaults sets capability flags based on the item type.
@@ -104,6 +114,31 @@ func (ps *ProductService) ApplyTypeDefaults() {
 	}
 	if ps.ItemStructureType == "" {
 		ps.ItemStructureType = ItemStructureSingle
+	}
+	// Phase F1 hard rule: non-stock items can never carry lot/serial
+	// tracking. Force to TrackingNone on defaulting; ValidateTrackingMode
+	// re-enforces the same rule on update paths.
+	if ps.TrackingMode == "" || !ps.IsStockItem {
+		ps.TrackingMode = TrackingNone
+	}
+}
+
+// ValidateTrackingMode ensures the mode is legal both in-value and
+// in-context. Non-stock items and service items are permitted ONLY
+// "none". Stock items may be any of the three. Returns a human-readable
+// error suitable for surfacing in handlers.
+func (ps *ProductService) ValidateTrackingMode() error {
+	switch ps.TrackingMode {
+	case TrackingNone:
+		return nil
+	case TrackingLot, TrackingSerial:
+		if !ps.IsStockItem {
+			return fmt.Errorf("tracking_mode %q is only valid for stock items; %q is not a stock item",
+				ps.TrackingMode, ps.Name)
+		}
+		return nil
+	default:
+		return fmt.Errorf("tracking_mode must be one of none|lot|serial (got %q)", ps.TrackingMode)
 	}
 }
 
@@ -137,6 +172,19 @@ type ProductService struct {
 
 	// Structure type: single | bundle | assembly. Default single.
 	ItemStructureType ItemStructureType `gorm:"type:text;not null;default:'single'"`
+
+	// TrackingMode governs lot/serial/expiry capture for stock items.
+	// Phase F1. Legal values: "none" | "lot" | "serial" (see
+	// TrackingNone/TrackingLot/TrackingSerial constants). Default "none".
+	//
+	// Hard rule (enforced by ValidateTrackingModeForItem): non-stock
+	// items MUST stay on "none". Only is_stock_item=TRUE items may be
+	// set to lot or serial.
+	//
+	// Changing this field while the item has on-hand > 0 is rejected by
+	// ChangeTrackingMode (see internal/services/product_service_tracking.go).
+	// Phase F1 does not ship a conversion tool.
+	TrackingMode string `gorm:"type:text;not null;default:'none'"`
 
 	// Revenue account credited on invoice posting (required).
 	RevenueAccountID uint    `gorm:"not null;index"`

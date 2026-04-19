@@ -129,6 +129,35 @@ func ReverseMovement(db *gorm.DB, in ReverseMovementInput) (*ReverseMovementResu
 		return nil, fmt.Errorf("inventory.ReverseMovement: create reversal movement: %w", err)
 	}
 
+	// Phase E2.1: if the original was a FIFO-costed issue, restore the
+	// consumed layers' RemainingQuantity. We detect FIFO by the existence
+	// of consumption rows — weighted-avg issues never wrote any. Legacy
+	// FIFO issues (pre-E2.1, consumption log absent) skip this step; on-
+	// hand restoration via snapshot cost is accounting-correct but the
+	// FIFO layer counters stay stale until a reconcile job reseats them.
+	if orig.QuantityDelta.IsNegative() {
+		if err := restoreConsumedLayers(db, in.CompanyID, orig.ID, reversal.ID); err != nil {
+			return nil, err
+		}
+	}
+
+	// Phase F3: if the original was a tracked outbound, unwind the
+	// lot/serial consumption anchors. Untracked items skip this.
+	// Tracked items WITHOUT anchors (data anomaly or legacy) return
+	// ErrTrackingAnchorMissing — we don't guess which lots/serials to
+	// restore. Same stance as E2.1's missing-layer-consumption case.
+	if orig.QuantityDelta.IsNegative() {
+		trackingMode, err := loadTrackingMode(db, in.CompanyID, orig.ItemID)
+		if err != nil {
+			return nil, err
+		}
+		if trackingMode == models.TrackingLot || trackingMode == models.TrackingSerial {
+			if err := restoreTrackedConsumption(db, in.CompanyID, orig.ItemID, orig.ID, reversal.ID); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	// Link the original back to the reversal — closes the bidirectional
 	// chain. Uses UpdateColumn to avoid GORM's default zero-value skipping
 	// when the field is still nil on `orig`.
@@ -143,6 +172,40 @@ func ReverseMovement(db *gorm.DB, in ReverseMovementInput) (*ReverseMovementResu
 		UnitCostBase:       snapshotCost,
 		ReversalValueBase:  reversalValueBase,
 	}, nil
+}
+
+// restoreConsumedLayers loads the live layer-consumption rows for an
+// original issue movement and adds each drawn quantity back to its layer's
+// RemainingQuantity. The consumption rows are then stamped with
+// reversed_by_movement_id so a second reversal attempt cannot double-
+// restore. If no rows exist this function is a no-op (the issue was
+// weighted-avg OR legacy pre-E2.1 FIFO).
+func restoreConsumedLayers(db *gorm.DB, companyID, originalMovementID, reversalMovementID uint) error {
+	var rows []models.InventoryLayerConsumption
+	if err := db.Where("company_id = ? AND issue_movement_id = ? AND reversed_by_movement_id IS NULL",
+		companyID, originalMovementID).Find(&rows).Error; err != nil {
+		return fmt.Errorf("inventory.ReverseMovement: load layer consumption: %w", err)
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+
+	for i := range rows {
+		row := &rows[i]
+		var layer models.InventoryCostLayer
+		if err := db.First(&layer, row.LayerID).Error; err != nil {
+			return fmt.Errorf("inventory.ReverseMovement: reload layer %d: %w", row.LayerID, err)
+		}
+		layer.RemainingQuantity = layer.RemainingQuantity.Add(row.QuantityDrawn)
+		if err := db.Save(&layer).Error; err != nil {
+			return fmt.Errorf("inventory.ReverseMovement: restore layer %d: %w", layer.ID, err)
+		}
+		row.ReversedByMovementID = &reversalMovementID
+		if err := db.Save(row).Error; err != nil {
+			return fmt.Errorf("inventory.ReverseMovement: mark consumption %d reversed: %w", row.ID, err)
+		}
+	}
+	return nil
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

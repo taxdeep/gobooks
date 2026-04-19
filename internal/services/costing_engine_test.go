@@ -26,6 +26,8 @@ func testCostingDB(t *testing.T) *gorm.DB {
 		&models.ProductService{},
 		&models.InventoryMovement{},
 		&models.InventoryBalance{},
+		&models.InventoryCostLayer{},
+		&models.InventoryLayerConsumption{},
 	)
 	return db
 }

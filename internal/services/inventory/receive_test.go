@@ -31,6 +31,11 @@ func testDB(t *testing.T) *gorm.DB {
 		&models.ProductService{},
 		&models.InventoryMovement{},
 		&models.InventoryBalance{},
+		&models.InventoryCostLayer{},
+		&models.InventoryLayerConsumption{},
+		&models.InventoryLot{},
+		&models.InventorySerialUnit{},
+		&models.InventoryTrackingConsumption{},
 	); err != nil {
 		t.Fatalf("automigrate: %v", err)
 	}

@@ -425,6 +425,23 @@ type BillLine struct {
 	// v1: always 0; UI does not expose this field.
 	MarkupPercent decimal.Decimal `gorm:"type:numeric(8,4);not null;default:0"`
 
+	// ── Tracking receipt data (Phase G.4, migration 067) ─────────────────
+	//
+	// For lot-tracked ProductService lines, operators supply the lot
+	// number (and optional expiry) here. Phase G is transitional —
+	// these live on BillLine only because Bill currently still forms
+	// inventory. In Phase H they move to ReceiptLine and BillLine
+	// becomes financial-only.
+	//
+	// SERIAL-TRACKED items via Bill are NOT supported in G.4. The bill
+	// format has no natural multi-serial capture surface; serial
+	// items typically arrive via a dedicated receipt flow and will be
+	// covered in the Phase H Receipt document. A serial-tracked
+	// BillLine will fail in ReceiveStock's tracking validation at post
+	// time (ErrTrackingDataMissing), which is the intended guard.
+	LotNumber      string     `gorm:"type:text;not null;default:''"`
+	LotExpiryDate  *time.Time `gorm:"type:date"`
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

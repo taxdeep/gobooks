@@ -1,16 +1,30 @@
 // 遵循project_guide.md
 package services
 
-// costing_engine.go — Pluggable inventory costing abstraction.
+// costing_engine.go — Legacy inventory costing abstraction.
 //
-// The CostingEngine interface decouples inventory movement processing from the
-// specific cost-flow algorithm. The posting engine and inventory service call
-// these methods instead of writing cost formulas inline.
+// Status as of Phase E (2026-04): the authoritative costing & stock logic
+// lives in services/inventory (the IN/OUT contract). No production code
+// path calls the CostingEngine interface any more — invoice posting uses
+// inventory.CreateSaleMovements / IssueStock directly (Phase E0.2), bill
+// posting uses inventory.ReceiveStock (Phase D), and stock preview uses
+// inventory.GetCostingPreview (Phase D cleanup).
 //
-// Current implementation: MovingAverageCostingEngine (moving_average_costing.go).
-// Future: FIFOCostingEngine would maintain per-purchase cost layers and consume
-// them in FIFO order on outbound — the interface is designed to accommodate
-// this without changing callers.
+// What remains:
+//   - The CostingEngine interface + MovingAverageCostingEngine struct
+//     are exercised directly by ~5 legacy test files
+//     (phase_b/c/d/e/f_inventory_test.go, costing_engine_test.go) which
+//     predate the bounded-context module and use the engine as a stock-
+//     seeding helper. Porting them to inventory.* is scoped as a
+//     dedicated follow-up ("E4.1") — it's ~2,000 lines of mechanical test
+//     churn and was deferred to keep phase-E slices focused.
+//   - OutboundResult survives because it is the shared return-value type
+//     between BuildCOGSFragments and CreateSaleMovements; see
+//     inventory_posting.go. Removing it would require renaming callers,
+//     which also belongs to E4.1.
+//
+// New callers must NOT use the CostingEngine. If you find yourself reaching
+// for it, use services/inventory instead.
 
 import (
 	"errors"
@@ -25,11 +39,18 @@ import (
 // ── Costing method enum ──────────────────────────────────────────────────────
 
 // CostingMethod identifies the inventory costing algorithm for a company.
+// The authoritative enum now lives in services/inventory.CostingMethod;
+// this type is retained for the legacy `company.inventory_costing_method`
+// column and the legacy CostingEngine interface below. Conversion happens
+// at the caller boundary — new code should prefer inventory.CostingMethod.
 type CostingMethod string
 
 const (
 	CostingMethodMovingAverage CostingMethod = "moving_average"
-	// Future: CostingMethodFIFO CostingMethod = "fifo"
+	// CostingMethodFIFO is shipped via services/inventory (Phase E2). The
+	// legacy engine does not implement it; callers that need FIFO go
+	// through services/inventory directly.
+	CostingMethodFIFO CostingMethod = "fifo"
 )
 
 // ── Request / Result types ───────────────────────────────────────────────────

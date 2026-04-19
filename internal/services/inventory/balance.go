@@ -122,6 +122,77 @@ func applyOutboundToBalance(db *gorm.DB, bal *models.InventoryBalance, quantity 
 	return unitCost, nil
 }
 
+// consumeFIFOLayers draws the requested quantity from the oldest cost
+// layers for (company, item, warehouse). Returns the blended unit cost
+// (total cost of consumed units / quantity) plus a per-layer breakdown
+// so IssueStock can surface CostLayers in its result and the GL layer can
+// produce multi-line COGS postings if it wants to.
+//
+// Preconditions: caller has verified enough stock exists (via
+// applyOutboundToBalance's own bounds check). FIFO happens alongside the
+// balance update, NOT instead of it — the balance still tracks
+// on-hand / average. The average becomes less meaningful under FIFO but
+// is kept for reporting parity.
+//
+// Returns ErrCostingLayerExhausted when the summed RemainingQuantity of
+// available layers is less than `quantity`. This is the FIFO-equivalent of
+// ErrInsufficientStock and can happen when weighted-avg writes have drifted
+// the balance ahead of the layer sum (a known cross-method inconsistency
+// pending a reconcile job in a future slice).
+func consumeFIFOLayers(db *gorm.DB, companyID, itemID uint, warehouseID *uint, quantity decimal.Decimal) (decimal.Decimal, []CostLayerConsumed, error) {
+	q := db.Model(&models.InventoryCostLayer{}).
+		Where("company_id = ? AND item_id = ? AND remaining_quantity > 0",
+			companyID, itemID)
+	if warehouseID != nil {
+		q = q.Where("warehouse_id = ?", *warehouseID)
+	} else {
+		q = q.Where("warehouse_id IS NULL")
+	}
+
+	var layers []models.InventoryCostLayer
+	if err := q.Order("received_date asc, id asc").Find(&layers).Error; err != nil {
+		return decimal.Zero, nil, fmt.Errorf("inventory: load cost layers: %w", err)
+	}
+
+	remaining := quantity
+	totalCost := decimal.Zero
+	consumed := make([]CostLayerConsumed, 0, 2)
+
+	for i := range layers {
+		if !remaining.IsPositive() {
+			break
+		}
+		layer := &layers[i]
+		draw := layer.RemainingQuantity
+		if draw.GreaterThan(remaining) {
+			draw = remaining
+		}
+		lineCost := draw.Mul(layer.UnitCostBase)
+
+		consumed = append(consumed, CostLayerConsumed{
+			LayerID:          layer.ID,
+			SourceMovementID: layer.SourceMovementID,
+			Quantity:         draw,
+			UnitCostBase:     layer.UnitCostBase,
+			TotalCostBase:    lineCost.RoundBank(2),
+		})
+		totalCost = totalCost.Add(lineCost)
+		remaining = remaining.Sub(draw)
+
+		layer.RemainingQuantity = layer.RemainingQuantity.Sub(draw)
+		if err := db.Save(layer).Error; err != nil {
+			return decimal.Zero, nil, fmt.Errorf("inventory: update cost layer: %w", err)
+		}
+	}
+
+	if remaining.IsPositive() {
+		return decimal.Zero, nil, fmt.Errorf("%w: need %s, layer coverage short by %s",
+			ErrCostingLayerExhausted, quantity.String(), remaining.String())
+	}
+	blended := totalCost.Div(quantity).Round(4)
+	return blended, consumed, nil
+}
+
 // applyReversalAtSnapshotCost updates the balance for a reversal, using the
 // ORIGINAL movement's snapshot cost rather than the current average. This
 // is the subtle but critical correctness property of ReverseMovement: if
