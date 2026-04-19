@@ -34,7 +34,7 @@ type InvoiceEmailLog struct {
 	CCEmails string `gorm:"not null;default:''"` // comma-separated
 
 	// Send attempt result
-	SendStatus   EmailSendStatus `gorm:"type:text;not null;default:'pending';index:idx_invoices_email_logs_status,where:send_status"`
+	SendStatus   EmailSendStatus `gorm:"type:text;not null;default:'pending';index:idx_invoices_email_logs_status"`
 	ErrorMessage string          `gorm:"not null;default:''"`
 	SMTPResponse string          `gorm:"not null;default:''"`
 
