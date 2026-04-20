@@ -1,0 +1,37 @@
+-- 075_company_shipment_required.sql
+-- Phase I slice I.1: company-level capability rail for Shipment-first
+-- sell-side fulfillment (mirror of Phase H.1's receipt_required).
+--
+-- What this column is
+-- -------------------
+-- `shipment_required` is the third of four F.7 capability rails
+-- (after `tracking_enabled` in G.1 and `receipt_required` in H.1).
+-- When FALSE (default), the company continues to run the legacy
+-- Invoice-forms-COGS path unchanged. When TRUE, the company has
+-- opted into the Phase I (current scope I.B) Shipment-first model
+-- where Shipment posting produces ship truth + Dr COGS / Cr Inventory
+-- and Invoice narrows to Dr AR / Cr Revenue only.
+--
+-- What I.1 installs and what it deliberately does NOT install
+-- -----------------------------------------------------------
+-- I.1 installs the column and an audited admin surface
+-- (ChangeCompanyShipmentRequired). It is a DORMANT RAIL: no existing
+-- company is flipped, no handler reads the flag, no Invoice/Shipment
+-- behavior changes. The rail exists so later slices (I.2 Shipment
+-- doc, I.3 Shipment post, I.4 Invoice decoupling, I.5 matching) can
+-- branch on it once each is verified.
+--
+-- Operational enablement is explicitly blocked until Phase I (under
+-- the I.B scope selection) closes, same Border 1 discipline as
+-- Phase H. See INVENTORY_MODULE_API.md §Phase I capability-gate rule.
+-- Flipping this flag on a real company before I.5 produces a
+-- half-bridged state (Shipment can form cost but Invoice cannot yet
+-- match back and surface `waiting_for_invoice` properly) that is
+-- strictly worse than legacy.
+--
+-- Default FALSE preserves byte-identical legacy + Phase H behavior
+-- for every existing company on migration. New companies also
+-- default FALSE; the default stays FALSE until Phase I.5 ships.
+
+ALTER TABLE companies
+    ADD COLUMN IF NOT EXISTS shipment_required BOOLEAN NOT NULL DEFAULT FALSE;

@@ -183,6 +183,29 @@ type Company struct {
 	// H.5 closes — see INVENTORY_MODULE_API.md §Phase H Border 1.
 	ReceiptRequired bool `gorm:"not null;default:false"`
 
+	// ShipmentRequired is the company-level capability rail for the
+	// Phase I Shipment-first sell-side fulfillment model (slice I.1,
+	// migration 075). Sell-side mirror of ReceiptRequired.
+	//
+	// When FALSE (default), the company continues the legacy path:
+	// Invoice posts COGS directly via the existing BuildCOGSFragments
+	// / CreateSaleMovements route.
+	//
+	// When TRUE, the company has opted into Phase I (under the
+	// current scope selection I.B): Shipment posting produces ship
+	// truth + Dr COGS / Cr Inventory; Invoice narrows to
+	// Dr AR / Cr Revenue. A posted Shipment creates a
+	// waiting_for_invoice operational item; Invoice post clears the
+	// item via invoice_lines.shipment_line_id linkage.
+	//
+	// I.1 installs this field as a DORMANT RAIL. No handler reads it
+	// yet; no Invoice/Shipment behavior branches on it. Later slices
+	// (I.3 Shipment post, I.4 Invoice decoupling, I.5 matching) become
+	// its consumers. Operational enablement is blocked until I.5
+	// closes — see INVENTORY_MODULE_API.md §Phase I capability-gate
+	// rule.
+	ShipmentRequired bool `gorm:"not null;default:false"`
+
 	// GRIRClearingAccountID is the liability (clearing) account that
 	// Phase H Receipt posting credits when it forms inventory truth
 	// (migration 070, slice H.3). Bill posting under
