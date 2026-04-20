@@ -181,11 +181,6 @@ templ poEditForm(vm PurchaseOrderDetailVM) {
 			<textarea name="notes" rows="2" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">{ vm.PurchaseOrder.Notes }</textarea>
 		</div>
 
-		<div>
-			<label class="block text-body font-medium text-text-muted">Memo</label>
-			<textarea name="memo" rows="2" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">{ vm.PurchaseOrder.Memo }</textarea>
-		</div>
-
 		<div class="flex gap-3">
 			<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
 				if vm.PurchaseOrder.ID == 0 {
@@ -194,20 +189,28 @@ templ poEditForm(vm PurchaseOrderDetailVM) {
 					Save Purchase Order
 				}
 			</button>
-			if vm.PurchaseOrder.ID != 0 {
-				<form method="POST" action={ templ.SafeURL("/purchase-orders/" + fmt.Sprintf("%d", vm.PurchaseOrder.ID) + "/confirm") }>
-					<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
-						Confirm PO
-					</button>
-				</form>
-				<form method="POST" action={ templ.SafeURL("/purchase-orders/" + fmt.Sprintf("%d", vm.PurchaseOrder.ID) + "/cancel") }>
-					<button type="submit" class="rounded-md border border-border-danger px-4 py-2 text-body font-semibold text-danger hover:bg-danger-soft">
-						Cancel
-					</button>
-				</form>
-			}
 		</div>
 	</form>
+
+	// Confirm / Cancel are SIBLINGS of the save form, not nested.
+	// HTML5 forbids nested <form> elements; a nested form's submit
+	// silently falls through to the outer form's action, which is
+	// why an earlier revision of this page would re-save instead of
+	// transitioning PO status when Confirm was clicked.
+	if vm.PurchaseOrder.ID != 0 {
+		<div class="mt-3 flex gap-3">
+			<form method="POST" action={ templ.SafeURL("/purchase-orders/" + fmt.Sprintf("%d", vm.PurchaseOrder.ID) + "/confirm") }>
+				<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
+					Confirm PO
+				</button>
+			</form>
+			<form method="POST" action={ templ.SafeURL("/purchase-orders/" + fmt.Sprintf("%d", vm.PurchaseOrder.ID) + "/cancel") }>
+				<button type="submit" class="rounded-md border border-border-danger px-4 py-2 text-body font-semibold text-danger hover:bg-danger-soft">
+					Cancel
+				</button>
+			</form>
+		</div>
+	}
 
 	<script>
 		// Dynamic +Add Line: clone the first existing row, clear
