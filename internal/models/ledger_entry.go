@@ -68,6 +68,12 @@ const (
 	LedgerSourceVendorCreditNote LedgerSourceType = "vendor_credit_note"
 	// LedgerSourceVendorRefund is used by vendor refund posting (Dr Bank Cr PrepaymentAsset/AP).
 	LedgerSourceVendorRefund LedgerSourceType = "vendor_refund"
+	// LedgerSourceShipment is used by Phase I.3 Shipment post under
+	// companies.shipment_required=true — Dr COGS / Cr Inventory at
+	// ship time. Invoice under the same flag only books AR/Revenue
+	// (LedgerSourceInvoice), so the two sources stay distinct in
+	// source-document drilldown reports.
+	LedgerSourceShipment LedgerSourceType = "shipment"
 )
 
 // LedgerEntry is one row in the accounting fact layer.

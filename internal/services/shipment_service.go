@@ -378,17 +378,27 @@ func ListShipments(db *gorm.DB, companyID uint, filter ListShipmentsFilter) ([]m
 	return rows, nil
 }
 
-// PostShipment flips a draft Shipment to posted.
+// PostShipment flips a draft Shipment to posted and, under Phase I
+// Shipment-first semantics (companies.shipment_required=true), drives
+// the full Shipment → issue truth → inventory effect chain, books the
+// business-document-layer JE (Dr COGS / Cr Inventory per line), and
+// creates waiting_for_invoice queue items for every stock-item line.
 //
-// I.2 scope: pure status flip + audit. No inventory effect, no GL
-// effect, no waiting_for_invoice item. The full Shipment-first flow
-// (IssueStockFromShipment + Dr COGS / Cr Inventory JE +
-// waiting_for_invoice creation) lands in I.3 and will branch on
-// companies.shipment_required. Until I.3 ships, PostShipment is
-// byte-identical regardless of the shipment_required flag — which is
-// exactly the I.2 boundary contract.
+// Flag gating (I.3):
+//   - shipment_required=false (legacy default): status flip + audit
+//     only. Byte-identical to I.2 behavior. Legacy companies continue
+//     on the Invoice-forms-COGS path; Shipment under flag=false is
+//     effectively a dress-rehearsal document with no system truth.
+//   - shipment_required=true: the full Shipment-first flow runs.
+//     Issue truth lands as inventory_movements rows with
+//     source_type='shipment'; inventory effect propagates through the
+//     inventory module's standard cost-layer / balance machinery;
+//     the JE is constructed from the base-currency values returned
+//     by inventory.IssueStock and linked back via
+//     shipments.journal_entry_id; one waiting_for_invoice row is
+//     inserted per stock-item line for I.5's Invoice match to close.
 //
-// Writes exactly one audit row (`shipment.posted`).
+// Writes exactly one audit row (`shipment.posted`) in both branches.
 func PostShipment(db *gorm.DB, companyID, id uint, actor string, actorUserID *uuid.UUID) (*models.Shipment, error) {
 	var out models.Shipment
 	err := db.Transaction(func(tx *gorm.DB) error {
@@ -400,9 +410,35 @@ func PostShipment(db *gorm.DB, companyID, id uint, actor string, actorUserID *uu
 			return fmt.Errorf("%w: current=%s", ErrShipmentAlreadyPosted, s.Status)
 		}
 
+		// Re-read the company inside the tx to pick up the latest
+		// shipment_required flag (its admin surface commits before
+		// PostShipment begins; read-then-act is safe inside this tx).
+		var company models.Company
+		if err := tx.Where("id = ?", companyID).First(&company).Error; err != nil {
+			return fmt.Errorf("load company: %w", err)
+		}
+
+		// Preload lines with ProductService resolved so
+		// CreateShipmentMovements / JE builder can read inventory /
+		// COGS accounts without a second round trip.
+		if err := tx.Preload("Lines.ProductService").
+			First(s, s.ID).Error; err != nil {
+			return fmt.Errorf("preload shipment: %w", err)
+		}
+
+		var postedJEID *uint
+		if company.ShipmentRequired {
+			jeID, err := postShipmentIssueTruthAndJE(tx, companyID, *s)
+			if err != nil {
+				return err
+			}
+			postedJEID = jeID
+		}
+
 		now := time.Now().UTC()
 		s.Status = models.ShipmentStatusPosted
 		s.PostedAt = &now
+		s.JournalEntryID = postedJEID
 		if err := tx.Save(s).Error; err != nil {
 			return fmt.Errorf("save shipment: %w", err)
 		}
@@ -413,7 +449,11 @@ func PostShipment(db *gorm.DB, companyID, id uint, actor string, actorUserID *uu
 			"shipment",
 			s.ID,
 			actorOrSystem(actor),
-			map[string]any{"shipment_number": s.ShipmentNumber},
+			map[string]any{
+				"shipment_number":    s.ShipmentNumber,
+				"journal_entry_id":   nilableUintAsAny(postedJEID),
+				"shipment_required":  company.ShipmentRequired,
+			},
 			&cid,
 			actorUserID,
 			map[string]any{"status": string(models.ShipmentStatusDraft)},
@@ -428,15 +468,125 @@ func PostShipment(db *gorm.DB, companyID, id uint, actor string, actorUserID *uu
 	return &out, nil
 }
 
-// VoidShipment flips a posted Shipment to voided.
+// postShipmentIssueTruthAndJE runs the I.3 flag=true branch of
+// PostShipment: project shipment lines to issue-truth via
+// CreateShipmentMovements, build the JE (Dr COGS / Cr Inventory per
+// line from authoritative cost), post it through the standard
+// journal pipeline, and create one waiting_for_invoice row per
+// stock-item line. Returns the created JournalEntry ID (may be nil
+// when the shipment has no stock-item lines — legit: a shipment
+// of pure services has no issue truth to book).
+func postShipmentIssueTruthAndJE(tx *gorm.DB, companyID uint, shipment models.Shipment) (*uint, error) {
+	results, err := CreateShipmentMovements(tx, shipment)
+	if err != nil {
+		return nil, fmt.Errorf("create shipment movements: %w", err)
+	}
+	if len(results) == 0 {
+		// No stock lines → no inventory effect → no JE, no WFI row.
+		return nil, nil
+	}
+
+	frags, err := buildShipmentPostingFragments(results)
+	if err != nil {
+		return nil, err
+	}
+	if len(frags) == 0 {
+		// All results contributed zero-cost fragments (unlikely but
+		// possible under degenerate FIFO state) — skip JE creation
+		// but still create WFI rows: goods left the warehouse even
+		// if the peeled cost rounded to zero.
+		if err := CreateWaitingForInvoiceItems(tx, shipment, results); err != nil {
+			return nil, err
+		}
+		return nil, nil
+	}
+	jeLines, err := AggregateJournalLines(frags)
+	if err != nil {
+		return nil, fmt.Errorf("aggregate journal lines: %w", err)
+	}
+	debitSum := sumPostingDebits(jeLines)
+	creditSum := sumPostingCredits(jeLines)
+	if !debitSum.Equal(creditSum) {
+		return nil, fmt.Errorf(
+			"shipment JE imbalance: debit %s, credit %s",
+			debitSum.StringFixed(2), creditSum.StringFixed(2),
+		)
+	}
+
+	je := models.JournalEntry{
+		CompanyID:  companyID,
+		EntryDate:  shipment.ShipDate,
+		JournalNo:  shipment.ShipmentNumber,
+		Status:     models.JournalEntryStatusPosted,
+		SourceType: models.LedgerSourceShipment,
+		SourceID:   shipment.ID,
+	}
+	if err := wrapUniqueViolation(tx.Create(&je).Error, "create shipment journal entry"); err != nil {
+		return nil, fmt.Errorf("create journal entry: %w", err)
+	}
+
+	createdLines := make([]models.JournalLine, 0, len(jeLines))
+	for _, jl := range jeLines {
+		line := models.JournalLine{
+			CompanyID:      companyID,
+			JournalEntryID: je.ID,
+			AccountID:      jl.AccountID,
+			TxDebit:        jl.Debit,
+			TxCredit:       jl.Credit,
+			Debit:          jl.Debit,
+			Credit:         jl.Credit,
+			Memo:           jl.Memo,
+		}
+		// Customer linkage (if set) carried at party level so the
+		// COGS/Inventory lines trace back to the buyer on drilldown.
+		if shipment.CustomerID != nil && *shipment.CustomerID != 0 {
+			line.PartyType = models.PartyTypeCustomer
+			line.PartyID = *shipment.CustomerID
+		}
+		if err := tx.Create(&line).Error; err != nil {
+			return nil, fmt.Errorf("create shipment journal line: %w", err)
+		}
+		createdLines = append(createdLines, line)
+	}
+
+	if err := ProjectToLedger(tx, companyID, LedgerPostInput{
+		JournalEntry: je,
+		Lines:        createdLines,
+		SourceType:   models.LedgerSourceShipment,
+		SourceID:     shipment.ID,
+	}); err != nil {
+		return nil, fmt.Errorf("project shipment to ledger: %w", err)
+	}
+
+	if err := CreateWaitingForInvoiceItems(tx, shipment, results); err != nil {
+		return nil, err
+	}
+
+	return &je.ID, nil
+}
+
+// VoidShipment flips a posted Shipment to voided. When the shipment
+// was posted under shipment_required=true (presence of
+// journal_entry_id is the signal), also reverses:
+//  1. The inventory movements (issue truth) via ReverseShipmentMovements
+//     — the inventory module books reversal movements; balances /
+//     cost layers unwind internally through the same machinery that
+//     supports VoidInvoice.
+//  2. The JE — a reversal JE is posted (debit/credit swapped),
+//     original JE flips to status=reversed, ledger entries for the
+//     original are marked reversed, and the reversal JE is projected
+//     to the ledger.
+//  3. Every waiting_for_invoice row attached to the shipment flips
+//     to status='voided'. Rows already closed by a matching Invoice
+//     (I.5) are also voided — voiding the source Shipment invalidates
+//     the downstream match by definition.
 //
-// I.2 scope: pure status flip + audit, regardless of whether the
-// shipment was posted under shipment_required=true or false. I.3 will
-// bolt on movement-reversal + JE-reversal semantics when JE linkage
-// becomes possible; in I.2 there is no JE and no movement to reverse,
-// so the void path is trivial.
+// When the shipment was posted without a JE (flag=false, or flag=true
+// with no stock lines), void is a status flip + audit only, matching
+// the I.2 behavior.
 //
-// Writes exactly one audit row (`shipment.voided`).
+// Writes exactly one audit row (`shipment.voided`) regardless of
+// branch.
 func VoidShipment(db *gorm.DB, companyID, id uint, actor string, actorUserID *uuid.UUID) (*models.Shipment, error) {
 	var out models.Shipment
 	err := db.Transaction(func(tx *gorm.DB) error {
@@ -446,6 +596,22 @@ func VoidShipment(db *gorm.DB, companyID, id uint, actor string, actorUserID *uu
 		}
 		if s.Status != models.ShipmentStatusPosted {
 			return fmt.Errorf("%w: current=%s", ErrShipmentNotPosted, s.Status)
+		}
+
+		var reversedJEID *uint
+		if s.JournalEntryID != nil {
+			if err := tx.Preload("Lines.ProductService").
+				First(s, s.ID).Error; err != nil {
+				return fmt.Errorf("preload shipment for void: %w", err)
+			}
+			jeID, err := voidShipmentReverseJEAndMovements(tx, companyID, *s)
+			if err != nil {
+				return err
+			}
+			reversedJEID = jeID
+			if err := VoidWaitingForInvoiceItemsByShipment(tx, companyID, s.ID); err != nil {
+				return err
+			}
 		}
 
 		now := time.Now().UTC()
@@ -461,7 +627,11 @@ func VoidShipment(db *gorm.DB, companyID, id uint, actor string, actorUserID *uu
 			"shipment",
 			s.ID,
 			actorOrSystem(actor),
-			map[string]any{"shipment_number": s.ShipmentNumber},
+			map[string]any{
+				"shipment_number":  s.ShipmentNumber,
+				"original_je_id":   nilableUintAsAny(s.JournalEntryID),
+				"reversal_je_id":   nilableUintAsAny(reversedJEID),
+			},
 			&cid,
 			actorUserID,
 			map[string]any{"status": string(models.ShipmentStatusPosted)},
@@ -474,6 +644,81 @@ func VoidShipment(db *gorm.DB, companyID, id uint, actor string, actorUserID *uu
 		return nil, err
 	}
 	return &out, nil
+}
+
+// voidShipmentReverseJEAndMovements reverses the JE and the inventory
+// movements associated with a previously-posted Shipment. Mirrors the
+// VoidReceipt reversal pattern so that the same void semantics apply
+// regardless of which document produced the outbound. Returns the
+// reversal JE ID for audit capture.
+func voidShipmentReverseJEAndMovements(tx *gorm.DB, companyID uint, shipment models.Shipment) (*uint, error) {
+	if shipment.JournalEntryID == nil {
+		return nil, nil
+	}
+
+	var origJE models.JournalEntry
+	if err := tx.Preload("Lines").
+		Where("id = ? AND company_id = ?", *shipment.JournalEntryID, companyID).
+		First(&origJE).Error; err != nil {
+		return nil, fmt.Errorf("load original shipment JE: %w", err)
+	}
+	if len(origJE.Lines) == 0 {
+		return nil, fmt.Errorf("original shipment JE %d has no lines", origJE.ID)
+	}
+
+	reversalJE := models.JournalEntry{
+		CompanyID:      companyID,
+		EntryDate:      origJE.EntryDate,
+		JournalNo:      "VOID-" + shipment.ShipmentNumber,
+		ReversedFromID: &origJE.ID,
+		Status:         models.JournalEntryStatusPosted,
+		SourceType:     models.LedgerSourceReversal,
+		SourceID:       shipment.ID,
+	}
+	if err := wrapUniqueViolation(tx.Create(&reversalJE).Error, "create reversal shipment JE"); err != nil {
+		return nil, fmt.Errorf("create reversal JE: %w", err)
+	}
+
+	createdRevLines := make([]models.JournalLine, 0, len(origJE.Lines))
+	for _, l := range origJE.Lines {
+		line := models.JournalLine{
+			CompanyID:      companyID,
+			JournalEntryID: reversalJE.ID,
+			AccountID:      l.AccountID,
+			Debit:          l.Credit,
+			Credit:         l.Debit,
+			Memo:           "VOID: " + l.Memo,
+			PartyType:      l.PartyType,
+			PartyID:        l.PartyID,
+		}
+		if err := tx.Create(&line).Error; err != nil {
+			return nil, fmt.Errorf("create reversal line: %w", err)
+		}
+		createdRevLines = append(createdRevLines, line)
+	}
+
+	if err := tx.Model(&models.JournalEntry{}).
+		Where("id = ? AND company_id = ?", origJE.ID, companyID).
+		Update("status", models.JournalEntryStatusReversed).Error; err != nil {
+		return nil, fmt.Errorf("mark original JE reversed: %w", err)
+	}
+	if err := MarkLedgerEntriesReversed(tx, companyID, origJE.ID); err != nil {
+		return nil, fmt.Errorf("mark ledger entries reversed: %w", err)
+	}
+	if err := ProjectToLedger(tx, companyID, LedgerPostInput{
+		JournalEntry: reversalJE,
+		Lines:        createdRevLines,
+		SourceType:   models.LedgerSourceReversal,
+		SourceID:     shipment.ID,
+	}); err != nil {
+		return nil, fmt.Errorf("project reversal to ledger: %w", err)
+	}
+
+	if err := ReverseShipmentMovements(tx, companyID, shipment); err != nil {
+		return nil, fmt.Errorf("reverse shipment movements: %w", err)
+	}
+
+	return &reversalJE.ID, nil
 }
 
 // DeleteShipment removes a draft shipment and its lines. Non-draft

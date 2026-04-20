@@ -30,6 +30,7 @@ import (
 	"gorm.io/gorm/logger"
 
 	"gobooks/internal/models"
+	"gobooks/internal/services/inventory"
 )
 
 // testShipmentDocDB spins an in-memory DB with the full Phase I.2
@@ -65,6 +66,7 @@ func testShipmentDocDB(t *testing.T) *gorm.DB {
 		&models.JournalLine{},
 		&models.LedgerEntry{},
 		&models.AuditLog{},
+		&models.WaitingForInvoiceItem{},
 	); err != nil {
 		t.Fatalf("automigrate: %v", err)
 	}
@@ -531,22 +533,298 @@ func TestDeleteShipment_RefusedOnPosted(t *testing.T) {
 	}
 }
 
-// ── Rail dormancy (I.2 boundary) ────────────────────────────────────────────
+// ── I.3 flag-off regression lock (byte-identical to I.2) ────────────────────
 
-// Flipping companies.shipment_required to TRUE must not change I.2
-// behavior. PostShipment + VoidShipment stay status-flip-only, and
-// no inventory / GL artefacts appear. This locks the "I.2 is rail-
-// agnostic" contract. The consumer that makes the flag meaningful
-// lands in I.3.
-func TestPostShipment_RailOn_StillByteIdenticalInI2_NoInventoryOrGL(t *testing.T) {
+// Under `shipment_required=false` (the default), PostShipment remains
+// a pure document-layer status flip. This locks the I.3 exit condition
+// "Under shipment_required=false, legacy behavior is byte-identical"
+// for the Shipment side: legacy companies continue with Invoice-
+// forms-COGS and Shipment produces no parallel inventory / GL effect.
+func TestPostShipment_FlagOff_ByteIdenticalToI2_NoInventoryOrGL(t *testing.T) {
 	db := testShipmentDocDB(t)
 	fx := seedShipmentFixture(t, db)
+	if err := db.Model(&models.Company{}).
+		Where("id = ?", fx.CompanyID).
+		Update("shipment_required", false).Error; err != nil {
+		t.Fatalf("set flag off: %v", err)
+	}
+	out, err := CreateShipment(db, buildSimpleShipmentCreateInput(fx))
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	posted, err := PostShipment(db, fx.CompanyID, out.ID, "admin@test", nil)
+	if err != nil {
+		t.Fatalf("post: %v", err)
+	}
+	if posted.JournalEntryID != nil {
+		t.Fatalf("flag=false post must not link a JE; got %d", *posted.JournalEntryID)
+	}
+	assertNoInventoryOrGLEffectForShipment(t, db, fx.CompanyID)
 
+	// Also confirm no WFI rows were written.
+	var wfiCount int64
+	db.Model(&models.WaitingForInvoiceItem{}).Where("company_id = ?", fx.CompanyID).Count(&wfiCount)
+	if wfiCount != 0 {
+		t.Fatalf("flag=false must not write WFI rows; got %d", wfiCount)
+	}
+}
+
+// ── I.3 flag-on happy path: the 3-layer chain materialises ──────────────────
+
+type shipmentFlagOnAccounts struct {
+	InventoryAccountID uint
+	COGSAccountID      uint
+}
+
+// seedShipmentFlagOnFixture primes a company fully for PostShipment
+// under flag=true: rail flipped ON, InventoryAccountID + COGSAccountID
+// configured on the stock item, and pre-stock deposited in the
+// warehouse so IssueStock has layers to peel. Returns the two
+// relevant account IDs for assertion use.
+func seedShipmentFlagOnFixture(t *testing.T, db *gorm.DB, fx shipmentFixture, preStockQty decimal.Decimal, preStockCost decimal.Decimal) shipmentFlagOnAccounts {
+	t.Helper()
 	if err := db.Model(&models.Company{}).
 		Where("id = ?", fx.CompanyID).
 		Update("shipment_required", true).Error; err != nil {
 		t.Fatalf("flip shipment_required: %v", err)
 	}
+	invAcct := models.Account{
+		CompanyID:         fx.CompanyID,
+		Code:              "1300",
+		Name:              "Inventory Asset",
+		RootAccountType:   models.RootAsset,
+		DetailAccountType: models.DetailInventory,
+		IsActive:          true,
+	}
+	if err := db.Create(&invAcct).Error; err != nil {
+		t.Fatalf("seed inventory account: %v", err)
+	}
+	cogsAcct := models.Account{
+		CompanyID:         fx.CompanyID,
+		Code:              "5000",
+		Name:              "Cost of Goods Sold",
+		RootAccountType:   models.RootCostOfSales,
+		DetailAccountType: models.DetailCostOfGoodsSold,
+		IsActive:          true,
+	}
+	if err := db.Create(&cogsAcct).Error; err != nil {
+		t.Fatalf("seed COGS account: %v", err)
+	}
+	if err := db.Model(&models.ProductService{}).
+		Where("id = ?", fx.ItemID).
+		Updates(map[string]any{
+			"inventory_account_id": invAcct.ID,
+			"cogs_account_id":      cogsAcct.ID,
+		}).Error; err != nil {
+		t.Fatalf("wire accounts on item: %v", err)
+	}
+
+	// Pre-stock via inventory.ReceiveStock so there is layer to peel.
+	_, err := inventoryReceiveForTest(db, fx.CompanyID, fx.ItemID, fx.WarehouseID, preStockQty, preStockCost)
+	if err != nil {
+		t.Fatalf("pre-stock: %v", err)
+	}
+	return shipmentFlagOnAccounts{InventoryAccountID: invAcct.ID, COGSAccountID: cogsAcct.ID}
+}
+
+// inventoryReceiveForTest is a thin test helper around inventory.ReceiveStock
+// so the flag-on fixture can seed a warehouse balance without reaching
+// across the receipt / bill document layer. Keeps the test independent
+// of H.2/H.3 wiring — this test is about I.3, not inbound.
+func inventoryReceiveForTest(db *gorm.DB, companyID, itemID, warehouseID uint, qty, unitCost decimal.Decimal) (*inventory.ReceiveStockResult, error) {
+	return inventory.ReceiveStock(db, inventory.ReceiveStockInput{
+		CompanyID:      companyID,
+		ItemID:         itemID,
+		WarehouseID:    warehouseID,
+		Quantity:       qty,
+		MovementDate:   time.Now().UTC(),
+		UnitCost:       unitCost,
+		ExchangeRate:   decimal.NewFromInt(1),
+		SourceType:     "test_seed",
+		SourceID:       0,
+		IdempotencyKey: fmt.Sprintf("test_seed:%d:%d:%d", companyID, itemID, warehouseID),
+		Memo:           "pre-stock for I.3 test",
+	})
+}
+
+func TestPostShipment_FlagOn_ProducesIssueTruthCOGSJournalAndWFI(t *testing.T) {
+	db := testShipmentDocDB(t)
+	fx := seedShipmentFixture(t, db)
+	accts := seedShipmentFlagOnFixture(t, db, fx,
+		decimal.NewFromInt(100), decimal.NewFromFloat(3.00))
+
+	// Create shipment for qty=7 @ cost-derived-from-inventory (3.00 per unit).
+	out, err := CreateShipment(db, buildSimpleShipmentCreateInput(fx))
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	posted, err := PostShipment(db, fx.CompanyID, out.ID, "admin@test", nil)
+	if err != nil {
+		t.Fatalf("post: %v", err)
+	}
+
+	// (1) Document layer: status flipped + JE linked.
+	if posted.Status != models.ShipmentStatusPosted {
+		t.Fatalf("status: got %q", posted.Status)
+	}
+	if posted.JournalEntryID == nil {
+		t.Fatalf("JE not linked; flag=true with stock lines must link JE")
+	}
+
+	// (2) Issue truth: one inventory_movements row source_type='shipment'.
+	var mvs []models.InventoryMovement
+	if err := db.Where("company_id = ? AND source_type = ? AND source_id = ?",
+		fx.CompanyID, "shipment", out.ID).Find(&mvs).Error; err != nil {
+		t.Fatalf("load movements: %v", err)
+	}
+	if len(mvs) != 1 {
+		t.Fatalf("movements: got %d want 1", len(mvs))
+	}
+	// Sign convention: IssueStock books a negative delta (stock leaves).
+	if !mvs[0].QuantityDelta.Equal(decimal.NewFromInt(-7)) {
+		t.Fatalf("qty_delta: got %s want -7", mvs[0].QuantityDelta)
+	}
+
+	// (3) Inventory effect: balance decremented from 100 → 93.
+	var bal models.InventoryBalance
+	if err := db.Where("company_id = ? AND item_id = ?",
+		fx.CompanyID, fx.ItemID).First(&bal).Error; err != nil {
+		t.Fatalf("load balance: %v", err)
+	}
+	if !bal.QuantityOnHand.Equal(decimal.NewFromInt(93)) {
+		t.Fatalf("on_hand: got %s want 93 (100-7)", bal.QuantityOnHand)
+	}
+
+	// (4) JE: Dr COGS + Cr Inventory, equal amounts = 7 * 3.00 = 21.00.
+	var je models.JournalEntry
+	if err := db.Preload("Lines").
+		Where("id = ?", *posted.JournalEntryID).
+		First(&je).Error; err != nil {
+		t.Fatalf("load JE: %v", err)
+	}
+	if je.SourceType != models.LedgerSourceShipment || je.SourceID != out.ID {
+		t.Fatalf("JE source linkage: got %s/%d want shipment/%d", je.SourceType, je.SourceID, out.ID)
+	}
+	var cogsDebit, invCredit decimal.Decimal
+	for _, l := range je.Lines {
+		switch l.AccountID {
+		case accts.COGSAccountID:
+			cogsDebit = cogsDebit.Add(l.Debit)
+		case accts.InventoryAccountID:
+			invCredit = invCredit.Add(l.Credit)
+		}
+	}
+	want := decimal.NewFromFloat(21.00)
+	if !cogsDebit.Equal(want) {
+		t.Fatalf("COGS debit: got %s want %s", cogsDebit, want)
+	}
+	if !invCredit.Equal(want) {
+		t.Fatalf("Inventory credit: got %s want %s", invCredit, want)
+	}
+
+	// (5) Waiting-for-invoice item: one open row per stock line.
+	var wfis []models.WaitingForInvoiceItem
+	if err := db.Where("company_id = ? AND shipment_id = ?",
+		fx.CompanyID, out.ID).Find(&wfis).Error; err != nil {
+		t.Fatalf("load WFI: %v", err)
+	}
+	if len(wfis) != 1 {
+		t.Fatalf("WFI rows: got %d want 1", len(wfis))
+	}
+	if wfis[0].Status != models.WaitingForInvoiceStatusOpen {
+		t.Fatalf("WFI status: got %q want open", wfis[0].Status)
+	}
+	if !wfis[0].QtyPending.Equal(decimal.NewFromInt(7)) {
+		t.Fatalf("WFI qty_pending: got %s want 7", wfis[0].QtyPending)
+	}
+	if !wfis[0].UnitCostBase.Equal(decimal.NewFromFloat(3.00)) {
+		t.Fatalf("WFI unit_cost_base: got %s want 3.00", wfis[0].UnitCostBase)
+	}
+	if wfis[0].ShipmentLineID != out.Lines[0].ID {
+		t.Fatalf("WFI shipment_line_id: got %d want %d", wfis[0].ShipmentLineID, out.Lines[0].ID)
+	}
+}
+
+func TestPostShipment_FlagOn_MissingCOGSAccount_Rejected(t *testing.T) {
+	db := testShipmentDocDB(t)
+	fx := seedShipmentFixture(t, db)
+	accts := seedShipmentFlagOnFixture(t, db, fx,
+		decimal.NewFromInt(100), decimal.NewFromFloat(3.00))
+	// Clear COGSAccountID so the post-time check fails.
+	if err := db.Model(&models.ProductService{}).
+		Where("id = ?", fx.ItemID).
+		Update("cogs_account_id", nil).Error; err != nil {
+		t.Fatalf("clear cogs acct: %v", err)
+	}
+	_ = accts
+
+	out, err := CreateShipment(db, buildSimpleShipmentCreateInput(fx))
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	_, err = PostShipment(db, fx.CompanyID, out.ID, "admin@test", nil)
+	if !isErr(err, ErrShipmentCOGSAccountMissing) {
+		t.Fatalf("got %v want ErrShipmentCOGSAccountMissing", err)
+	}
+	// Shipment must remain in draft — tx rolled back.
+	var stillDraft models.Shipment
+	db.First(&stillDraft, out.ID)
+	if stillDraft.Status != models.ShipmentStatusDraft {
+		t.Fatalf("status: got %q want draft (tx should roll back)", stillDraft.Status)
+	}
+}
+
+func TestPostShipment_FlagOn_ServiceOnlyShipment_NoJEBooked(t *testing.T) {
+	db := testShipmentDocDB(t)
+	fx := seedShipmentFixture(t, db)
+	seedShipmentFlagOnFixture(t, db, fx,
+		decimal.NewFromInt(100), decimal.NewFromFloat(3.00))
+
+	// Replace the stock item with a service item.
+	svc := models.ProductService{
+		CompanyID: fx.CompanyID, Name: "Delivery labour",
+		Type: models.ProductServiceTypeService, IsActive: true,
+	}
+	svc.ApplyTypeDefaults()
+	if err := db.Create(&svc).Error; err != nil {
+		t.Fatalf("seed service: %v", err)
+	}
+	in := buildSimpleShipmentCreateInput(fx)
+	in.Lines[0].ProductServiceID = svc.ID
+	in.Lines[0].Description = "Expedited delivery"
+	out, err := CreateShipment(db, in)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	posted, err := PostShipment(db, fx.CompanyID, out.ID, "admin@test", nil)
+	if err != nil {
+		t.Fatalf("post: %v", err)
+	}
+	if posted.JournalEntryID != nil {
+		t.Fatalf("service-only shipment must not link JE; got %d", *posted.JournalEntryID)
+	}
+	// No movement, no WFI row.
+	var mvCount int64
+	db.Model(&models.InventoryMovement{}).
+		Where("company_id = ? AND source_type = ?", fx.CompanyID, "shipment").
+		Count(&mvCount)
+	if mvCount != 0 {
+		t.Fatalf("service-only produced %d movements want 0", mvCount)
+	}
+	var wfiCount int64
+	db.Model(&models.WaitingForInvoiceItem{}).
+		Where("company_id = ? AND shipment_id = ?", fx.CompanyID, out.ID).
+		Count(&wfiCount)
+	if wfiCount != 0 {
+		t.Fatalf("service-only shipment produced %d WFI rows want 0", wfiCount)
+	}
+}
+
+func TestVoidShipment_FlagOn_ReversesJournalMovementsAndVoidsWFI(t *testing.T) {
+	db := testShipmentDocDB(t)
+	fx := seedShipmentFixture(t, db)
+	seedShipmentFlagOnFixture(t, db, fx,
+		decimal.NewFromInt(100), decimal.NewFromFloat(3.00))
 
 	out, err := CreateShipment(db, buildSimpleShipmentCreateInput(fx))
 	if err != nil {
@@ -554,14 +832,57 @@ func TestPostShipment_RailOn_StillByteIdenticalInI2_NoInventoryOrGL(t *testing.T
 	}
 	posted, err := PostShipment(db, fx.CompanyID, out.ID, "admin@test", nil)
 	if err != nil {
-		t.Fatalf("post under rail=on: %v", err)
+		t.Fatalf("post: %v", err)
 	}
-	// Same rail-agnostic contract as rail=off.
-	if posted.JournalEntryID != nil {
-		t.Fatalf("I.2 post must not link a JE even with rail=on; got %d", *posted.JournalEntryID)
+	origJEID := *posted.JournalEntryID
+
+	voided, err := VoidShipment(db, fx.CompanyID, out.ID, "admin@test", nil)
+	if err != nil {
+		t.Fatalf("void: %v", err)
 	}
-	if _, err := VoidShipment(db, fx.CompanyID, out.ID, "admin@test", nil); err != nil {
-		t.Fatalf("void under rail=on: %v", err)
+	if voided.Status != models.ShipmentStatusVoided {
+		t.Fatalf("status: got %q", voided.Status)
 	}
-	assertNoInventoryOrGLEffectForShipment(t, db, fx.CompanyID)
+
+	// Original JE flipped to reversed.
+	var origJE models.JournalEntry
+	if err := db.First(&origJE, origJEID).Error; err != nil {
+		t.Fatalf("load orig JE: %v", err)
+	}
+	if origJE.Status != models.JournalEntryStatusReversed {
+		t.Fatalf("orig JE status: got %q want reversed", origJE.Status)
+	}
+
+	// Reversal JE exists.
+	var revJEs []models.JournalEntry
+	db.Where("reversed_from_id = ?", origJEID).Find(&revJEs)
+	if len(revJEs) != 1 {
+		t.Fatalf("reversal JEs: got %d want 1", len(revJEs))
+	}
+
+	// Reversal inventory movement exists (source_type='shipment_reversal').
+	var revMvs []models.InventoryMovement
+	db.Where("company_id = ? AND source_type = ?",
+		fx.CompanyID, "shipment_reversal").Find(&revMvs)
+	if len(revMvs) != 1 {
+		t.Fatalf("reversal movements: got %d want 1", len(revMvs))
+	}
+
+	// Balance back to 100 (pre-stock).
+	var bal models.InventoryBalance
+	db.Where("company_id = ? AND item_id = ?",
+		fx.CompanyID, fx.ItemID).First(&bal)
+	if !bal.QuantityOnHand.Equal(decimal.NewFromInt(100)) {
+		t.Fatalf("balance after void: got %s want 100", bal.QuantityOnHand)
+	}
+
+	// WFI row flipped to voided.
+	var wfi models.WaitingForInvoiceItem
+	if err := db.Where("company_id = ? AND shipment_id = ?",
+		fx.CompanyID, out.ID).First(&wfi).Error; err != nil {
+		t.Fatalf("load WFI: %v", err)
+	}
+	if wfi.Status != models.WaitingForInvoiceStatusVoided {
+		t.Fatalf("WFI status after void: got %q want voided", wfi.Status)
+	}
 }
