@@ -72,12 +72,48 @@ func SuggestNextInvoiceNumber(db *gorm.DB, companyID uint) (string, error) {
 
 // BumpInvoiceNextNumberAfterCreate increments the invoice module's next_number in numbering_settings.
 func BumpInvoiceNextNumberAfterCreate(db *gorm.DB, companyID uint) error {
+	return bumpModuleNextNumber(db, companyID, numbering.ModuleInvoice)
+}
+
+// ── Generic per-module helpers ───────────────────────────────────────────────
+
+// SuggestNextNumberForModule returns the formatted next display number for the
+// given module key, honouring the company's merged rules. Returns empty string
+// when the module's rule is disabled — callers decide their own fallback in
+// that case (e.g. scan-last on an existing sequence). An empty return is not
+// an error: it is a signal to use the legacy path. A non-empty return is the
+// settings-driven suggestion and pairs with BumpModuleNextNumberAfterCreate.
+func SuggestNextNumberForModule(db *gorm.DB, companyID uint, moduleKey string) (string, error) {
+	rules, err := LoadMergedDisplayRules(db, companyID)
+	if err != nil {
+		return "", err
+	}
+	for _, r := range rules {
+		if r.ModuleKey == moduleKey && r.Enabled {
+			return numbering.FormatPreview(r.Prefix, r.NextNumber, r.PaddingLength), nil
+		}
+	}
+	return "", nil
+}
+
+// BumpModuleNextNumberAfterCreate advances the persisted counter for the given
+// module. Idempotent per-call: callers invoke it exactly once per document
+// that consumed the suggestion. Exported so document-specific services can
+// call it after their own create path commits.
+func BumpModuleNextNumberAfterCreate(db *gorm.DB, companyID uint, moduleKey string) error {
+	return bumpModuleNextNumber(db, companyID, moduleKey)
+}
+
+// bumpModuleNextNumber is the shared increment implementation. Silently
+// ignores unknown module keys (caller's contract is to only bump modules it
+// actually fetched a suggestion from).
+func bumpModuleNextNumber(db *gorm.DB, companyID uint, moduleKey string) error {
 	rules, err := LoadMergedDisplayRules(db, companyID)
 	if err != nil {
 		return err
 	}
 	for i := range rules {
-		if rules[i].ModuleKey == numbering.ModuleInvoice {
+		if rules[i].ModuleKey == moduleKey {
 			rules[i].NextNumber++
 			rules[i] = numbering.NormalizeRule(rules[i])
 			break

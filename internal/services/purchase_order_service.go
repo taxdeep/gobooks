@@ -22,6 +22,7 @@ import (
 	"gorm.io/gorm"
 
 	"gobooks/internal/models"
+	"gobooks/internal/numbering"
 )
 
 // ── Errors ────────────────────────────────────────────────────────────────────
@@ -58,10 +59,33 @@ type POInput struct {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-func nextPONumber(db *gorm.DB, companyID uint) string {
+// nextPONumber returns (number, usedSettings) where usedSettings is true only
+// when the caller should bump the numbering_settings counter after persisting
+// the PO. Logic:
+//   - If a prior PO exists, increment from its number — the data itself
+//     tracks the sequence. Settings-only prefix change does not retroactively
+//     re-number existing docs; the new format arrives once the operator
+//     manually edits the sequence to align.
+//   - If no prior PO exists (brand-new company), consult numbering_settings
+//     to build the fallback first number. Bump the settings counter so the
+//     second PO (which WILL find a prior record) starts its scan-last chain
+//     from the settings-derived value.
+func nextPONumber(db *gorm.DB, companyID uint) (string, bool) {
 	var last models.PurchaseOrder
 	db.Where("company_id = ?", companyID).Order("id desc").Select("po_number").First(&last)
-	return NextDocumentNumber(last.PONumber, "PO-0001")
+
+	fallback := "PO-0001"
+	usedSettings := false
+	if suggestion, err := SuggestNextNumberForModule(db, companyID, numbering.ModulePurchaseOrder); err == nil && suggestion != "" {
+		fallback = suggestion
+		if last.PONumber == "" {
+			usedSettings = true
+		}
+	}
+	if last.PONumber == "" {
+		return fallback, usedSettings
+	}
+	return NextDocumentNumber(last.PONumber, fallback), false
 }
 
 // computePOLine computes cached totals for a PurchaseOrderLine.
@@ -110,10 +134,11 @@ func CreatePurchaseOrder(db *gorm.DB, companyID uint, in POInput) (*models.Purch
 		rate = decimal.NewFromInt(1)
 	}
 
+	poNumber, settingsCounterUsed := nextPONumber(db, companyID)
 	po := models.PurchaseOrder{
 		CompanyID:    companyID,
 		VendorID:     in.VendorID,
-		PONumber:     nextPONumber(db, companyID),
+		PONumber:     poNumber,
 		Status:       models.POStatusDraft,
 		PODate:       in.PODate,
 		ExpectedDate: in.ExpectedDate,
@@ -143,6 +168,14 @@ func CreatePurchaseOrder(db *gorm.DB, companyID uint, in POInput) (*models.Purch
 
 	if err := db.Create(&po).Error; err != nil {
 		return nil, fmt.Errorf("create purchase order: %w", err)
+	}
+
+	// Bump the numbering settings counter only when this PO consumed
+	// the settings-derived suggestion (brand-new company, no prior
+	// PO). Companies with existing POs continue incrementing from
+	// data; their settings counter stays untouched.
+	if settingsCounterUsed {
+		_ = BumpModuleNextNumberAfterCreate(db, companyID, numbering.ModulePurchaseOrder)
 	}
 	return &po, nil
 }

@@ -40,6 +40,12 @@ type ExpenseFormVM struct {
 	IsEdit     bool
 	EditingID  uint
 
+	// ExpenseNumber is the auto-assigned reference string shown in
+	// the page header once the expense has been created. Empty on
+	// the New form. Customisable via Settings → Company → Numbering
+	// (module key "expense"). Not editable from the form.
+	ExpenseNumber string
+
 	ExpenseDate  string
 	CurrencyCode string
 	VendorID     string

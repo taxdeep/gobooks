@@ -16,6 +16,7 @@ import (
 	"gorm.io/gorm"
 
 	"gobooks/internal/models"
+	"gobooks/internal/numbering"
 )
 
 // ── Errors ─────────────────────────────────────────────────────────────────
@@ -52,13 +53,27 @@ type QuoteInput struct {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // nextQuoteNumber derives the next quote number for a company.
-func nextQuoteNumber(db *gorm.DB, companyID uint) string {
+// Returns (number, usedSettings). Settings-driven for first-ever quote in
+// a company; scan-last-and-increment after that (data owns the sequence).
+func nextQuoteNumber(db *gorm.DB, companyID uint) (string, bool) {
 	var last models.Quote
 	db.Where("company_id = ?", companyID).
 		Order("id desc").
 		Select("quote_number").
 		First(&last)
-	return NextDocumentNumber(last.QuoteNumber, "QUO-0001")
+
+	fallback := "QUO-0001"
+	usedSettings := false
+	if suggestion, err := SuggestNextNumberForModule(db, companyID, numbering.ModuleQuote); err == nil && suggestion != "" {
+		fallback = suggestion
+		if last.QuoteNumber == "" {
+			usedSettings = true
+		}
+	}
+	if last.QuoteNumber == "" {
+		return fallback, usedSettings
+	}
+	return NextDocumentNumber(last.QuoteNumber, fallback), false
 }
 
 // calcQuoteLine computes derived fields for a QuoteLine.
@@ -92,10 +107,11 @@ func CreateQuote(db *gorm.DB, companyID uint, in QuoteInput) (*models.Quote, err
 		return nil, errors.New("at least one line item is required")
 	}
 
+	quoteNumber, settingsCounterUsed := nextQuoteNumber(db, companyID)
 	quote := models.Quote{
 		CompanyID:    companyID,
 		CustomerID:   in.CustomerID,
-		QuoteNumber:  nextQuoteNumber(db, companyID),
+		QuoteNumber:  quoteNumber,
 		Status:       models.QuoteStatusDraft,
 		QuoteDate:    in.QuoteDate,
 		ExpiryDate:   in.ExpiryDate,
@@ -141,6 +157,9 @@ func CreateQuote(db *gorm.DB, companyID uint, in QuoteInput) (*models.Quote, err
 		return nil, err
 	}
 	quote.Lines = lines
+	if settingsCounterUsed {
+		_ = BumpModuleNextNumberAfterCreate(db, companyID, numbering.ModuleQuote)
+	}
 	return &quote, nil
 }
 
@@ -317,8 +336,10 @@ func ConvertQuoteToSalesOrder(db *gorm.DB, companyID, quoteID uint, actor string
 		return nil, fmt.Errorf("%w: only accepted or sent quotes may be converted", ErrQuoteInvalidStatus)
 	}
 
-	// Derive next SalesOrder number.
-	orderNumber := nextSalesOrderNumber(db, companyID)
+	// Derive next SalesOrder number (same settings-aware helper as
+	// direct SO creation — quote→SO conversion is just another SO
+	// creation path and should share numbering semantics).
+	orderNumber, soSettingsCounterUsed := nextSalesOrderNumber(db, companyID)
 
 	so := models.SalesOrder{
 		CompanyID:    companyID,
@@ -375,5 +396,8 @@ func ConvertQuoteToSalesOrder(db *gorm.DB, companyID, quoteID uint, actor string
 		return nil, err
 	}
 	so.Lines = soLines
+	if soSettingsCounterUsed {
+		_ = BumpModuleNextNumberAfterCreate(db, companyID, numbering.ModuleSalesOrder)
+	}
 	return &so, nil
 }

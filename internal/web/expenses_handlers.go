@@ -199,6 +199,7 @@ func (s *Server) expenseFormVMFromExpense(companyID uint, exp *models.Expense) (
 		HasCompany:       true,
 		IsEdit:           true,
 		EditingID:        exp.ID,
+		ExpenseNumber:    exp.ExpenseNumber,
 		ExpenseDate:      exp.ExpenseDate.Format("2006-01-02"),
 		CurrencyCode:     exp.CurrencyCode,
 		VendorID:         optUintStr(exp.VendorID),

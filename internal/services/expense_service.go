@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"gobooks/internal/models"
+	"gobooks/internal/numbering"
 )
 
 var (
@@ -178,6 +179,7 @@ func upsertExpense(db *gorm.DB, expenseID uint, in ExpenseInput) (*models.Expens
 	}
 
 	var savedID uint
+	var assignedExpenseNumber string
 	err = db.Transaction(func(tx *gorm.DB) error {
 		var expense models.Expense
 		if expenseID > 0 {
@@ -189,6 +191,16 @@ func upsertExpense(db *gorm.DB, expenseID uint, in ExpenseInput) (*models.Expens
 			}
 		} else {
 			expense = models.Expense{CompanyID: in.CompanyID}
+			// Auto-assign the reference number from numbering settings
+			// on create only. Edits never rewrite the number — a
+			// posted expense's reference is part of its paper-trail
+			// identity once saved.
+			if expense.ExpenseNumber == "" {
+				if suggestion, sErr := SuggestNextNumberForModule(tx, in.CompanyID, numbering.ModuleExpense); sErr == nil && suggestion != "" {
+					expense.ExpenseNumber = suggestion
+					assignedExpenseNumber = suggestion
+				}
+			}
 		}
 
 		expense.TaskID = linkage.TaskID
@@ -246,6 +258,15 @@ func upsertExpense(db *gorm.DB, expenseID uint, in ExpenseInput) (*models.Expens
 	})
 	if err != nil {
 		return nil, err
+	}
+	// Bump the numbering settings counter outside the transaction
+	// when this expense consumed the settings-derived suggestion. A
+	// failed bump is non-fatal: the expense itself is already
+	// committed; a subsequent expense would just reuse the same
+	// counter value and get the same visible number. Rare enough to
+	// not warrant a complex dual-commit strategy here.
+	if assignedExpenseNumber != "" {
+		_ = BumpModuleNextNumberAfterCreate(db, in.CompanyID, numbering.ModuleExpense)
 	}
 	return GetExpenseByID(db, in.CompanyID, savedID)
 }

@@ -9,11 +9,15 @@ import (
 
 // Module keys are stable identifiers for routing, storage, and future APIs.
 const (
-	ModuleJournalEntry = "journal_entry"
-	ModuleInvoice      = "invoice"
-	ModulePayment      = "payment"
-	ModuleCustomer     = "customer"
-	ModuleVendor       = "vendor"
+	ModuleJournalEntry  = "journal_entry"
+	ModuleInvoice       = "invoice"
+	ModulePayment       = "payment"
+	ModuleCustomer      = "customer"
+	ModuleVendor        = "vendor"
+	ModulePurchaseOrder = "purchase_order"
+	ModuleSalesOrder    = "sales_order"
+	ModuleQuote         = "quote"
+	ModuleExpense       = "expense"
 )
 
 // DisplayRule describes how user-visible document/reference numbers are formatted for one module.
@@ -35,6 +39,16 @@ func DefaultDisplayRules() []DisplayRule {
 		{ModuleKey: ModulePayment, ModuleName: "Payment", Prefix: "PMT-", NextNumber: 1, PaddingLength: 4, Enabled: true},
 		{ModuleKey: ModuleCustomer, ModuleName: "Customer", Prefix: "CUST-", NextNumber: 1, PaddingLength: 4, Enabled: true},
 		{ModuleKey: ModuleVendor, ModuleName: "Vendor", Prefix: "VEN-", NextNumber: 1, PaddingLength: 4, Enabled: true},
+		// Phase: document-reference numbering for procurement + sales +
+		// expense. PO / SO / Quote already have their *Number columns
+		// populated by scan-last-and-increment; settings here drive the
+		// FALLBACK used when no prior document exists (first-ever number
+		// per company) plus offer a future override path. Expense has
+		// no prior number and is driven entirely by these settings.
+		{ModuleKey: ModulePurchaseOrder, ModuleName: "Purchase Order", Prefix: "PO-", NextNumber: 1, PaddingLength: 4, Enabled: true},
+		{ModuleKey: ModuleSalesOrder, ModuleName: "Sales Order", Prefix: "SO-", NextNumber: 1, PaddingLength: 4, Enabled: true},
+		{ModuleKey: ModuleQuote, ModuleName: "Quote", Prefix: "QUO-", NextNumber: 1, PaddingLength: 4, Enabled: true},
+		{ModuleKey: ModuleExpense, ModuleName: "Expense", Prefix: "EXP-", NextNumber: 1, PaddingLength: 4, Enabled: true},
 	}
 }
 

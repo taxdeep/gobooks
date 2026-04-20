@@ -14,6 +14,7 @@ import (
 	"gorm.io/gorm"
 
 	"gobooks/internal/models"
+	"gobooks/internal/numbering"
 
 	"github.com/shopspring/decimal"
 )
@@ -51,13 +52,29 @@ type SalesOrderInput struct {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // nextSalesOrderNumber derives the next SO number for a company.
-func nextSalesOrderNumber(db *gorm.DB, companyID uint) string {
+// Returns (number, usedSettings) so the caller can decide whether to bump
+// the numbering_settings counter. Semantics mirror nextPONumber: settings
+// drive the fallback number for a brand-new company; existing sequences
+// continue incrementing from data.
+func nextSalesOrderNumber(db *gorm.DB, companyID uint) (string, bool) {
 	var last models.SalesOrder
 	db.Where("company_id = ?", companyID).
 		Order("id desc").
 		Select("order_number").
 		First(&last)
-	return NextDocumentNumber(last.OrderNumber, "SO-0001")
+
+	fallback := "SO-0001"
+	usedSettings := false
+	if suggestion, err := SuggestNextNumberForModule(db, companyID, numbering.ModuleSalesOrder); err == nil && suggestion != "" {
+		fallback = suggestion
+		if last.OrderNumber == "" {
+			usedSettings = true
+		}
+	}
+	if last.OrderNumber == "" {
+		return fallback, usedSettings
+	}
+	return NextDocumentNumber(last.OrderNumber, fallback), false
 }
 
 // calcSalesOrderLine computes derived fields for a SalesOrderLine.
@@ -79,10 +96,11 @@ func CreateSalesOrder(db *gorm.DB, companyID uint, in SalesOrderInput) (*models.
 		return nil, errors.New("at least one line item is required")
 	}
 
+	soNumber, settingsCounterUsed := nextSalesOrderNumber(db, companyID)
 	so := models.SalesOrder{
 		CompanyID:    companyID,
 		CustomerID:   in.CustomerID,
-		OrderNumber:  nextSalesOrderNumber(db, companyID),
+		OrderNumber:  soNumber,
 		Status:       models.SalesOrderStatusDraft,
 		OrderDate:    in.OrderDate,
 		RequiredBy:   in.RequiredBy,
@@ -128,6 +146,9 @@ func CreateSalesOrder(db *gorm.DB, companyID uint, in SalesOrderInput) (*models.
 		return nil, err
 	}
 	so.Lines = lines
+	if settingsCounterUsed {
+		_ = BumpModuleNextNumberAfterCreate(db, companyID, numbering.ModuleSalesOrder)
+	}
 	return &so, nil
 }
 

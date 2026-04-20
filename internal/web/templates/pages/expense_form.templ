@@ -23,6 +23,9 @@ templ bodyExpenseForm(vm ExpenseFormVM) {
 		<div class="flex flex-wrap items-start justify-between gap-4">
 			<div>
 				<h1 class="text-title font-semibold text-text">{ expenseFormTitle(vm) }</h1>
+				if vm.IsEdit && vm.ExpenseNumber != "" {
+					<p class="mt-1 font-mono text-small text-text-muted">Reference: { vm.ExpenseNumber }</p>
+				}
 				<p class="mt-1 text-small text-text-muted2">Capture standalone costs and optionally attach them to a customer task.</p>
 			</div>
 			@ui.ButtonLink("← Back to Expenses", "/expenses")

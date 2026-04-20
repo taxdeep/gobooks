@@ -96,10 +96,19 @@ type Expense struct {
 	InvoiceLine   *InvoiceLine `gorm:"foreignKey:InvoiceLineID"`
 
 	// Core expense details.
-	ExpenseDate  time.Time       `gorm:"not null"`
-	Description  string          `gorm:"type:text;not null;default:''"`
-	Amount       decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
-	CurrencyCode string          `gorm:"type:text;not null;default:''"`
+	// ExpenseNumber is the user-visible reference string, auto-assigned
+	// on create from the "expense" module in Settings → Company →
+	// Numbering. Matches the pattern on PO / SO / Quote / Bill /
+	// Invoice: one column per document, free-form text. The
+	// (company_id, expense_number) compound index is created by
+	// migration 074 at the SQL layer; no GORM index tag here to
+	// avoid a duplicate single-column index being created by
+	// AutoMigrate in test harnesses.
+	ExpenseNumber string          `gorm:"type:text;not null;default:''"`
+	ExpenseDate   time.Time       `gorm:"not null"`
+	Description   string          `gorm:"type:text;not null;default:''"`
+	Amount        decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
+	CurrencyCode  string          `gorm:"type:text;not null;default:''"`
 
 	// Optional vendor and GL account references.
 	VendorID *uint    `gorm:"index"`
