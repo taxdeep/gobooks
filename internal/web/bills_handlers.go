@@ -123,7 +123,76 @@ func (s *Server) handleBillNew(c *fiber.Ctx) error {
 		}
 	}
 
+	// Optional: pre-fill from a Purchase Order when the user came
+	// through the "Create Bill from PO" button on the PO detail page.
+	// Pure UX shortcut — no identity FK is persisted on the created
+	// Bill today, because the Bill schema has no purchase_order_id
+	// column and adding one is a separate, dedicated slice. The
+	// operator is free to edit every pre-filled field before saving.
+	if fromPOStr := strings.TrimSpace(c.Query("from_po")); fromPOStr != "" {
+		if fromPO64, err := strconv.ParseUint(fromPOStr, 10, 64); err == nil && fromPO64 != 0 {
+			if s.prefillBillFromPO(companyID, uint(fromPO64), &vm) {
+				// Only populate InitialLinesJSON when we actually
+				// pre-filled lines; the fresh-form path intentionally
+				// leaves it empty so the editor shows its default row.
+				vm.InitialLinesJSON = buildBillInitialLinesJSON(vm.Lines)
+			}
+		}
+	}
+
 	return pages.BillEditor(vm).Render(c.Context(), c)
+}
+
+// prefillBillFromPO maps a Purchase Order's header + lines onto the
+// BillEditor VM so the operator lands on /bills/new with the form
+// already populated. Silent on errors — a missing / cross-company /
+// cancelled PO simply leaves the form blank rather than flashing an
+// error, because the button that sends us here already validates
+// visibility against PO state.
+func (s *Server) prefillBillFromPO(companyID, poID uint, vm *pages.BillEditorVM) bool {
+	po, err := services.GetPurchaseOrder(s.DB, companyID, poID)
+	if err != nil || po == nil {
+		return false
+	}
+	if po.CompanyID != companyID {
+		return false
+	}
+	// Header pre-fill.
+	vm.VendorID = strconv.FormatUint(uint64(po.VendorID), 10)
+	if po.CurrencyCode != "" && !strings.EqualFold(po.CurrencyCode, vm.BaseCurrencyCode) {
+		vm.CurrencyCode = po.CurrencyCode
+		if po.ExchangeRate.GreaterThan(decimal.Zero) && !po.ExchangeRate.Equal(decimal.NewFromInt(1)) {
+			vm.ExchangeRate = po.ExchangeRate.String()
+		}
+	}
+	if strings.TrimSpace(po.Notes) != "" {
+		// PO's operator-facing Notes maps to Bill's Memo (the bill
+		// model uses Memo, not Notes, for the same concept).
+		vm.Memo = po.Notes
+	}
+	// Line pre-fill: one bill line per PO line, Amount = LineNet
+	// (qty × unit_price). Bill form is amount-based; tax is applied
+	// at bill time so we deliberately do NOT carry over a TaxCode —
+	// the operator picks the vendor's actual tax when billing.
+	rows := make([]pages.BillLineFormRow, 0, len(po.Lines))
+	for _, pl := range po.Lines {
+		desc := strings.TrimSpace(pl.Description)
+		if desc == "" && pl.ProductService != nil {
+			desc = pl.ProductService.Name
+		}
+		amount := pl.LineNet.StringFixed(2)
+		if pl.LineNet.IsZero() && pl.Qty.GreaterThan(decimal.Zero) && pl.UnitPrice.GreaterThan(decimal.Zero) {
+			amount = pl.Qty.Mul(pl.UnitPrice).RoundBank(2).StringFixed(2)
+		}
+		rows = append(rows, pages.BillLineFormRow{
+			Description: desc,
+			Amount:      amount,
+		})
+	}
+	if len(rows) > 0 {
+		vm.Lines = rows
+	}
+	return true
 }
 
 // handleBillEdit renders the editor pre-filled with an existing draft bill.

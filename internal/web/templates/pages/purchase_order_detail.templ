@@ -487,5 +487,22 @@ templ poReadOnlyView(vm PurchaseOrderDetailVM) {
 				</button>
 			</form>
 		}
+		// Create Bill from PO: available once the PO is committed (any
+		// post-draft, non-cancelled state). Pure UX shortcut — the
+		// destination /bills/new?from_po=<id> pre-fills the editor and
+		// the operator saves the Bill as an independent document. No
+		// FK is persisted from Bill back to PO in the current schema;
+		// a real identity chain would require a dedicated slice.
+		if vm.PurchaseOrder.Status == models.POStatusConfirmed ||
+			vm.PurchaseOrder.Status == models.POStatusPartiallyReceived ||
+			vm.PurchaseOrder.Status == models.POStatusReceived ||
+			vm.PurchaseOrder.Status == models.POStatusClosed {
+			<a
+				href={ templ.SafeURL("/bills/new?from_po=" + fmt.Sprintf("%d", vm.PurchaseOrder.ID)) }
+				class="rounded-md border border-primary px-4 py-2 text-body font-semibold text-primary hover:bg-primary/10"
+			>
+				Create Bill from PO
+			</a>
+		}
 	</div>
 }
