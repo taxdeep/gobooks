@@ -1548,7 +1548,7 @@ slices for "simplicity" is rejected by this border.
   tracking columns live on the same clock: transitional home, not
   long-term home.
 
-### Phase I — Shipment-first fulfillment  *(scope locked, I.0 pinned)*
+### Phase I — Shipment-first fulfillment  *(shipped, I.B scope complete)*
 
 **Current Phase I scope selection is Phase I.B**: shipment-first
 fulfillment, shipment-recognized cost, invoice-recognized revenue.
@@ -1810,14 +1810,25 @@ lives in this spec and in review.
 
 #### Slice plan (binding)
 
-| Slice | Scope | Entry gate |
-|---|---|---|
-| **I.0** | This spec section. Phase I current scope selection (I.B) / hard rules / accounting split / identity chain pinned. | — |
-| **I.1** | `companies.shipment_required BOOLEAN NOT NULL DEFAULT FALSE` column + `ChangeCompanyShipmentRequired(companyID, required, actor)` audited admin surface, F.7 capability-gate pattern. Dormant rail. | I.0 approved |
-| **I.2** | `shipments` + `shipment_lines` tables. `models.Shipment`, `models.ShipmentLine`. Minimum lifecycle (draft/posted/voided). CRUD in services. SO-line source-identity reservation fields. No inventory formation yet, no matching yet. | I.1 shipped |
-| **I.3** | `IssueStockFromShipment` inventory service. Shipment post → inventory movements (through existing `IssueStock` path, tracked selections read from `shipment_lines`) + business-document-layer journal `Dr COGS / Cr Inventory` + `waiting_for_invoice` queue item creation. Inventory module stays GL-agnostic. Tracked sales become supported on the `flag=true` path — ShipmentLine carries lot_selections / serial_selections. | I.2 shipped |
-| **I.4** | Invoice decoupling. Under `shipment_required=true`, the invoice post's COGS path is a no-op for inventory and for any COGS fragment. Invoice narrows to `Dr AR / Cr Revenue`. Under flag=false, Phase G + H behavior is byte-identical. The Phase G.2 tracked-invoice guard is bypassed on the flag=true path (tracking lives on ShipmentLine). | I.3 shipped |
-| **I.5** | Invoice ↔ Shipment matching via `invoice_lines.shipment_line_id`. Invoice billable qty constrained to shipped-eligible qty. `waiting_for_invoice` queue item resolution on Invoice post. No SPV in this slice. **Operational enablement unlocked only at I.5 close.** | I.4 shipped |
+| Slice | Scope | Entry gate | Status |
+|---|---|---|---|
+| **I.0** | This spec section. Phase I current scope selection (I.B) / hard rules / accounting split / identity chain pinned. | — | shipped `e8cbdd0` |
+| **I.1** | `companies.shipment_required BOOLEAN NOT NULL DEFAULT FALSE` column + `ChangeCompanyShipmentRequired(companyID, required, actor)` audited admin surface, F.7 capability-gate pattern. Dormant rail. | I.0 approved | shipped `e9e2e18` |
+| **I.2** | `shipments` + `shipment_lines` tables. `models.Shipment`, `models.ShipmentLine`. Minimum lifecycle (draft/posted/voided). CRUD in services. SO-line source-identity reservation fields. No inventory formation yet, no matching yet. | I.1 shipped | shipped `9b128ee` |
+| **I.3** | `IssueStockFromShipment` inventory service. Shipment post → inventory movements (through existing `IssueStock` path, tracked selections read from `shipment_lines`) + business-document-layer journal `Dr COGS / Cr Inventory` + `waiting_for_invoice` queue item creation. Inventory module stays GL-agnostic. | I.2 shipped | shipped `5b462cd` |
+| **I.4** | Invoice decoupling. Under `shipment_required=true`, the invoice post's COGS path is a no-op for inventory and for any COGS fragment. Invoice narrows to `Dr AR / Cr Revenue`. Under flag=false, Phase G + H behavior is byte-identical. | I.3 shipped | shipped `b6b787e` |
+| **I.5** | Invoice ↔ Shipment matching via `invoice_lines.shipment_line_id`. `waiting_for_invoice` queue item resolution on Invoice post (1:1 atomic closure, double-match rejected). No SPV in this slice. **Operational enablement unlocked only at I.5 close.** | I.4 shipped | shipped `fd3398f` |
+
+**I.3 / I.5 implementation notes (actual vs slice plan):**
+- Tracked selections (lot / serial) on ShipmentLine are deferred to a
+  dedicated slice. I.3 ships lot-untracked issue truth; tracked items
+  fail loud via `inventory.validateOutboundTracking` as intended.
+- Partial invoicing of a shipment line is not supported. I.5 is 1:1
+  atomic — Invoice line qty should match ShipmentLine qty. Partial
+  invoicing requires a separate scope trigger.
+- Phase G.2's tracked-invoice guard is not yet bypassed on flag=true;
+  tracked outbound through the Shipment path will land with the
+  tracking-selection slice above.
 
 #### Cross-phase relationship with Phase H
 
