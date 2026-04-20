@@ -115,9 +115,15 @@ func PostInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 		}
 	}
 
-	// ── 2b. Load company (needed for base currency code) ─────────────────────
+	// ── 2b. Load company (needed for base currency code + Phase I rail) ──────
+	// shipment_required is the Phase I capability rail (migration 075 +
+	// service slice I.1). When true, Invoice post must NOT form COGS or
+	// create inventory movements — Shipment already did that at ship
+	// time in I.3. Invoice under flag=true is pure AR + Revenue (+ Tax).
+	// See §I.4 in INVENTORY_MODULE_API.md.
 	var company models.Company
-	if err := db.Select("id", "base_currency_code").First(&company, companyID).Error; err != nil {
+	if err := db.Select("id", "base_currency_code", "shipment_required").
+		First(&company, companyID).Error; err != nil {
 		return fmt.Errorf("load company: %w", err)
 	}
 
@@ -203,10 +209,20 @@ func PostInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 	// preview are intentionally DISCARDED — the authoritative cost comes from
 	// IssueStock inside the transaction below (see §7.b). See
 	// INVENTORY_MODULE_API.md §2 "authoritative cost principle".
+	//
+	// Phase I.4 gate: when shipment_required=true, Shipment already
+	// consumed the stock at ship time (I.3). Invoice must neither
+	// validate stock (pre-consumed balance would under-count) nor
+	// form COGS. Bundle expansions are skipped for the same reason —
+	// their component issue happened at Shipment post, not now.
 	invWarehouseID := ResolveInventoryWarehouse(db, companyID, inv.WarehouseID)
-	_, bundleExpansions, stockErr := ValidateStockForInvoice(db, companyID, inv.Lines, invWarehouseID)
-	if stockErr != nil {
-		return stockErr
+	var bundleExpansions []ExpandedComponent
+	if !company.ShipmentRequired {
+		var stockErr error
+		_, bundleExpansions, stockErr = ValidateStockForInvoice(db, companyID, inv.Lines, invWarehouseID)
+		if stockErr != nil {
+			return stockErr
+		}
 	}
 
 	// ── 4. Build non-COGS posting fragments ──────────────────────────────────
@@ -274,17 +290,25 @@ func PostInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 		//    booked on inventory_movements. We will reuse these exact numbers
 		//    for the COGS journal lines below so JE and inventory ledger
 		//    agree to the cent. See INVENTORY_MODULE_API.md §2.
-		authoritativeCosts, err := CreateSaleMovements(tx, companyID, inv, bundleExpansions, invWarehouseID)
-		if err != nil {
-			return fmt.Errorf("inventory sale movements: %w", err)
-		}
+		//
+		//    Phase I.4 gate: skip entirely under shipment_required=true.
+		//    The Shipment already issued stock + booked COGS at ship time
+		//    (I.3). Running CreateSaleMovements here would double-consume
+		//    inventory and double-book COGS.
+		var cogsLines []PostingFragment
+		if !company.ShipmentRequired {
+			authoritativeCosts, err := CreateSaleMovements(tx, companyID, inv, bundleExpansions, invWarehouseID)
+			if err != nil {
+				return fmt.Errorf("inventory sale movements: %w", err)
+			}
 
-		// c. Build COGS fragments from the authoritative costs. Inventory
-		//    costing is always in base currency, so these rows skip the
-		//    FX-scaling pass — they are already base.
-		cogsLines, err := AggregateJournalLines(BuildCOGSFragments(inv.Lines, authoritativeCosts, bundleExpansions))
-		if err != nil {
-			return fmt.Errorf("aggregate COGS lines: %w", err)
+			// c. Build COGS fragments from the authoritative costs. Inventory
+			//    costing is always in base currency, so these rows skip the
+			//    FX-scaling pass — they are already base.
+			cogsLines, err = AggregateJournalLines(BuildCOGSFragments(inv.Lines, authoritativeCosts, bundleExpansions))
+			if err != nil {
+				return fmt.Errorf("aggregate COGS lines: %w", err)
+			}
 		}
 
 		// d. Journal entry header.
