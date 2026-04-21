@@ -138,6 +138,16 @@ func (s *Server) handleInvoiceDetail(c *fiber.Ctx) error {
 }
 
 // handleInvoiceNew renders the blank invoice editor.
+//
+// Supports an optional `?sales_order_id=X` query param — when
+// present, pre-fills customer, currency, memo, and line rows from
+// a Confirmed SalesOrder. Remaining-quantity semantics: each
+// pre-filled line's qty is `Quantity - InvoicedQty`. Lines fully
+// invoiced already (remaining <= 0) are skipped. This is a UI
+// shortcut only — the operator still reviews + saves the draft
+// like any other invoice. The post path does NOT yet link back
+// to update SO.InvoicedAmount / line.InvoicedQty; that tracking
+// is a follow-on slice.
 func (s *Server) handleInvoiceNew(c *fiber.Ctx) error {
 	companyID, ok := ActiveCompanyIDFromCtx(c)
 	if !ok {
@@ -173,7 +183,58 @@ func (s *Server) handleInvoiceNew(c *fiber.Ctx) error {
 		}
 	}
 
+	// SO → Invoice shortcut. Pre-fills customer + currency + memo +
+	// line rows from a Confirmed SalesOrder's remaining qty. Bad /
+	// missing / wrong-company sales_order_id is ignored silently —
+	// the operator just sees the blank editor instead.
+	if soIDStr := strings.TrimSpace(c.Query("sales_order_id")); soIDStr != "" {
+		if soID, parseErr := strconv.ParseUint(soIDStr, 10, 64); parseErr == nil && soID > 0 {
+			s.prefillInvoiceFromSalesOrder(companyID, uint(soID), &vm)
+		}
+	}
+
+	vm.InitialLinesJSON = buildInitialLinesJSON(vm.Lines)
 	return pages.InvoiceEditor(vm).Render(c.Context(), c)
+}
+
+// prefillInvoiceFromSalesOrder loads the given SalesOrder (scoped
+// to company) and, if it's a Confirmed order with remaining
+// uninvoiced qty on at least one line, sets vm.CustomerID,
+// vm.CurrencyCode, vm.Memo, and vm.Lines from it. Silent no-op on
+// any error or on a Draft / Cancelled / fully-invoiced SO — the
+// shortcut is a convenience, not a required flow.
+func (s *Server) prefillInvoiceFromSalesOrder(companyID, soID uint, vm *pages.InvoiceEditorVM) {
+	var so models.SalesOrder
+	if err := s.DB.Preload("Lines").
+		Where("id = ? AND company_id = ?", soID, companyID).
+		First(&so).Error; err != nil {
+		return
+	}
+	if so.Status != models.SalesOrderStatusConfirmed {
+		// Don't pre-fill from Draft (operator still editing) or
+		// Cancelled (nothing to invoice).
+		return
+	}
+
+	vm.CustomerID = strconv.FormatUint(uint64(so.CustomerID), 10)
+	vm.CurrencyCode = so.CurrencyCode
+	if so.Memo != "" {
+		vm.Memo = so.Memo
+	}
+
+	for _, l := range so.Lines {
+		remaining := l.Quantity.Sub(l.InvoicedQty)
+		if !remaining.IsPositive() {
+			continue
+		}
+		vm.Lines = append(vm.Lines, pages.InvoiceLineFormRow{
+			ProductServiceID: optUintStr(l.ProductServiceID),
+			Description:      l.Description,
+			Qty:              remaining.String(),
+			UnitPrice:        l.UnitPrice.StringFixed(4),
+			TaxCodeID:        optUintStr(l.TaxCodeID),
+		})
+	}
 }
 
 // handleInvoiceEdit renders the editor pre-filled with an existing draft invoice.
