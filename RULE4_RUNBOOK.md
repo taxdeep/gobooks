@@ -305,12 +305,84 @@ Do NOT escalate for:
 
 ---
 
-## 10. Change log
+## 10a. Credit Note path (IN.5)
+
+IN.5 extended Rule #4 to the AR-return side. Before IN.5, a customer
+credit note for a returned stock item booked only the revenue-side
+reversal (Dr Revenue / Cr AR) but never restored inventory or
+reversed COGS — a silent-swallow **and** an accounting imbalance
+(P&L showed $N of COGS against $0 of net revenue for the returned
+goods).
+
+### Legacy mode (`shipment_required=false`)
+
+Credit Note is the movement owner for stock-line returns. On post:
+
+1. Every CreditNoteLine with a stock item **must** carry
+   `OriginalInvoiceLineID` — the specific InvoiceLine this return
+   applies to. That FK is the cost-trace key.
+2. The service looks up the original invoice's inventory_movement
+   for that invoice_line, reads its `unit_cost_base` (authoritative
+   original cost — March's COGS at March's cost, never today's avg),
+   and books a fresh ReceiveStock movement at the return qty ×
+   original cost.
+3. JE gains `Dr Inventory / Cr COGS` per stock line at that same
+   amount, balancing per line.
+4. Partial returns supported: if the customer returns 4 of 10 sold,
+   the Dr Inventory is 4 × $3 (not 10 × $3).
+
+### Controlled mode (`shipment_required=true`)
+
+Credit Note is **not** the outbound-return owner under controlled
+mode. Stock-item credit notes are rejected at post with
+`ErrCreditNoteStockItemRequiresReturnReceipt`. Phase I.6 Return
+Receipt is the planned owner; until I.6 ships, the operator should
+adjust inventory via a manual journal entry or wait for I.6.
+
+### Triage additions
+
+| Symptom | Bug or by-design? | What to say |
+|---|---|---|
+| Customer returned goods, ledger shows revenue reversal but inventory didn't increase | **Pre-IN.5 behaviour — confirm post date.** | Credit notes posted BEFORE IN.5 shipped did not form inventory returns. Void + repost under the new path to get the inventory-side reversal (customer-facing AR balance stays the same; internal COGS / Inventory accounts correct). |
+| `ErrCreditNoteStockItemRequiresInvoice` on credit note post | **Operator error.** | Standalone credit notes (no Invoice linkage) cannot carry a stock-item line — there is no original sale to trace cost from. Either link to the originating invoice OR remove the stock item and use a pure-service credit line. |
+| `ErrCreditNoteStockItemRequiresOriginalLine` on credit note post | **Operator error (or pre-IN.5 data).** | The stock line needs `original_invoice_line_id` set — the specific invoice line being reversed. If operator needs help picking: match item + customer + ship date on the invoice. |
+| `ErrCreditNoteStockItemRequiresReturnReceipt` on credit note post | **Q2 controlled-mode rejection.** | Not a bug. Phase I.6 Return Receipt is the correct path; until it ships, customer needs a manual adjustment JE or deferred processing. |
+| `ErrCreditNoteOriginalLineMismatch` on credit note post | **Data integrity.** | The `original_invoice_line_id` points at a line that isn't on the credit note's linked invoice (or isn't a stock line, or was never invoiced). Operator must re-pick; escalate if the data looks corrupt. |
+
+### Void semantics
+
+VoidCreditNote on a CN that had IN.5 inventory returns now also
+reverses those returns — inventory goes back to the post-invoice
+state. Note: the pre-existing CN rule "cannot void after
+application to an invoice" still applies; if the CN has already
+been applied to reduce AR balance, the application must be
+removed first by a separate action.
+
+### What is still NOT supported under IN.5
+
+- **Multi-line partial returns where customer returns several
+  different items on one credit note**: each line traces to its
+  own OriginalInvoiceLineID. Supported, not special.
+- **Return of a bundle-component item**: trace to the bundle's
+  component movement; OriginalInvoiceLineID on the credit-note
+  line matches the header invoice-line, not the bundle-expansion
+  pseudo-line. If bundle returns are required, trace resolution
+  is more complex; raise as a dedicated slice.
+- **Cost-adjusted returns** (customer returns 4 of 10 but says "the
+  cost was actually $X, not what's on the original movement"):
+  not supported — IN.5 always uses the original snapshot. If
+  costs need correction, use a separate inventory adjustment.
+
+---
+
+## 11. Change log
 
 | Date | Change |
 |---|---|
 | 2026-04-21 | Initial draft covering IN.1–IN.3 behaviour. Complements Phase H / Phase I runbooks. |
+| 2026-04-21 | Added §10a Credit Note (IN.5) — AR return path inventory restoration at authoritative original cost. |
 | (future) | Update §3 triage table when a tracked-on-Bill or per-line-warehouse slice ships. |
+| (future) | Replace §10a controlled-mode rejection guidance with Phase I.6 Return Receipt workflow when that slice ships. |
 
 ---
 

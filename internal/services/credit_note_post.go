@@ -45,6 +45,42 @@ import (
 // ErrCreditNoteNotDraft is returned when posting is attempted on a non-draft credit note.
 var ErrCreditNoteNotDraft = errors.New("only draft credit notes can be posted")
 
+// IN.5 sentinels for Rule #4 on the Credit Note path.
+var (
+	// ErrCreditNoteStockItemRequiresInvoice — a stock-item line on a
+	// credit note requires the header to link back to the original
+	// invoice. Standalone (InvoiceID=nil) credit notes cannot form a
+	// stock return — there is no originating inventory movement to
+	// reverse against the authoritative snapshot cost.
+	ErrCreditNoteStockItemRequiresInvoice = errors.New(
+		"credit note: stock-item line requires the credit note to link to an originating invoice — cannot reverse inventory without a source")
+
+	// ErrCreditNoteStockItemRequiresOriginalLine — the line carries a
+	// stock item but does not point at a specific InvoiceLine it is
+	// reversing. Operator must pick which invoice line this return
+	// applies to so authoritative cost is traceable.
+	ErrCreditNoteStockItemRequiresOriginalLine = errors.New(
+		"credit note: stock-item line requires original_invoice_line_id — pick which invoice line this return applies to")
+
+	// ErrCreditNoteStockItemRequiresReturnReceipt — Rule #4 Q2 for
+	// the AR side. Under shipment_required=true (controlled mode),
+	// the Credit Note path is NOT the outbound-return owner;
+	// Phase I.6 Return Receipt is the intended owner. Until I.6
+	// ships, stock-item credit notes on controlled-mode companies
+	// fail loud rather than silently book partial (revenue-only)
+	// reversal.
+	ErrCreditNoteStockItemRequiresReturnReceipt = errors.New(
+		"credit note: stock-item line not allowed when shipment_required=true — route outbound returns through a Return Receipt instead (Phase I.6)")
+
+	// ErrCreditNoteOriginalLineMismatch — the OriginalInvoiceLineID
+	// on a credit-note line points at an invoice line that doesn't
+	// belong to this credit note's linked Invoice, or at a line
+	// whose product differs from the credit note's product, or at
+	// an invoice that isn't in this company.
+	ErrCreditNoteOriginalLineMismatch = errors.New(
+		"credit note: original_invoice_line_id does not match a valid sale line on the linked invoice")
+)
+
 // PostCreditNote transitions a draft credit note to "issued" and generates a
 // double-entry journal entry in a single database transaction.
 //
@@ -55,6 +91,7 @@ func PostCreditNote(db *gorm.DB, companyID, creditNoteID uint, actor string, use
 	if err := db.
 		Preload("Lines.RevenueAccount").
 		Preload("Lines.TaxCode").
+		Preload("Lines.ProductService"). // IN.5: needed to detect stock items
 		Where("id = ? AND company_id = ?", creditNoteID, companyID).
 		First(&cn).Error; err != nil {
 		return fmt.Errorf("load credit note: %w", err)
@@ -73,10 +110,34 @@ func PostCreditNote(db *gorm.DB, companyID, creditNoteID uint, actor string, use
 		}
 	}
 
-	// ── 2b. Load company (for base currency) ─────────────────────────────────
+	// ── 2b. Load company (for base currency + Phase I rail state) ────────────
+	// IN.5 reads shipment_required to gate stock-item credit notes
+	// off controlled-mode companies (Q2: defer to Phase I.6).
 	var company models.Company
-	if err := db.Select("id", "base_currency_code").First(&company, companyID).Error; err != nil {
+	if err := db.Select("id", "base_currency_code", "shipment_required").
+		First(&company, companyID).Error; err != nil {
 		return fmt.Errorf("load company: %w", err)
+	}
+
+	// ── 2b.IN.5. Rule #4 pre-flight for stock-item lines ─────────────────────
+	stockLineCount := 0
+	for i, l := range cn.Lines {
+		if l.ProductService == nil || !l.ProductService.IsStockItem {
+			continue
+		}
+		stockLineCount++
+		// Q2: controlled mode rejects stock-item credit notes.
+		if company.ShipmentRequired {
+			return fmt.Errorf("%w: line[%d]", ErrCreditNoteStockItemRequiresReturnReceipt, i)
+		}
+		// Legacy mode: stock line must trace back to a specific
+		// invoice line so authoritative cost is resolvable.
+		if cn.InvoiceID == nil || *cn.InvoiceID == 0 {
+			return fmt.Errorf("%w: line[%d] item=%d", ErrCreditNoteStockItemRequiresInvoice, i, *l.ProductServiceID)
+		}
+		if l.OriginalInvoiceLineID == nil || *l.OriginalInvoiceLineID == 0 {
+			return fmt.Errorf("%w: line[%d] item=%d", ErrCreditNoteStockItemRequiresOriginalLine, i, *l.ProductServiceID)
+		}
 	}
 
 	// ── 2c. Exchange rate ─────────────────────────────────────────────────────
@@ -175,7 +236,7 @@ func PostCreditNote(db *gorm.DB, companyID, creditNoteID uint, actor string, use
 			return err
 		}
 
-		// c. Journal lines.
+		// c. Journal lines (revenue reversal + AR side — pre-tx built).
 		createdLines := make([]models.JournalLine, 0, len(jeLines))
 		for i, jl := range jeLines {
 			txLine := txJournalLines[i]
@@ -195,6 +256,40 @@ func PostCreditNote(db *gorm.DB, companyID, creditNoteID uint, actor string, use
 				return fmt.Errorf("create journal line: %w", err)
 			}
 			createdLines = append(createdLines, line)
+		}
+
+		// c.IN.5 Inventory returns + Dr Inventory / Cr COGS fragments.
+		// Pre-flight already rejected stock lines under controlled
+		// mode; reaching this point means legacy mode with valid
+		// stock lines (or no stock lines at all, in which case the
+		// helpers no-op).
+		returns, retErr := CreateCreditNoteInventoryReturns(tx, cn)
+		if retErr != nil {
+			return retErr
+		}
+		if len(returns) > 0 {
+			invFrags := buildCreditNoteInventoryFragments(returns, cn.CreditNoteNumber)
+			// Each (Dr Inventory / Cr COGS) pair is self-balancing,
+			// so no additional aggregation or balance check is
+			// needed — the parent JE stays balanced.
+			for _, f := range invFrags {
+				line := models.JournalLine{
+					CompanyID:      companyID,
+					JournalEntryID: je.ID,
+					AccountID:      f.AccountID,
+					TxDebit:        f.Debit,
+					TxCredit:       f.Credit,
+					Debit:          f.Debit,
+					Credit:         f.Credit,
+					Memo:           f.Memo,
+					PartyType:      models.PartyTypeCustomer,
+					PartyID:        cn.CustomerID,
+				}
+				if err := tx.Create(&line).Error; err != nil {
+					return fmt.Errorf("create IN.5 inventory journal line: %w", err)
+				}
+				createdLines = append(createdLines, line)
+			}
 		}
 
 		// d. Secondary book amounts.
@@ -242,6 +337,19 @@ func PostCreditNote(db *gorm.DB, companyID, creditNoteID uint, actor string, use
 				docCreditSum, amountBase, issuedAt); err != nil {
 				return err
 			}
+		}
+
+		// g.IN.3. Rule #4 post-time invariant. Credit note under
+		// legacy mode owns its return movements; controlled mode
+		// rejected stock lines pre-post, so this assertion only
+		// meaningfully fires on the legacy path with stock lines.
+		if err := AssertRule4PostTimeInvariant(tx, companyID,
+			Rule4DocCreditNote, cn.ID, stockLineCount,
+			Rule4WorkflowState{
+				ShipmentRequired: company.ShipmentRequired,
+			},
+		); err != nil {
+			return err
 		}
 
 		// h. Audit log.

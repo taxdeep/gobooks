@@ -76,9 +76,10 @@ import (
 type Rule4DocumentType string
 
 const (
-	Rule4DocBill    Rule4DocumentType = "bill"
-	Rule4DocInvoice Rule4DocumentType = "invoice"
-	Rule4DocExpense Rule4DocumentType = "expense"
+	Rule4DocBill       Rule4DocumentType = "bill"
+	Rule4DocInvoice    Rule4DocumentType = "invoice"
+	Rule4DocExpense    Rule4DocumentType = "expense"
+	Rule4DocCreditNote Rule4DocumentType = "credit_note"
 )
 
 // Rule4WorkflowState captures the two capability rails that steer
@@ -109,6 +110,13 @@ func (w Rule4WorkflowState) IsMovementOwner(docType Rule4DocumentType) bool {
 		// PostExpense returns ErrExpenseStockItemRequiresReceipt
 		// before this assertion ever runs in controlled mode.
 		return !w.ReceiptRequired
+	case Rule4DocCreditNote:
+		// Credit Note owns return movement under legacy
+		// (shipment_required=false); controlled mode rejects
+		// stock-item credit notes pre-post (IN.5 Q2, pending
+		// Phase I.6 Return Receipt). Same defensive pattern as
+		// Expense above.
+		return !w.ShipmentRequired
 	default:
 		return false
 	}

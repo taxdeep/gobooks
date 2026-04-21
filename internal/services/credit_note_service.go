@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"gobooks/internal/models"
+	"gobooks/internal/services/inventory"
 )
 
 // ErrCreditNoteNotVoidable is returned when a void is attempted on a non-voidable credit note.
@@ -42,7 +43,13 @@ type CreditNoteLineInput struct {
 	RevenueAccountID uint
 	TaxCodeID        *uint
 	ProductServiceID *uint
-	SortOrder        uint
+	// OriginalInvoiceLineID (IN.5): trace back to the InvoiceLine
+	// that originally sold this qty. Required at post time when
+	// the line points at a stock item (IsStockItem=true). Used by
+	// credit_note_post.go to reverse the original inventory
+	// movement at its authoritative snapshot cost.
+	OriginalInvoiceLineID *uint
+	SortOrder             uint
 }
 
 // CreateCreditNoteDraftInput holds the parameters for creating a new draft credit note.
@@ -142,15 +149,16 @@ func CreateCreditNoteDraft(db *gorm.DB, in CreateCreditNoteDraftInput) (*models.
 				sortOrder = uint(i + 1)
 			}
 			line := models.CreditNoteLine{
-				CompanyID:        in.CompanyID,
-				CreditNoteID:     cn.ID,
-				SortOrder:        sortOrder,
-				ProductServiceID: l.ProductServiceID,
-				RevenueAccountID: l.RevenueAccountID,
-				Description:      l.Description,
-				Qty:              l.Qty,
-				UnitPrice:        l.UnitPrice,
-				TaxCodeID:        l.TaxCodeID,
+				CompanyID:             in.CompanyID,
+				CreditNoteID:          cn.ID,
+				SortOrder:             sortOrder,
+				ProductServiceID:      l.ProductServiceID,
+				OriginalInvoiceLineID: l.OriginalInvoiceLineID,
+				RevenueAccountID:      l.RevenueAccountID,
+				Description:           l.Description,
+				Qty:                   l.Qty,
+				UnitPrice:             l.UnitPrice,
+				TaxCodeID:             l.TaxCodeID,
 				LineNet:          lineNet,
 				LineTax:          lineTax,
 				LineTotal:        lineNet.Add(lineTax),
@@ -268,6 +276,24 @@ func VoidCreditNote(db *gorm.DB, companyID, cnID uint, actor string, userID *uui
 							"status":      string(models.InvoiceStatusIssued),
 						})
 				}
+			}
+
+			// IN.5 void symmetry: undo the inventory restoration that
+			// credit_note_post formed for stock-item lines. Reverses
+			// every source_type='credit_note' movement attached to
+			// this CN. Reaches inventory back to the state it was in
+			// right after the original invoice post, which is exactly
+			// where it should be when a credit note is voided — the
+			// sale stands, the return is cancelled, goods go back out.
+			if err := reverseDocumentMovements(tx, companyID, reverseDocumentScope{
+				sourceType:         string(models.LedgerSourceCreditNote),
+				sourceID:           cn.ID,
+				reversalSourceType: "credit_note_reversal",
+				movementDate:       voidedAt,
+				memo:               "Void: " + cn.CreditNoteNumber,
+				reason:             inventory.ReversalReasonErrorCorrection,
+			}); err != nil {
+				return fmt.Errorf("reverse credit note inventory return on void: %w", err)
 			}
 		}
 
