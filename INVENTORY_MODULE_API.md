@@ -90,6 +90,142 @@ contract to the layer(s) it depends on:
 
 ---
 
+## 2A. Hard Rule #4 — Item-Nature Invariant (cross-cutting)  *(charter: IN.0 pinned)*
+
+Hard Rules #1–#3 (see §7 Phase H) are phase-scoped to the
+Receipt-first inbound model. **Hard Rule #4 is cross-cutting** —
+it constrains every business document that carries product lines,
+including documents that predate Phase H (Bill, Expense, Invoice
+under legacy `*_required=false`). That is why it lives here in the
+architectural-rules area and uses the `IN-N` slice prefix rather
+than a phase-letter, to avoid colliding with Phase J (permission
+catalog) and Phase K (manufacturing).
+
+### The rule
+
+> A line carrying `ProductService.IsStockItem = true` on a posted
+> business document MUST have its inventory semantics honored:
+> either produce a corresponding `inventory_movements` row (with
+> the downstream cost-layer / balance effect), **or be rejected
+> loudly at post time**. *Which document owns the movement* is
+> determined by the company's workflow mode. A stock line that
+> slips through without movement formation AND without rejection
+> is, on its face, a data-integrity bug and must fail loud.
+
+"Silent swallowing" — the condition this rule forbids — is the
+state where (a) the document post succeeds, (b) no inventory
+effect is produced for the stock line, and (c) no error is
+surfaced to the operator. This is the bug class that accumulates
+over time and makes the inventory ledger and the GL diverge in
+ways nobody notices until a period-end reconciliation.
+
+### Movement-owner dispatch by workflow mode
+
+Under the rule, *which* document owns the movement depends on the
+company's capability-rail state. No document forms inventory
+twice; exactly one owner per logical inbound / outbound event.
+
+**Inbound side**:
+
+| Workflow mode | Bill stock line | Expense stock line | Receipt |
+|---|---|---|---|
+| **Legacy** (`receipt_required=false`) | **Owner** — `Dr Inventory / Cr AP` + inventory receive | **Owner** — `Dr Inventory / Cr Bank/Card` + inventory receive (new) | n/a (unused) |
+| **Controlled** (`receipt_required=true`) | Not owner — books `Dr GR/IR / Cr AP`; Receipt already formed movement | **Rejected at post** — `ErrExpenseStockItemRequiresReceipt`; controlled mode closes the Expense backdoor | **Owner** — `Dr Inventory / Cr GR/IR` |
+
+**Outbound side**:
+
+| Workflow mode | Invoice stock line | Shipment |
+|---|---|---|
+| **Legacy** (`shipment_required=false`) | **Owner** — `Dr AR / Cr Revenue` + `Dr COGS / Cr Inventory` + inventory issue | n/a (unused) |
+| **Controlled** (`shipment_required=true`) | Not owner — books `Dr AR / Cr Revenue` only; Shipment already formed movement | **Owner** — `Dr COGS / Cr Inventory` |
+
+### Non-negotiables
+
+1. **No silent swallowing.** A stock line surviving to posted-doc
+   state without a movement and without an explicit rejection is a
+   Rule-4 violation. IN-3 installs a post-time assertion that
+   catches this class at CI level.
+2. **One owner per event.** Per company × logical event (one
+   inbound delivery, one outbound shipment), exactly one document
+   forms the inventory movement. The dispatch matrix above is the
+   complete decision table; any new entry surface must be added
+   to the table explicitly, not wired through silently.
+3. **UI consistency.** Every line-bearing business-document editor
+   exposes the same item-picker pattern, so operator experience
+   does not depend on which document type they're on.
+4. **Backward compatibility for amount-only lines.** Lines with
+   `ProductServiceID = nil` continue to work indefinitely; they
+   never touched inventory before (legacy Bill / Expense with pure
+   cost lines: utilities, consulting fees) and don't start now.
+   Rule #4 constrains lines that DO carry a stock item — it does
+   not retroactively force all lines to have items.
+
+### Decisions pinned by IN.0
+
+**Q1 — Amount-only fallback preserved.** Every line-bearing
+editor's item picker keeps its first option as `— Expense only
+(no item) —`. Operators entering "water bill $50" do not need to
+manufacture a ProductService for the utility company. Selecting an
+item switches the row into qty + unit-price mode; deselecting
+falls back to amount mode. Consistent with PO editor's existing
+pattern.
+
+**Q2 — Expense is legacy-mode-only for inbound inventory.** An
+Expense line with `IsStockItem=true` under `receipt_required=false`
+forms inventory the same way a legacy Bill line does
+(`Dr Inventory / Cr Bank/Card` + inventory receive). Under
+`receipt_required=true`, Expense post **rejects** stock lines with
+`ErrExpenseStockItemRequiresReceipt`; the operator must route
+through Receipt. This preserves Phase H's Border 1 discipline —
+the Expense path cannot become a capability-rail backdoor for
+Receipt-first companies. Controlled-mode companies that want
+inventory to move must use Receipt, period.
+
+**Q3 — Header warehouse, defaulted but visible.** Bill and
+Expense grow a header `warehouse_id` field (not per-line, matching
+the PO pattern). Default is the company's default warehouse; the
+header field is rendered as a visible, editable dropdown so
+operators are never surprised by silent routing. Per-line
+warehouse override on Bill / Expense is out of IN scope — if it
+becomes necessary, it's a separate slice.
+
+**Q4 — Tracked items deferred.** Lot / serial / expiry capture on
+Bill and Expense stock lines is out of Rule-4 scope. Inventory's
+`validateInboundTracking` fail-loud guard stays. Tracked Bill
+lines continue to use the Phase G.4 `bill_lines.lot_number`
+capture path (frozen as legacy per Phase H Hard Rule #2).
+Tracked Expense stock lines fail loud until a dedicated slice
+wires lot selection on Expense (not in IN sequence).
+
+### Slice plan (binding)
+
+| Slice | Scope | Entry gate | Status |
+|---|---|---|---|
+| **IN.0** | This charter. Rule #4, workflow-mode dispatch matrix, Q1–Q4 decisions, slice plan pinned in the canonical API doc. | — | pending (this commit) |
+| **IN.1** | Bill editor item-picker column (mirror PO editor: `— Expense only —` first option, selecting an item switches to qty + unit-price mode, deselecting falls back to amount). Header `warehouse_id` field on Bill. Bill save path parses `ProductServiceID` + Qty + UnitPrice per line; Bill post's existing `CreatePurchaseMovements` hook (service-layer code already supports when `ProductServiceID` set) fires for the first time via UI-entered data. PO → Bill conversion flow carries full product identity. | IN.0 approved | — |
+| **IN.2** | Expense editor item-picker column (same shape as IN.1). New `CreateExpenseMovements` service modeled on `CreatePurchaseMovements`. Expense post under legacy mode routes stock lines through inventory receive. **Expense post under controlled mode (`receipt_required=true`) REJECTS stock lines with `ErrExpenseStockItemRequiresReceipt`** — Q2 invariant. Header `warehouse_id` on Expense. Void symmetry (reverse inventory movements on Expense void). | IN.1 shipped | — |
+| **IN.3** | Post-time invariant assertion: after Bill / Expense / Invoice post, verify each stock line produced either (a) a matching `inventory_movements` row, or (b) a routing decision that explicitly defers to another owner (Phase H `receipt_required=true` Bill; Phase I `shipment_required=true` Invoice). Fail loud if neither condition holds. Implemented as a defensive check + CI-level test so a future refactor that silently breaks the chain trips immediately. | IN.2 shipped | — |
+| **IN.4** | CS-facing documentation: runbook updates covering (a) the amount-only fallback ("why your water-bill expense doesn't move inventory"), (b) the controlled-mode rejection ("why your stock-item expense on a Phase-H-enabled company failed"), (c) the header warehouse field and its default behavior. | IN.3 shipped | — |
+
+### Out of IN scope (deliberately)
+
+- **Historical amount-only Bill / Expense backfill.** Rule #4
+  applies to lines posted *after* the slice introducing each
+  editor's item-picker ships. Already-posted documents stay as
+  they are. No retroactive ProductService linkage.
+- **Per-line warehouse override** on Bill / Expense (header only
+  per Q3).
+- **Tracked-item stock lines on Expense** (fail-loud per Q4).
+- **Dedicated `PurchaseAccountID` / `ExpenseAccountID` on
+  ProductService.** IN-1 uses `InventoryAccountID` as the default
+  Category for stock lines (the Adjust helpers in bill_post redirect
+  correctly under both rail states). A purchase-specific account
+  field is a product-catalog slice of its own if demand appears.
+- **Renaming existing Phase J or Phase K reservations.** IN uses
+  the cross-cutting prefix specifically to avoid perturbing those.
+
+---
+
 ## 3. IN contracts (data enters inventory)
 
 Seven functions. All live in `internal/services/inventory/` and operate on
