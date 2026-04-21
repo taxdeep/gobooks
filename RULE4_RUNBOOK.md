@@ -474,6 +474,60 @@ movement reversal; not in IN.6a.
 
 ---
 
+## 10c. Refunds are exempt from Rule #4
+
+An audit (2026-04-21) concluded that both **ARRefund** (customer
+refund, [ar_refund.go](internal/models/ar_refund.go)) and **VendorRefund**
+(vendor refund, [ap_vendor_refund.go](internal/models/ap_vendor_refund.go))
+are **out of scope** for Rule #4. This section documents the
+decision so future audits don't re-open the question.
+
+### Why they're exempt
+
+Both are pure cash-movement documents:
+
+- **Header-only by design.** No line-item tables (no `ARRefundLine`
+  or `VendorRefundLine`). No `ProductServiceID` fields anywhere on
+  the model.
+- **Two-line JE, cash ↔ AR/AP/Deposit only.** `PostARRefund`
+  ([ar_refund_service.go:215](internal/services/ar_refund_service.go))
+  emits `Dr DebitAccount / Cr BankAccount`. `PostVendorRefund`
+  ([vendor_refund_service.go:192](internal/services/vendor_refund_service.go))
+  emits `Dr BankAccount / Cr CreditAccount`. Neither path touches
+  Inventory or COGS accounts.
+- **Zero inventory module calls.** No `inventory.ReceiveStock`,
+  `IssueStock`, `ReverseMovement`, etc., in either post path. No
+  `inventory_movements` rows produced.
+
+### Where the inventory effect actually lives (if any)
+
+A refund that's linked to a CreditNote / VendorCreditNote is the
+**cash settlement** of a credit that already posted. The inventory
+restoration / reversal happened at the credit note's post time
+(IN.5 for AR, IN.6a for AP). The refund just moves the
+balance out of the AR/AP/Credit account and into the bank.
+
+Standalone refunds (no linked credit — e.g. refunding an
+overpayment or a vendor prepayment) touch only liability /
+prepayment accounts. There is no stock nexus by construction.
+
+### When to revisit
+
+If a future slice adds a `refund_lines` table or a
+`ProductServiceID` field to either refund model, **this exemption
+is void** and Rule #4 must be re-evaluated. Watch for:
+
+- A feature request for "refund with partial stock return detail"
+  (operator wants to record which items were physically returned
+  when issuing the refund).
+- A merge of `VendorReturn` + `VendorRefund` semantics that adds
+  item-level detail to the refund.
+
+Either pattern should open a fresh audit slice rather than
+smuggle inventory exposure into a refund post path.
+
+---
+
 ## 11. Change log
 
 | Date | Change |
@@ -481,11 +535,13 @@ movement reversal; not in IN.6a.
 | 2026-04-21 | Initial draft covering IN.1–IN.3 behaviour. Complements Phase H / Phase I runbooks. |
 | 2026-04-21 | Added §10a Credit Note (IN.5) — AR return path inventory restoration at authoritative original cost. |
 | 2026-04-21 | Added §10b Vendor Credit Note (IN.6a) — AP return path inventory reversal via ReverseMovement at authoritative original cost; full-qty only. |
+| 2026-04-21 | IN.6b shipped — Vendor Credit Note editor exposes stock-return lines in the UI (+ handler wiring tests). |
+| 2026-04-21 | Added §10c — ARRefund / VendorRefund audited and exempted from Rule #4 (cash-movement documents, no stock nexus). |
 | (future) | Update §3 triage table when a tracked-on-Bill or per-line-warehouse slice ships. |
 | (future) | Replace §10a controlled-mode rejection guidance with Phase I.6 Return Receipt workflow when that slice ships. |
 | (future) | Replace §10b partial-return limitation when an inventory outflow verb with caller-supplied cost ships. |
 | (future) | Replace §10b controlled-mode rejection guidance with Vendor Return Receipt workflow when that slice ships. |
-| (future) | IN.6b: UI line entry on Vendor Credit Note editor. |
+| (future) | Revisit §10c if a refund document gains line-item granularity or ProductServiceID. |
 
 ---
 
