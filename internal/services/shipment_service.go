@@ -442,6 +442,30 @@ func PostShipment(db *gorm.DB, companyID, id uint, actor string, actorUserID *uu
 		if err := tx.Save(s).Error; err != nil {
 			return fmt.Errorf("save shipment: %w", err)
 		}
+
+		// IN.8 Rule #4 post-time invariant. Under shipment_required=true
+		// this document IS the movement owner (Rule4DocShipment) and
+		// MUST have produced at least one inventory_movements row per
+		// stock-item line. Under shipment_required=false it is NOT the
+		// owner — assertion expects zero rows, I.2's boundary-lock
+		// tests already enforce that separately but this double-locks
+		// against future regressions.
+		stockLineCount := 0
+		for _, ln := range s.Lines {
+			if ln.ProductService != nil && ln.ProductService.IsStockItem {
+				stockLineCount++
+			}
+		}
+		if err := AssertRule4PostTimeInvariant(tx, companyID,
+			Rule4DocShipment, s.ID, stockLineCount,
+			Rule4WorkflowState{
+				ReceiptRequired:  company.ReceiptRequired,
+				ShipmentRequired: company.ShipmentRequired,
+			},
+		); err != nil {
+			return err
+		}
+
 		cid := companyID
 		TryWriteAuditLogWithContextDetails(
 			tx,

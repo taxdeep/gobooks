@@ -55,10 +55,11 @@ package services
 //     and `movement_count == 0` on the non-owner path.
 //   - Does NOT validate cost accuracy; that's inventory module's
 //     responsibility.
-//   - Does NOT run on Receipt / Shipment posts today; those paths
-//     already have their own boundary-lock tests (H.2 / I.2). If a
-//     future regression warrants it, add them here — the helper
-//     is doc-type-agnostic.
+//   - Does run on Receipt / Shipment posts as of IN.8 (2026-04-21).
+//     Receipt/Shipment are the controlled-mode movement owners for
+//     Bill/Invoice respectively; their post paths call
+//     `CreateReceiptMovements` / `CreateShipmentMovements`, which
+//     this assertion guards against silent regression.
 
 import (
 	"fmt"
@@ -94,6 +95,20 @@ const (
 	// receipt_required=false it is not the owner; legacy IN.6a VCN
 	// keeps ownership.
 	Rule4DocVendorReturnShipment Rule4DocumentType = "vendor_return_shipment"
+	// Rule4DocReceipt — Phase H.3 physical-truth inbound document.
+	// Mirror of Rule4DocBill: Bill owns under legacy (receipt_required
+	// =false); Receipt owns under controlled mode (receipt_required
+	// =true). IN.8 (2026-04-21) added the owner-path invariant to
+	// PostReceipt so a future refactor that drops the
+	// CreateReceiptMovements call trips immediately.
+	Rule4DocReceipt Rule4DocumentType = "receipt"
+	// Rule4DocShipment — Phase I.3 physical-truth outbound document.
+	// Mirror of Rule4DocInvoice: Invoice owns under legacy
+	// (shipment_required=false); Shipment owns under controlled mode
+	// (shipment_required=true). IN.8 added the owner-path invariant
+	// to PostShipment so a future refactor that drops the
+	// CreateShipmentMovements call trips immediately.
+	Rule4DocShipment Rule4DocumentType = "shipment"
 )
 
 // Rule4WorkflowState captures the two capability rails that steer
@@ -151,6 +166,20 @@ func (w Rule4WorkflowState) IsMovementOwner(docType Rule4DocumentType) bool {
 		// (receipt_required=false). Controlled mode rejects stock-
 		// item VCN lines pre-post (IN.6a) pending I.6b VendorReturnShipment.
 		return !w.ReceiptRequired
+	case Rule4DocReceipt:
+		// Receipt (H.3) owns inbound movement under controlled mode
+		// (receipt_required=true). Bill surrenders ownership to
+		// Receipt on that rail. Under legacy, Receipt posts are
+		// status-flip only — non-owner; H.2 boundary-lock tests
+		// already enforce zero inventory effect there.
+		return w.ReceiptRequired
+	case Rule4DocShipment:
+		// Shipment (I.3) owns outbound movement under controlled
+		// mode (shipment_required=true). Invoice surrenders
+		// ownership to Shipment on that rail. Under legacy,
+		// Shipment posts are status-flip only — non-owner; I.2
+		// boundary-lock tests already enforce zero inventory effect.
+		return w.ShipmentRequired
 	default:
 		return false
 	}
