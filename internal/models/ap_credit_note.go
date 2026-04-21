@@ -113,9 +113,63 @@ type VendorCreditNote struct {
 	// Applications records each allocation of this credit note to a bill.
 	Applications []APCreditApplication `gorm:"foreignKey:VendorCreditNoteID"`
 
+	// Lines is the IN.6a line detail. Empty = legacy header-only
+	// credit (Dr AP / Cr Offset posting). Non-empty = line-by-line
+	// dispatch where stock-item lines are routed through the
+	// Rule #4 inventory-reversal path.
+	Lines []VendorCreditNoteLine `gorm:"foreignKey:VendorCreditNoteID"`
+
 	PostedAt       *time.Time `gorm:"index"`
 	PostedBy       string     `gorm:"type:text;not null;default:''"`
 	PostedByUserID *uuid.UUID `gorm:"type:text"`
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// ── VendorCreditNoteLine ──────────────────────────────────────────────────────
+
+// VendorCreditNoteLine is IN.6a's line model. Each row represents
+// one item being credited back (physical stock return OR a service
+// adjustment).
+//
+// Dispatch at post time:
+//   ProductService.IsStockItem=true  → stock return. Must carry
+//       OriginalBillLineID so vendor_credit_note_posting.go can trace
+//       the original Bill movement and book the return at the
+//       authoritative snapshot cost (legacy mode). Under
+//       receipt_required=true the post is rejected with
+//       ErrVendorCreditNoteStockItemRequiresReturnReceipt.
+//   ProductService.IsStockItem=false → service adjustment, no
+//       inventory side-effect; goes through the existing Cr Offset
+//       path unchanged.
+type VendorCreditNoteLine struct {
+	ID                 uint `gorm:"primaryKey"`
+	CompanyID          uint `gorm:"not null;index"`
+	VendorCreditNoteID uint `gorm:"not null;index"`
+
+	SortOrder uint `gorm:"not null;default:1"`
+
+	// ProductServiceID drives the stock/service dispatch.
+	ProductServiceID *uint           `gorm:"index"`
+	ProductService   *ProductService `gorm:"foreignKey:ProductServiceID"`
+
+	// OriginalBillLineID — IN.6a trace back to the BillLine that
+	// originally received this qty in. Required on stock-item lines
+	// (IsStockItem=true); ignored otherwise. Drives the authoritative
+	// cost lookup (original bill movement's unit_cost_base) for the
+	// inventory-out movement.
+	//
+	// No DB-level FK constraint so mixed-company joins stay legal at
+	// the schema layer. Cross-tenant + existence checks live in
+	// vendor_credit_note_posting.go.
+	OriginalBillLineID *uint     `gorm:"index"`
+	OriginalBillLine   *BillLine `gorm:"foreignKey:OriginalBillLineID"`
+
+	Description string          `gorm:"not null;default:''"`
+	Qty         decimal.Decimal `gorm:"type:numeric(10,4);not null;default:1"`
+	UnitPrice   decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`
+	Amount      decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
 
 	CreatedAt time.Time
 	UpdatedAt time.Time

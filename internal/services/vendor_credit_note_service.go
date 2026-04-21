@@ -39,11 +39,29 @@ var (
 	ErrVCNApplyAmountExceedsBill     = errors.New("amount to apply exceeds bill balance due")
 	ErrVCNVendorMismatch             = errors.New("vendor credit note and bill must belong to the same vendor")
 	ErrVCNBillNotOpen                = errors.New("bill must be posted or partially paid to apply a credit")
+
+	// IN.6a Rule #4 sentinels — emitted by vendor_credit_note_posting
+	// pre-flight when a stock-item line violates the required chain.
+	// See RULE4_RUNBOOK.md §10b for operator triage.
+	ErrVendorCreditNoteStockItemRequiresReturnReceipt  = errors.New("vendor credit note stock-item line requires Return Receipt (controlled mode)")
+	ErrVendorCreditNoteStockItemRequiresBill           = errors.New("vendor credit note stock-item line requires a linked Bill")
+	ErrVendorCreditNoteStockItemRequiresOriginalLine   = errors.New("vendor credit note stock-item line requires OriginalBillLineID")
+	ErrVendorCreditNoteOriginalLineMismatch            = errors.New("vendor credit note original bill line does not match a known inventory movement")
+	ErrVendorCreditNotePartialReturnNotSupported       = errors.New("vendor credit note stock-item partial returns not supported yet; line qty must equal original bill line qty")
 )
 
 // ── Input types ───────────────────────────────────────────────────────────────
 
 // VendorCreditNoteInput holds all data needed to create or update a VendorCreditNote.
+//
+// IN.6a: Lines is the new line-level payload. Empty = legacy header-
+// only credit (Amount drives posting, Dr AP / Cr Offset only). Non-
+// empty = line-by-line dispatch where stock-item lines route through
+// the Rule #4 inventory-reversal path at post time.
+//
+// When Lines is non-empty, the header Amount is recomputed from the
+// sum of line amounts so the AR/AP reconciler sees a single
+// authoritative figure.
 type VendorCreditNoteInput struct {
 	VendorID       uint
 	BillID         *uint
@@ -56,6 +74,21 @@ type VendorCreditNoteInput struct {
 	OffsetAccountID *uint
 	Reason         string
 	Memo           string
+
+	Lines []VendorCreditNoteLineInput
+}
+
+// VendorCreditNoteLineInput is one line on the VCN create/update
+// request (IN.6a). A line pointing at a stock item MUST carry
+// OriginalBillLineID; pre-flight in PostVendorCreditNote rejects
+// otherwise.
+type VendorCreditNoteLineInput struct {
+	SortOrder          uint
+	ProductServiceID   *uint
+	OriginalBillLineID *uint
+	Description        string
+	Qty                decimal.Decimal
+	UnitPrice          decimal.Decimal
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -69,17 +102,34 @@ func nextVendorCreditNoteNumber(db *gorm.DB, companyID uint) string {
 // ── Create ────────────────────────────────────────────────────────────────────
 
 // CreateVendorCreditNote creates a new draft vendor credit note.
+//
+// IN.6a: if Lines is non-empty, the VCN Amount is recomputed from
+// the sum of line amounts (Qty × UnitPrice), and each line is
+// persisted. If Lines is empty, legacy header-only path — Amount
+// from input drives the single-amount record.
 func CreateVendorCreditNote(db *gorm.DB, companyID uint, in VendorCreditNoteInput) (*models.VendorCreditNote, error) {
 	if in.VendorID == 0 {
 		return nil, errors.New("vendor is required")
-	}
-	if !in.Amount.IsPositive() {
-		return nil, errors.New("credit note amount must be positive")
 	}
 
 	rate := in.ExchangeRate
 	if rate.IsZero() {
 		rate = decimal.NewFromInt(1)
+	}
+
+	// Derive the authoritative amount:
+	//   lines present → sum(line.Qty × line.UnitPrice), rounded
+	//   lines empty   → trust input header amount
+	headerAmount := in.Amount
+	if len(in.Lines) > 0 {
+		sum := decimal.Zero
+		for _, l := range in.Lines {
+			sum = sum.Add(l.Qty.Mul(l.UnitPrice))
+		}
+		headerAmount = sum.Round(2)
+	}
+	if !headerAmount.IsPositive() {
+		return nil, errors.New("credit note amount must be positive")
 	}
 
 	vcn := models.VendorCreditNote{
@@ -92,16 +142,42 @@ func CreateVendorCreditNote(db *gorm.DB, companyID uint, in VendorCreditNoteInpu
 		CreditNoteDate:   in.CreditNoteDate,
 		CurrencyCode:     in.CurrencyCode,
 		ExchangeRate:     rate,
-		Amount:           in.Amount.Round(2),
-		RemainingAmount:  in.Amount.Round(2),
+		Amount:           headerAmount,
+		RemainingAmount:  headerAmount,
 		APAccountID:      in.APAccountID,
 		OffsetAccountID:  in.OffsetAccountID,
 		Reason:           in.Reason,
 		Memo:             in.Memo,
 	}
 
-	if err := db.Create(&vcn).Error; err != nil {
-		return nil, fmt.Errorf("create vendor credit note: %w", err)
+	err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&vcn).Error; err != nil {
+			return fmt.Errorf("create vendor credit note: %w", err)
+		}
+		for i, l := range in.Lines {
+			sortOrder := l.SortOrder
+			if sortOrder == 0 {
+				sortOrder = uint(i + 1)
+			}
+			row := models.VendorCreditNoteLine{
+				CompanyID:          companyID,
+				VendorCreditNoteID: vcn.ID,
+				SortOrder:          sortOrder,
+				ProductServiceID:   l.ProductServiceID,
+				OriginalBillLineID: l.OriginalBillLineID,
+				Description:        l.Description,
+				Qty:                l.Qty,
+				UnitPrice:          l.UnitPrice,
+				Amount:             l.Qty.Mul(l.UnitPrice).Round(2),
+			}
+			if err := tx.Create(&row).Error; err != nil {
+				return fmt.Errorf("create vcn line %d: %w", i+1, err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return &vcn, nil
 }
@@ -114,6 +190,7 @@ func GetVendorCreditNote(db *gorm.DB, companyID, vcnID uint) (*models.VendorCred
 	err := db.Preload("Vendor").Preload("APAccount").Preload("OffsetAccount").
 		Preload("Bill").Preload("VendorReturn").
 		Preload("Applications").Preload("Applications.Bill").
+		Preload("Lines").Preload("Lines.ProductService").
 		Where("id = ? AND company_id = ?", vcnID, companyID).First(&vcn).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrVendorCreditNoteNotFound
@@ -138,6 +215,12 @@ func ListVendorCreditNotes(db *gorm.DB, companyID uint, statusFilter string, ven
 // ── Update ────────────────────────────────────────────────────────────────────
 
 // UpdateVendorCreditNote updates a draft vendor credit note.
+//
+// IN.6a: if Lines is supplied (non-nil, may be empty slice to
+// explicitly clear), the existing line set is replaced and the
+// header Amount is recomputed from the new line sum. If Lines is
+// nil, legacy path — header amount from input is trusted and
+// existing lines remain.
 func UpdateVendorCreditNote(db *gorm.DB, companyID, vcnID uint, in VendorCreditNoteInput) (*models.VendorCreditNote, error) {
 	var vcn models.VendorCreditNote
 	if err := db.Where("id = ? AND company_id = ?", vcnID, companyID).First(&vcn).Error; err != nil {
@@ -155,22 +238,69 @@ func UpdateVendorCreditNote(db *gorm.DB, companyID, vcnID uint, in VendorCreditN
 		rate = decimal.NewFromInt(1)
 	}
 
-	updates := map[string]any{
-		"vendor_id":        in.VendorID,
-		"bill_id":          in.BillID,
-		"vendor_return_id": in.VendorReturnID,
-		"credit_note_date": in.CreditNoteDate,
-		"currency_code":    in.CurrencyCode,
-		"exchange_rate":    rate,
-		"amount":           in.Amount.Round(2),
-		"remaining_amount": in.Amount.Round(2),
-		"ap_account_id":    in.APAccountID,
-		"offset_account_id": in.OffsetAccountID,
-		"reason":           in.Reason,
-		"memo":             in.Memo,
+	// Recompute header amount when lines are supplied.
+	headerAmount := in.Amount
+	if in.Lines != nil && len(in.Lines) > 0 {
+		sum := decimal.Zero
+		for _, l := range in.Lines {
+			sum = sum.Add(l.Qty.Mul(l.UnitPrice))
+		}
+		headerAmount = sum.Round(2)
 	}
-	if err := db.Model(&vcn).Updates(updates).Error; err != nil {
-		return nil, fmt.Errorf("update vendor credit note: %w", err)
+	headerAmount = headerAmount.Round(2)
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+		updates := map[string]any{
+			"vendor_id":         in.VendorID,
+			"bill_id":           in.BillID,
+			"vendor_return_id":  in.VendorReturnID,
+			"credit_note_date":  in.CreditNoteDate,
+			"currency_code":     in.CurrencyCode,
+			"exchange_rate":     rate,
+			"amount":            headerAmount,
+			"remaining_amount":  headerAmount,
+			"ap_account_id":     in.APAccountID,
+			"offset_account_id": in.OffsetAccountID,
+			"reason":            in.Reason,
+			"memo":              in.Memo,
+		}
+		if err := tx.Model(&vcn).Updates(updates).Error; err != nil {
+			return fmt.Errorf("update vendor credit note: %w", err)
+		}
+
+		// IN.6a: replace lines when the caller provided a non-nil
+		// Lines slice. nil slice = caller is not managing lines this
+		// call (legacy-style update).
+		if in.Lines != nil {
+			if err := tx.Where("company_id = ? AND vendor_credit_note_id = ?", companyID, vcnID).
+				Delete(&models.VendorCreditNoteLine{}).Error; err != nil {
+				return fmt.Errorf("clear existing vcn lines: %w", err)
+			}
+			for i, l := range in.Lines {
+				sortOrder := l.SortOrder
+				if sortOrder == 0 {
+					sortOrder = uint(i + 1)
+				}
+				row := models.VendorCreditNoteLine{
+					CompanyID:          companyID,
+					VendorCreditNoteID: vcnID,
+					SortOrder:          sortOrder,
+					ProductServiceID:   l.ProductServiceID,
+					OriginalBillLineID: l.OriginalBillLineID,
+					Description:        l.Description,
+					Qty:                l.Qty,
+					UnitPrice:          l.UnitPrice,
+					Amount:             l.Qty.Mul(l.UnitPrice).Round(2),
+				}
+				if err := tx.Create(&row).Error; err != nil {
+					return fmt.Errorf("create vcn line %d: %w", i+1, err)
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return &vcn, nil
 }
@@ -179,14 +309,38 @@ func UpdateVendorCreditNote(db *gorm.DB, companyID, vcnID uint, in VendorCreditN
 
 // PostVendorCreditNote transitions a draft credit note to posted and generates a JE.
 //
-// Journal entry:
+// Journal entry (legacy, header-only or non-stock lines):
 //
 //	Dr  APAccountID       AmountBase   (reduces AP liability)
 //	Cr  OffsetAccountID   AmountBase   (purchase returns / adjustments)
+//
+// IN.6a — Rule #4 on stock-item lines (legacy mode only)
+// ----------------------------------------------------
+// Each line carrying ProductService.IsStockItem=true triggers the
+// stock-return path: the original Bill movement is reversed via
+// inventory.ReverseMovement (authoritative snapshot cost), and two
+// extra JE fragments are appended:
+//
+//	Dr  OffsetAccountID   line.InventoryValue   (cancel stock portion of purchase-returns credit)
+//	Cr  line.InventoryAccountID   line.InventoryValue   (remove asset)
+//
+// Net effect for the stock portion: Dr AP / Cr Inventory — the
+// correct shape for a physical return. Service and non-stock lines
+// continue to land on the purchase-returns / offset account.
+//
+// Pre-flight rejects stock-item lines that:
+//   - post under receipt_required=true (controlled mode) — defer to
+//     future Vendor Return Receipt slice,
+//   - sit on a VCN with no BillID — can't trace the original cost,
+//   - lack OriginalBillLineID — same reason,
+//   - have Qty != original Bill movement qty — partial returns not
+//     supported in IN.6a (see vendor_credit_note_posting.go).
 func PostVendorCreditNote(db *gorm.DB, companyID, vcnID uint, actor string, actorID *uuid.UUID) error {
 	return db.Transaction(func(tx *gorm.DB) error {
 		var vcn models.VendorCreditNote
-		if err := tx.Where("id = ? AND company_id = ?", vcnID, companyID).First(&vcn).Error; err != nil {
+		err := tx.Preload("Lines").Preload("Lines.ProductService").
+			Where("id = ? AND company_id = ?", vcnID, companyID).First(&vcn).Error
+		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrVendorCreditNoteNotFound
 			}
@@ -202,11 +356,67 @@ func PostVendorCreditNote(db *gorm.DB, companyID, vcnID uint, actor string, acto
 			return ErrVendorCreditNoteNoOffsetAcct
 		}
 
+		// Load company capability rail for Rule #4 dispatch.
+		var company models.Company
+		if err := tx.Select("id", "receipt_required", "shipment_required").
+			Where("id = ?", companyID).First(&company).Error; err != nil {
+			return fmt.Errorf("load company for VCN post: %w", err)
+		}
+
+		// IN.6a pre-flight on stock-item lines.
+		stockLineCount := 0
+		for i, l := range vcn.Lines {
+			if l.ProductService == nil || !l.ProductService.IsStockItem {
+				continue
+			}
+			stockLineCount++
+			if company.ReceiptRequired {
+				return fmt.Errorf("%w: line[%d]", ErrVendorCreditNoteStockItemRequiresReturnReceipt, i)
+			}
+			if vcn.BillID == nil || *vcn.BillID == 0 {
+				return fmt.Errorf("%w: line[%d] item=%d", ErrVendorCreditNoteStockItemRequiresBill, i, *l.ProductServiceID)
+			}
+			if l.OriginalBillLineID == nil || *l.OriginalBillLineID == 0 {
+				return fmt.Errorf("%w: line[%d] item=%d", ErrVendorCreditNoteStockItemRequiresOriginalLine, i, *l.ProductServiceID)
+			}
+		}
+
 		rate := vcn.ExchangeRate
 		if rate.IsZero() || rate.IsNegative() {
 			rate = decimal.NewFromInt(1)
 		}
 		amountBase := vcn.Amount.Mul(rate).Round(2)
+
+		// Build header (legacy) JE fragments: Dr AP / Cr Offset.
+		frags := []PostingFragment{
+			{
+				AccountID: *vcn.APAccountID,
+				Debit:     amountBase,
+				Memo:      vcn.CreditNoteNumber + " – AP reduction",
+			},
+			{
+				AccountID: *vcn.OffsetAccountID,
+				Credit:    amountBase,
+				Memo:      vcn.CreditNoteNumber + " – purchase return",
+			},
+		}
+
+		// IN.6a inventory path: reverse original bill movements at
+		// traced cost for each stock line, append Dr Offset /
+		// Cr Inventory fragments.
+		returns, err := CreateVendorCreditNoteInventoryReturns(tx, vcn)
+		if err != nil {
+			return err
+		}
+		if invFrags := buildVendorCreditNoteInventoryFragments(returns, *vcn.OffsetAccountID, vcn.CreditNoteNumber); len(invFrags) > 0 {
+			frags = append(frags, invFrags...)
+		}
+
+		// Aggregate so the Offset account nets out correctly.
+		aggregated, err := AggregateJournalLines(frags)
+		if err != nil {
+			return fmt.Errorf("aggregate VCN journal lines: %w", err)
+		}
 
 		je := models.JournalEntry{
 			CompanyID:  companyID,
@@ -220,23 +430,19 @@ func PostVendorCreditNote(db *gorm.DB, companyID, vcnID uint, actor string, acto
 			return fmt.Errorf("create credit note JE: %w", err)
 		}
 
-		lines := []models.JournalLine{
-			{
+		lines := make([]models.JournalLine, 0, len(aggregated))
+		for _, f := range aggregated {
+			lines = append(lines, models.JournalLine{
 				CompanyID:      companyID,
 				JournalEntryID: je.ID,
-				AccountID:      *vcn.APAccountID,
-				Debit:          amountBase,
-				Credit:         decimal.Zero,
-				Memo:           vcn.CreditNoteNumber + " – AP reduction",
-			},
-			{
-				CompanyID:      companyID,
-				JournalEntryID: je.ID,
-				AccountID:      *vcn.OffsetAccountID,
-				Debit:          decimal.Zero,
-				Credit:         amountBase,
-				Memo:           vcn.CreditNoteNumber + " – purchase return",
-			},
+				AccountID:      f.AccountID,
+				Debit:          f.Debit,
+				Credit:         f.Credit,
+				Memo:           f.Memo,
+			})
+		}
+		if len(lines) == 0 {
+			return fmt.Errorf("vendor credit note %d: no journal lines produced", vcn.ID)
 		}
 		if err := tx.Create(&lines).Error; err != nil {
 			return fmt.Errorf("create credit note JE lines: %w", err)
@@ -262,7 +468,18 @@ func PostVendorCreditNote(db *gorm.DB, companyID, vcnID uint, actor string, acto
 		if actorID != nil {
 			updates["posted_by_user_id"] = actorID
 		}
-		return tx.Model(&vcn).Updates(updates).Error
+		if err := tx.Model(&vcn).Updates(updates).Error; err != nil {
+			return err
+		}
+
+		// IN.3 invariant assertion — catches the silent-swallow class
+		// if a future refactor drops the inventory path.
+		return AssertRule4PostTimeInvariant(tx, companyID,
+			Rule4DocVendorCreditNote, vcn.ID, stockLineCount,
+			Rule4WorkflowState{
+				ReceiptRequired:  company.ReceiptRequired,
+				ShipmentRequired: company.ShipmentRequired,
+			})
 	})
 }
 

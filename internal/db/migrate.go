@@ -270,6 +270,7 @@ func Migrate(db *gorm.DB) error {
 		&models.VendorPrepayment{},
 		&models.VendorReturn{},
 		&models.VendorCreditNote{},
+		&models.VendorCreditNoteLine{},
 		&models.VendorRefund{},
 		&models.APCreditApplication{},
 		// Phase C: inter-warehouse stock transfers.

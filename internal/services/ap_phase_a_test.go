@@ -80,7 +80,9 @@ func phaseADB(t *testing.T) *gorm.DB {
 		&models.VendorPrepayment{},
 		&models.VendorReturn{},
 		&models.VendorCreditNote{},
+		&models.VendorCreditNoteLine{},
 		&models.VendorRefund{},
+		&models.APCreditApplication{},
 	); err != nil {
 		t.Fatal(err)
 	}
