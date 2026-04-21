@@ -157,6 +157,20 @@ type VendorRefundDetailVM struct {
 	Reversed   bool
 }
 
+// vendorCreditNoteHasStockLine reports whether the VCN carries at
+// least one stock-item line — i.e. whether a matching Return to
+// Vendor could be produced from it (Q4 shortcut visibility). Lines
+// must be preloaded with ProductService (GetVendorCreditNote does
+// this via Preload("Lines.ProductService")).
+func vendorCreditNoteHasStockLine(vcn models.VendorCreditNote) bool {
+	for _, ln := range vcn.Lines {
+		if ln.ProductService != nil && ln.ProductService.IsStockItem {
+			return true
+		}
+	}
+	return false
+}
+
 // ── APAging VM ────────────────────────────────────────────────────────────────
 
 // APAgingVM is the view model for the AP Aging report page.

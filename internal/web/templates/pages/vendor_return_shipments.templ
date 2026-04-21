@@ -1,0 +1,458 @@
+// 遵循project_guide.md
+package pages
+
+// vendor_return_shipments.templ — Phase I slice I.6b.4 UI for
+// VendorReturnShipment ("Return to Vendor" — Q2 label).
+//
+// Three templates + view models:
+//   VRSList    — /vendor-return-shipments
+//   VRSForm    — /vendor-return-shipments/new
+//   VRSDetail  — /vendor-return-shipments/:id
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/shopspring/decimal"
+
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+// ── View models ──────────────────────────────────────────────────────────────
+
+type VRSListVM struct {
+	HasCompany bool
+	Rows       []models.VendorReturnShipment
+	Saved      bool
+	FormError  string
+}
+
+type VRSDetailVM struct {
+	HasCompany     bool
+	ReturnShipment models.VendorReturnShipment
+	Saved          bool
+	FormError      string
+}
+
+type VRSFormLine struct {
+	VendorCreditNoteLineID uint
+	ProductServiceID       uint
+	ProductName            string
+	Description            string
+	Qty                    decimal.Decimal
+}
+
+type VRSFormVM struct {
+	HasCompany bool
+
+	Vendors    []models.Vendor
+	Warehouses []models.Warehouse
+
+	VendorReturnShipmentNumber string
+	VendorID                   *uint
+	WarehouseID                uint
+	VendorCreditNoteID         uint
+	VendorCreditNoteNumber     string
+	Memo                       string
+	Reference                  string
+	PrefilledLines             []VRSFormLine
+
+	FormError string
+}
+
+// ── List page ───────────────────────────────────────────────────────────────
+
+templ VRSList(vm VRSListVM) {
+	@layout.Layout(
+		"GoBooks - Returns to Vendor",
+		ui.SidebarVM{Active: "Returns to Vendor", HasCompany: vm.HasCompany},
+		bodyVRSList(vm),
+	)
+}
+
+templ bodyVRSList(vm VRSListVM) {
+	<div class="max-w-[95%]">
+		<div class="flex items-center justify-between">
+			<h1 class="text-title font-semibold">Returns to Vendor</h1>
+			<a href="/vendor-return-shipments/new" class="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-body font-medium text-onPrimary hover:bg-primary-hover">
+				New Return to Vendor
+			</a>
+		</div>
+		if vm.Saved {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success-hover">Return to Vendor saved.</div>
+		}
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover">{ vm.FormError }</div>
+		}
+		<div class="mt-6 overflow-hidden rounded-lg border border-border">
+			<table class="w-full text-body">
+				<thead class="bg-surface-raised">
+					<tr>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Number</th>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Vendor</th>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Ship Date</th>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Vendor Credit Note</th>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Status</th>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-border">
+					if len(vm.Rows) == 0 {
+						<tr>
+							<td colspan="5" class="px-4 py-8 text-center text-text-muted2">No returns to vendor yet.</td>
+						</tr>
+					}
+					for _, r := range vm.Rows {
+						<tr class="hover:bg-surface-raised">
+							<td class="px-4 py-3 font-medium">
+								<a href={ templ.SafeURL(fmt.Sprintf("/vendor-return-shipments/%d", r.ID)) } class="text-primary hover:underline">
+									if r.VendorReturnShipmentNumber == "" {
+										{ fmt.Sprintf("#%d", r.ID) }
+									} else {
+										{ r.VendorReturnShipmentNumber }
+									}
+								</a>
+							</td>
+							<td class="px-4 py-3">
+								if r.Vendor != nil {
+									{ r.Vendor.Name }
+								} else {
+									<span class="text-text-muted3">—</span>
+								}
+							</td>
+							<td class="px-4 py-3 text-text-muted2">{ r.ShipDate.Format("Jan 2, 2006") }</td>
+							<td class="px-4 py-3">
+								if r.VendorCreditNoteID != nil {
+									<a href={ templ.SafeURL(fmt.Sprintf("/vendor-credit-notes/%d", *r.VendorCreditNoteID)) } class="text-primary hover:underline">
+										if r.VendorCreditNote != nil && r.VendorCreditNote.CreditNoteNumber != "" {
+											{ r.VendorCreditNote.CreditNoteNumber }
+										} else {
+											{ fmt.Sprintf("#%d", *r.VendorCreditNoteID) }
+										}
+									</a>
+								}
+							</td>
+							<td class="px-4 py-3">@vrsStatusBadge(r.Status)</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	</div>
+}
+
+// ── Detail page ─────────────────────────────────────────────────────────────
+
+templ VRSDetail(vm VRSDetailVM) {
+	@layout.Layout(
+		"GoBooks - Return to Vendor",
+		ui.SidebarVM{Active: "Returns to Vendor", HasCompany: vm.HasCompany},
+		bodyVRSDetail(vm),
+	)
+}
+
+templ bodyVRSDetail(vm VRSDetailVM) {
+	<div class="max-w-[95%]">
+		<div class="flex items-center justify-between">
+			<div>
+				<div class="text-small text-text-muted2">
+					<a href="/vendor-return-shipments" class="hover:underline text-primary">Returns to Vendor</a>
+					/
+					if vm.ReturnShipment.VendorReturnShipmentNumber == "" {
+						{ fmt.Sprintf("#%d", vm.ReturnShipment.ID) }
+					} else {
+						{ vm.ReturnShipment.VendorReturnShipmentNumber }
+					}
+				</div>
+				<h1 class="mt-1 text-title font-semibold">
+					if vm.ReturnShipment.VendorReturnShipmentNumber == "" {
+						{ fmt.Sprintf("Return to Vendor #%d", vm.ReturnShipment.ID) }
+					} else {
+						{ vm.ReturnShipment.VendorReturnShipmentNumber }
+					}
+				</h1>
+			</div>
+			<div class="flex gap-3">
+				if vm.ReturnShipment.Status == models.VendorReturnShipmentStatusDraft {
+					<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/vendor-return-shipments/%d/post", vm.ReturnShipment.ID)) }>
+						<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-medium text-onPrimary hover:bg-primary-hover">Post</button>
+					</form>
+					<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/vendor-return-shipments/%d/delete", vm.ReturnShipment.ID)) } onsubmit="return confirm('Delete draft Return to Vendor?');">
+						<button type="submit" class="rounded-md border border-border-danger px-4 py-2 text-body font-medium text-danger hover:bg-danger-soft">Delete</button>
+					</form>
+				}
+				if vm.ReturnShipment.Status == models.VendorReturnShipmentStatusPosted {
+					<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/vendor-return-shipments/%d/void", vm.ReturnShipment.ID)) } onsubmit="return confirm('Void this Return to Vendor? This reverses its own inventory movement only (document-local, Q5).');">
+						<button type="submit" class="rounded-md border border-border-danger px-4 py-2 text-body font-medium text-danger hover:bg-danger-soft">Void</button>
+					</form>
+				}
+			</div>
+		</div>
+
+		if vm.Saved {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success-hover">Saved.</div>
+		}
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover">{ vm.FormError }</div>
+		}
+
+		<div class="mt-6 grid grid-cols-2 gap-6 md:grid-cols-4">
+			<div>
+				<div class="text-small text-text-muted2">Status</div>
+				<div class="mt-1">@vrsStatusBadge(vm.ReturnShipment.Status)</div>
+			</div>
+			<div>
+				<div class="text-small text-text-muted2">Vendor</div>
+				<div class="mt-1 font-medium">
+					if vm.ReturnShipment.Vendor != nil {
+						{ vm.ReturnShipment.Vendor.Name }
+					} else {
+						<span class="text-text-muted3">—</span>
+					}
+				</div>
+			</div>
+			<div>
+				<div class="text-small text-text-muted2">Warehouse</div>
+				<div class="mt-1">
+					if vm.ReturnShipment.Warehouse != nil {
+						{ vm.ReturnShipment.Warehouse.Name }
+					}
+				</div>
+			</div>
+			<div>
+				<div class="text-small text-text-muted2">Ship Date</div>
+				<div class="mt-1">{ vm.ReturnShipment.ShipDate.Format("Jan 2, 2006") }</div>
+			</div>
+		</div>
+
+		if vm.ReturnShipment.VendorCreditNoteID != nil {
+			<div class="mt-4 rounded-md border border-border bg-surface-raised px-4 py-3 text-body">
+				Linked Vendor Credit Note:
+				<a href={ templ.SafeURL(fmt.Sprintf("/vendor-credit-notes/%d", *vm.ReturnShipment.VendorCreditNoteID)) } class="ml-1 text-primary hover:underline">
+					if vm.ReturnShipment.VendorCreditNote != nil && vm.ReturnShipment.VendorCreditNote.CreditNoteNumber != "" {
+						{ vm.ReturnShipment.VendorCreditNote.CreditNoteNumber }
+					} else {
+						{ fmt.Sprintf("#%d", *vm.ReturnShipment.VendorCreditNoteID) }
+					}
+				</a>
+			</div>
+		}
+
+		if vm.ReturnShipment.Memo != "" {
+			<div class="mt-4">
+				<div class="text-small text-text-muted2">Memo</div>
+				<div class="mt-1">{ vm.ReturnShipment.Memo }</div>
+			</div>
+		}
+		if vm.ReturnShipment.Reference != "" {
+			<div class="mt-2">
+				<div class="text-small text-text-muted2">Reference (RMA / carrier)</div>
+				<div class="mt-1">{ vm.ReturnShipment.Reference }</div>
+			</div>
+		}
+
+		<div class="mt-8">
+			<h2 class="text-section font-semibold text-text">Lines</h2>
+			<div class="mt-3 overflow-hidden rounded-lg border border-border">
+				<table class="w-full text-body">
+					<thead class="bg-surface-raised">
+						<tr>
+							<th class="px-4 py-3 text-left font-medium text-text-muted">#</th>
+							<th class="px-4 py-3 text-left font-medium text-text-muted">Item</th>
+							<th class="px-4 py-3 text-left font-medium text-text-muted">Description</th>
+							<th class="px-4 py-3 text-right font-medium text-text-muted">Qty</th>
+							<th class="px-4 py-3 text-left font-medium text-text-muted">VCN Line</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-border">
+						for _, ln := range vm.ReturnShipment.Lines {
+							<tr>
+								<td class="px-4 py-3">{ fmt.Sprintf("%d", ln.SortOrder) }</td>
+								<td class="px-4 py-3">
+									if ln.ProductService != nil {
+										{ ln.ProductService.Name }
+									}
+								</td>
+								<td class="px-4 py-3">{ ln.Description }</td>
+								<td class="px-4 py-3 text-right" data-numfmt>{ ln.Qty.String() }</td>
+								<td class="px-4 py-3 text-text-muted2">
+									if ln.VendorCreditNoteLineID != nil {
+										{ fmt.Sprintf("#%d", *ln.VendorCreditNoteLineID) }
+									} else {
+										—
+									}
+								</td>
+							</tr>
+						}
+						if len(vm.ReturnShipment.Lines) == 0 {
+							<tr>
+								<td colspan="5" class="px-4 py-6 text-center text-text-muted2">No lines.</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		</div>
+
+		<div class="mt-8 text-small text-text-muted2 space-x-4">
+			if vm.ReturnShipment.PostedAt != nil {
+				<span>Posted: { vm.ReturnShipment.PostedAt.Format("Jan 2, 2006 15:04") }</span>
+			}
+			if vm.ReturnShipment.VoidedAt != nil {
+				<span>Voided: { vm.ReturnShipment.VoidedAt.Format("Jan 2, 2006 15:04") }</span>
+			}
+			if vm.ReturnShipment.JournalEntryID != nil {
+				<span>JE: { fmt.Sprintf("#%d", *vm.ReturnShipment.JournalEntryID) }</span>
+			}
+		</div>
+	</div>
+}
+
+// ── Form page ───────────────────────────────────────────────────────────────
+
+templ VRSForm(vm VRSFormVM) {
+	@layout.Layout(
+		"GoBooks - New Return to Vendor",
+		ui.SidebarVM{Active: "Returns to Vendor", HasCompany: vm.HasCompany},
+		bodyVRSForm(vm),
+	)
+}
+
+templ bodyVRSForm(vm VRSFormVM) {
+	<div class="max-w-4xl">
+		<div class="mb-6 text-small text-text-muted2">
+			<a href="/vendor-return-shipments" class="hover:underline text-primary">Returns to Vendor</a> / New
+			if vm.VendorCreditNoteID != 0 {
+				 · from VCN
+				<a href={ templ.SafeURL(fmt.Sprintf("/vendor-credit-notes/%d", vm.VendorCreditNoteID)) } class="text-primary hover:underline">
+					if vm.VendorCreditNoteNumber != "" {
+						{ vm.VendorCreditNoteNumber }
+					} else {
+						{ fmt.Sprintf("#%d", vm.VendorCreditNoteID) }
+					}
+				</a>
+			}
+		</div>
+		<h1 class="text-title font-semibold">New Return to Vendor</h1>
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover">{ vm.FormError }</div>
+		}
+		<form method="POST" action="/vendor-return-shipments/save" class="mt-6 space-y-6">
+			if vm.VendorCreditNoteID != 0 {
+				<input type="hidden" name="vendor_credit_note_id" value={ fmt.Sprintf("%d", vm.VendorCreditNoteID) }/>
+			}
+			<div class="grid grid-cols-2 gap-4">
+				<div>
+					<label class="block text-body font-medium text-text">Number</label>
+					<input type="text" name="vendor_return_shipment_number" value={ vm.VendorReturnShipmentNumber } placeholder="auto-assigned if blank"
+						class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body"/>
+				</div>
+				<div>
+					<label class="block text-body font-medium text-text">Ship Date <span class="text-danger">*</span></label>
+					<input type="date" name="ship_date" required value={ time.Now().Format("2006-01-02") }
+						class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body"/>
+				</div>
+			</div>
+			<div class="grid grid-cols-2 gap-4">
+				<div>
+					<label class="block text-body font-medium text-text">Vendor</label>
+					<select name="vendor_id" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body">
+						<option value="">— unattributed —</option>
+						for _, v := range vm.Vendors {
+							<option value={ fmt.Sprintf("%d", v.ID) } selected?={ vm.VendorID != nil && v.ID == *vm.VendorID }>{ v.Name }</option>
+						}
+					</select>
+				</div>
+				<div>
+					<label class="block text-body font-medium text-text">Warehouse <span class="text-danger">*</span></label>
+					<select name="warehouse_id" required class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body">
+						<option value="">— select —</option>
+						for _, wh := range vm.Warehouses {
+							<option value={ fmt.Sprintf("%d", wh.ID) } selected?={ wh.ID == vm.WarehouseID }>{ wh.Name }</option>
+						}
+					</select>
+				</div>
+			</div>
+			<div class="grid grid-cols-2 gap-4">
+				<div>
+					<label class="block text-body font-medium text-text">Reference (carrier waybill / vendor RMA)</label>
+					<input type="text" name="reference" value={ vm.Reference }
+						class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body"/>
+				</div>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text">Memo</label>
+				<textarea name="memo" rows="2" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body">{ vm.Memo }</textarea>
+			</div>
+
+			<div>
+				<h2 class="text-section font-semibold text-text">Lines</h2>
+				if len(vm.PrefilledLines) == 0 {
+					<div class="mt-2 rounded-md border border-border bg-surface-raised px-4 py-3 text-body text-text-muted2">
+						No lines to return. Use the "Create Return to Vendor" button on a Vendor Credit Note's detail page to pre-fill this form with its stock-item lines.
+					</div>
+				} else {
+					<div class="mt-3 overflow-hidden rounded-lg border border-border">
+						<table class="w-full text-body">
+							<thead class="bg-surface-raised">
+								<tr>
+									<th class="px-3 py-2 text-left font-medium text-text-muted">Item</th>
+									<th class="px-3 py-2 text-left font-medium text-text-muted">Description</th>
+									<th class="px-3 py-2 text-right font-medium text-text-muted">Qty</th>
+									<th class="px-3 py-2 text-left font-medium text-text-muted">VCN Line</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-border">
+								for _, ln := range vm.PrefilledLines {
+									<tr>
+										<td class="px-3 py-2">
+											<input type="hidden" name="product_service_id[]" value={ fmt.Sprintf("%d", ln.ProductServiceID) }/>
+											{ ln.ProductName }
+										</td>
+										<td class="px-3 py-2">
+											<input type="text" name="description[]" value={ ln.Description }
+												class="w-full rounded border border-border bg-surface px-2 py-1 text-body"/>
+										</td>
+										<td class="px-3 py-2 text-right">
+											<input type="number" name="qty[]" step="0.0001" min="0" value={ ln.Qty.String() } required
+												class="w-24 rounded border border-border bg-surface px-2 py-1 text-body text-right"/>
+										</td>
+										<td class="px-3 py-2 text-text-muted2">
+											<input type="hidden" name="vendor_credit_note_line_id[]" value={ fmt.Sprintf("%d", ln.VendorCreditNoteLineID) }/>
+											if ln.VendorCreditNoteLineID != 0 {
+												{ fmt.Sprintf("#%d", ln.VendorCreditNoteLineID) }
+											} else {
+												—
+											}
+										</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				}
+			</div>
+
+			<div class="flex gap-3 pt-2">
+				<button type="submit" class="rounded-md bg-primary px-6 py-2 text-body font-medium text-onPrimary hover:bg-primary-hover">Save Draft</button>
+				<a href="/vendor-return-shipments" class="rounded-md border border-border px-6 py-2 text-body hover:bg-background">Cancel</a>
+			</div>
+		</form>
+	</div>
+}
+
+// ── Status badge helper ─────────────────────────────────────────────────────
+
+templ vrsStatusBadge(status models.VendorReturnShipmentStatus) {
+	switch status {
+		case models.VendorReturnShipmentStatusDraft:
+			<span class="inline-flex rounded-full bg-surface-raised px-2 py-0.5 text-small text-text-muted">Draft</span>
+		case models.VendorReturnShipmentStatusPosted:
+			<span class="inline-flex rounded-full bg-success-soft px-2 py-0.5 text-small text-success-hover">Posted</span>
+		case models.VendorReturnShipmentStatusVoided:
+			<span class="inline-flex rounded-full bg-danger-soft px-2 py-0.5 text-small text-danger-hover">Voided</span>
+		default:
+			<span class="inline-flex rounded-full bg-surface-raised px-2 py-0.5 text-small">{ string(status) }</span>
+	}
+}

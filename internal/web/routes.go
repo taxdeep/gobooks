@@ -254,6 +254,27 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Post("/credit-notes/:id/apply", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleCreditNoteApply)
 	app.Post("/credit-notes/applications/:id/remove", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleCreditNoteRemoveApplication)
 
+	// ── Phase I.6a.4: AR Return Receipts (customer-return inbound) ──────────────
+	// /new must precede /:id to avoid param collision.
+	app.Get("/ar-return-receipts", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleARReturnReceiptsList)
+	app.Get("/ar-return-receipts/new", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleARReturnReceiptNewGet)
+	app.Post("/ar-return-receipts/save", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleARReturnReceiptSave)
+	app.Get("/ar-return-receipts/:id", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleARReturnReceiptDetail)
+	app.Post("/ar-return-receipts/:id/post", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceApprove), s.handleARReturnReceiptPostAction)
+	app.Post("/ar-return-receipts/:id/void", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceApprove), s.handleARReturnReceiptVoid)
+	app.Post("/ar-return-receipts/:id/delete", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleARReturnReceiptDelete)
+
+	// ── Phase I.6b.4: Return to Vendor (AP-side outbound) ──────────────────────
+	// UI label "Return to Vendor" (Q2); internal URL uses vendor-return-shipments
+	// to avoid collision with pre-existing /vendor-returns.
+	app.Get("/vendor-return-shipments", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleVRSList)
+	app.Get("/vendor-return-shipments/new", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleVRSNewGet)
+	app.Post("/vendor-return-shipments/save", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleVRSSave)
+	app.Get("/vendor-return-shipments/:id", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleVRSDetail)
+	app.Post("/vendor-return-shipments/:id/post", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceApprove), s.handleVRSPostAction)
+	app.Post("/vendor-return-shipments/:id/void", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceApprove), s.handleVRSVoidAction)
+	app.Post("/vendor-return-shipments/:id/delete", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleVRSDeleteAction)
+
 	// AR Phase 2: Quotes + SalesOrders (real handlers)
 	// Quotes
 	app.Get("/quotes", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleQuotes)

@@ -32,6 +32,13 @@ const (
 	MovementTypeAssemblyUnbuild InventoryMovementType = "assembly_unbuild"
 	MovementTypeMfgIssue        InventoryMovementType = "manufacturing_issue"
 	MovementTypeMfgReceipt      InventoryMovementType = "manufacturing_receipt"
+
+	// Phase I.6b.2a: AP return-to-vendor outflow at traced original cost.
+	// Emitted by the inventory.IssueVendorReturn narrow verb when a
+	// VendorReturnShipment posts (charter Q3). Distinct from
+	// MovementTypeAdjustment so reports can split "we returned goods to
+	// a vendor" from generic shrinkage.
+	MovementTypeVendorReturn InventoryMovementType = "vendor_return"
 )
 
 // ── Location type ────────────────────────────────────────────────────────────

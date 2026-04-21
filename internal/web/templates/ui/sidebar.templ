@@ -44,6 +44,7 @@ templ sidebarShell(vm SidebarVM) {
 								@megaMenuItem("/receipts/new", "Customer Receipt")
 								@megaMenuItem("/banking/receive-payment", "Receive Payment")
 								@megaMenuItem("/credit-notes/new", "Credit Note")
+								@megaMenuItem("/ar-return-receipts/new", "Return Receipt")
 								@megaMenuItem("/returns/new", "AR Return")
 								@megaMenuItem("/refunds/new", "AR Refund")
 								@megaMenuItem("/write-offs/new", "AR Write-Off")
@@ -58,6 +59,7 @@ templ sidebarShell(vm SidebarVM) {
 								@megaMenuItem("/vendor-prepayments/new", "Vendor Prepayment")
 								@megaMenuItem("/banking/pay-bills", "Pay Bills")
 								@megaMenuItem("/vendor-credit-notes/new", "Vendor Credit Note")
+								@megaMenuItem("/vendor-return-shipments/new", "Return to Vendor")
 								@megaMenuItem("/vendor-returns/new", "Vendor Return")
 								@megaMenuItem("/vendor-refunds/new", "Vendor Refund")
 								@megaMenuItem("/vendors", "Add Vendor")
@@ -157,6 +159,8 @@ templ sidebarShell(vm SidebarVM) {
 						@navItem("/products-services", "Products & Services", "bill", vm.Active == "Products & Services")
 						@navItem("/warehouses", "Warehouses", "warehouse", vm.Active == "Warehouses")
 						@navItem("/inventory/transfers", "Warehouse Transfers", "warehouse", vm.Active == "Warehouse Transfers")
+						@navItem("/ar-return-receipts", "Return Receipts", "receive", vm.Active == "Return Receipts")
+						@navItem("/vendor-return-shipments", "Returns to Vendor", "warehouse", vm.Active == "Returns to Vendor")
 						@navItem("/inventory/stock", "Stock Report", "reports", vm.Active == "Stock Report")
 					</div>
 				</div>

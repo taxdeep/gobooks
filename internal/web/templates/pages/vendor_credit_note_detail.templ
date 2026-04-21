@@ -44,11 +44,21 @@ templ bodyVCNDetail(vm VendorCreditNoteDetailVM) {
 				</p>
 			</div>
 			<div class="flex items-center gap-3">
-				// More actions — Convert to Refund when the vendor owes us cash rather than
-				// another credit to apply. Only meaningful while there's unapplied balance.
-				if vm.CreditNote.ID != 0 && (vm.CreditNote.Status == models.VendorCreditNoteStatusPosted || vm.CreditNote.Status == models.VendorCreditNoteStatusPartiallyApplied) && vm.CreditNote.RemainingAmount.IsPositive() {
+				// More actions menu. Context-aware:
+				//   - "Create Return to Vendor" (Q4 shortcut, I.6b.4) —
+				//     visible whenever the VCN has a stock-item line so
+				//     the operator can build the physical-truth document
+				//     pre-filled from VCN lines. Charter Q2 UI label
+				//     "Return to Vendor" (not "Vendor Return Shipment").
+				//   - "Convert to refund" — for unapplied balances.
+				if vm.CreditNote.ID != 0 && (vendorCreditNoteHasStockLine(vm.CreditNote) || ((vm.CreditNote.Status == models.VendorCreditNoteStatusPosted || vm.CreditNote.Status == models.VendorCreditNoteStatusPartiallyApplied) && vm.CreditNote.RemainingAmount.IsPositive())) {
 					@ui.MoreMenu() {
-						@ui.MoreMenuItem(fmt.Sprintf("/vendor-refunds/new?vendor_credit_note_id=%d", vm.CreditNote.ID), "Convert to refund")
+						if vendorCreditNoteHasStockLine(vm.CreditNote) {
+							@ui.MoreMenuItem(fmt.Sprintf("/vendor-return-shipments/new?vendor_credit_note_id=%d", vm.CreditNote.ID), "Create Return to Vendor")
+						}
+						if (vm.CreditNote.Status == models.VendorCreditNoteStatusPosted || vm.CreditNote.Status == models.VendorCreditNoteStatusPartiallyApplied) && vm.CreditNote.RemainingAmount.IsPositive() {
+							@ui.MoreMenuItem(fmt.Sprintf("/vendor-refunds/new?vendor_credit_note_id=%d", vm.CreditNote.ID), "Convert to refund")
+						}
 					}
 				}
 				<a href="/vendor-credit-notes" class="text-body text-text-muted3 hover:text-text">← Back to Credit Notes</a>

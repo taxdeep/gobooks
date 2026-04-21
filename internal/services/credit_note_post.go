@@ -62,15 +62,16 @@ var (
 	ErrCreditNoteStockItemRequiresOriginalLine = errors.New(
 		"credit note: stock-item line requires original_invoice_line_id — pick which invoice line this return applies to")
 
-	// ErrCreditNoteStockItemRequiresReturnReceipt — Rule #4 Q2 for
-	// the AR side. Under shipment_required=true (controlled mode),
-	// the Credit Note path is NOT the outbound-return owner;
-	// Phase I.6 Return Receipt is the intended owner. Until I.6
-	// ships, stock-item credit notes on controlled-mode companies
-	// fail loud rather than silently book partial (revenue-only)
-	// reversal.
+	// ErrCreditNoteStockItemRequiresReturnReceipt — retained as a
+	// sentinel for callers that check "CN under controlled mode is
+	// missing its Return Receipt coverage". Post-I.6a.3 this error
+	// wraps a coverage-shortfall diagnostic rather than the old
+	// pre-I.6a.3 unconditional rejection. The error name is kept
+	// stable for RULE4_RUNBOOK §10a triage continuity; the semantic
+	// now means "ARReturnReceipt coverage is missing OR incomplete"
+	// (Q6 exact-coverage violated), not "stock lines forbidden".
 	ErrCreditNoteStockItemRequiresReturnReceipt = errors.New(
-		"credit note: stock-item line not allowed when shipment_required=true — route outbound returns through a Return Receipt instead (Phase I.6)")
+		"credit note: stock-item line requires posted ARReturnReceipt coverage under shipment_required=true — Σ(posted ARReturnReceiptLine.qty WHERE credit_note_line_id=X) must equal CreditNoteLine.qty (charter Q6 exact coverage)")
 
 	// ErrCreditNoteOriginalLineMismatch — the OriginalInvoiceLineID
 	// on a credit-note line points at an invoice line that doesn't
@@ -119,16 +120,44 @@ func PostCreditNote(db *gorm.DB, companyID, creditNoteID uint, actor string, use
 		return fmt.Errorf("load company: %w", err)
 	}
 
-	// ── 2b.IN.5. Rule #4 pre-flight for stock-item lines ─────────────────────
+	// ── 2b.IN.5 / I.6a.3. Rule #4 pre-flight for stock-item lines ────────────
+	//
+	// Branch by capability rail:
+	//   - Legacy (shipment_required=false): stock line must carry
+	//     OriginalInvoiceLineID so IN.5 can trace authoritative cost.
+	//     This is the classic IN.5 path; the CN forms its own
+	//     inventory movement at post time.
+	//   - Controlled (shipment_required=true): I.6a.3 surrenders
+	//     movement ownership to ARReturnReceipt. The stock line is
+	//     ACCEPTED iff posted ARReturnReceiptLines cover its qty
+	//     EXACTLY (Q6). The CN becomes revenue-only — no traced-cost
+	//     inventory movement formed here; the paired ARReturnReceipt's
+	//     own post (I.6a.2) already booked Dr Inventory / Cr COGS.
 	stockLineCount := 0
 	for i, l := range cn.Lines {
 		if l.ProductService == nil || !l.ProductService.IsStockItem {
 			continue
 		}
 		stockLineCount++
-		// Q2: controlled mode rejects stock-item credit notes.
 		if company.ShipmentRequired {
-			return fmt.Errorf("%w: line[%d]", ErrCreditNoteStockItemRequiresReturnReceipt, i)
+			// Q6 exact-coverage check — Σ(posted ARR-line.qty WHERE
+			// credit_note_line_id = cn_line.id) == cn_line.qty.
+			var coverage decimal.Decimal
+			if err := db.Model(&models.ARReturnReceiptLine{}).
+				Joins("JOIN ar_return_receipts ON ar_return_receipts.id = ar_return_receipt_lines.ar_return_receipt_id").
+				Where("ar_return_receipts.company_id = ?", companyID).
+				Where("ar_return_receipts.status = ?", string(models.ARReturnReceiptStatusPosted)).
+				Where("ar_return_receipt_lines.credit_note_line_id = ?", l.ID).
+				Select("COALESCE(SUM(ar_return_receipt_lines.qty), 0)").
+				Scan(&coverage).Error; err != nil {
+				return fmt.Errorf("compute ar_return_receipt coverage for line %d: %w", l.ID, err)
+			}
+			if !coverage.Equal(l.Qty) {
+				return fmt.Errorf("%w: line[%d] item=%d cn_qty=%s posted_arr_coverage=%s",
+					ErrCreditNoteStockItemRequiresReturnReceipt, i,
+					*l.ProductServiceID, l.Qty.String(), coverage.String())
+			}
+			continue
 		}
 		// Legacy mode: stock line must trace back to a specific
 		// invoice line so authoritative cost is resolvable.
@@ -258,37 +287,45 @@ func PostCreditNote(db *gorm.DB, companyID, creditNoteID uint, actor string, use
 			createdLines = append(createdLines, line)
 		}
 
-		// c.IN.5 Inventory returns + Dr Inventory / Cr COGS fragments.
-		// Pre-flight already rejected stock lines under controlled
-		// mode; reaching this point means legacy mode with valid
-		// stock lines (or no stock lines at all, in which case the
-		// helpers no-op).
-		returns, retErr := CreateCreditNoteInventoryReturns(tx, cn)
-		if retErr != nil {
-			return retErr
-		}
-		if len(returns) > 0 {
-			invFrags := buildCreditNoteInventoryFragments(returns, cn.CreditNoteNumber)
-			// Each (Dr Inventory / Cr COGS) pair is self-balancing,
-			// so no additional aggregation or balance check is
-			// needed — the parent JE stays balanced.
-			for _, f := range invFrags {
-				line := models.JournalLine{
-					CompanyID:      companyID,
-					JournalEntryID: je.ID,
-					AccountID:      f.AccountID,
-					TxDebit:        f.Debit,
-					TxCredit:       f.Credit,
-					Debit:          f.Debit,
-					Credit:         f.Credit,
-					Memo:           f.Memo,
-					PartyType:      models.PartyTypeCustomer,
-					PartyID:        cn.CustomerID,
+		// c.IN.5 / I.6a.3 — Inventory returns + Dr Inventory / Cr COGS
+		// fragments. Runs ONLY under legacy mode (CreditNote is the
+		// movement owner per Rule4DocCreditNote.IsMovementOwner).
+		//
+		// Under controlled mode (shipment_required=true), I.6a.3
+		// surrendered ownership to ARReturnReceipt. The paired
+		// ARReturnReceipt's own post (I.6a.2) already booked
+		// Dr Inventory / Cr COGS; the CN stays revenue-only. Skipping
+		// this block keeps the Rule #4 post-time invariant happy —
+		// the non-owner path expects ZERO credit_note-sourced
+		// movement rows.
+		if !company.ShipmentRequired {
+			returns, retErr := CreateCreditNoteInventoryReturns(tx, cn)
+			if retErr != nil {
+				return retErr
+			}
+			if len(returns) > 0 {
+				invFrags := buildCreditNoteInventoryFragments(returns, cn.CreditNoteNumber)
+				// Each (Dr Inventory / Cr COGS) pair is self-balancing,
+				// so no additional aggregation or balance check is
+				// needed — the parent JE stays balanced.
+				for _, f := range invFrags {
+					line := models.JournalLine{
+						CompanyID:      companyID,
+						JournalEntryID: je.ID,
+						AccountID:      f.AccountID,
+						TxDebit:        f.Debit,
+						TxCredit:       f.Credit,
+						Debit:          f.Debit,
+						Credit:         f.Credit,
+						Memo:           f.Memo,
+						PartyType:      models.PartyTypeCustomer,
+						PartyID:        cn.CustomerID,
+					}
+					if err := tx.Create(&line).Error; err != nil {
+						return fmt.Errorf("create IN.5 inventory journal line: %w", err)
+					}
+					createdLines = append(createdLines, line)
 				}
-				if err := tx.Create(&line).Error; err != nil {
-					return fmt.Errorf("create IN.5 inventory journal line: %w", err)
-				}
-				createdLines = append(createdLines, line)
 			}
 		}
 

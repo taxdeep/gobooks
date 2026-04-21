@@ -1,0 +1,466 @@
+// 遵循project_guide.md
+package pages
+
+// ar_return_receipts.templ — Phase I slice I.6a.4 UI for
+// ARReturnReceipt (customer-return inbound physical-truth document).
+//
+// Three templates + view models:
+//   ARReturnReceiptsList   — /ar-return-receipts
+//   ARReturnReceiptForm    — /ar-return-receipts/new
+//   ARReturnReceiptDetail  — /ar-return-receipts/:id
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/shopspring/decimal"
+
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+// ── View models ──────────────────────────────────────────────────────────────
+
+type ARReturnReceiptsListVM struct {
+	HasCompany bool
+	Rows       []models.ARReturnReceipt
+	Saved      bool
+	FormError  string
+}
+
+type ARReturnReceiptDetailVM struct {
+	HasCompany    bool
+	ReturnReceipt models.ARReturnReceipt
+	Saved         bool
+	FormError     string
+}
+
+// ARReturnReceiptFormLine is one line on the create form. Used for
+// both fresh lines (user-entered) and prefilled-from-CN lines.
+type ARReturnReceiptFormLine struct {
+	CreditNoteLineID uint
+	ProductServiceID uint
+	ProductName      string
+	Description      string
+	Qty              decimal.Decimal
+}
+
+type ARReturnReceiptFormVM struct {
+	HasCompany bool
+
+	// Catalog data for dropdowns.
+	Customers  []models.Customer
+	Warehouses []models.Warehouse
+
+	// Pre-fill / re-populate on error.
+	ReturnReceiptNumber string
+	CustomerID          uint
+	WarehouseID         uint
+	CreditNoteID        uint
+	CreditNoteNumber    string
+	Memo                string
+	Reference           string
+	PrefilledLines      []ARReturnReceiptFormLine
+
+	FormError string
+}
+
+// ── List page ───────────────────────────────────────────────────────────────
+
+templ ARReturnReceiptsList(vm ARReturnReceiptsListVM) {
+	@layout.Layout(
+		"GoBooks - Return Receipts",
+		ui.SidebarVM{Active: "Return Receipts", HasCompany: vm.HasCompany},
+		bodyARReturnReceiptsList(vm),
+	)
+}
+
+templ bodyARReturnReceiptsList(vm ARReturnReceiptsListVM) {
+	<div class="max-w-[95%]">
+		<div class="flex items-center justify-between">
+			<h1 class="text-title font-semibold">Return Receipts</h1>
+			<a href="/ar-return-receipts/new" class="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-body font-medium text-onPrimary hover:bg-primary-hover">
+				New Return Receipt
+			</a>
+		</div>
+		if vm.Saved {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success-hover">Return Receipt saved.</div>
+		}
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover">{ vm.FormError }</div>
+		}
+		<div class="mt-6 overflow-hidden rounded-lg border border-border">
+			<table class="w-full text-body">
+				<thead class="bg-surface-raised">
+					<tr>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Number</th>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Customer</th>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Date</th>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Credit Note</th>
+						<th class="px-4 py-3 text-left font-medium text-text-muted">Status</th>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-border">
+					if len(vm.Rows) == 0 {
+						<tr>
+							<td colspan="5" class="px-4 py-8 text-center text-text-muted2">No return receipts yet.</td>
+						</tr>
+					}
+					for _, r := range vm.Rows {
+						<tr class="hover:bg-surface-raised">
+							<td class="px-4 py-3 font-medium">
+								<a href={ templ.SafeURL(fmt.Sprintf("/ar-return-receipts/%d", r.ID)) } class="text-primary hover:underline">
+									if r.ReturnReceiptNumber == "" {
+										{ fmt.Sprintf("#%d", r.ID) }
+									} else {
+										{ r.ReturnReceiptNumber }
+									}
+								</a>
+							</td>
+							<td class="px-4 py-3">
+								if r.Customer != nil {
+									{ r.Customer.Name }
+								} else {
+									<span class="text-text-muted3">—</span>
+								}
+							</td>
+							<td class="px-4 py-3 text-text-muted2">{ r.ReturnDate.Format("Jan 2, 2006") }</td>
+							<td class="px-4 py-3">
+								if r.CreditNoteID != nil {
+									<a href={ templ.SafeURL(fmt.Sprintf("/credit-notes/%d", *r.CreditNoteID)) } class="text-primary hover:underline">
+										if r.CreditNote != nil && r.CreditNote.CreditNoteNumber != "" {
+											{ r.CreditNote.CreditNoteNumber }
+										} else {
+											{ fmt.Sprintf("#%d", *r.CreditNoteID) }
+										}
+									</a>
+								}
+							</td>
+							<td class="px-4 py-3">@arrStatusBadge(r.Status)</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	</div>
+}
+
+// ── Detail page ─────────────────────────────────────────────────────────────
+
+templ ARReturnReceiptDetail(vm ARReturnReceiptDetailVM) {
+	@layout.Layout(
+		"GoBooks - Return Receipt",
+		ui.SidebarVM{Active: "Return Receipts", HasCompany: vm.HasCompany},
+		bodyARReturnReceiptDetail(vm),
+	)
+}
+
+templ bodyARReturnReceiptDetail(vm ARReturnReceiptDetailVM) {
+	<div class="max-w-[95%]">
+		<div class="flex items-center justify-between">
+			<div>
+				<div class="text-small text-text-muted2">
+					<a href="/ar-return-receipts" class="hover:underline text-primary">Return Receipts</a>
+					/
+					if vm.ReturnReceipt.ReturnReceiptNumber == "" {
+						{ fmt.Sprintf("#%d", vm.ReturnReceipt.ID) }
+					} else {
+						{ vm.ReturnReceipt.ReturnReceiptNumber }
+					}
+				</div>
+				<h1 class="mt-1 text-title font-semibold">
+					if vm.ReturnReceipt.ReturnReceiptNumber == "" {
+						{ fmt.Sprintf("Return Receipt #%d", vm.ReturnReceipt.ID) }
+					} else {
+						{ vm.ReturnReceipt.ReturnReceiptNumber }
+					}
+				</h1>
+			</div>
+			<div class="flex gap-3">
+				if vm.ReturnReceipt.Status == models.ARReturnReceiptStatusDraft {
+					<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/ar-return-receipts/%d/post", vm.ReturnReceipt.ID)) }>
+						<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-medium text-onPrimary hover:bg-primary-hover">Post</button>
+					</form>
+					<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/ar-return-receipts/%d/delete", vm.ReturnReceipt.ID)) } onsubmit="return confirm('Delete draft Return Receipt?');">
+						<button type="submit" class="rounded-md border border-border-danger px-4 py-2 text-body font-medium text-danger hover:bg-danger-soft">Delete</button>
+					</form>
+				}
+				if vm.ReturnReceipt.Status == models.ARReturnReceiptStatusPosted {
+					<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/ar-return-receipts/%d/void", vm.ReturnReceipt.ID)) } onsubmit="return confirm('Void this Return Receipt? This reverses its own inventory movement only (document-local, Q5).');">
+						<button type="submit" class="rounded-md border border-border-danger px-4 py-2 text-body font-medium text-danger hover:bg-danger-soft">Void</button>
+					</form>
+				}
+			</div>
+		</div>
+
+		if vm.Saved {
+			<div class="mt-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success-hover">Saved.</div>
+		}
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover">{ vm.FormError }</div>
+		}
+
+		<!-- Header info grid -->
+		<div class="mt-6 grid grid-cols-2 gap-6 md:grid-cols-4">
+			<div>
+				<div class="text-small text-text-muted2">Status</div>
+				<div class="mt-1">@arrStatusBadge(vm.ReturnReceipt.Status)</div>
+			</div>
+			<div>
+				<div class="text-small text-text-muted2">Customer</div>
+				<div class="mt-1 font-medium">
+					if vm.ReturnReceipt.Customer != nil {
+						{ vm.ReturnReceipt.Customer.Name }
+					} else {
+						<span class="text-text-muted3">—</span>
+					}
+				</div>
+			</div>
+			<div>
+				<div class="text-small text-text-muted2">Warehouse</div>
+				<div class="mt-1">
+					if vm.ReturnReceipt.Warehouse != nil {
+						{ vm.ReturnReceipt.Warehouse.Name }
+					}
+				</div>
+			</div>
+			<div>
+				<div class="text-small text-text-muted2">Return Date</div>
+				<div class="mt-1">{ vm.ReturnReceipt.ReturnDate.Format("Jan 2, 2006") }</div>
+			</div>
+		</div>
+
+		if vm.ReturnReceipt.CreditNoteID != nil {
+			<div class="mt-4 rounded-md border border-border bg-surface-raised px-4 py-3 text-body">
+				Linked Credit Note:
+				<a href={ templ.SafeURL(fmt.Sprintf("/credit-notes/%d", *vm.ReturnReceipt.CreditNoteID)) } class="ml-1 text-primary hover:underline">
+					if vm.ReturnReceipt.CreditNote != nil && vm.ReturnReceipt.CreditNote.CreditNoteNumber != "" {
+						{ vm.ReturnReceipt.CreditNote.CreditNoteNumber }
+					} else {
+						{ fmt.Sprintf("#%d", *vm.ReturnReceipt.CreditNoteID) }
+					}
+				</a>
+			</div>
+		}
+
+		if vm.ReturnReceipt.Memo != "" {
+			<div class="mt-4">
+				<div class="text-small text-text-muted2">Memo</div>
+				<div class="mt-1">{ vm.ReturnReceipt.Memo }</div>
+			</div>
+		}
+		if vm.ReturnReceipt.Reference != "" {
+			<div class="mt-2">
+				<div class="text-small text-text-muted2">Reference (RMA)</div>
+				<div class="mt-1">{ vm.ReturnReceipt.Reference }</div>
+			</div>
+		}
+
+		<!-- Lines -->
+		<div class="mt-8">
+			<h2 class="text-section font-semibold text-text">Lines</h2>
+			<div class="mt-3 overflow-hidden rounded-lg border border-border">
+				<table class="w-full text-body">
+					<thead class="bg-surface-raised">
+						<tr>
+							<th class="px-4 py-3 text-left font-medium text-text-muted">#</th>
+							<th class="px-4 py-3 text-left font-medium text-text-muted">Item</th>
+							<th class="px-4 py-3 text-left font-medium text-text-muted">Description</th>
+							<th class="px-4 py-3 text-right font-medium text-text-muted">Qty</th>
+							<th class="px-4 py-3 text-left font-medium text-text-muted">CN Line</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-border">
+						for _, ln := range vm.ReturnReceipt.Lines {
+							<tr>
+								<td class="px-4 py-3">{ fmt.Sprintf("%d", ln.SortOrder) }</td>
+								<td class="px-4 py-3">
+									if ln.ProductService != nil {
+										{ ln.ProductService.Name }
+									}
+								</td>
+								<td class="px-4 py-3">{ ln.Description }</td>
+								<td class="px-4 py-3 text-right" data-numfmt>{ ln.Qty.String() }</td>
+								<td class="px-4 py-3 text-text-muted2">
+									if ln.CreditNoteLineID != nil {
+										{ fmt.Sprintf("#%d", *ln.CreditNoteLineID) }
+									} else {
+										—
+									}
+								</td>
+							</tr>
+						}
+						if len(vm.ReturnReceipt.Lines) == 0 {
+							<tr>
+								<td colspan="5" class="px-4 py-6 text-center text-text-muted2">No lines.</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		</div>
+
+		<!-- Audit footer -->
+		<div class="mt-8 text-small text-text-muted2 space-x-4">
+			if vm.ReturnReceipt.PostedAt != nil {
+				<span>Posted: { vm.ReturnReceipt.PostedAt.Format("Jan 2, 2006 15:04") }</span>
+			}
+			if vm.ReturnReceipt.VoidedAt != nil {
+				<span>Voided: { vm.ReturnReceipt.VoidedAt.Format("Jan 2, 2006 15:04") }</span>
+			}
+			if vm.ReturnReceipt.JournalEntryID != nil {
+				<span>JE: { fmt.Sprintf("#%d", *vm.ReturnReceipt.JournalEntryID) }</span>
+			}
+		</div>
+	</div>
+}
+
+// ── Form page ───────────────────────────────────────────────────────────────
+
+templ ARReturnReceiptForm(vm ARReturnReceiptFormVM) {
+	@layout.Layout(
+		"GoBooks - New Return Receipt",
+		ui.SidebarVM{Active: "Return Receipts", HasCompany: vm.HasCompany},
+		bodyARReturnReceiptForm(vm),
+	)
+}
+
+templ bodyARReturnReceiptForm(vm ARReturnReceiptFormVM) {
+	<div class="max-w-4xl">
+		<div class="mb-6 text-small text-text-muted2">
+			<a href="/ar-return-receipts" class="hover:underline text-primary">Return Receipts</a> / New
+			if vm.CreditNoteID != 0 {
+				 · from CN
+				<a href={ templ.SafeURL(fmt.Sprintf("/credit-notes/%d", vm.CreditNoteID)) } class="text-primary hover:underline">
+					if vm.CreditNoteNumber != "" {
+						{ vm.CreditNoteNumber }
+					} else {
+						{ fmt.Sprintf("#%d", vm.CreditNoteID) }
+					}
+				</a>
+			}
+		</div>
+		<h1 class="text-title font-semibold">New Return Receipt</h1>
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover">{ vm.FormError }</div>
+		}
+		<form method="POST" action="/ar-return-receipts/save" class="mt-6 space-y-6">
+			if vm.CreditNoteID != 0 {
+				<input type="hidden" name="credit_note_id" value={ fmt.Sprintf("%d", vm.CreditNoteID) }/>
+			}
+			<div class="grid grid-cols-2 gap-4">
+				<div>
+					<label class="block text-body font-medium text-text">Return Receipt Number</label>
+					<input type="text" name="return_receipt_number" value={ vm.ReturnReceiptNumber } placeholder="auto-assigned if blank"
+						class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body"/>
+				</div>
+				<div>
+					<label class="block text-body font-medium text-text">Return Date <span class="text-danger">*</span></label>
+					<input type="date" name="return_date" required value={ time.Now().Format("2006-01-02") }
+						class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body"/>
+				</div>
+			</div>
+			<div class="grid grid-cols-2 gap-4">
+				<div>
+					<label class="block text-body font-medium text-text">Customer</label>
+					<select name="customer_id" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body">
+						<option value="">— unattributed —</option>
+						for _, cu := range vm.Customers {
+							<option value={ fmt.Sprintf("%d", cu.ID) } selected?={ cu.ID == vm.CustomerID }>{ cu.Name }</option>
+						}
+					</select>
+				</div>
+				<div>
+					<label class="block text-body font-medium text-text">Warehouse <span class="text-danger">*</span></label>
+					<select name="warehouse_id" required class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body">
+						<option value="">— select —</option>
+						for _, wh := range vm.Warehouses {
+							<option value={ fmt.Sprintf("%d", wh.ID) } selected?={ wh.ID == vm.WarehouseID }>{ wh.Name }</option>
+						}
+					</select>
+				</div>
+			</div>
+			<div class="grid grid-cols-2 gap-4">
+				<div>
+					<label class="block text-body font-medium text-text">Reference (RMA / customer tracking)</label>
+					<input type="text" name="reference" value={ vm.Reference }
+						class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body"/>
+				</div>
+			</div>
+			<div>
+				<label class="block text-body font-medium text-text">Memo</label>
+				<textarea name="memo" rows="2" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body">{ vm.Memo }</textarea>
+			</div>
+
+			<!-- Lines grid (prefilled from CN or user-added) -->
+			<div>
+				<h2 class="text-section font-semibold text-text">Lines</h2>
+				if len(vm.PrefilledLines) == 0 {
+					<div class="mt-2 rounded-md border border-border bg-surface-raised px-4 py-3 text-body text-text-muted2">
+						No lines to return. Use the "Create matching Return Receipt" button on a Credit Note's detail page to pre-fill this form with its stock-item lines.
+					</div>
+				} else {
+					<div class="mt-3 overflow-hidden rounded-lg border border-border">
+						<table class="w-full text-body">
+							<thead class="bg-surface-raised">
+								<tr>
+									<th class="px-3 py-2 text-left font-medium text-text-muted">Item</th>
+									<th class="px-3 py-2 text-left font-medium text-text-muted">Description</th>
+									<th class="px-3 py-2 text-right font-medium text-text-muted">Qty</th>
+									<th class="px-3 py-2 text-left font-medium text-text-muted">CN Line</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-border">
+								for _, ln := range vm.PrefilledLines {
+									<tr>
+										<td class="px-3 py-2">
+											<input type="hidden" name="product_service_id[]" value={ fmt.Sprintf("%d", ln.ProductServiceID) }/>
+											{ ln.ProductName }
+										</td>
+										<td class="px-3 py-2">
+											<input type="text" name="description[]" value={ ln.Description }
+												class="w-full rounded border border-border bg-surface px-2 py-1 text-body"/>
+										</td>
+										<td class="px-3 py-2 text-right">
+											<input type="number" name="qty[]" step="0.0001" min="0" value={ ln.Qty.String() } required
+												class="w-24 rounded border border-border bg-surface px-2 py-1 text-body text-right"/>
+										</td>
+										<td class="px-3 py-2 text-text-muted2">
+											<input type="hidden" name="credit_note_line_id[]" value={ fmt.Sprintf("%d", ln.CreditNoteLineID) }/>
+											if ln.CreditNoteLineID != 0 {
+												{ fmt.Sprintf("#%d", ln.CreditNoteLineID) }
+											} else {
+												—
+											}
+										</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				}
+			</div>
+
+			<div class="flex gap-3 pt-2">
+				<button type="submit" class="rounded-md bg-primary px-6 py-2 text-body font-medium text-onPrimary hover:bg-primary-hover">Save Draft</button>
+				<a href="/ar-return-receipts" class="rounded-md border border-border px-6 py-2 text-body hover:bg-background">Cancel</a>
+			</div>
+		</form>
+	</div>
+}
+
+// ── Status badge helper ─────────────────────────────────────────────────────
+
+templ arrStatusBadge(status models.ARReturnReceiptStatus) {
+	switch status {
+		case models.ARReturnReceiptStatusDraft:
+			<span class="inline-flex rounded-full bg-surface-raised px-2 py-0.5 text-small text-text-muted">Draft</span>
+		case models.ARReturnReceiptStatusPosted:
+			<span class="inline-flex rounded-full bg-success-soft px-2 py-0.5 text-small text-success-hover">Posted</span>
+		case models.ARReturnReceiptStatusVoided:
+			<span class="inline-flex rounded-full bg-danger-soft px-2 py-0.5 text-small text-danger-hover">Voided</span>
+		default:
+			<span class="inline-flex rounded-full bg-surface-raised px-2 py-0.5 text-small">{ string(status) }</span>
+	}
+}

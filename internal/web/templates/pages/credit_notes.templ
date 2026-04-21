@@ -128,11 +128,23 @@ templ bodyCreditNoteDetail(vm CreditNoteDetailVM) {
 						<button type="submit" class="rounded-md border border-border-danger px-4 py-2 text-body font-medium text-danger hover:bg-danger-soft">Void</button>
 					</form>
 				}
-				// More actions — Convert to Refund when CN has unapplied balance the customer
-				// wants in cash rather than applied to a future invoice.
-				if (vm.CreditNote.Status == models.CreditNoteStatusIssued || vm.CreditNote.Status == models.CreditNoteStatusPartiallyApplied) && vm.CreditNote.BalanceRemaining.IsPositive() {
+				// More actions menu. Assembled from context-aware items:
+				//   - "Create matching Return Receipt" (Q4 shortcut) —
+				//     visible whenever the CN has a stock-item line so
+				//     the operator can build the physical-truth document
+				//     pre-filled from CN lines. Works under both rails:
+				//     required under shipment_required=true (charter Q6
+				//     coverage), optional under shipment_required=false
+				//     (legacy IN.5 path).
+				//   - "Convert to refund" — for unapplied balances.
+				if creditNoteHasStockLine(vm.CreditNote) || ((vm.CreditNote.Status == models.CreditNoteStatusIssued || vm.CreditNote.Status == models.CreditNoteStatusPartiallyApplied) && vm.CreditNote.BalanceRemaining.IsPositive()) {
 					@ui.MoreMenu() {
-						@ui.MoreMenuItem(fmt.Sprintf("/refunds/new?credit_note_id=%d", vm.CreditNote.ID), "Convert to refund")
+						if creditNoteHasStockLine(vm.CreditNote) {
+							@ui.MoreMenuItem(fmt.Sprintf("/ar-return-receipts/new?credit_note_id=%d", vm.CreditNote.ID), "Create matching Return Receipt")
+						}
+						if (vm.CreditNote.Status == models.CreditNoteStatusIssued || vm.CreditNote.Status == models.CreditNoteStatusPartiallyApplied) && vm.CreditNote.BalanceRemaining.IsPositive() {
+							@ui.MoreMenuItem(fmt.Sprintf("/refunds/new?credit_note_id=%d", vm.CreditNote.ID), "Convert to refund")
+						}
 					}
 				}
 			</div>

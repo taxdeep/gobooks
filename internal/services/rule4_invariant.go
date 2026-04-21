@@ -76,11 +76,24 @@ import (
 type Rule4DocumentType string
 
 const (
-	Rule4DocBill             Rule4DocumentType = "bill"
-	Rule4DocInvoice          Rule4DocumentType = "invoice"
-	Rule4DocExpense          Rule4DocumentType = "expense"
-	Rule4DocCreditNote       Rule4DocumentType = "credit_note"
-	Rule4DocVendorCreditNote Rule4DocumentType = "vendor_credit_note"
+	Rule4DocBill              Rule4DocumentType = "bill"
+	Rule4DocInvoice           Rule4DocumentType = "invoice"
+	Rule4DocExpense           Rule4DocumentType = "expense"
+	Rule4DocCreditNote        Rule4DocumentType = "credit_note"
+	Rule4DocVendorCreditNote  Rule4DocumentType = "vendor_credit_note"
+	// Rule4DocARReturnReceipt — Phase I.6a.2 physical-truth return
+	// document. Under shipment_required=true it owns the AR-return
+	// stock movement (CreditNote surrenders ownership per I.6a.3).
+	// Under shipment_required=false it is not the owner; legacy
+	// IN.5 CreditNote keeps ownership.
+	Rule4DocARReturnReceipt Rule4DocumentType = "ar_return_receipt"
+	// Rule4DocVendorReturnShipment — Phase I.6b.2 physical-truth
+	// AP-return document (we ship goods back to vendor). Under
+	// receipt_required=true it owns the AP-return stock movement
+	// (VendorCreditNote surrenders ownership per I.6b.3). Under
+	// receipt_required=false it is not the owner; legacy IN.6a VCN
+	// keeps ownership.
+	Rule4DocVendorReturnShipment Rule4DocumentType = "vendor_return_shipment"
 )
 
 // Rule4WorkflowState captures the two capability rails that steer
@@ -113,16 +126,30 @@ func (w Rule4WorkflowState) IsMovementOwner(docType Rule4DocumentType) bool {
 		return !w.ReceiptRequired
 	case Rule4DocCreditNote:
 		// Credit Note owns return movement under legacy
-		// (shipment_required=false); controlled mode rejects
-		// stock-item credit notes pre-post (IN.5 Q2, pending
-		// Phase I.6 Return Receipt). Same defensive pattern as
-		// Expense above.
+		// (shipment_required=false). Under controlled mode
+		// (shipment_required=true) I.6a.3 surrenders ownership to
+		// Rule4DocARReturnReceipt — CreditNote still posts but as a
+		// revenue-only document; ARReturnReceipt forms the movement.
 		return !w.ShipmentRequired
+	case Rule4DocARReturnReceipt:
+		// ARReturnReceipt owns AR-return movement ONLY under
+		// controlled mode (shipment_required=true). Under legacy
+		// mode IN.5's CreditNote is the movement owner;
+		// ARReturnReceipt is optional physical-tracking only and
+		// its post is a status-flip (no movement → non-owner).
+		return w.ShipmentRequired
+	case Rule4DocVendorReturnShipment:
+		// VendorReturnShipment owns AP-return movement ONLY under
+		// controlled mode (receipt_required=true). Mirror of
+		// Rule4DocARReturnReceipt on the AP side. Under legacy
+		// mode IN.6a's VCN is the movement owner; VRS is optional
+		// and its post is a status-flip. I.6b.3 will wire the
+		// matching VCN-side surrender.
+		return w.ReceiptRequired
 	case Rule4DocVendorCreditNote:
 		// Vendor Credit Note owns return-out movement under legacy
 		// (receipt_required=false). Controlled mode rejects stock-
-		// item VCN lines pre-post (IN.6a) pending a future Vendor
-		// Return Receipt slice. Same defensive pattern.
+		// item VCN lines pre-post (IN.6a) pending I.6b VendorReturnShipment.
 		return !w.ReceiptRequired
 	default:
 		return false

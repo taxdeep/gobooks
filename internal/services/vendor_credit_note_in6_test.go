@@ -69,6 +69,8 @@ func testVendorCreditNoteIN6DB(t *testing.T) *gorm.DB {
 		&models.VendorCreditNote{},
 		&models.VendorCreditNoteLine{},
 		&models.APCreditApplication{},
+		&models.VendorReturnShipment{},
+		&models.VendorReturnShipmentLine{},
 		&models.JournalEntry{},
 		&models.JournalLine{},
 		&models.LedgerEntry{},

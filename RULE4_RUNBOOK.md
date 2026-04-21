@@ -333,11 +333,29 @@ Credit Note is the movement owner for stock-line returns. On post:
 
 ### Controlled mode (`shipment_required=true`)
 
-Credit Note is **not** the outbound-return owner under controlled
-mode. Stock-item credit notes are rejected at post with
-`ErrCreditNoteStockItemRequiresReturnReceipt`. Phase I.6 Return
-Receipt is the planned owner; until I.6 ships, the operator should
-adjust inventory via a manual journal entry or wait for I.6.
+Credit Note is **not** the outbound-return movement owner under
+controlled mode. Ownership belongs to **Phase I.6a
+`ARReturnReceipt`** (scope pinned 2026-04-21 in
+[`PHASE_I6_CHARTER.md`](PHASE_I6_CHARTER.md); slice plan in
+[`INVENTORY_MODULE_API.md`](INVENTORY_MODULE_API.md) §7 Phase I.6).
+
+**I.6a.3 retrofit (shipped):** stock-item lines on a Credit Note
+are no longer unconditionally rejected. They are **accepted iff
+posted `ARReturnReceipt`s provide EXACT per-line coverage** — per
+charter **Q6**, `Σ(posted ARReturnReceiptLine.qty WHERE
+credit_note_line_id = X) == CreditNoteLine.qty` must hold for
+every stock-item line. The post books a **revenue-only** JE
+(`Dr Revenue / Cr AR`, plus tax reversal) — the Dr Inventory /
+Cr COGS leg is owned by the paired `ARReturnReceipt`'s own post
+(see `LedgerSourceARReturnReceipt`). `Rule4DocCreditNote.IsMovementOwner`
+returns `false` under `shipment_required=true`; CreditNote does
+not touch `inventory_movements` at all under controlled mode.
+
+Short / over coverage at Credit Note post fails loud with
+`ErrCreditNoteStockItemRequiresReturnReceipt`. The error name is
+kept stable for triage-table continuity; the wrapped message now
+cites `cn_qty=X posted_arr_coverage=Y` so the operator can diagnose
+which ARReturnReceipt to add / post / void.
 
 ### Triage additions
 
@@ -346,7 +364,7 @@ adjust inventory via a manual journal entry or wait for I.6.
 | Customer returned goods, ledger shows revenue reversal but inventory didn't increase | **Pre-IN.5 behaviour — confirm post date.** | Credit notes posted BEFORE IN.5 shipped did not form inventory returns. Void + repost under the new path to get the inventory-side reversal (customer-facing AR balance stays the same; internal COGS / Inventory accounts correct). |
 | `ErrCreditNoteStockItemRequiresInvoice` on credit note post | **Operator error.** | Standalone credit notes (no Invoice linkage) cannot carry a stock-item line — there is no original sale to trace cost from. Either link to the originating invoice OR remove the stock item and use a pure-service credit line. |
 | `ErrCreditNoteStockItemRequiresOriginalLine` on credit note post | **Operator error (or pre-IN.5 data).** | The stock line needs `original_invoice_line_id` set — the specific invoice line being reversed. If operator needs help picking: match item + customer + ship date on the invoice. |
-| `ErrCreditNoteStockItemRequiresReturnReceipt` on credit note post | **Q2 controlled-mode rejection.** | Not a bug. Phase I.6 Return Receipt is the correct path; until it ships, customer needs a manual adjustment JE or deferred processing. |
+| `ErrCreditNoteStockItemRequiresReturnReceipt` on credit note post (post-I.6a.3) | **Coverage shortfall (Q6).** | Post-I.6a.3, this sentinel means posted-ARReturnReceipt coverage does NOT match the credit-note stock-line qty exactly. Wrapped message cites `cn_qty=X posted_arr_coverage=Y`. Fix: create / post an `ARReturnReceipt` linked to this CN whose line qtys sum to exactly the CN line qty; or adjust the CN line qty to match posted physical returns. |
 | `ErrCreditNoteOriginalLineMismatch` on credit note post | **Data integrity.** | The `original_invoice_line_id` points at a line that isn't on the credit note's linked invoice (or isn't a stock line, or was never invoiced). Operator must re-pick; escalate if the data looks corrupt. |
 
 ### Void semantics
@@ -417,13 +435,44 @@ On post:
 
 ### Controlled mode (`receipt_required=true`)
 
-Vendor Credit Note is **not** the AP-return owner under controlled
-mode. Stock-item VCN lines are rejected at post with
-`ErrVendorCreditNoteStockItemRequiresReturnReceipt`. A future
-Vendor Return Receipt slice (parallel to AR Phase I.6) will own
-that path; until then, operators should adjust inventory via a
-manual journal entry and keep the VCN for pure price-adjustment
-credits.
+Vendor Credit Note is **not** the AP-return movement owner under
+controlled mode. Ownership belongs to **Phase I.6b
+`VendorReturnShipment`** (UI label: "Return to Vendor"; charter Q2
+— internal name avoids collision with pre-existing
+`models.VendorReturn`; goods go *out* to the vendor so the shape
+mirrors Shipment, not Receipt).
+
+**I.6b.3 retrofit (shipped):** stock-item lines on a Vendor Credit
+Note are no longer unconditionally rejected under
+`receipt_required=true`. They are **accepted iff posted
+`VendorReturnShipment`s provide EXACT per-line coverage** — per
+charter **Q6**, `Σ(posted VendorReturnShipmentLine.qty WHERE
+vendor_credit_note_line_id = X) == VendorCreditNoteLine.qty` must
+hold for every stock-item line. The VCN's header JE
+(`Dr AP / Cr Offset`) is reduced by Σ(stock-line amounts) — the
+stock portion's accounting is owned entirely by VRS, which already
+booked `Dr AP / Cr Inventory` at the traced original Bill cost via
+the `IssueVendorReturn` narrow verb (charter Q3). If the VCN is
+stock-only at cost, **no JE is produced at all** — VRS covered
+everything.
+
+`Rule4DocVendorCreditNote.IsMovementOwner` returns `false` under
+`receipt_required=true`; VCN does not touch `inventory_movements`
+under controlled mode. Partial-qty AP returns (IN.6a's deferred
+gap) are now tractable via multiple `VendorReturnShipment`s summing
+to the VCN line qty before VCN post.
+
+Short / over coverage at VCN post fails loud with
+`ErrVendorCreditNoteStockItemRequiresReturnReceipt`. The error
+name is kept stable for triage continuity; the wrapped message
+cites `vcn_qty=X posted_vrs_coverage=Y`.
+
+**Posted-void extension (Q5 symmetry):** under controlled mode, a
+posted VCN can be voided — reverses its own JE document-locally;
+the paired VRS is not cascaded. Legacy-mode posted-void is still
+rejected (IN.6a's inventory-reversal rows can't be re-reversed by
+design; a follow-on slice may add a fresh-inflow-at-original-cost
+path if demand emerges).
 
 ### Header-only legacy path
 
@@ -440,7 +489,7 @@ only; IN.6b will expose it in the UI).
 | Symptom | Bug or by-design? | What to say |
 |---|---|---|
 | Vendor Credit Note posted, AP reduced but inventory stayed up | **Header-only legacy path OR pre-IN.6a.** | If the VCN has zero lines, it's a price adjustment — inventory is correct to stay. For a physical return, the VCN must carry a stock line with `original_bill_line_id`. Use IN.6b UI (when shipped) or the line-based API. |
-| `ErrVendorCreditNoteStockItemRequiresReturnReceipt` on VCN post | **Q-parity controlled-mode rejection.** | Not a bug. Controlled mode requires the future Vendor Return Receipt; until it ships, use a manual JE (Dr AP / Cr Inventory at original cost) and keep the VCN as draft or remove the stock line. |
+| `ErrVendorCreditNoteStockItemRequiresReturnReceipt` on VCN post | **Q-parity controlled-mode rejection.** | Not a bug. Controlled mode requires the locked I.6b `VendorReturnShipment` path (charter: [`PHASE_I6_CHARTER.md`](PHASE_I6_CHARTER.md) Q2; UI label "Return to Vendor"; slice **I.6b.3** retires this rejection). Until I.6b ships, use a manual JE (Dr AP / Cr Inventory at original cost) and keep the VCN as draft or remove the stock line. |
 | `ErrVendorCreditNoteStockItemRequiresBill` on VCN post | **Operator error.** | Standalone VCN (no linked Bill) cannot carry a stock-item line — there's no original purchase to trace cost from. Either link to the originating Bill OR remove the stock line. |
 | `ErrVendorCreditNoteStockItemRequiresOriginalLine` on VCN post | **Operator error (or pre-IN.6a data).** | The stock line needs `original_bill_line_id` set. If operator needs help picking: match item + vendor + receive date on the Bill. |
 | `ErrVendorCreditNotePartialReturnNotSupported` on VCN post | **Q-scope limitation in IN.6a.** | Not a bug. The inventory module's outflow verbs don't accept a caller-supplied cost, so partial returns of stock items are deferred. Workarounds: split the original Bill into smaller lines, return each in full; OR use a manual JE for the partial-return portion. |
@@ -452,19 +501,28 @@ VoidVendorCreditNote today only handles draft VCNs. Posted VCNs
 cannot be voided — this is the pre-IN.6a constraint and IN.6a does
 not change it. Consequence: an IN.6a stock-line return's inventory
 reversal is permanent once posted. If operators post in error,
-they must create a compensating inbound adjustment manually. A
-future slice could extend void to posted VCNs with symmetric
-movement reversal; not in IN.6a.
+they must create a compensating inbound adjustment manually.
+Phase **I.6b.3** (charter Q5 symmetry) extends void to posted VCNs
+with **document-local, cascade-free** movement reversal — the
+posted-void reverses its own JE only; a paired
+`VendorReturnShipment` must be voided separately. Not in IN.6a.
 
 ### What is still NOT supported under IN.6a
 
 - **Partial-qty stock returns** (return 4 of 10 purchased): the
-  inventory module's IssueStock verb intentionally does not accept
-  a caller-supplied unit cost ("callers never pass a cost on
-  outflow"). Extending it with a `UnitCostOverride` for traced-
-  cost outflow is scope beyond IN.6a and would need its own
-  design review. Workaround: split the original Bill into smaller
-  lines.
+  inventory module's `IssueStock` verb intentionally does not
+  accept a caller-supplied unit cost ("callers never pass a cost
+  on outflow"). Phase **I.6b.2a** (charter Q3) ships a **dedicated
+  narrow-semantic inventory verb** (working name `IssueVendorReturn`
+  / `ReturnToVendorAtTracedCost`) that takes lineage + intent
+  only — the module reads `unit_cost_base` internally. Combined
+  with `VendorReturnShipment` as a first-class document (I.6b.2)
+  and the controlled-mode retrofit (I.6b.3), partial-qty AP returns
+  become tractable via a sequence of smaller `VendorReturnShipment`s.
+  A generic `UnitCostOverride` on `IssueStock` was explicitly
+  **rejected** by Q3 to preserve inventory engine cost authority.
+  Legacy-mode (`receipt_required=false`) workaround until I.6b:
+  split the original Bill into smaller lines.
 - **Posted-void of VCN with inventory effect**: deferred;
   see "Void semantics" above.
 - **UI line entry**: deferred to IN.6b. End-user VCNs remain
@@ -537,10 +595,21 @@ smuggle inventory exposure into a refund post path.
 | 2026-04-21 | Added §10b Vendor Credit Note (IN.6a) — AP return path inventory reversal via ReverseMovement at authoritative original cost; full-qty only. |
 | 2026-04-21 | IN.6b shipped — Vendor Credit Note editor exposes stock-return lines in the UI (+ handler wiring tests). |
 | 2026-04-21 | Added §10c — ARRefund / VendorRefund audited and exempted from Rule #4 (cash-movement documents, no stock nexus). |
+| 2026-04-21 | **I.6.0** — Phase I.6 charter ([`PHASE_I6_CHARTER.md`](PHASE_I6_CHARTER.md)) adopted into [`INVENTORY_MODULE_API.md`](INVENTORY_MODULE_API.md) §7 Phase I.6. §10a / §10b placeholders repointed from "planned / future" to the locked charter + specific slice references (`ARReturnReceipt` / I.6a.3; `VendorReturnShipment` / I.6b.2a / I.6b.3). Q2 misnomer ("Vendor Return Receipt" → `VendorReturnShipment` with UI label "Return to Vendor") corrected in §10b. |
+| 2026-04-21 | **I.6a.1 / I.6a.2** — `ARReturnReceipt` + `ARReturnReceiptLine` migrations, models, CRUD/lifecycle service, Dr Inventory / Cr COGS at traced cost under `shipment_required=true`, Q5 document-local void. |
+| 2026-04-21 | **I.6a.3** — CreditNote controlled-mode retrofit: stock lines accepted under `shipment_required=true` iff posted-ARR coverage matches exactly (charter Q6). CN JE becomes revenue-only under controlled mode; `Rule4DocCreditNote.IsMovementOwner` surrenders to new `Rule4DocARReturnReceipt`. Rule #4 post-time invariant added on `PostARReturnReceipt`. |
+| 2026-04-21 | **I.6a.4** — UI: `/ar-return-receipts` list / detail / new / post / void / delete. "Create matching Return Receipt" shortcut on CreditNote detail (visible whenever CN has stock-item line, Q4 pattern). Sidebar entry under Inventory + Customers mega-menu entry ("Return Receipt"). |
+| 2026-04-21 | **I.6a.5** — `PHASE_I6_RUNBOOK.md` (CS-facing operator runbook, AR side) + `PHASE_I6A_PILOT_ENABLEMENT.md` (layered pilot on Phase-I-green companies, 5 pre-flight gates, daily check SQL, 3-week observation window) + `phase_i6a_smoke_test.go` (split-return 6+4 summing; void + re-post coverage restoration). AR side of Phase I.6 complete. |
+| 2026-04-21 | **I.6b.1** — AP side opens. `migrations/083` + `VendorReturnShipment` / `VendorReturnShipmentLine` models + GORM registration. Charter Q2 naming: internal `VendorReturnShipment` avoids collision with pre-existing `models.VendorReturn`; UI label "Return to Vendor". Q7 nullable FKs. Document-shell-only — no inventory/JE side effects until I.6b.2 (which will call the dedicated narrow traced-cost outflow verb from I.6b.2a). |
+| 2026-04-21 | **I.6b.2a** — `inventory.IssueVendorReturn` narrow verb (charter Q3 keystone). Caller passes `OriginalMovementID` + qty; module reads `unit_cost_base` from source movement internally. Rejects reversal rows / outflow rows / zero-cost rows as anchors. Emits `movement_type='vendor_return'`, caller-supplied SourceType. No PPV leg, no FIFO layer peel, no `IssueStock` modification (Q3 explicit). Idempotent replay via `IdempotencyKey`. 7 contract tests pin the cost-authority guarantees. |
+| 2026-04-21 | **I.6b.2** — VRS service layer (`CreateVendorReturnShipment` / `PostVendorReturnShipment` / `VoidVendorReturnShipment`). Calls `inventory.IssueVendorReturn` per stock line at `source_type='vendor_return_shipment'`. Rail-aware: controlled mode books Dr AP / Cr Inventory at traced Bill cost; legacy = status flip only. Q5 document-local void (no cascade to paired VCN). `Rule4DocVendorReturnShipment` owner dispatch added. Break from AR symmetry documented in service file + `LedgerSourceVendorReturnShipment` comment: VRS carries BOTH legs because original Bill has only Inventory+AP legs (no separate Revenue/COGS split to mirror). 7 contract tests. |
+| 2026-04-21 | **I.6b.3** — VCN controlled-mode retrofit: stock lines accepted under `receipt_required=true` iff posted-VRS coverage matches exactly (charter Q6). Header JE `Dr AP / Cr Offset` reduced by Σ(stock-line amounts) — if VCN is stock-only at cost, NO JE produced (VRS already booked full reversal). `Rule4DocVendorCreditNote.IsMovementOwner` surrenders to `Rule4DocVendorReturnShipment` under controlled mode. Inventory-path call (`CreateVendorCreditNoteInventoryReturns`) skipped under controlled mode — zero VCN-sourced movements, non-owner invariant holds. **Posted-void extension (Q5 symmetry)**: controlled-mode posted VCN can be voided — reverses own JE; legacy-mode posted-void still rejected (IN.6a reversal rows can't be re-reversed; follow-on slice). Partial-qty AP returns tractable via multiple VRS summing per VCN line — closes IN.6a's deferred gap (PHASE_I6_RUNBOOK §5 item will be updated when AP-side runbook lands in I.6b.5). 5 contract tests (exact/partial/over coverage + dispatch + posted-void). |
+| 2026-04-21 | **I.6b.4** — UI: `/vendor-return-shipments` list / detail / new / post / void / delete (UI label "Return to Vendor" per charter Q2). "Create Return to Vendor" shortcut on VCN detail (visible whenever VCN has stock-item line, Q4 pattern — mirrors ARR's "Create matching Return Receipt"). Sidebar entry under Inventory + Suppliers mega-menu entry ("Return to Vendor"). Charter Q2 UI-vs-internal-name split preserved throughout user-visible strings. |
+| 2026-04-21 | **I.6b.5** — `PHASE_I6B_PILOT_ENABLEMENT.md` (layered pilot on Phase-H-green companies; 5 gates + 6 daily SQL checks including traced-cost-match + double-count guards) + `PHASE_I6_RUNBOOK.md` §§9–15 AP body (operator workflow, identity chain, triage, known limits, escalation) + `phase_i6b_smoke_test.go` (split-return 6+4, void + re-post coverage restoration). **Phase I.6 complete** — AP side matches AR side in depth. |
 | (future) | Update §3 triage table when a tracked-on-Bill or per-line-warehouse slice ships. |
-| (future) | Replace §10a controlled-mode rejection guidance with Phase I.6 Return Receipt workflow when that slice ships. |
-| (future) | Replace §10b partial-return limitation when an inventory outflow verb with caller-supplied cost ships. |
-| (future) | Replace §10b controlled-mode rejection guidance with Vendor Return Receipt workflow when that slice ships. |
+| (future) | Replace §10b partial-return limitation with the narrow inventory verb + `VendorReturnShipment` workflow when slices **I.6b.2a** / **I.6b.2** / **I.6b.3** ship. |
+| (future) | Replace §10b controlled-mode rejection guidance with the end-to-end `VendorReturnShipment` workflow when slice **I.6b.3** ships. |
+| (future) | Replace §10b posted-VCN void limitation with the cascade-free posted-void path when slice **I.6b.3** ships (charter Q5 symmetry). |
 | (future) | Revisit §10c if a refund document gains line-item granularity or ProductServiceID. |
 
 ---

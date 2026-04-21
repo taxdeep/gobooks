@@ -2007,9 +2007,6 @@ Phase G.2's guard on tracked items
 - **Sales price variance.** If post-shipment commercial price
   adjustment becomes needed, it ships as its own slice, not as
   hidden drift inside Phase I.B.
-- **Phase I.6** — customer return workflow (return receive,
-  inspect, disposition, return-to-vendor). Scheduled as a
-  dedicated follow-on after I.5; not blocking I.5's close.
 - **Phase J** — permission catalog enforcement (the `shipment.*`
   / `return.*` strings become real permissions with assignable
   roles).
@@ -2019,6 +2016,284 @@ Phase G.2's guard on tracked items
   `shipment_required=false` indefinitely stay supported until a
   dedicated retirement slice — same transitional-compatibility
   framing as the Bill-forms-inventory path.
+
+### Phase I.6 — Return Receipts  *(scope locked 2026-04-21, charter pinned)*
+
+Phase I.6 closes the controlled-mode stock-return gap that IN.5
+and IN.6a each deferred. Under `shipment_required=true` /
+`receipt_required=true`, stock-item returns have **no path** today
+— Credit Note / Vendor Credit Note reject stock lines with
+`ErrCreditNoteStockItemRequiresReturnReceipt` /
+`ErrVendorCreditNoteStockItemRequiresReturnReceipt`. I.6
+introduces the **Return Receipt** document pair — sell-side
+inbound (`ARReturnReceipt`) and buy-side outbound
+(`VendorReturnShipment`) mirrors of Receipt (H.3) / Shipment (I.3)
+in the return direction.
+
+Full scope, decisions, and rationale live in `PHASE_I6_CHARTER.md`
+(scope-locked 2026-04-21, Q1–Q9 pinned). This section summarises
+the binding plan; the charter is authoritative.
+
+#### Scope (locked)
+
+**Two new business documents** plus the capability-rail dispatch
+that makes them movement owners:
+
+- **`ARReturnReceipt`** (customer-return inbound) — new tables
+  `ar_return_receipts` / `ar_return_receipt_lines`, lifecycle
+  `draft → posted → voided`. Linked to a Credit Note header;
+  each line links to a specific `CreditNoteLine` (which carries
+  `OriginalInvoiceLineID` from IN.5). Identity chain:
+  `InvoiceLine → CreditNoteLine → ARReturnReceiptLine → inventory_movement`.
+  Post books `Dr Inventory / Cr COGS` at authoritative traced
+  cost and forms `inventory_movements` rows with
+  `source_type='ar_return_receipt'`. Under
+  `shipment_required=true`, ARReturnReceipt **is** the Rule #4
+  movement owner for AR-return stock lines; CreditNote accepts
+  stock lines again but becomes financial-only, booking
+  `Dr Revenue / Cr AR` and relying on the paired ARReturnReceipt
+  for the physical leg.
+- **`VendorReturnShipment`** (vendor-return outbound) — new
+  tables `vendor_return_shipments` /
+  `vendor_return_shipment_lines`. Linked to a Vendor Credit Note
+  header; each line links to a specific `VendorCreditNoteLine`
+  (which carries `OriginalBillLineID` from IN.6a). Chain:
+  `BillLine → VendorCreditNoteLine → VendorReturnShipmentLine → inventory_movement`.
+  Post books `Dr AP / Cr Inventory` at traced original Bill
+  cost; `source_type='vendor_return_shipment'`. **UI label is
+  "Return to Vendor"** (Q2) — the internal model name
+  `VendorReturnShipment` avoids collision with the pre-existing
+  `models.VendorReturn` (AP concept linked from
+  `VendorCreditNote.VendorReturnID`). Under
+  `receipt_required=true`, VendorReturnShipment **is** the
+  Rule #4 movement owner for AP-return stock lines.
+
+**Controlled-mode dispatch retrofit.** Under
+`shipment_required=true`, `CreditNote.Post` stops rejecting stock
+lines; instead requires posted ARReturnReceipt coverage and books
+revenue-only JE. Mirror on the AP side for
+`VendorCreditNote.Post` under `receipt_required=true`. The
+`Rule4Doc` table flips:
+
+- `Rule4DocCreditNote` surrenders movement ownership to
+  `Rule4DocARReturnReceipt` under `shipment_required=true`.
+- `Rule4DocVendorCreditNote` surrenders to
+  `Rule4DocVendorReturnShipment` under `receipt_required=true`.
+
+**Legacy mode byte-identical.** Under both rails `false`, IN.5 /
+IN.6a / existing flows are untouched. Return Receipts are
+**optional** under legacy and **required** only when the matching
+rail is `true`.
+
+#### Non-scope (follow-on slices)
+
+- Partial-qty AP return **under legacy mode** (IN.6a's deferred
+  gap). Under `receipt_required=true` via VendorReturnShipment,
+  partial-qty becomes tractable because the shipment is a
+  first-class document with its own qty; see Q3 and I.6b.2a.
+- Return inspection / disposition sub-statuses (received →
+  inspected → acceptable / damaged / quarantined).
+- Return-to-stock vs return-to-scrap write-off accounting.
+  Today the return always restocks.
+- Multi-warehouse split returns. One Return Receipt = one
+  warehouse (matching H.3 / I.3); splitting a credit across
+  warehouses produces multiple Return Receipts.
+- Restocking fees / vendor restock charges stay on the Credit
+  Note financial surface, not the Return Receipt surface.
+- Permission enforcement — `inventory.return.*` /
+  `inventory.return-to-vendor.*` strings stay reserved in §11
+  and become real permissions in Phase J, not I.6.
+- Historical backfill — credits posted before I.6 stay on IN.5 /
+  IN.6a semantics; no retroactive Return Receipt generation.
+
+#### Hard rules (Q5 / Q6 / Q7 / Q8 / Q9 promoted to binding)
+
+1. FK `credit_note_line_id` / `vendor_credit_note_line_id` is
+   **nullable at schema layer**. Physical rows may exist without
+   a commercial-document link; orphan data stays recoverable
+   rather than schema-locked. *(Q7 mitigation #1.)*
+2. Legality is enforced at **service / post time**, not by DB
+   constraint. Draft Return Receipt may exist without a link;
+   post requires it. *(Q7 mitigation #2.)*
+3. Controlled-mode Credit Note / VCN post requires **full
+   per-line coverage**: for every stock-item `CreditNoteLine X`,
+   `Σ(posted ARReturnReceiptLine.qty WHERE credit_note_line_id = X) == X.qty`.
+   Same shape AP-side. *(Q6 / Q7 mitigation #3.)*
+4. Posted-void is **document-local**, never cascaded to the
+   paired Credit Note / VCN. Full unwind = operator voids both
+   documents separately. *(Q5.)* Enabling posted-void on
+   VendorReturnShipment means the paired VCN also gains a
+   posted-void path (today draft-void only); that extension
+   lands in I.6b.3 so the documents stay symmetric.
+5. **No generic `UnitCostOverride` on `IssueStock`.** *(Q3 —
+   most important.)* The AP-return traced-cost outflow ships as
+   a dedicated narrow-semantic inventory verb in I.6b.2a
+   (working names `IssueVendorReturn` /
+   `ReturnToVendorAtTracedCost`; final name pinned at slice
+   start). Caller passes lineage (`OriginalMovementID`) + intent
+   only; the module reads `unit_cost_base` internally and
+   writes the outflow at that exact cost. **Cost authority stays
+   with the inventory engine.** An "allow-list on
+   `UnitCostOverride`" alternative was proposed and **rejected**
+   — even gated, the allow-list becomes a living hole. If future
+   phases need the same traced-cost-outflow shape (scrap /
+   write-off at historical cost, tracked-lot manual reversal),
+   they open their own narrow-verb slice rather than widen this
+   one.
+6. **Standalone Return Receipt rejected.** *(Q8 — conservative
+   first cut, not ideal shape.)* A draft-or-posted Credit Note
+   link is required at ARReturnReceipt save time. Same for
+   VendorReturnShipment ↔ VCN. Operator workaround: draft the
+   Credit Note first (no accounting effect until posted) to
+   unblock the Return Receipt. If operational data later shows
+   physical-first is common, a dedicated follow-on slice opens
+   — not a charter widening.
+7. **Pilot stacking forbidden.** *(Q9 — operational, not
+   schema-level.)* If a company has `shipment_required` still
+   in its Phase I pilot / observation window, do **not** open
+   an I.6b pilot on the same company. Same rule on the opposite
+   side. CS-enforced; code cannot distinguish "pilot window"
+   from "stable operating state".
+
+#### Exit conditions (all must hold before Phase I.6 closes)
+
+1. `ar_return_receipts` + `ar_return_receipt_lines` and
+   `vendor_return_shipments` + `vendor_return_shipment_lines`
+   persist; CRUD + lifecycle tested.
+2. Under `shipment_required=true`, a posted CreditNote with
+   stock-item lines requires (and is bound to) at least one
+   posted ARReturnReceipt covering those lines; Rule #4
+   invariant passes via dispatch to the new doc type.
+3. Under `receipt_required=true`, same for VendorCreditNote ↔
+   VendorReturnShipment pair. Partial-qty AP returns now work
+   via a sequence of smaller VendorReturnShipments.
+4. Under both rails `false`, IN.5 / IN.6a / legacy are
+   byte-identical.
+5. Void of a posted Return Receipt reverses its own inventory
+   movement via `ReverseMovement`; the paired Credit Note / VCN
+   post is not cascaded.
+6. Smoke suite covers: happy (credit → return receipt → match);
+   partial coverage (credit qty 10, return receipts qty 6+4);
+   over-credit (credit qty 10, return receipt qty 6 only) →
+   loud rejection at credit post; tracked-lot return; void +
+   re-post.
+7. Pilot enablement docs per rail exist; operator runbook
+   (`PHASE_I6_RUNBOOK.md`) exists.
+8. `inventory.return.*` permission strings remain reserved in
+   §11 — actual wiring deferred to Phase J.
+
+#### Slice plan (binding, 11 slices)
+
+AR side ships end-to-end before AP (Q1 — clean per-rail pilot
+signal; AP-first would contaminate AR observation):
+
+| Slice | Scope | Entry gate | Status |
+|---|---|---|---|
+| **I.6.0** | Charter adopted into this §7 Phase I subsection; all Q1–Q9 pinned; `PHASE_I6_CHARTER.md` is the authoritative reference. RULE4_RUNBOOK.md §10a / §10b placeholders repointed to charter. | Q1–Q9 locked | shipped (local) |
+| **I.6a.1** | Migration + model for `ar_return_receipts` / `ar_return_receipt_lines`. Nullable FK `credit_note_line_id`. GORM registration. No service behaviour yet. | I.6.0 adopted | shipped (local) |
+| **I.6a.2** | Service layer — `CreateARReturnReceipt` / `PostARReturnReceipt` / `VoidARReturnReceipt`. Uses `inventory.ReceiveStock` at traced cost via `CreditNoteLine.OriginalInvoiceLineID` → Invoice (or Shipment-chain) movement. `source_type='ar_return_receipt'`. Posted-void reverses own movement (Q5 document-local). | I.6a.1 shipped | shipped (local) |
+| **I.6a.3** | CreditNote controlled-mode retrofit under `shipment_required=true`: stop rejecting stock lines; require exact per-line ARReturnReceipt coverage (Q6); book revenue-only JE. `Rule4DocCreditNote.IsMovementOwner` surrenders ownership to new `Rule4DocARReturnReceipt`. Rule #4 post-time invariant added on `PostARReturnReceipt`. | I.6a.2 shipped | shipped (local) |
+| **I.6a.4** | UI — ARReturnReceipt editor (list / detail / new / post / void / delete). "Create matching Return Receipt" shortcut on CreditNote detail (Q4 pattern, mirrors "Convert to refund" on VCN). Sidebar entry under Inventory + Customers mega-menu entry. | I.6a.3 shipped | shipped (local) |
+| **I.6a.5** | Pilot enablement doc (`PHASE_I6A_PILOT_ENABLEMENT.md`) + operator runbook (`PHASE_I6_RUNBOOK.md`) + smoke suite (`phase_i6a_smoke_test.go` — split return + void/repost; covers charter §7 #6 exit scenarios). Q9 stacking rule applies. | I.6a.4 shipped | shipped (local) |
+| **I.6b.1** | Migration + model for `vendor_return_shipments` / `vendor_return_shipment_lines`. Nullable FK `vendor_credit_note_line_id`. GORM registration. | I.6a.5 shipped | shipped (local) |
+| **I.6b.2a** | **Dedicated narrow-semantic inventory verb `IssueVendorReturn`** (final name pinned) for return-to-vendor traced-cost outflow (Q3). Caller passes `OriginalMovementID` + qty; module reads `unit_cost_base` internally and writes outflow at that exact cost. Writes no PPV leg; creates `inventory_movements` row with `movement_type='vendor_return'` + caller-supplied `SourceType`. Rejects reversal rows + outflow rows as cost anchors. Zero changes to `IssueStock`. 7 contract tests. | I.6b.1 shipped | shipped (local) |
+| **I.6b.2** | Service layer — `CreateVendorReturnShipment` / `PostVendorReturnShipment` / `VoidVendorReturnShipment`. Calls `inventory.IssueVendorReturn` per stock line. Rail-aware: under `receipt_required=true` books **Dr AP / Cr Inventory** (both legs — see break from AR symmetry in service file doc); under `=false` status-flip only. Q5 document-local void. `Rule4DocVendorReturnShipment` owner dispatch + post-time invariant. 7 contract tests. | I.6b.2a shipped | shipped (local) |
+| **I.6b.3** | VendorCreditNote controlled-mode retrofit: stop rejecting stock lines; require exact per-line VRS coverage (Q6); suppress stock-portion JE fragments (VRS owns Dr AP / Cr Inventory at traced cost) — VCN books Dr AP / Cr Offset only for the non-stock portion (0 if stock-only). `Rule4DocVendorCreditNote` surrenders ownership under controlled mode. Extended VCN posted-void for Q5 symmetry — controlled-mode only (legacy IN.6a's reversal rows can't be re-reversed; follow-on slice). Partial-qty AP returns now tractable via multiple VRS summing per line — closes IN.6a's deferred gap. 5 contract tests. | I.6b.2 shipped | shipped (local) |
+| **I.6b.4** | UI — VendorReturnShipment editor (list / detail / new / post / void / delete) at `/vendor-return-shipments`. "Create Return to Vendor" shortcut on VCN detail (Q2 UI label, Q4 shortcut pattern mirrors "Convert to refund" + "Create matching Return Receipt"). Sidebar entry under Inventory + Suppliers mega-menu entry. | I.6b.3 shipped | shipped (local) |
+| **I.6b.5** | Pilot enablement doc (`PHASE_I6B_PILOT_ENABLEMENT.md`) + operator runbook AP body (`PHASE_I6_RUNBOOK.md` §§9–15) + smoke suite (`phase_i6b_smoke_test.go` — split return + void/repost, closes IN.6a partial-qty gap). Q9 pilot stacking rule applies. | I.6b.4 shipped | shipped (local) |
+
+**Expected slice count: 11.** Comparable to Phase H + Phase I
+main bodies given cross-rail symmetry. I.6a.1 through I.6a.5
+ship end-to-end before I.6b starts (Q1 — AR first; clean
+per-rail pilot signal).
+
+#### Design decisions — Q1–Q9 summary
+
+Full rationale lives in `PHASE_I6_CHARTER.md` §5. One-line
+reminder of each locked choice:
+
+- **Q1** — Split AR (I.6a) and AP (I.6b); AR ships first.
+  Rejected: combined slice (larger PR + larger pilot surface),
+  per-layer split (no operator UX until last sub-slice).
+- **Q2** — AP internal name `VendorReturnShipment` /
+  `source_type='vendor_return_shipment'`; UI label **"Return
+  to Vendor"** (avoids collision with `models.VendorReturn`
+  already linked from `VendorCreditNote.VendorReturnID`).
+  RULE4_RUNBOOK §10b's current "Vendor Return Receipt" naming
+  is a misnomer to be corrected when I.6b lands.
+- **Q3** — Partial-qty AP return ships via a **dedicated narrow
+  inventory verb** (I.6b.2a), **not** a generic cost override
+  on `IssueStock`. "Allow-list on `UnitCostOverride`"
+  alternative explicitly rejected to preserve inventory engine
+  cost authority. *(If an "extend `IssueStock` to accept a
+  cost" instinct resurfaces during implementation, stop — that's
+  been rejected.)*
+- **Q4** — Manual document linking with a pre-fill shortcut
+  ("Create matching Return Receipt" / "Create Return to
+  Vendor") on the Credit Note / VCN detail page. Rejected:
+  silent auto-create (conflicts with operator-driven physical
+  truth), fully manual no-pre-fill (encourages skipping rail).
+- **Q5** — Posted Return Receipt is voidable; void is
+  **document-local** (reverses its own movement only; never
+  cascades to paired Credit Note / VCN). Enabling posted-void on
+  VendorReturnShipment means VCN also gains a posted-void path
+  in I.6b.3 — symmetry.
+- **Q6** — Full per-line coverage required at Credit Note post
+  under controlled mode: `Σ RR-line.qty == CN-line.qty`.
+  Mirrors H.5's Bill-Receipt matching. Rejected: partial
+  coverage (credit outruns receipt — reintroduces silent-swallow
+  class Rule #4 exists to prevent), configurable per-company
+  (adds policy surface without justification).
+- **Q7** — Junior = Return Receipt (FK lives on
+  `ar_return_receipt_lines.credit_note_line_id`). Nullable at
+  schema, required at post. Q7's risk mitigations promoted to
+  hard rules #1–#3 above.
+- **Q8** — **No standalone Return Receipt.** Conservative first
+  cut. If operational data later shows physical-first pattern is
+  common, a dedicated follow-on slice opens — not a charter
+  widening. Operator workaround: draft Credit Note first.
+- **Q9** — I.6 follows its own rail (I.6a gates on
+  `shipment_required` pilot-green; I.6b gates on
+  `receipt_required` pilot-green). Rails are independent. But
+  **don't stack pilots on the same company** — operational
+  rule, CS-enforced.
+
+#### Risks & mitigations
+
+- **Rail coupling creep.** If controlled-mode CreditNote starts
+  subscribing to ARReturnReceipt status in subtle ways, the two
+  lifecycles can entangle. *Discipline:* CreditNote post reads
+  Return Receipt **totals only** (Q6 coverage), never status;
+  void is document-local (Q5); cascades never run implicitly.
+- **New inventory verb surface (I.6b.2a).** Mitigations: verb
+  is **narrow by name** — `IssueVendorReturn` signals its
+  single intent; no general `UnitCostOverride` parameter for
+  future callers to hijack. Caller passes lineage
+  (`OriginalMovementID`), not cost. Scope bounded to
+  return-to-vendor semantics in I.6; future similar verbs
+  (scrap-at-historical-cost, etc.) open their own slices with
+  their own names.
+- **Identity-chain length (4 hops AR-side).**
+  `InvoiceLine → CreditNoteLine → ARReturnReceiptLine → movement`.
+  Deep chains are harder to debug when something breaks. Q7
+  hard rules #1–#3 let each layer be inspected and repaired
+  independently.
+- **Operator training load.** Controlled mode now has 4 return
+  documents — CreditNote, VendorCreditNote, ARReturnReceipt,
+  VendorReturnShipment — plus their create / void rules.
+  Runbook clarity matters; I.6a.5 / I.6b.5 explicitly include
+  a `PHASE_I6_RUNBOOK.md` deliverable.
+- **Pilot stacking (Q9).** Serialised per company by CS
+  runbook, not by code.
+
+#### Out of charter (explicitly)
+
+- No changes to `inventory_costing_method`.
+- No changes to H.3 / H.5 / I.3 / I.5 document shapes beyond
+  the new `Rule4Doc` dispatch entries.
+- No new permission strings beyond §11 reservations.
+- No inspection / quarantine / disposition workflow — a future
+  slice may layer those onto ARReturnReceipt.
 
 ---
 

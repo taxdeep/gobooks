@@ -62,6 +62,8 @@ func testCreditNoteIN5DB(t *testing.T) *gorm.DB {
 		&models.CreditNote{},
 		&models.CreditNoteLine{},
 		&models.CreditNoteApplication{},
+		&models.ARReturnReceipt{},
+		&models.ARReturnReceiptLine{},
 		&models.JournalEntry{},
 		&models.JournalLine{},
 		&models.LedgerEntry{},
@@ -360,9 +362,17 @@ func TestPostCreditNote_IN5_PureServiceLinePostsWithoutInventoryEffect(t *testin
 	}
 }
 
-// ── Scenario 3: controlled mode rejects stock line ──────────────────────────
+// ── Scenario 3: controlled mode without ARR coverage → rejected (I.6a.3) ─────
+//
+// Post-I.6a.3 semantic shift: stock-item lines are no longer
+// unconditionally rejected under controlled mode. Instead, the CN
+// requires EXACT posted-ARReturnReceipt coverage per Q6. When no
+// ARR exists (or coverage is short), the post fails with
+// ErrCreditNoteStockItemRequiresReturnReceipt — the same sentinel
+// kept for RULE4_RUNBOOK §10a triage continuity, but the wrapped
+// message now names the coverage shortfall rather than a blanket ban.
 
-func TestPostCreditNote_IN5_ControlledModeRejectsStockLine(t *testing.T) {
+func TestPostCreditNote_IN5_ControlledModeWithoutARRCoverageRejected(t *testing.T) {
 	db := testCreditNoteIN5DB(t)
 	fx := seedCreditNoteIN5Fixture(t, db)
 	invoice, invoiceLineID := postInvoiceWithStockLine(t, db, fx, 10, 15.00)
@@ -377,7 +387,7 @@ func TestPostCreditNote_IN5_ControlledModeRejectsStockLine(t *testing.T) {
 	cnID := createDraftCreditNoteWithStockLine(t, db, fx, invoice, invoiceLineID, 4, 15.00)
 	err := PostCreditNote(db, fx.CompanyID, cnID, "tester", nil)
 	if err == nil {
-		t.Fatalf("expected rejection")
+		t.Fatalf("expected rejection (no ARR coverage)")
 	}
 	if !isErr(err, ErrCreditNoteStockItemRequiresReturnReceipt) {
 		t.Fatalf("got %v want ErrCreditNoteStockItemRequiresReturnReceipt", err)
