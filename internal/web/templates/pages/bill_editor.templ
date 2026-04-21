@@ -47,6 +47,7 @@ templ bodyBillEditor(vm BillEditorVM) {
 			data-accounts={ vm.AccountsJSON }
 			data-tax-codes={ vm.TaxCodesJSON }
 			data-tasks={ vm.TasksJSON }
+			data-products={ vm.ProductsJSON }
 			data-initial-lines={ vm.InitialLinesJSON }
 			data-payment-terms={ vm.PaymentTermsJSON }
 			data-contact-terms={ vm.VendorsTermsJSON }
@@ -287,22 +288,46 @@ templ bodyBillEditor(vm BillEditorVM) {
 					</button>
 				</div>
 
+				<p class="mt-1 text-small text-text-muted2">
+					Pick an <strong>Item</strong> on any line you want to track in inventory
+					— stock items route through the inventory ledger on bill post. Leave
+					Item blank on pure expense lines (utilities, fees, labour) and enter
+					the Amount directly.
+				</p>
+
 				<div class="mt-4 overflow-x-auto">
 					<table class="w-full text-left text-body">
 						<thead class="text-small uppercase tracking-wider text-text-muted">
 							<tr class="border-b border-border">
-								<th class="py-2 pr-3 w-56">Category</th>
+								<th class="py-2 pr-3 w-48">Item</th>
+								<th class="py-2 pr-3 w-44">Category</th>
 								<th class="py-2 pr-3">Description</th>
-								<th class="py-2 pr-3 w-64">Task</th>
-								<th class="py-2 pr-3 w-32">Billing</th>
-								<th class="py-2 pr-3 w-32">Amount</th>
-								<th class="py-2 pr-3 w-40">Sales Tax</th>
+								<th class="py-2 pr-3 w-20">Qty</th>
+								<th class="py-2 pr-3 w-28">Unit Price</th>
+								<th class="py-2 pr-3 w-28">Amount</th>
+								<th class="py-2 pr-3 w-32">Tax</th>
+								<th class="py-2 pr-3 w-44">Task</th>
+								<th class="py-2 pr-3 w-24">Billing</th>
 								<th class="py-2 w-10"></th>
 							</tr>
 						</thead>
 						<tbody>
 							<template x-for="(line, idx) in lines" :key="idx">
 								<tr class="border-b border-border-subtle align-top">
+									// Item picker (IN.1 / Rule #4)
+									<td class="py-2 pr-3">
+										<select
+											:name="'line_product_service_id[' + idx + ']'"
+											x-model="line.product_service_id"
+											@change="onProductChange(idx, $event.target.value)"
+											class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+										>
+											<option value="">— Expense only (no item) —</option>
+											<template x-for="p in products" :key="p.id">
+												<option :value="p.id" :selected="String(line.product_service_id) === String(p.id)" x-text="productLabel(p)"></option>
+											</template>
+										</select>
+									</td>
 									// Category (expense account)
 									<td class="py-2 pr-3">
 										<select
@@ -338,6 +363,65 @@ templ bodyBillEditor(vm BillEditorVM) {
 											class="mt-1 text-small text-danger"
 										></p>
 									</td>
+									// Qty (Rule #4: authoritative when Item picked; disabled otherwise)
+									<td class="py-2 pr-3">
+										<input
+											type="text"
+											:name="'line_qty[' + idx + ']'"
+											x-model="line.qty"
+											:disabled="!line.product_service_id"
+											@input="onQtyOrPriceInput(idx)"
+											@blur="onQtyBlur(idx)"
+											inputmode="decimal"
+											placeholder="1"
+											class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text text-right placeholder:text-text-muted2 outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-40"
+										/>
+									</td>
+									// Unit Price (Rule #4: authoritative when Item picked)
+									<td class="py-2 pr-3">
+										<input
+											type="text"
+											:name="'line_unit_price[' + idx + ']'"
+											x-model="line.unit_price"
+											:disabled="!line.product_service_id"
+											@input="onQtyOrPriceInput(idx)"
+											@blur="onUnitPriceBlur(idx)"
+											inputmode="decimal"
+											placeholder="0.00"
+											class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text text-right placeholder:text-text-muted2 outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-40"
+										/>
+									</td>
+									// Unit hidden passthrough (currently unused; reserved for catalog-driven unit display)
+									<input type="hidden" :name="'line_unit[' + idx + ']'" :value="line.unit || ''"/>
+									// Amount (read-only when Item picked; editable otherwise)
+									<td class="py-2 pr-3">
+										<input
+											type="text"
+											:name="'line_amount[' + idx + ']'"
+											x-model="line.amount"
+											:readonly="Boolean(line.product_service_id)"
+											@input="calcLine(idx)"
+											@blur="onAmountBlur(idx)"
+											inputmode="decimal"
+											placeholder="0.00"
+											class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text text-right placeholder:text-text-muted2 outline-none focus:ring-2 focus:ring-primary-focus"
+											:class="line.product_service_id ? 'opacity-70' : ''"
+										/>
+									</td>
+									// Sales Tax
+									<td class="py-2 pr-3">
+										<select
+											:name="'line_tax_code_id[' + idx + ']'"
+											x-model="line.tax_code_id"
+											@change="onTaxCodeChange(idx)"
+											class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+										>
+											<option value="">-- None --</option>
+											<template x-for="tc in taxCodes" :key="tc.id">
+												<option :value="tc.id" :selected="String(line.tax_code_id) === String(tc.id)" x-text="tc.code + ' — ' + tc.name"></option>
+											</template>
+										</select>
+									</td>
 									// Task
 									<td class="py-2 pr-3">
 										<select
@@ -363,33 +447,6 @@ templ bodyBillEditor(vm BillEditorVM) {
 											/>
 											<span>Billable</span>
 										</label>
-									</td>
-									// Amount
-									<td class="py-2 pr-3">
-										<input
-											type="text"
-											:name="'line_amount[' + idx + ']'"
-											x-model="line.amount"
-											@input="calcLine(idx)"
-											@blur="onAmountBlur(idx)"
-											inputmode="decimal"
-											placeholder="0.00"
-											class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text placeholder:text-text-muted2 outline-none focus:ring-2 focus:ring-primary-focus"
-										/>
-									</td>
-									// Sales Tax
-									<td class="py-2 pr-3">
-										<select
-											:name="'line_tax_code_id[' + idx + ']'"
-											x-model="line.tax_code_id"
-											@change="onTaxCodeChange(idx)"
-											class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus"
-										>
-											<option value="">-- None --</option>
-											<template x-for="tc in taxCodes" :key="tc.id">
-												<option :value="tc.id" :selected="String(line.tax_code_id) === String(tc.id)" x-text="tc.code + ' — ' + tc.name"></option>
-											</template>
-										</select>
 									</td>
 									// Remove
 									<td class="py-2 text-center">
@@ -459,7 +516,7 @@ templ bodyBillEditor(vm BillEditorVM) {
 					</div>
 				</div>
 
-				<script src="/static/bill_editor.js?v=7"></script>
+				<script src="/static/bill_editor.js?v=8"></script>
 			</div>
 
 			</fieldset>

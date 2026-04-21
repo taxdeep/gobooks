@@ -30,10 +30,14 @@ func TestBillEditor_UsesDarkSurfaceInputsAndSingleInit(t *testing.T) {
 	html := sb.String()
 
 	for _, want := range []string{
+		// Description input (still amount-only class shape; unchanged by IN.1).
 		`placeholder="Description" autocomplete="off" @input="calcLine(idx)" class="block w-full rounded-md bg-surface px-2 py-1.5 text-body text-text placeholder:text-text-muted2 outline-none"`,
-		`placeholder="0.00" class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text placeholder:text-text-muted2 outline-none focus:ring-2 focus:ring-primary-focus"`,
+		// IN.1 adds numeric alignment (text-right) to Qty / Unit Price / Amount.
+		// Keep the dark-surface sentinel substring but allow the text-right variant
+		// that IN.1 introduced.
+		`placeholder="0.00" class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text text-right placeholder:text-text-muted2 outline-none focus:ring-2 focus:ring-primary-focus"`,
 		`class="w-24 rounded-md border border-border-input bg-surface px-2 py-0.5 text-right text-body text-text tabular-nums outline-none focus:ring-2 focus:ring-primary-focus"`,
-		`/static/bill_editor.js?v=7`,
+		`/static/bill_editor.js?v=8`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("expected bill editor HTML to contain %q", want)

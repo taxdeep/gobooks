@@ -42,11 +42,16 @@ type BillEditorVM struct {
 	PaymentTerms    []models.PaymentTerm
 	SelectableTasks []models.Task
 	Warehouses      []models.Warehouse
+	// Products is the catalog of ProductService rows for the line-level
+	// Item picker (IN.1 / Rule #4 item-aware bill lines). Consumed as
+	// the ProductsJSON dataset by the Alpine bill editor.
+	Products []models.ProductService
 
 	// Alpine initialisation JSON (set by handler, consumed by bill_editor.js).
 	AccountsJSON     string
 	TaxCodesJSON     string
 	TasksJSON        string
+	ProductsJSON     string
 	InitialLinesJSON string
 	// PaymentTermsJSON is a JSON array [{code, netDays}] for Alpine due-date calc.
 	PaymentTermsJSON string
@@ -74,9 +79,22 @@ type BillEditorVM struct {
 
 // BillLineFormRow carries one line's form values (and optional error) for
 // re-rendering after a validation failure.
+//
+// Rule #4 (Item-Nature Invariant) IN.1 additions:
+//   - ProductServiceID: when set, this bill line is item-aware. Blank →
+//     amount-only legacy line (no inventory effect, no Rule #4 action).
+//   - Qty + Unit + UnitPrice: meaningful only when ProductServiceID is set.
+//     The Bill save path uses these as the authoritative quantity / price
+//     on the underlying BillLine row (replaces the hardcoded Qty=1,
+//     UnitPrice=Amount fallback). When ProductServiceID is blank, these
+//     fields are ignored and legacy Qty=1, UnitPrice=Amount persists.
 type BillLineFormRow struct {
+	ProductServiceID string
 	ExpenseAccountID string
 	Description      string
+	Qty              string
+	Unit             string
+	UnitPrice        string
 	Amount           string
 	TaxCodeID        string
 	TaskID           string

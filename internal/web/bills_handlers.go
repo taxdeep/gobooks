@@ -208,9 +208,26 @@ func (s *Server) prefillBillFromPO(companyID, poID uint, vm *pages.BillEditorVM)
 		if expenseAcctID != 0 {
 			expenseAcctStr = strconv.FormatUint(uint64(expenseAcctID), 10)
 		}
+		// Rule #4 / IN.1: carry the PO line's product identity +
+		// Qty + UnitPrice through to the new Bill line so stock
+		// items actually form inventory on Bill post (legacy flag=off
+		// path). Previously we flattened to a single Amount and lost
+		// ProductServiceID/Qty/UnitPrice — which is exactly why the
+		// post-PO→Bill inventory chain was silently broken.
+		psIDStr := ""
+		qtyStr := ""
+		unitPriceStr := ""
+		if pl.ProductServiceID != nil && *pl.ProductServiceID != 0 {
+			psIDStr = strconv.FormatUint(uint64(*pl.ProductServiceID), 10)
+			qtyStr = pl.Qty.StringFixed(4)
+			unitPriceStr = pl.UnitPrice.StringFixed(4)
+		}
 		rows = append(rows, pages.BillLineFormRow{
+			ProductServiceID: psIDStr,
 			ExpenseAccountID: expenseAcctStr,
 			Description:      desc,
+			Qty:              qtyStr,
+			UnitPrice:        unitPriceStr,
 			Amount:           amount,
 		})
 	}
@@ -410,8 +427,12 @@ func (s *Server) handleBillSaveDraft(c *fiber.Ctx) error {
 	}
 
 	type parsedBillLine struct {
+		ProductServiceID   *uint
 		ExpenseAccountID   *uint
 		Description        string
+		Qty                decimal.Decimal
+		Unit               string
+		UnitPrice          decimal.Decimal
 		Amount             decimal.Decimal
 		TaxCodeID          *uint
 		TaskID             *uint
@@ -425,8 +446,12 @@ func (s *Server) handleBillSaveDraft(c *fiber.Ctx) error {
 
 	for i := 0; i < lineCount; i++ {
 		key := func(field string) string { return fmt.Sprintf("%s[%d]", field, i) }
+		psIDRaw := strings.TrimSpace(c.FormValue(key("line_product_service_id")))
 		accIDRaw := strings.TrimSpace(c.FormValue(key("line_expense_account_id")))
 		desc := strings.TrimSpace(c.FormValue(key("line_description")))
+		qtyRaw := strings.TrimSpace(c.FormValue(key("line_qty")))
+		unitRaw := strings.TrimSpace(c.FormValue(key("line_unit")))
+		unitPriceRaw := strings.TrimSpace(c.FormValue(key("line_unit_price")))
 		amtRaw := strings.TrimSpace(c.FormValue(key("line_amount")))
 		tcIDRaw := strings.TrimSpace(c.FormValue(key("line_tax_code_id")))
 		taskIDRaw := strings.TrimSpace(c.FormValue(key("line_task_id")))
@@ -437,8 +462,12 @@ func (s *Server) handleBillSaveDraft(c *fiber.Ctx) error {
 		}
 
 		row := pages.BillLineFormRow{
+			ProductServiceID: psIDRaw,
 			ExpenseAccountID: accIDRaw,
 			Description:      desc,
+			Qty:              qtyRaw,
+			Unit:             unitRaw,
+			UnitPrice:        unitPriceRaw,
 			Amount:           amtRaw,
 			TaxCodeID:        tcIDRaw,
 			TaskID:           taskIDRaw,
@@ -454,7 +483,34 @@ func (s *Server) handleBillSaveDraft(c *fiber.Ctx) error {
 		}
 		lineFormRows = append(lineFormRows, row)
 
-		pl := parsedBillLine{Description: desc, Amount: amt}
+		pl := parsedBillLine{Description: desc, Amount: amt, Unit: unitRaw}
+		if id64, err := strconv.ParseUint(psIDRaw, 10, 64); err == nil && id64 > 0 {
+			id := uint(id64)
+			pl.ProductServiceID = &id
+		}
+		// Rule #4: when an item is picked, Qty and UnitPrice come from
+		// the form; Amount is computed (qty × unit_price). When no
+		// item is picked, legacy fallback: Qty=1, UnitPrice=Amount.
+		if pl.ProductServiceID != nil {
+			qty, qErr := decimal.NewFromString(qtyRaw)
+			if qErr != nil || !qty.IsPositive() {
+				qty = decimal.NewFromInt(1)
+			}
+			up, upErr := decimal.NewFromString(unitPriceRaw)
+			if upErr != nil || up.IsNegative() {
+				up = decimal.Zero
+			}
+			pl.Qty = qty
+			pl.UnitPrice = up
+			// Authoritative Amount for the bill JE is qty × unit_price
+			// when an item is picked. Overrides whatever was in the
+			// hidden/readonly Amount input — operator can't desync by
+			// editing Amount independently.
+			pl.Amount = qty.Mul(up).RoundBank(2)
+		} else {
+			pl.Qty = decimal.NewFromInt(1)
+			pl.UnitPrice = amt
+		}
 		if id64, err := strconv.ParseUint(accIDRaw, 10, 64); err == nil && id64 > 0 {
 			id := uint(id64)
 			pl.ExpenseAccountID = &id
@@ -785,12 +841,13 @@ func (s *Server) handleBillSaveDraft(c *fiber.Ctx) error {
 				CompanyID:          companyID,
 				BillID:             bill.ID,
 				SortOrder:          uint(i + 1),
+				ProductServiceID:   cl.ProductServiceID,
 				Description:        cl.Description,
-				Qty:                decimal.NewFromInt(1),
-				UnitPrice:          cl.Amount,
-				LineNet:            cl.LineNet,
-				LineTax:            cl.LineTax,
-				LineTotal:          cl.LineTotal,
+				Qty:                cl.Qty,
+				UnitPrice:          cl.UnitPrice,
+				LineNet:             cl.LineNet,
+				LineTax:             cl.LineTax,
+				LineTotal:           cl.LineTotal,
 				ExpenseAccountID:   cl.ExpenseAccountID,
 				TaxCodeID:          cl.TaxCodeID,
 				TaskID:             cl.TaskID,
@@ -892,9 +949,20 @@ func (s *Server) loadBillEditorDropdowns(companyID uint, vm *pages.BillEditorVM)
 	}
 	vm.SelectableTasks = selectableTasks
 	vm.Warehouses, _ = services.ListWarehouses(s.DB, companyID)
+
+	// Rule #4 / IN.1: product catalog for line-level Item picker. Same
+	// filter as PO editor (active items; no type restriction — Q1 says
+	// the picker always shows amount-only fallback + whatever items
+	// exist; operator can leave Item blank for pure expense lines).
+	if err := s.DB.Where("company_id = ? AND is_active = true", companyID).Order("name asc").
+		Find(&vm.Products).Error; err != nil {
+		return err
+	}
+
 	vm.AccountsJSON = buildBillAccountsJSON(vm.Accounts)
 	vm.TaxCodesJSON = buildTaxCodesJSON(vm.TaxCodes)
 	vm.TasksJSON = buildBillTasksJSON(vm.SelectableTasks)
+	vm.ProductsJSON = buildBillProductsJSON(vm.Products)
 	vm.PaymentTermsJSON = buildPaymentTermsJSON(vm.PaymentTerms)
 	vm.VendorsTermsJSON = buildVendorsTermsJSON(vm.Vendors)
 
@@ -942,8 +1010,12 @@ func buildVendorsTermsJSON(vendors []models.Vendor) string {
 // buildBillInitialLinesJSON serialises BillLineFormRow slice for Alpine's data-initial-lines.
 func buildBillInitialLinesJSON(rows []pages.BillLineFormRow) string {
 	type alpineLine struct {
+		ProductServiceID string `json:"product_service_id"`
 		ExpenseAccountID string `json:"expense_account_id"`
 		Description      string `json:"description"`
+		Qty              string `json:"qty"`
+		Unit             string `json:"unit"`
+		UnitPrice        string `json:"unit_price"`
 		Amount           string `json:"amount"`
 		TaxCodeID        string `json:"tax_code_id"`
 		TaskID           string `json:"task_id"`
@@ -962,9 +1034,21 @@ func buildBillInitialLinesJSON(rows []pages.BillLineFormRow) string {
 		if tax == "" {
 			tax = "0.00"
 		}
+		qty := r.Qty
+		if qty == "" {
+			qty = "1"
+		}
+		unitPrice := r.UnitPrice
+		if unitPrice == "" {
+			unitPrice = "0.00"
+		}
 		items = append(items, alpineLine{
+			ProductServiceID: r.ProductServiceID,
 			ExpenseAccountID: r.ExpenseAccountID,
 			Description:      r.Description,
+			Qty:              qty,
+			Unit:             r.Unit,
+			UnitPrice:        unitPrice,
 			Amount:           r.Amount,
 			TaxCodeID:        r.TaxCodeID,
 			TaskID:           r.TaskID,
@@ -973,6 +1057,48 @@ func buildBillInitialLinesJSON(rows []pages.BillLineFormRow) string {
 			LineTax:          tax,
 			Error:            r.Error,
 		})
+	}
+	b, _ := json.Marshal(items)
+	return string(b)
+}
+
+// buildBillProductsJSON serialises the product catalog for the
+// line-level Item picker (Rule #4 / IN.1). Shape mirrors the
+// existing AccountsJSON pattern: minimal fields, one row per active
+// ProductService.
+//
+// Exposed fields:
+//   - id, sku, name — display identity for the picker label
+//   - is_stock_item — drives the "· stock" vs "· service" badge on
+//     each option, matching the PO editor's labelling convention
+//   - inventory_account_id / cogs_account_id — read by the Alpine
+//     store to auto-populate the line's Category (ExpenseAccountID)
+//     when an item is selected (same derivation chain as
+//     derivePOLineExpenseAccountID for PO→Bill conversion)
+func buildBillProductsJSON(products []models.ProductService) string {
+	type alpineProduct struct {
+		ID                 uint   `json:"id"`
+		SKU                string `json:"sku"`
+		Name               string `json:"name"`
+		IsStockItem        bool   `json:"is_stock_item"`
+		InventoryAccountID uint   `json:"inventory_account_id"`
+		COGSAccountID      uint   `json:"cogs_account_id"`
+	}
+	items := make([]alpineProduct, 0, len(products))
+	for _, p := range products {
+		a := alpineProduct{
+			ID:          p.ID,
+			SKU:         p.SKU,
+			Name:        p.Name,
+			IsStockItem: p.IsStockItem,
+		}
+		if p.InventoryAccountID != nil {
+			a.InventoryAccountID = *p.InventoryAccountID
+		}
+		if p.COGSAccountID != nil {
+			a.COGSAccountID = *p.COGSAccountID
+		}
+		items = append(items, a)
 	}
 	b, _ := json.Marshal(items)
 	return string(b)
