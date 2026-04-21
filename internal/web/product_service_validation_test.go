@@ -35,6 +35,7 @@ func testProductServiceValidationDB(t *testing.T) *gorm.DB {
 		&models.ProductService{},
 		&models.ItemComponent{},
 		&models.AuditLog{},
+		&models.Warehouse{},
 	); err != nil {
 		t.Fatal(err)
 	}
