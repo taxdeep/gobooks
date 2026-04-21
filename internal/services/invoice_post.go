@@ -422,6 +422,26 @@ func PostInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 			return fmt.Errorf("update invoice status: %w", err)
 		}
 
+		// IN.3: Rule #4 post-time invariant. Invoice is the movement
+		// owner under shipment_required=false (legacy Invoice-forms-
+		// COGS); under shipment_required=true the Shipment owned it
+		// earlier and no invoice movements should exist. Either way,
+		// assert the observed state matches the dispatch.
+		invoiceStockLines := 0
+		for _, l := range inv.Lines {
+			if l.ProductService != nil && l.ProductService.IsStockItem {
+				invoiceStockLines++
+			}
+		}
+		if err := AssertRule4PostTimeInvariant(tx, companyID,
+			Rule4DocInvoice, inv.ID, invoiceStockLines,
+			Rule4WorkflowState{
+				ShipmentRequired: company.ShipmentRequired,
+			},
+		); err != nil {
+			return err
+		}
+
 		// f. Audit log.
 		cid := companyID
 		return WriteAuditLogWithContextDetails(tx, "invoice.posted", "invoice", inv.ID, actor,

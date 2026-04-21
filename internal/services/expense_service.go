@@ -589,6 +589,25 @@ func PostExpense(db *gorm.DB, companyID, expenseID uint, actor string, actorUser
 			return fmt.Errorf("save expense: %w", err)
 		}
 
+		// IN.3: Rule #4 post-time invariant. Expense is movement
+		// owner under legacy mode only; controlled mode rejected
+		// stock lines pre-post (IN.2 Q2), so if we're here with
+		// stock lines, we're legacy and movements must exist.
+		expenseStockLines := 0
+		for _, l := range expense.Lines {
+			if l.ProductService != nil && l.ProductService.IsStockItem {
+				expenseStockLines++
+			}
+		}
+		if err := AssertRule4PostTimeInvariant(tx, companyID,
+			Rule4DocExpense, expense.ID, expenseStockLines,
+			Rule4WorkflowState{
+				ReceiptRequired: company.ReceiptRequired,
+			},
+		); err != nil {
+			return err
+		}
+
 		cid := companyID
 		TryWriteAuditLogWithContextDetails(
 			tx,

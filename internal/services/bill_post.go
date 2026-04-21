@@ -384,6 +384,26 @@ func PostBill(db *gorm.DB, companyID, billID uint, actor string, userID *uuid.UU
 			return fmt.Errorf("update bill status: %w", err)
 		}
 
+		// IN.3: Rule #4 post-time invariant. Count stock-item lines
+		// and assert the movement-owner dispatch actually produced
+		// (or correctly suppressed) inventory_movements rows. Any
+		// violation aborts the tx — no JE survives a Rule #4 break.
+		billStockLines := 0
+		for _, l := range bill.Lines {
+			if l.ProductService != nil && l.ProductService.IsStockItem {
+				billStockLines++
+			}
+		}
+		if err := AssertRule4PostTimeInvariant(tx, companyID,
+			Rule4DocBill, bill.ID, billStockLines,
+			Rule4WorkflowState{
+				ReceiptRequired:  company.ReceiptRequired,
+				ShipmentRequired: company.ShipmentRequired,
+			},
+		); err != nil {
+			return err
+		}
+
 		// f. Audit log.
 		cid := companyID
 		return WriteAuditLogWithContextDetails(tx, "bill.posted", "bill", bill.ID, actor,
