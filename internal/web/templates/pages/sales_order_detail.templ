@@ -128,6 +128,18 @@ templ soEditForm(vm SalesOrderDetailVM) {
 						class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
 					/>
 				</div>
+				<div>
+					<label class="block text-body font-medium text-text">Customer PO#</label>
+					<input
+						type="text"
+						name="customer_po_number"
+						value={ vm.Order.CustomerPONumber }
+						maxlength="64"
+						placeholder="Customer's reference"
+						autocomplete="off"
+						class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+					/>
+				</div>
 				<div class="md:col-span-2">
 					<label class="block text-body font-medium text-text">Notes (Customer Visible)</label>
 					<textarea
@@ -308,6 +320,29 @@ templ soReadOnlyView(vm SalesOrderDetailVM) {
 						{ vm.Order.RequiredBy.Format("2006-01-02") }
 					} else {
 						—
+					}
+				</dd>
+			</div>
+			<div>
+				<dt class="text-small text-text-muted">Customer PO#</dt>
+				<dd class="mt-1 text-body font-medium">
+					if vm.Order.CustomerPONumber != "" {
+						{ vm.Order.CustomerPONumber }
+					} else {
+						<span class="text-text-muted2">—</span>
+					}
+				</dd>
+			</div>
+			<div>
+				<dt class="text-small text-text-muted">Quote#</dt>
+				<dd class="mt-1 text-body font-medium">
+					if vm.Order.QuoteID != nil && vm.Order.Quote != nil {
+						<a
+							href={ templ.SafeURL("/quotes/" + Uitoa(*vm.Order.QuoteID)) }
+							class="text-primary hover:text-primary-hover hover:underline"
+						>{ vm.Order.Quote.QuoteNumber } ↗</a>
+					} else {
+						<span class="text-text-muted2">—</span>
 					}
 				</dd>
 			</div>

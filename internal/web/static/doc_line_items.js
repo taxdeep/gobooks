@@ -1,4 +1,5 @@
 // doc_line_items.js — shared Alpine factory for transaction-document line-item tables.
+// v=2 — adds insertLineBelow(idx) for the per-row "+" button UI.
 // Used by Invoice, Quote, SO, Bill, PO, Expense editors via ui.DocLineItems.
 //
 // The factory returns a partial Alpine component that provides:
@@ -45,6 +46,15 @@ function gobooksLineItems(config) {
 
     addLine() {
       this.lines.push(this._blankLine());
+      this.onLinesChange();
+    },
+
+    // insertLineBelow splices a new blank line immediately after idx. Used by
+    // the per-row "+" button in ui.DocLineItems — adds a row in-context rather
+    // than at the end, matching the QBO-style editors the refactor targets.
+    insertLineBelow(idx) {
+      const pos = Math.max(0, Math.min(this.lines.length, idx + 1));
+      this.lines.splice(pos, 0, this._blankLine());
       this.onLinesChange();
     },
 

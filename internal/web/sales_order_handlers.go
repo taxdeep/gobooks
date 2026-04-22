@@ -223,12 +223,13 @@ func parseSalesOrderInput(c *fiber.Ctx) (services.SalesOrderInput, error) {
 	}
 
 	in := services.SalesOrderInput{
-		CustomerID:   uint(cid),
-		CurrencyCode: strings.ToUpper(strings.TrimSpace(c.FormValue("currency_code"))),
-		OrderDate:    orderDate,
-		RequiredBy:   requiredBy,
-		Notes:        strings.TrimSpace(c.FormValue("notes")),
-		Memo:         strings.TrimSpace(c.FormValue("memo")),
+		CustomerID:       uint(cid),
+		CurrencyCode:     strings.ToUpper(strings.TrimSpace(c.FormValue("currency_code"))),
+		OrderDate:        orderDate,
+		RequiredBy:       requiredBy,
+		Notes:            strings.TrimSpace(c.FormValue("notes")),
+		Memo:             services.SanitizeMemoHTML(c.FormValue("memo")),
+		CustomerPONumber: strings.TrimSpace(c.FormValue("customer_po_number")),
 	}
 
 	for _, l := range lines {

@@ -40,13 +40,14 @@ type SalesOrderLineInput struct {
 
 // SalesOrderInput holds all data needed to create or update a SalesOrder.
 type SalesOrderInput struct {
-	CustomerID   uint
-	CurrencyCode string
-	OrderDate    time.Time
-	RequiredBy   *time.Time
-	Notes        string
-	Memo         string
-	Lines        []SalesOrderLineInput
+	CustomerID       uint
+	CurrencyCode     string
+	OrderDate        time.Time
+	RequiredBy       *time.Time
+	Notes            string
+	Memo             string
+	CustomerPONumber string // migration 088 — customer's reference number on their PO
+	Lines            []SalesOrderLineInput
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -104,9 +105,10 @@ func CreateSalesOrder(db *gorm.DB, companyID uint, in SalesOrderInput) (*models.
 		Status:       models.SalesOrderStatusDraft,
 		OrderDate:    in.OrderDate,
 		RequiredBy:   in.RequiredBy,
-		CurrencyCode: in.CurrencyCode,
-		Notes:        in.Notes,
-		Memo:         in.Memo,
+		CurrencyCode:     in.CurrencyCode,
+		Notes:            in.Notes,
+		Memo:             in.Memo,
+		CustomerPONumber: in.CustomerPONumber,
 	}
 
 	var lines []models.SalesOrderLine
@@ -157,7 +159,7 @@ func CreateSalesOrder(db *gorm.DB, companyID uint, in SalesOrderInput) (*models.
 // GetSalesOrder loads a sales order with its lines for the given company.
 func GetSalesOrder(db *gorm.DB, companyID, orderID uint) (*models.SalesOrder, error) {
 	var so models.SalesOrder
-	err := db.Preload("Lines.ProductService").Preload("Customer").
+	err := db.Preload("Lines.ProductService").Preload("Customer").Preload("Quote").
 		Where("id = ? AND company_id = ?", orderID, companyID).
 		First(&so).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -226,15 +228,16 @@ func UpdateSalesOrder(db *gorm.DB, companyID, orderID uint, in SalesOrderInput) 
 			return fmt.Errorf("delete old lines: %w", err)
 		}
 		updates := map[string]any{
-			"customer_id":   in.CustomerID,
-			"currency_code": in.CurrencyCode,
-			"order_date":    in.OrderDate,
-			"required_by":   in.RequiredBy,
-			"notes":         in.Notes,
-			"memo":          in.Memo,
-			"subtotal":      subtotal.Round(4),
-			"tax_total":     taxTotal.Round(4),
-			"total":         subtotal.Add(taxTotal).Round(4),
+			"customer_id":        in.CustomerID,
+			"currency_code":      in.CurrencyCode,
+			"order_date":         in.OrderDate,
+			"required_by":        in.RequiredBy,
+			"notes":              in.Notes,
+			"memo":               in.Memo,
+			"customer_po_number": in.CustomerPONumber,
+			"subtotal":           subtotal.Round(4),
+			"tax_total":          taxTotal.Round(4),
+			"total":              subtotal.Add(taxTotal).Round(4),
 		}
 		if err := tx.Model(&so).Updates(updates).Error; err != nil {
 			return fmt.Errorf("update sales order: %w", err)

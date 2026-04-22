@@ -13,20 +13,21 @@ import templruntime "github.com/a-h/templ/runtime"
 // DocLineItems is the shared Excel-like line-item table used by transaction-
 // document editors. It provides:
 //
-//   • Section title + "+ Add Lines" and "Clear all lines" action buttons.
+//   • Optional section title (no top-right Add button — per-row + icon inserts
+//     new rows instead, so the action sits next to the context it creates).
 //   • A <table> scaffold with <thead> and <tbody>.
 //   • An Alpine <template x-for="(line, idx) in lines"> loop over the parent
 //     scope's `lines` array.
-//   • A trailing trash-icon column for row deletion (parent must expose
-//     removeLine(idx)).
+//   • A leading "+" column (insertLineBelow(idx)) and trailing trash column
+//     (removeLine(idx)) wrapping the caller's headerRow / bodyRow.
 //   • A <input type="hidden" name="line_count"> kept in sync with lines.length.
 //   • An optional totals slot rendered below the table, right-aligned.
 //
 // The caller is responsible for the header row (<th> cells) and body row
-// (<td> cells) via templ.Component slots, because each document type has its
-// own column mix. The parent form provides the Alpine scope (via x-data) that
-// the cells and template loop rely on: `lines`, `addLine()`, `removeLine(idx)`,
-// `clearAllLines()`, and any per-cell event handlers referenced in the bodyRow.
+// (<td> cells) via templ.Component slots. The parent form provides the Alpine
+// scope (via x-data) that the cells and template loop rely on: `lines`,
+// `addLine()`, `insertLineBelow(idx)`, `removeLine(idx)`, and any per-cell
+// event handlers referenced in the bodyRow.
 //
 // Auto-grow behaviour (last blank row becomes a new row when the user starts
 // typing) lives in the gobooksLineItems() Alpine factory and is wired by the
@@ -37,16 +38,6 @@ type DocLineItemsVM struct {
 	// Title is the section heading (e.g. "Line Items", "Product or service").
 	// Empty string skips the heading.
 	Title string
-	// AddLabel overrides the "+ Add Lines" button text.
-	AddLabel string
-	// ClearLabel overrides the "Clear all lines" button text.
-	ClearLabel string
-	// HideActionButtons hides both "+ Add Lines" and "Clear all lines"
-	// (e.g. when the editor is fully locked in review mode).
-	HideActionButtons bool
-	// ShowClearAll toggles the "Clear all lines" button. Defaults to off
-	// (most editors only show Add to keep the action area clean).
-	ShowClearAll bool
 	// DeleteDisabledWhen is an Alpine expression evaluated per row; when
 	// truthy, the trash button is disabled on that row.
 	// Defaults to "lines.length === 1" (prevent deleting the last row).
@@ -96,83 +87,26 @@ func DocLineItems(vm DocLineItemsVM, headerRow templ.Component, bodyRow templ.Co
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if vm.Title != "" || !vm.HideActionButtons {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"flex items-center justify-between\">")
+		if vm.Title != "" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<h2 class=\"text-section font-semibold text-text\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if vm.Title != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<h2 class=\"text-section font-semibold text-text\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var4 string
-				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(vm.Title)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/ui/doc_line_items.templ`, Line: 52, Col: 64}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</h2>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<span></span> ")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
+			var templ_7745c5c3_Var4 string
+			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(vm.Title)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/ui/doc_line_items.templ`, Line: 41, Col: 62}
 			}
-			if !vm.HideActionButtons {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<div class=\"flex items-center gap-2\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				if vm.ShowClearAll {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<button type=\"button\" @click=\"clearAllLines()\" class=\"rounded-md border border-border-input bg-surface px-3 py-1.5 text-body font-medium text-text hover:bg-background\">")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var5 string
-					templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(docLineItemsClearLabel(vm))
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/ui/doc_line_items.templ`, Line: 64, Col: 36}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</button> ")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<button type=\"button\" @click=\"addLine()\" class=\"rounded-md border border-border-input bg-surface px-3 py-1.5 text-body font-medium text-text hover:bg-background\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var6 string
-				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(docLineItemsAddLabel(vm))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/ui/doc_line_items.templ`, Line: 72, Col: 33}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</button></div>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</h2>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<div class=\"mt-4 overflow-x-auto\"><table class=\"w-full text-left text-body\"><thead class=\"text-small uppercase tracking-wider text-text-muted\"><tr class=\"border-b border-border\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div class=\"mt-4 overflow-x-auto\"><table class=\"w-full text-left text-body\"><thead class=\"text-small uppercase tracking-wider text-text-muted\"><tr class=\"border-b border-border\"><th class=\"py-2 w-8\"></th>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -180,7 +114,7 @@ func DocLineItems(vm DocLineItemsVM, headerRow templ.Component, bodyRow templ.Co
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<th class=\"py-2 w-10\"></th></tr></thead> <tbody><template x-for=\"(line, idx) in lines\" :key=\"idx\"><tr class=\"border-b border-border-subtle align-top\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<th class=\"py-2 w-8\"></th></tr></thead> <tbody><template x-for=\"(line, idx) in lines\" :key=\"idx\"><tr class=\"border-b border-border-subtle align-top\"><td class=\"py-2 pr-1 text-center\"><button type=\"button\" @click=\"insertLineBelow(idx)\" class=\"rounded p-1 text-text-muted3 hover:bg-surface-hover hover:text-primary\" title=\"Insert line below\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 4v16m8-8H4\"></path></svg></button></td>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -188,25 +122,25 @@ func DocLineItems(vm DocLineItemsVM, headerRow templ.Component, bodyRow templ.Co
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<td class=\"py-2 text-center\"><button type=\"button\" @click=\"removeLine(idx)\" :disabled=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<td class=\"py-2 text-center\"><button type=\"button\" @click=\"removeLine(idx)\" :disabled=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var7 string
-		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(docLineItemsDeleteDisabled(vm))
+		var templ_7745c5c3_Var5 string
+		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(docLineItemsDeleteDisabled(vm))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/ui/doc_line_items.templ`, Line: 94, Col: 51}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/ui/doc_line_items.templ`, Line: 72, Col: 51}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\" class=\"rounded p-1 text-text-muted3 hover:text-danger disabled:opacity-30\" title=\"Remove line\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M6 18L18 6M6 6l12 12\"></path></svg></button></td></tr></template></tbody></table></div><input type=\"hidden\" name=\"line_count\" :value=\"lines.length\"> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" class=\"rounded p-1 text-text-muted3 hover:text-danger disabled:opacity-30\" title=\"Remove line\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M6 18L18 6M6 6l12 12\"></path></svg></button></td></tr></template></tbody></table></div><input type=\"hidden\" name=\"line_count\" :value=\"lines.length\"> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if totals != nil {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<div class=\"mt-4 flex justify-end\"><div class=\"w-72 space-y-1 text-body\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div class=\"mt-4 flex justify-end\"><div class=\"w-72 space-y-1 text-body\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -214,12 +148,12 @@ func DocLineItems(vm DocLineItemsVM, headerRow templ.Component, bodyRow templ.Co
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
