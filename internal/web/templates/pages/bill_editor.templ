@@ -194,21 +194,27 @@ templ bodyBillEditor(vm BillEditorVM) {
 						/>
 					</div>
 
-					if len(vm.Warehouses) > 0 {
-						// Warehouse (inventory routing)
+					if len(vm.Warehouses) == 1 {
+						// Single-warehouse companies: no picker needed.
+						// The sole warehouse is auto-bound via hidden
+						// input; stock lines on this bill route there
+						// on post. Shown as a read-only pill so the
+						// operator can still see where stock will land.
 						<div>
-							<label class="block text-body font-medium text-text">Warehouse <span class="font-normal text-text-muted2">(optional)</span></label>
-							<select
-								name="warehouse_id"
-								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
-							>
-								<option value="">— Company default —</option>
-								for _, w := range vm.Warehouses {
-									<option value={ Uitoa(w.ID) } selected?={ Uitoa(w.ID) == vm.WarehouseID }>{ w.Name } ({ w.Code })</option>
-								}
-							</select>
-							<p class="mt-1 text-small text-text-muted2">Inventory received from this bill will be routed to the selected warehouse.</p>
+							<label class="block text-body font-medium text-text">Warehouse</label>
+							<div class="mt-2 flex items-center rounded-md border border-border bg-background px-3 py-2 text-body text-text">
+								<span class="font-medium">{ vm.Warehouses[0].Name }</span>
+								<span class="ml-2 text-text-muted2">({ vm.Warehouses[0].Code })</span>
+							</div>
+							<input type="hidden" name="warehouse_id" value={ Uitoa(vm.Warehouses[0].ID) }/>
+							<p class="mt-1 text-small text-text-muted2">Inventory received from this bill will be routed here.</p>
 						</div>
+					} else if len(vm.Warehouses) > 1 {
+						// Multi-warehouse: required combobox. Type-ahead
+						// matches against code, name, description, and
+						// address fields so "Ma"→"main", "bur"→Burnaby
+						// warehouse all work.
+						@billWarehouseCombobox(vm)
 					}
 
 					if vm.MultiCurrencyEnabled {
@@ -589,4 +595,124 @@ templ bodyBillEditor(vm BillEditorVM) {
 			</script>
 		</form>
 	</div>
+}
+
+// billWarehouseCombobox renders the multi-warehouse type-ahead picker
+// consumed by the Bill editor when the company has 2+ active
+// warehouses. Progressive enhancement is not attempted — the feature
+// exists because the plain <select> scaled poorly past ~5 rows and a
+// no-JS fallback wouldn't meet the operator need this is addressing.
+// The hidden warehouse_id input still carries the committed value so
+// form submits work; required on the input for HTML5 validation.
+templ billWarehouseCombobox(vm BillEditorVM) {
+	<div>
+		<label class="block text-body font-medium text-text">Warehouse <span class="text-danger">*</span></label>
+		<div
+			x-data={ billWarehouseComboboxData() }
+			x-init="init()"
+			data-warehouses={ vm.WarehousesJSON }
+			data-initial-id={ vm.WarehouseID }
+			class="relative mt-2"
+			@click.outside="open = false"
+		>
+			<input
+				type="text"
+				x-model="query"
+				@focus="open = true; filter()"
+				@input="filter()"
+				@keydown.arrow-down.prevent="move(1)"
+				@keydown.arrow-up.prevent="move(-1)"
+				@keydown.enter.prevent="pickHighlighted()"
+				@keydown.escape="open = false"
+				placeholder="Type to search (name, code, city)..."
+				autocomplete="off"
+				required
+				aria-autocomplete="list"
+				:aria-expanded="open"
+				role="combobox"
+				class="block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted2 outline-none focus:ring-2 focus:ring-primary-focus"
+			/>
+			// Hidden field carries the committed ID. Kept in sync with
+			// selectedId — cleared to '' whenever the query no longer
+			// matches the committed label, so the form cannot submit
+			// a stale ID when the operator keeps typing past a pick.
+			<input type="hidden" name="warehouse_id" :value="selectedId" required/>
+			<div
+				x-show="open"
+				x-cloak
+				style="display:none"
+				class="absolute z-50 mt-1 w-full overflow-y-auto rounded-md border border-border bg-surface shadow-lg"
+				role="listbox"
+			>
+				<template x-for="(w, idx) in filtered" :key="w.id">
+					<div
+						@click="pick(w)"
+						@mouseenter="highlighted = idx"
+						:class="highlighted === idx ? 'cursor-pointer px-3 py-2 bg-background' : 'cursor-pointer px-3 py-2 hover:bg-background'"
+						role="option"
+						:aria-selected="selectedId == w.id"
+					>
+						<div class="text-body text-text" x-text="w.label"></div>
+						<div x-show="w.addr" class="text-small text-text-muted2" x-text="w.addr"></div>
+					</div>
+				</template>
+				<div x-show="filtered.length === 0" class="px-3 py-2 text-body text-text-muted2">No matching warehouse.</div>
+			</div>
+		</div>
+		<p class="mt-1 text-small text-text-muted2">Inventory received from this bill will be routed to the selected warehouse.</p>
+	</div>
+}
+
+// billWarehouseComboboxData returns the Alpine x-data body. Pulled
+// out into its own Go helper so the backtick string doesn't choke
+// the templ parser (same shape as creditNoteFormData).
+func billWarehouseComboboxData() string {
+	return `{
+		warehouses: [],
+		filtered: [],
+		query: '',
+		selectedId: '',
+		selectedLabel: '',
+		open: false,
+		highlighted: 0,
+		init() {
+			try { this.warehouses = JSON.parse(this.$el.dataset.warehouses || '[]'); } catch (e) { this.warehouses = []; }
+			this.filtered = this.warehouses.slice();
+			var initId = this.$el.dataset.initialId || '';
+			if (initId) {
+				var found = null;
+				for (var i = 0; i < this.warehouses.length; i++) {
+					if (String(this.warehouses[i].id) === String(initId)) { found = this.warehouses[i]; break; }
+				}
+				if (found) { this.selectedId = String(found.id); this.selectedLabel = found.label; this.query = found.label; }
+			}
+		},
+		filter() {
+			var q = (this.query || '').toLowerCase().trim();
+			if (!q) { this.filtered = this.warehouses.slice(); }
+			else {
+				this.filtered = this.warehouses.filter(function(w){
+					return (w.search || '').indexOf(q) !== -1 || (w.label || '').toLowerCase().indexOf(q) !== -1;
+				});
+			}
+			if (this.query !== this.selectedLabel) { this.selectedId = ''; }
+			this.highlighted = 0;
+			this.open = true;
+		},
+		move(delta) {
+			if (!this.open) { this.open = true; return; }
+			var n = this.filtered.length;
+			if (n === 0) return;
+			this.highlighted = (this.highlighted + delta + n) % n;
+		},
+		pick(w) {
+			this.selectedId = String(w.id);
+			this.selectedLabel = w.label;
+			this.query = w.label;
+			this.open = false;
+		},
+		pickHighlighted() {
+			if (this.filtered[this.highlighted]) { this.pick(this.filtered[this.highlighted]); }
+		}
+	}`
 }

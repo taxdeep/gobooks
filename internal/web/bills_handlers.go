@@ -965,6 +965,7 @@ func (s *Server) loadBillEditorDropdowns(companyID uint, vm *pages.BillEditorVM)
 	vm.ProductsJSON = buildBillProductsJSON(vm.Products)
 	vm.PaymentTermsJSON = buildPaymentTermsJSON(vm.PaymentTerms)
 	vm.VendorsTermsJSON = buildVendorsTermsJSON(vm.Vendors)
+	vm.WarehousesJSON = buildBillWarehousesJSON(vm.Warehouses)
 
 	// Multi-currency: load company settings and enabled currencies.
 	var company models.Company
@@ -1099,6 +1100,52 @@ func buildBillProductsJSON(products []models.ProductService) string {
 			a.COGSAccountID = *p.COGSAccountID
 		}
 		items = append(items, a)
+	}
+	b, _ := json.Marshal(items)
+	return string(b)
+}
+
+// buildBillWarehousesJSON serialises the warehouse list for the
+// type-ahead combobox. The `search` field is a lowercased bag
+// (code + name + description + city + country + address) so a
+// single substring match against the user query hits any of
+// those. `label` is what the input displays after selection.
+func buildBillWarehousesJSON(warehouses []models.Warehouse) string {
+	type alpineWarehouse struct {
+		ID     uint   `json:"id"`
+		Code   string `json:"code"`
+		Name   string `json:"name"`
+		Label  string `json:"label"`
+		Addr   string `json:"addr"`
+		Search string `json:"search"`
+	}
+	items := make([]alpineWarehouse, 0, len(warehouses))
+	for _, w := range warehouses {
+		if !w.IsActive {
+			continue
+		}
+		addrParts := make([]string, 0, 3)
+		if w.AddressLine1 != "" {
+			addrParts = append(addrParts, w.AddressLine1)
+		}
+		if w.City != "" {
+			addrParts = append(addrParts, w.City)
+		}
+		if w.Country != "" {
+			addrParts = append(addrParts, w.Country)
+		}
+		addr := strings.Join(addrParts, ", ")
+		search := strings.ToLower(strings.Join([]string{
+			w.Code, w.Name, w.Description, w.AddressLine1, w.City, w.Country,
+		}, " "))
+		items = append(items, alpineWarehouse{
+			ID:     w.ID,
+			Code:   w.Code,
+			Name:   w.Name,
+			Label:  w.Name + " (" + w.Code + ")",
+			Addr:   addr,
+			Search: search,
+		})
 	}
 	b, _ := json.Marshal(items)
 	return string(b)

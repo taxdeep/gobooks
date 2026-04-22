@@ -147,7 +147,10 @@ templ poEditForm(vm PurchaseOrderDetailVM) {
 		<div>
 			<div class="flex items-center justify-between">
 				<h3 class="text-body font-semibold text-text">Line Items</h3>
-				<button type="button" id="add-line-btn" class="text-body text-primary hover:underline">+ Add Line</button>
+				// Auto-grow rows: filling a row appends a blank one below
+				// (see script). The old + Add Line button is redundant,
+				// so it's removed — row 0 is seeded when there are no
+				// lines, and typing / selecting extends the grid.
 			</div>
 			<p class="mt-1 text-small text-text-muted2">
 				Pick a product or service per line. Lines linked to a stock item flow through to Receipt → Bill matching (Phase H); lines linked to a service item feed reinvoice / task attribution. Unlinked lines stay as generic expense-only.
@@ -183,11 +186,7 @@ templ poEditForm(vm PurchaseOrderDetailVM) {
 
 		<div class="flex gap-3">
 			<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
-				if vm.PurchaseOrder.ID == 0 {
-					Create Purchase Order
-				} else {
-					Save Purchase Order
-				}
+				Save
 			</button>
 		</div>
 	</form>
@@ -201,7 +200,7 @@ templ poEditForm(vm PurchaseOrderDetailVM) {
 		<div class="mt-3 flex gap-3">
 			<form method="POST" action={ templ.SafeURL("/purchase-orders/" + fmt.Sprintf("%d", vm.PurchaseOrder.ID) + "/confirm") }>
 				<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
-					Confirm PO
+					Confirm
 				</button>
 			</form>
 			<form method="POST" action={ templ.SafeURL("/purchase-orders/" + fmt.Sprintf("%d", vm.PurchaseOrder.ID) + "/cancel") }>
@@ -213,16 +212,16 @@ templ poEditForm(vm PurchaseOrderDetailVM) {
 	}
 
 	<script>
-		// Dynamic +Add Line: clone the first existing row, clear
-		// user-entered values, and reindex all name="lines[i][...]"
-		// attributes so the handler's sequential parser sees no gaps.
-		// Cloning (vs building HTML inline) means the Item <select>
-		// and its options stay in sync with the server-rendered set
-		// without duplicating the option list in JS.
-		//
-		// Live Net = Qty × UnitPrice. Event delegation on the tbody
-		// so cloned rows pick it up automatically — no per-row
-		// rebinding needed after clone.
+		// Line editor behavior:
+		//   1. Live Net = Qty × UnitPrice (event-delegated on tbody
+		//      so new rows pick it up without per-row rebinding).
+		//   2. Auto-grow: whenever the LAST row has any user content
+		//      (item selected or description typed), append a fresh
+		//      blank row below. Replaces the old explicit "+ Add Line"
+		//      button — operators just keep typing and the grid grows.
+		// Cloning the first row (rather than building HTML inline)
+		// keeps the Item <select> in sync with the server-rendered
+		// option set without duplicating it in JS.
 		(function(){
 			function reindexRow(row, idx) {
 				row.querySelectorAll('[name^="lines["]').forEach(function(el){
@@ -264,6 +263,44 @@ templ poEditForm(vm PurchaseOrderDetailVM) {
 				var text = net.toFixed(2);
 				if (span) span.textContent = text; else netCell.textContent = text;
 			}
+			// Row considered "used" when the operator has made a
+			// meaningful choice: picked an item OR typed a description.
+			// Qty/UnitPrice alone don't trigger growth because the
+			// seeded row ships with qty=1 / price=0 defaults.
+			function rowHasContent(row) {
+				if (!row) return false;
+				var sel = row.querySelector('select[name$="[product_service_id]"]');
+				if (sel && sel.value) return true;
+				var desc = row.querySelector('input[name$="[description]"]');
+				if (desc && desc.value.trim() !== '') return true;
+				return false;
+			}
+			function appendBlankRow(tbody) {
+				var first = tbody.querySelector('tr');
+				if (!first) return;
+				var clone = first.cloneNode(true);
+				clone.querySelectorAll('input[type="text"]').forEach(function(inp){
+					if (inp.name.endsWith('[qty]')) { inp.value = '1'; return; }
+					if (inp.name.endsWith('[unit_price]')) { inp.value = '0.00'; return; }
+					inp.value = '';
+				});
+				clone.querySelectorAll('select').forEach(function(sel){ sel.selectedIndex = 0; });
+				var netCell = clone.querySelector('td[data-net-cell]');
+				if (netCell) {
+					var span = netCell.querySelector('[data-numfmt]');
+					if (span) span.textContent = '0.00'; else netCell.textContent = '0.00';
+				}
+				tbody.appendChild(clone);
+				Array.prototype.forEach.call(tbody.querySelectorAll('tr'), function(tr, i){
+					reindexRow(tr, i);
+				});
+			}
+			function maybeGrow(tbody) {
+				var rows = tbody.querySelectorAll('tr');
+				if (rows.length === 0) return;
+				var last = rows[rows.length - 1];
+				if (rowHasContent(last)) appendBlankRow(tbody);
+			}
 			var tbody = document.getElementById('po-lines');
 			if (tbody) {
 				tbody.addEventListener('input', function(e){
@@ -272,34 +309,18 @@ templ poEditForm(vm PurchaseOrderDetailVM) {
 					if (t.name.endsWith('[qty]') || t.name.endsWith('[unit_price]')) {
 						recomputeNet(t.closest('tr'));
 					}
+					if (t.name.endsWith('[description]')) {
+						maybeGrow(tbody);
+					}
+				});
+				tbody.addEventListener('change', function(e){
+					var t = e.target;
+					if (!t || !t.name) return;
+					if (t.name.endsWith('[product_service_id]')) {
+						maybeGrow(tbody);
+					}
 				});
 			}
-			document.getElementById('add-line-btn').addEventListener('click', function(){
-				const tbody = document.getElementById('po-lines');
-				const first = tbody.querySelector('tr');
-				if (!first) return;
-				const clone = first.cloneNode(true);
-				// Clear entered values while preserving structure.
-				clone.querySelectorAll('input[type="text"]').forEach(function(inp){
-					if (inp.name.endsWith('[qty]')) { inp.value = '1'; return; }
-					if (inp.name.endsWith('[unit_price]')) { inp.value = '0.00'; return; }
-					inp.value = '';
-				});
-				clone.querySelectorAll('select').forEach(function(sel){
-					sel.selectedIndex = 0;
-				});
-				// Reset Net cell to 0.00 (matches the qty=1 × price=0 defaults).
-				const netCell = clone.querySelector('td[data-net-cell]');
-				if (netCell) {
-					var span = netCell.querySelector('[data-numfmt]');
-					if (span) span.textContent = '0.00'; else netCell.textContent = '0.00';
-				}
-				tbody.appendChild(clone);
-				// Reindex every row's name attributes in document order.
-				Array.prototype.forEach.call(tbody.querySelectorAll('tr'), function(tr, i){
-					reindexRow(tr, i);
-				});
-			});
 		})();
 	</script>
 }

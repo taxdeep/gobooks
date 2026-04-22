@@ -57,6 +57,10 @@ type BillEditorVM struct {
 	PaymentTermsJSON string
 	// VendorsTermsJSON is a JSON object {"vendorId": "termCode"} for auto-fill.
 	VendorsTermsJSON string
+	// WarehousesJSON is a JSON array [{id, code, name, label, search}] used
+	// by the type-ahead warehouse combobox. Present only when the company
+	// has 2+ warehouses; the single-warehouse case skips the combobox.
+	WarehousesJSON string
 
 	// Line rows — used when re-rendering after a validation error.
 	Lines []BillLineFormRow
