@@ -138,6 +138,8 @@ templ bodyCustomerDetail(vm CustomerDetailVM) {
 			</div>
 		</div>
 
+		@customerShippingAddressesCard(vm)
+
 		<div class="mt-6 rounded-lg border border-border bg-surface p-6">
 			<h2 class="text-section font-semibold text-text">Quick Links</h2>
 			<p class="mt-2 text-small text-text-muted2">Use the existing operational pages to drill into this customer's work and invoices.</p>
@@ -598,6 +600,112 @@ templ customerEditCard(vm CustomerDetailVM) {
 				>
 					Cancel
 				</a>
+			</div>
+		</form>
+	</div>
+}
+
+// customerShippingAddressesCard — list + inline add form for the customer's
+// shipping-address catalogue (migration 088). Invoice / SO / Shipment editors
+// read from this list for the ship-to dropdown; the billing address stays on
+// the Customer row itself and is edited via customerEditCard above.
+templ customerShippingAddressesCard(vm CustomerDetailVM) {
+	<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+		<h2 class="text-section font-semibold text-text">Shipping Addresses</h2>
+		<p class="mt-1 text-small text-text-muted2">Named ship-to locations. Pickable from the ship-to dropdown on invoices, sales orders, and shipments. The customer's billing address lives on the main record above.</p>
+
+		if len(vm.ShippingAddresses) == 0 {
+			<p class="mt-4 text-body text-text-muted2">No shipping addresses yet. Add one below.</p>
+		} else {
+			<div class="mt-4 overflow-x-auto">
+				<table class="w-full text-left text-body">
+					<thead class="text-small uppercase tracking-wider text-text-muted">
+						<tr class="border-b border-border">
+							<th class="py-2 pr-4 w-40">Label</th>
+							<th class="py-2 pr-4">Address</th>
+							<th class="py-2 pr-4 w-28">Default</th>
+							<th class="py-2 w-40"></th>
+						</tr>
+					</thead>
+					<tbody class="text-text">
+						for _, addr := range vm.ShippingAddresses {
+							<tr class="border-b border-border-subtle align-top">
+								<td class="py-3 pr-4 font-medium">
+									if addr.Label != "" {
+										{ addr.Label }
+									} else {
+										<span class="text-text-muted2">—</span>
+									}
+								</td>
+								<td class="py-3 pr-4 whitespace-pre-line text-small">{ addr.FormattedAddress() }</td>
+								<td class="py-3 pr-4">
+									if addr.IsDefault {
+										<span class="inline-block rounded bg-primary-soft px-2 py-0.5 text-small font-medium text-primary">Default</span>
+									} else {
+										<span class="text-text-muted2">—</span>
+									}
+								</td>
+								<td class="py-3 text-right">
+									<div class="flex items-center justify-end gap-2">
+										if !addr.IsDefault {
+											<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/customers/%d/shipping-addresses/%d/set-default", vm.Customer.ID, addr.ID)) } class="inline">
+												<button type="submit" class="rounded px-2 py-1 text-small text-primary hover:bg-surface-hover">Set default</button>
+											</form>
+										}
+										<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/customers/%d/shipping-addresses/%d/delete", vm.Customer.ID, addr.ID)) } class="inline" onsubmit="return confirm('Delete this shipping address? Historical documents that used it keep their snapshot.')">
+											<button type="submit" class="rounded px-2 py-1 text-small text-danger hover:bg-danger-soft">Delete</button>
+										</form>
+									</div>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+
+		<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/customers/%d/shipping-addresses", vm.Customer.ID)) } class="mt-6 rounded-md border border-border bg-background p-4">
+			<h3 class="text-body font-semibold text-text">Add shipping address</h3>
+			<div class="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+				<div>
+					<label class="block text-body font-medium text-text">Label</label>
+					<input type="text" name="label" maxlength="64" placeholder="e.g. Warehouse A" class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"/>
+				</div>
+				<div>
+					<label class="block text-body font-medium text-text">Country</label>
+					<input type="text" name="addr_country" class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"/>
+				</div>
+				<div class="md:col-span-2">
+					<label class="block text-body font-medium text-text">Street 1</label>
+					<input type="text" name="addr_street1" class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"/>
+				</div>
+				<div class="md:col-span-2">
+					<label class="block text-body font-medium text-text">Street 2</label>
+					<input type="text" name="addr_street2" class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"/>
+				</div>
+				<div>
+					<label class="block text-body font-medium text-text">City</label>
+					<input type="text" name="addr_city" class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"/>
+				</div>
+				<div>
+					<label class="block text-body font-medium text-text">Province / State</label>
+					<input type="text" name="addr_province" class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"/>
+				</div>
+				<div>
+					<label class="block text-body font-medium text-text">Postal Code</label>
+					<input type="text" name="addr_postal_code" class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"/>
+				</div>
+				<div class="flex items-end">
+					<label class="inline-flex items-center gap-2 text-body text-text">
+						<input type="checkbox" name="is_default" value="1" class="h-4 w-4 rounded border-border-input text-primary focus:ring-primary-focus"/>
+						Set as default
+					</label>
+				</div>
+			</div>
+			<div class="mt-4 flex justify-end">
+				<button type="submit" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
+					Add shipping address
+				</button>
 			</div>
 		</form>
 	</div>

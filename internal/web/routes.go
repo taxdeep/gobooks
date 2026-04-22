@@ -522,6 +522,10 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Post("/customers", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerCreate)
 	app.Post("/customers/update", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerUpdate)
 	app.Post("/customers/:id/update", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerDetailUpdate)
+	// Migration 088: customer shipping-address catalogue (for ship-to selection on Invoice/SO/Shipment).
+	app.Post("/customers/:id/shipping-addresses", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerShippingAddressCreate)
+	app.Post("/customers/:id/shipping-addresses/:addrID/delete", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerShippingAddressDelete)
+	app.Post("/customers/:id/shipping-addresses/:addrID/set-default", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerShippingAddressSetDefault)
 	app.Post("/customers/:id/delete", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerDelete)
 	app.Post("/customers/:id/deactivate", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerDeactivate)
 	app.Post("/customers/:id/reactivate", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handleCustomerReactivate)

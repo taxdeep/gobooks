@@ -149,6 +149,10 @@ func (s *Server) handleCustomerDetail(c *fiber.Ctx) error {
 	// customer is referenced by any AR document.
 	hasRecords, _ := services.CustomerHasRecords(s.DB, companyID, uint(customerID64))
 
+	// Migration 088: shipping-address catalogue for the dedicated card.
+	// Best-effort: errors leave the list empty (card shows "no addresses").
+	shippingAddrs, _ := services.ListCustomerShippingAddresses(s.DB, companyID, uint(customerID64))
+
 	vm := pages.CustomerDetailVM{
 		HasCompany:              true,
 		Customer:                workspace.Customer,
@@ -173,6 +177,7 @@ func (s *Server) handleCustomerDetail(c *fiber.Ctx) error {
 		Deactivated:             c.Query("deactivated") == "1",
 		Reactivated:             c.Query("reactivated") == "1",
 		LifecycleErr:            strings.TrimSpace(c.Query("error")),
+		ShippingAddresses:       shippingAddrs,
 	}
 
 	// Seed the edit form from the current customer record when entering edit

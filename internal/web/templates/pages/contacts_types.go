@@ -145,6 +145,10 @@ type CustomerDetailVM struct {
 	Deactivated   bool // flash banner: just deactivated
 	Reactivated   bool // flash banner: just reactivated
 	LifecycleErr  string
+
+	// Migration 088: multi-shipping-address catalogue. Rendered as a dedicated
+	// card on the detail page with inline add form + per-row delete / set-default.
+	ShippingAddresses []models.CustomerShippingAddress
 }
 
 type VendorsVM struct {
