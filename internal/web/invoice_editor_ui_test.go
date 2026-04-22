@@ -34,7 +34,7 @@ func TestInvoiceEditor_UsesCustomerSmartPickerContextAndMemoStateGuards(t *testi
 		`:disabled="invoiceId === 0 || memoAssist.loading || memoAssist.visible"`,
 		`Save the draft first to use AI assist.`,
 		`No suggestion available right now.`,
-		`/static/invoice_editor.js?v=15`,
+		`/static/invoice_editor.js?v=16`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("expected invoice editor HTML to contain %q", want)

@@ -114,7 +114,7 @@ func DocLineItems(vm DocLineItemsVM, headerRow templ.Component, bodyRow templ.Co
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<th class=\"py-2 w-8\"></th></tr></thead> <tbody><template x-for=\"(line, idx) in lines\" :key=\"idx\"><tr class=\"border-b border-border-subtle align-top\"><td class=\"py-2 pr-1 text-center\"><button type=\"button\" @click=\"insertLineBelow(idx)\" class=\"rounded p-1 text-text-muted3 hover:bg-surface-hover hover:text-primary\" title=\"Insert line below\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 4v16m8-8H4\"></path></svg></button></td>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<th class=\"py-2 w-8\"></th></tr></thead> <tbody><template x-for=\"(line, idx) in lines\" :key=\"line._rowKey\"><tr class=\"border-b border-border-subtle align-top\"><td class=\"py-2 pr-1 text-center\"><button type=\"button\" @click=\"insertLineBelow(idx)\" class=\"rounded p-1 text-text-muted3 hover:bg-surface-hover hover:text-primary\" title=\"Insert line below\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" stroke-width=\"2\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 4v16m8-8H4\"></path></svg></button></td>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -50,7 +50,7 @@ templ DocLineItems(vm DocLineItemsVM, headerRow templ.Component, bodyRow templ.C
 					</tr>
 				</thead>
 				<tbody>
-					<template x-for="(line, idx) in lines" :key="idx">
+					<template x-for="(line, idx) in lines" :key="line._rowKey">
 						<tr class="border-b border-border-subtle align-top">
 							<td class="py-2 pr-1 text-center">
 								<button

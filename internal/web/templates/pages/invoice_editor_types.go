@@ -131,10 +131,15 @@ type InvoiceLineFormRow struct {
 	// Used by the task-draft save handler to match locked lines for tax-code updates.
 	LineID           string
 	ProductServiceID string
-	Description      string
-	Qty              string
-	UnitPrice        string
-	TaxCodeID        string
+	// ProductServiceLabel is the human-readable name shown in the Items
+	// SmartPicker's visible input on edit-page rehydration. Populated server-
+	// side from the Preloaded ProductService; empty for lines where the picker
+	// should show the placeholder instead.
+	ProductServiceLabel string
+	Description         string
+	Qty                 string
+	UnitPrice           string
+	TaxCodeID           string
 	// Computed by server after save (shown read-only on re-render).
 	LineNet   string
 	LineTax   string

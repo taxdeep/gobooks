@@ -22,6 +22,7 @@ templ invoiceEditorContent(vm InvoiceEditorVM) {
 		action="/invoices/save-draft"
 		class="space-y-6"
 		x-data="invoiceEditor()"
+		@gobooks-item-picker-select="onProductChange($event.detail.idx, $event.detail.id)"
 		data-products={ vm.ProductsJSON }
 		data-tax-codes={ vm.TaxCodesJSON }
 		data-initial-lines={ vm.InitialLinesJSON }
@@ -88,7 +89,7 @@ templ invoiceEditorContent(vm InvoiceEditorVM) {
 
 		@invoiceCustomerQuickCreateDrawer(vm)
 
-		<script src="/static/invoice_editor.js?v=15"></script>
+		<script src="/static/invoice_editor.js?v=16"></script>
 		<script>
 			function ieExitReview() {
 				var fieldset = document.getElementById('ie-fields');
@@ -328,6 +329,57 @@ templ fieldError(msg string) {
 	}
 }
 
+// invoiceLineItemPicker is the per-row product/service picker rendered inside
+// the DocLineItems x-for scope. Uses the gobooksItemPicker() Alpine factory
+// (which captures `line` + `idx` from the surrounding scope at construction)
+// so each row has its own search / dropdown state. Hidden input submits
+// line_product_service_id[idx] alongside the normal form fields.
+templ invoiceLineItemPicker() {
+	<div
+		x-data="gobooksItemPicker(line, idx)"
+		class="relative"
+		@click.outside="close()"
+		@keydown="onKeydown($event)"
+	>
+		<input type="hidden" :name="'line_product_service_id[' + idx + ']'" :value="line.product_service_id"/>
+		<input
+			type="text"
+			autocomplete="off"
+			placeholder="Item / service…"
+			x-model="query"
+			@focus="onFocus()"
+			@input.debounce.250ms="onInput()"
+			:disabled="taskReadOnly && line.locked"
+			class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
+		/>
+		<div
+			x-show="open"
+			x-cloak
+			class="absolute z-40 mt-1 w-72 rounded-md border border-border bg-surface shadow-lg"
+			style="display:none"
+		>
+			<div x-show="loading" class="px-3 py-2 text-body text-text-muted2">Searching…</div>
+			<div x-show="!loading && failed" class="px-3 py-2 text-body text-danger">Search failed. Try again.</div>
+			<ul x-show="!loading && !failed && items.length > 0" class="max-h-60 overflow-y-auto py-1">
+				<template x-for="(item, i) in items" :key="item.id">
+					<li
+						role="option"
+						@click="select(item)"
+						@mouseenter="highlighted = i"
+						:class="highlighted === i
+							? 'flex flex-col px-3 py-2 cursor-pointer bg-background'
+							: 'flex flex-col px-3 py-2 cursor-pointer hover:bg-background'"
+					>
+						<span class="text-body text-text" x-text="item.primary"></span>
+						<span x-show="item.secondary" class="text-small text-text-muted2" x-text="item.secondary"></span>
+					</li>
+				</template>
+			</ul>
+			<div x-show="!loading && !failed && items.length === 0" class="px-3 py-2 text-body text-text-muted2">No matches.</div>
+		</div>
+	</div>
+}
+
 templ invoiceLinesHeader(vm InvoiceEditorVM) {
 	<th class="py-2 pr-3 w-40">Item</th>
 	<th class="py-2 pr-3">Description *</th>
@@ -339,18 +391,7 @@ templ invoiceLinesHeader(vm InvoiceEditorVM) {
 
 templ invoiceLinesBody(vm InvoiceEditorVM) {
 	<td class="py-2 pr-3">
-		<select
-			:name="'line_product_service_id[' + idx + ']'"
-			x-model="line.product_service_id"
-			@change="onProductChange(idx, $event.target.value)"
-			:disabled="taskReadOnly && line.locked"
-			class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
-		>
-			<option value="">-- None --</option>
-			<template x-for="p in products" :key="p.id">
-				<option :value="p.id" x-text="p.name"></option>
-			</template>
-		</select>
+		@invoiceLineItemPicker()
 	</td>
 	<td class="py-2 pr-3">
 		<input

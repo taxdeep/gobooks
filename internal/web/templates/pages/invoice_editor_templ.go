@@ -96,14 +96,14 @@ func invoiceEditorContent(vm InvoiceEditorVM) templ.Component {
 			templ_7745c5c3_Var3 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<form method=\"post\" action=\"/invoices/save-draft\" class=\"space-y-6\" x-data=\"invoiceEditor()\" data-products=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<form method=\"post\" action=\"/invoices/save-draft\" class=\"space-y-6\" x-data=\"invoiceEditor()\" @gobooks-item-picker-select=\"onProductChange($event.detail.idx, $event.detail.id)\" data-products=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(vm.ProductsJSON)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 25, Col: 33}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 26, Col: 33}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -116,7 +116,7 @@ func invoiceEditorContent(vm InvoiceEditorVM) templ.Component {
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(vm.TaxCodesJSON)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 26, Col: 34}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 27, Col: 34}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -129,7 +129,7 @@ func invoiceEditorContent(vm InvoiceEditorVM) templ.Component {
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(vm.InitialLinesJSON)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 27, Col: 42}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 28, Col: 42}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
@@ -142,7 +142,7 @@ func invoiceEditorContent(vm InvoiceEditorVM) templ.Component {
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(vm.PaymentTermsJSON)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 28, Col: 42}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 29, Col: 42}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -155,7 +155,7 @@ func invoiceEditorContent(vm InvoiceEditorVM) templ.Component {
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(vm.CustomersTermsJSON)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 29, Col: 44}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 30, Col: 44}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
@@ -168,7 +168,7 @@ func invoiceEditorContent(vm InvoiceEditorVM) templ.Component {
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(vm.TermCode)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 30, Col: 34}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 31, Col: 34}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
@@ -181,7 +181,7 @@ func invoiceEditorContent(vm InvoiceEditorVM) templ.Component {
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(vm.InvoiceDate)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 31, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 32, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
@@ -194,7 +194,7 @@ func invoiceEditorContent(vm InvoiceEditorVM) templ.Component {
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(vm.DueDate)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 32, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 33, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
@@ -207,7 +207,7 @@ func invoiceEditorContent(vm InvoiceEditorVM) templ.Component {
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(Uitoa(vm.EditingID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 33, Col: 39}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 34, Col: 39}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
@@ -220,7 +220,7 @@ func invoiceEditorContent(vm InvoiceEditorVM) templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(vm.CustomerEmail)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 34, Col: 48}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 35, Col: 48}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -233,7 +233,7 @@ func invoiceEditorContent(vm InvoiceEditorVM) templ.Component {
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(vm.BillTo)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 35, Col: 34}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 36, Col: 34}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
@@ -246,7 +246,7 @@ func invoiceEditorContent(vm InvoiceEditorVM) templ.Component {
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(vm.ShipTo)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 36, Col: 34}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 37, Col: 34}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
@@ -259,7 +259,7 @@ func invoiceEditorContent(vm InvoiceEditorVM) templ.Component {
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(vm.ShipToLabel)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 37, Col: 45}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 38, Col: 45}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
@@ -272,7 +272,7 @@ func invoiceEditorContent(vm InvoiceEditorVM) templ.Component {
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(shippingAddressesJSON(vm.AvailableShippingAddresses))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 38, Col: 88}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 39, Col: 88}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
@@ -305,7 +305,7 @@ func invoiceEditorContent(vm InvoiceEditorVM) templ.Component {
 			var templ_7745c5c3_Var18 string
 			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(Uitoa(vm.EditingID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 46, Col: 69}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 47, Col: 69}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 			if templ_7745c5c3_Err != nil {
@@ -324,7 +324,7 @@ func invoiceEditorContent(vm InvoiceEditorVM) templ.Component {
 			var templ_7745c5c3_Var19 string
 			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(Uitoa(vm.SalesOrderID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 52, Col: 76}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 53, Col: 76}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 			if templ_7745c5c3_Err != nil {
@@ -383,7 +383,7 @@ func invoiceEditorContent(vm InvoiceEditorVM) templ.Component {
 			var templ_7745c5c3_Var20 string
 			templ_7745c5c3_Var20, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(editorDisplay(vm.ReviewLocked))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 76, Col: 42}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 77, Col: 42}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 			if templ_7745c5c3_Err != nil {
@@ -412,7 +412,7 @@ func invoiceEditorContent(vm InvoiceEditorVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<script src=\"/static/invoice_editor.js?v=15\"></script><script>\r\n\t\t\tfunction ieExitReview() {\r\n\t\t\t\tvar fieldset = document.getElementById('ie-fields');\r\n\t\t\t\tvar submitBtn = document.getElementById('ie-submit-btn');\r\n\t\t\t\tif (fieldset) fieldset.disabled = false;\r\n\t\t\t\tdocument.getElementById('ie-review-banner').style.display = 'none';\r\n\t\t\t\tdocument.getElementById('ie-cancel-link').style.display = '';\r\n\t\t\t\tdocument.getElementById('ie-edit-btn').style.display = 'none';\r\n\t\t\t\tdocument.getElementById('ie-save-btn').style.display = '';\r\n\t\t\t\tif (submitBtn) submitBtn.style.display = 'none';\r\n\t\t\t}\r\n\t\t</script></form>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<script src=\"/static/invoice_editor.js?v=16\"></script><script>\r\n\t\t\tfunction ieExitReview() {\r\n\t\t\t\tvar fieldset = document.getElementById('ie-fields');\r\n\t\t\t\tvar submitBtn = document.getElementById('ie-submit-btn');\r\n\t\t\t\tif (fieldset) fieldset.disabled = false;\r\n\t\t\t\tdocument.getElementById('ie-review-banner').style.display = 'none';\r\n\t\t\t\tdocument.getElementById('ie-cancel-link').style.display = '';\r\n\t\t\t\tdocument.getElementById('ie-edit-btn').style.display = 'none';\r\n\t\t\t\tdocument.getElementById('ie-save-btn').style.display = '';\r\n\t\t\t\tif (submitBtn) submitBtn.style.display = 'none';\r\n\t\t\t}\r\n\t\t</script></form>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -618,7 +618,7 @@ func invoiceHeaderRight(vm InvoiceEditorVM) templ.Component {
 		var templ_7745c5c3_Var30 string
 		templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(vm.InvoiceNumber)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 193, Col: 28}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 194, Col: 28}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 		if templ_7745c5c3_Err != nil {
@@ -671,7 +671,7 @@ func invoiceHeaderRight(vm InvoiceEditorVM) templ.Component {
 		var templ_7745c5c3_Var33 string
 		templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(vm.InvoiceDate)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 207, Col: 26}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 208, Col: 26}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 		if templ_7745c5c3_Err != nil {
@@ -762,7 +762,7 @@ func invoiceHeaderRight(vm InvoiceEditorVM) templ.Component {
 			var templ_7745c5c3_Var37 string
 			templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(pt.Code)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 244, Col: 28}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 245, Col: 28}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 			if templ_7745c5c3_Err != nil {
@@ -785,7 +785,7 @@ func invoiceHeaderRight(vm InvoiceEditorVM) templ.Component {
 			var templ_7745c5c3_Var38 string
 			templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(pt.DropdownLabel())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 244, Col: 88}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 245, Col: 88}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 			if templ_7745c5c3_Err != nil {
@@ -808,7 +808,7 @@ func invoiceHeaderRight(vm InvoiceEditorVM) templ.Component {
 			var templ_7745c5c3_Var39 templ.SafeURL
 			templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(invoiceSalesOrderLink(vm.SalesOrderID)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 252, Col: 67}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 253, Col: 67}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 			if templ_7745c5c3_Err != nil {
@@ -821,7 +821,7 @@ func invoiceHeaderRight(vm InvoiceEditorVM) templ.Component {
 			var templ_7745c5c3_Var40 string
 			templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(vm.SalesOrderNumber)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 253, Col: 26}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 254, Col: 26}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 			if templ_7745c5c3_Err != nil {
@@ -853,7 +853,7 @@ func invoiceHeaderRight(vm InvoiceEditorVM) templ.Component {
 		var templ_7745c5c3_Var42 string
 		templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(vm.CustomerPONumber)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 265, Col: 31}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 266, Col: 31}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 		if templ_7745c5c3_Err != nil {
@@ -931,7 +931,7 @@ func invoiceHeaderRight(vm InvoiceEditorVM) templ.Component {
 				var templ_7745c5c3_Var46 string
 				templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(Uitoa(w.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 283, Col: 33}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 284, Col: 33}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 				if templ_7745c5c3_Err != nil {
@@ -954,7 +954,7 @@ func invoiceHeaderRight(vm InvoiceEditorVM) templ.Component {
 				var templ_7745c5c3_Var47 string
 				templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(w.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 283, Col: 88}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 284, Col: 88}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 				if templ_7745c5c3_Err != nil {
@@ -967,7 +967,7 @@ func invoiceHeaderRight(vm InvoiceEditorVM) templ.Component {
 				var templ_7745c5c3_Var48 string
 				templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(w.Code)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 283, Col: 100}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 284, Col: 100}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
 				if templ_7745c5c3_Err != nil {
@@ -1023,7 +1023,7 @@ func invoiceHeaderRight(vm InvoiceEditorVM) templ.Component {
 			var templ_7745c5c3_Var51 string
 			templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(vm.BaseCurrencyCode)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 298, Col: 43}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 299, Col: 43}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
 			if templ_7745c5c3_Err != nil {
@@ -1041,7 +1041,7 @@ func invoiceHeaderRight(vm InvoiceEditorVM) templ.Component {
 				var templ_7745c5c3_Var52 string
 				templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(cc.CurrencyCode)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 300, Col: 37}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 301, Col: 37}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
 				if templ_7745c5c3_Err != nil {
@@ -1064,7 +1064,7 @@ func invoiceHeaderRight(vm InvoiceEditorVM) templ.Component {
 				var templ_7745c5c3_Var53 string
 				templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(cc.CurrencyCode)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 300, Col: 106}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 301, Col: 106}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
 				if templ_7745c5c3_Err != nil {
@@ -1099,7 +1099,7 @@ func invoiceHeaderRight(vm InvoiceEditorVM) templ.Component {
 			var templ_7745c5c3_Var55 string
 			templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(vm.ExchangeRate)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 311, Col: 28}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 312, Col: 28}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
 			if templ_7745c5c3_Err != nil {
@@ -1179,7 +1179,7 @@ func fieldError(msg string) templ.Component {
 			var templ_7745c5c3_Var58 string
 			templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(msg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 327, Col: 47}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 328, Col: 47}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
 			if templ_7745c5c3_Err != nil {
@@ -1189,6 +1189,40 @@ func fieldError(msg string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
+		}
+		return nil
+	})
+}
+
+// invoiceLineItemPicker is the per-row product/service picker rendered inside
+// the DocLineItems x-for scope. Uses the gobooksItemPicker() Alpine factory
+// (which captures `line` + `idx` from the surrounding scope at construction)
+// so each row has its own search / dropdown state. Hidden input submits
+// line_product_service_id[idx] alongside the normal form fields.
+func invoiceLineItemPicker() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var59 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var59 == nil {
+			templ_7745c5c3_Var59 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 117, "<div x-data=\"gobooksItemPicker(line, idx)\" class=\"relative\" @click.outside=\"close()\" @keydown=\"onKeydown($event)\"><input type=\"hidden\" :name=\"'line_product_service_id[' + idx + ']'\" :value=\"line.product_service_id\"> <input type=\"text\" autocomplete=\"off\" placeholder=\"Item / service…\" x-model=\"query\" @focus=\"onFocus()\" @input.debounce.250ms=\"onInput()\" :disabled=\"taskReadOnly && line.locked\" class=\"block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed\"><div x-show=\"open\" x-cloak class=\"absolute z-40 mt-1 w-72 rounded-md border border-border bg-surface shadow-lg\" style=\"display:none\"><div x-show=\"loading\" class=\"px-3 py-2 text-body text-text-muted2\">Searching…</div><div x-show=\"!loading && failed\" class=\"px-3 py-2 text-body text-danger\">Search failed. Try again.</div><ul x-show=\"!loading && !failed && items.length > 0\" class=\"max-h-60 overflow-y-auto py-1\"><template x-for=\"(item, i) in items\" :key=\"item.id\"><li role=\"option\" @click=\"select(item)\" @mouseenter=\"highlighted = i\" :class=\"highlighted === i\r\n\t\t\t\t\t\t\t? 'flex flex-col px-3 py-2 cursor-pointer bg-background'\r\n\t\t\t\t\t\t\t: 'flex flex-col px-3 py-2 cursor-pointer hover:bg-background'\"><span class=\"text-body text-text\" x-text=\"item.primary\"></span> <span x-show=\"item.secondary\" class=\"text-small text-text-muted2\" x-text=\"item.secondary\"></span></li></template></ul><div x-show=\"!loading && !failed && items.length === 0\" class=\"px-3 py-2 text-body text-text-muted2\">No matches.</div></div></div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
 		}
 		return nil
 	})
@@ -1210,12 +1244,12 @@ func invoiceLinesHeader(vm InvoiceEditorVM) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var59 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var59 == nil {
-			templ_7745c5c3_Var59 = templ.NopComponent
+		templ_7745c5c3_Var60 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var60 == nil {
+			templ_7745c5c3_Var60 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 117, "<th class=\"py-2 pr-3 w-40\">Item</th><th class=\"py-2 pr-3\">Description *</th><th class=\"py-2 pr-3 w-20\">Qty</th><th class=\"py-2 pr-3 w-28\">Unit Price</th><th class=\"py-2 pr-3 w-36\">Tax Code</th><th class=\"py-2 pr-3 w-24 text-right\">Net</th>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 118, "<th class=\"py-2 pr-3 w-40\">Item</th><th class=\"py-2 pr-3\">Description *</th><th class=\"py-2 pr-3 w-20\">Qty</th><th class=\"py-2 pr-3 w-28\">Unit Price</th><th class=\"py-2 pr-3 w-36\">Tax Code</th><th class=\"py-2 pr-3 w-24 text-right\">Net</th>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1239,12 +1273,20 @@ func invoiceLinesBody(vm InvoiceEditorVM) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var60 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var60 == nil {
-			templ_7745c5c3_Var60 = templ.NopComponent
+		templ_7745c5c3_Var61 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var61 == nil {
+			templ_7745c5c3_Var61 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 118, "<td class=\"py-2 pr-3\"><select :name=\"'line_product_service_id[' + idx + ']'\" x-model=\"line.product_service_id\" @change=\"onProductChange(idx, $event.target.value)\" :disabled=\"taskReadOnly && line.locked\" class=\"block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed\"><option value=\"\">-- None --</option><template x-for=\"p in products\" :key=\"p.id\"><option :value=\"p.id\" x-text=\"p.name\"></option></template></select></td><td class=\"py-2 pr-3\"><input type=\"text\" :name=\"'line_description[' + idx + ']'\" x-model=\"line.description\" placeholder=\"Description\" autocomplete=\"off\" @input=\"calcLine(idx)\" :disabled=\"taskReadOnly && line.locked\" class=\"block w-full rounded-md bg-surface px-2 py-1.5 text-body text-text outline-none disabled:opacity-60 disabled:cursor-not-allowed\" :class=\"line.error\r\n\t\t\t\t? 'border border-danger focus:ring-2 focus:ring-danger-focus'\r\n\t\t\t\t: 'border border-border-input focus:ring-2 focus:ring-primary-focus'\"><p x-cloak x-show=\"line.error\" x-text=\"line.error\" class=\"mt-1 text-small text-danger\"></p></td><td class=\"py-2 pr-3\"><input type=\"text\" :name=\"'line_qty[' + idx + ']'\" x-model=\"line.qty\" @input=\"calcLine(idx)\" @blur=\"onQtyBlur(idx)\" inputmode=\"decimal\" :disabled=\"taskReadOnly && line.locked\" class=\"block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed\"></td><td class=\"py-2 pr-3\"><input type=\"text\" :name=\"'line_unit_price[' + idx + ']'\" x-model=\"line.unit_price\" @input=\"calcLine(idx)\" @blur=\"onPriceBlur(idx)\" inputmode=\"decimal\" :disabled=\"taskReadOnly && line.locked\" class=\"block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed\"></td><td class=\"py-2 pr-3\"><select :name=\"'line_tax_code_id[' + idx + ']'\" x-model=\"line.tax_code_id\" @change=\"onTaxCodeChange(idx)\" class=\"block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus\"><option value=\"\">-- None --</option><template x-for=\"tc in taxCodes\" :key=\"tc.id\"><option :value=\"tc.id\" x-text=\"tc.code + ' — ' + tc.name\"></option></template></select></td><td class=\"py-2 pr-3 text-right tabular-nums\"><span x-text=\"line.line_net\"></span><input type=\"hidden\" :name=\"'line_invoice_line_id[' + idx + ']'\" :value=\"line.invoice_line_id || ''\"> <input type=\"hidden\" :name=\"'line_is_locked[' + idx + ']'\" :value=\"line.locked ? '1' : '0'\"></td>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 119, "<td class=\"py-2 pr-3\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = invoiceLineItemPicker().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 120, "</td><td class=\"py-2 pr-3\"><input type=\"text\" :name=\"'line_description[' + idx + ']'\" x-model=\"line.description\" placeholder=\"Description\" autocomplete=\"off\" @input=\"calcLine(idx)\" :disabled=\"taskReadOnly && line.locked\" class=\"block w-full rounded-md bg-surface px-2 py-1.5 text-body text-text outline-none disabled:opacity-60 disabled:cursor-not-allowed\" :class=\"line.error\r\n\t\t\t\t? 'border border-danger focus:ring-2 focus:ring-danger-focus'\r\n\t\t\t\t: 'border border-border-input focus:ring-2 focus:ring-primary-focus'\"><p x-cloak x-show=\"line.error\" x-text=\"line.error\" class=\"mt-1 text-small text-danger\"></p></td><td class=\"py-2 pr-3\"><input type=\"text\" :name=\"'line_qty[' + idx + ']'\" x-model=\"line.qty\" @input=\"calcLine(idx)\" @blur=\"onQtyBlur(idx)\" inputmode=\"decimal\" :disabled=\"taskReadOnly && line.locked\" class=\"block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed\"></td><td class=\"py-2 pr-3\"><input type=\"text\" :name=\"'line_unit_price[' + idx + ']'\" x-model=\"line.unit_price\" @input=\"calcLine(idx)\" @blur=\"onPriceBlur(idx)\" inputmode=\"decimal\" :disabled=\"taskReadOnly && line.locked\" class=\"block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed\"></td><td class=\"py-2 pr-3\"><select :name=\"'line_tax_code_id[' + idx + ']'\" x-model=\"line.tax_code_id\" @change=\"onTaxCodeChange(idx)\" class=\"block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus\"><option value=\"\">-- None --</option><template x-for=\"tc in taxCodes\" :key=\"tc.id\"><option :value=\"tc.id\" x-text=\"tc.code + ' — ' + tc.name\"></option></template></select></td><td class=\"py-2 pr-3 text-right tabular-nums\"><span x-text=\"line.line_net\"></span><input type=\"hidden\" :name=\"'line_invoice_line_id[' + idx + ']'\" :value=\"line.invoice_line_id || ''\"> <input type=\"hidden\" :name=\"'line_is_locked[' + idx + ']'\" :value=\"line.locked ? '1' : '0'\"></td>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1268,12 +1310,12 @@ func invoiceLinesTotals(vm InvoiceEditorVM) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var61 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var61 == nil {
-			templ_7745c5c3_Var61 = templ.NopComponent
+		templ_7745c5c3_Var62 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var62 == nil {
+			templ_7745c5c3_Var62 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 119, "<div class=\"flex items-center justify-between\"><span class=\"text-text-muted\">Pre-tax subtotal</span> <span class=\"tabular-nums text-text\" x-text=\"subtotalStr\"></span></div><template x-for=\"tc in taxBreakdown\" :key=\"tc.id\"><div class=\"flex items-center justify-between gap-2\"><span class=\"text-small text-text-muted truncate\" x-text=\"tc.code + ' @ ' + (tc.rate * 100).toFixed(2).replace(/\\.?0+$/, '') + '%'\"></span> <input type=\"text\" inputmode=\"decimal\" :value=\"taxAdjValue(tc.id)\" @input=\"onTaxAdjInput(tc.id, $event.target.value)\" @blur=\"if (!$event.target.value.trim()) { $event.target.value = taxAdjValue(tc.id) }\" class=\"w-24 rounded-md border border-border-input bg-surface px-2 py-0.5 text-right text-body text-text tabular-nums outline-none focus:ring-2 focus:ring-primary-focus\"></div></template><template x-if=\"taxBreakdown.length > 0\"><span><input type=\"hidden\" name=\"tax_adj_count\" :value=\"taxBreakdown.length\"><template x-for=\"(tc, i) in taxBreakdown\" :key=\"tc.id\"><span><input type=\"hidden\" :name=\"'tax_adj_id[' + i + ']'\" :value=\"tc.id\"> <input type=\"hidden\" :name=\"'tax_adj_amount[' + i + ']'\" :value=\"taxAdjValue(tc.id)\"></span></template></span></template><div class=\"flex items-center justify-between border-t border-border pt-2 font-semibold\"><span>Total</span> <span class=\"tabular-nums\" x-text=\"grandTotalStr\"></span></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, "<div class=\"flex items-center justify-between\"><span class=\"text-text-muted\">Pre-tax subtotal</span> <span class=\"tabular-nums text-text\" x-text=\"subtotalStr\"></span></div><template x-for=\"tc in taxBreakdown\" :key=\"tc.id\"><div class=\"flex items-center justify-between gap-2\"><span class=\"text-small text-text-muted truncate\" x-text=\"tc.code + ' @ ' + (tc.rate * 100).toFixed(2).replace(/\\.?0+$/, '') + '%'\"></span> <input type=\"text\" inputmode=\"decimal\" :value=\"taxAdjValue(tc.id)\" @input=\"onTaxAdjInput(tc.id, $event.target.value)\" @blur=\"if (!$event.target.value.trim()) { $event.target.value = taxAdjValue(tc.id) }\" class=\"w-24 rounded-md border border-border-input bg-surface px-2 py-0.5 text-right text-body text-text tabular-nums outline-none focus:ring-2 focus:ring-primary-focus\"></div></template><template x-if=\"taxBreakdown.length > 0\"><span><input type=\"hidden\" name=\"tax_adj_count\" :value=\"taxBreakdown.length\"><template x-for=\"(tc, i) in taxBreakdown\" :key=\"tc.id\"><span><input type=\"hidden\" :name=\"'tax_adj_id[' + i + ']'\" :value=\"tc.id\"> <input type=\"hidden\" :name=\"'tax_adj_amount[' + i + ']'\" :value=\"taxAdjValue(tc.id)\"></span></template></span></template><div class=\"flex items-center justify-between border-t border-border pt-2 font-semibold\"><span>Total</span> <span class=\"tabular-nums\" x-text=\"grandTotalStr\"></span></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1300,95 +1342,95 @@ func invoiceMemoCard(vm InvoiceEditorVM) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var62 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var62 == nil {
-			templ_7745c5c3_Var62 = templ.NopComponent
+		templ_7745c5c3_Var63 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var63 == nil {
+			templ_7745c5c3_Var63 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		var templ_7745c5c3_Var63 = []any{ui.SectionCardChromeClass()}
-		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var63...)
+		var templ_7745c5c3_Var64 = []any{ui.SectionCardChromeClass()}
+		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var64...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 120, "<div class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 122, "<div class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var64 string
-		templ_7745c5c3_Var64, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var63).String())
+		var templ_7745c5c3_Var65 string
+		templ_7745c5c3_Var65, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var64).String())
 		if templ_7745c5c3_Err != nil {
 			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 1, Col: 0}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var64))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var65))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, "\"><div class=\"flex items-center justify-between\"><h2 class=\"text-section font-semibold text-text\">Memo</h2>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 123, "\"><div class=\"flex items-center justify-between\"><h2 class=\"text-section font-semibold text-text\">Memo</h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if vm.IsEdit {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 122, "<button type=\"button\" @click=\"aiMemoAssist()\" :disabled=\"invoiceId === 0 || memoAssist.loading || memoAssist.visible\" class=\"flex items-center gap-1 rounded px-2 py-0.5 text-small text-primary hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed\"><span>✦ AI Assist</span> <span x-show=\"memoAssist.loading\" x-cloak class=\"text-text-muted2\">…</span></button>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 124, "<button type=\"button\" @click=\"aiMemoAssist()\" :disabled=\"invoiceId === 0 || memoAssist.loading || memoAssist.visible\" class=\"flex items-center gap-1 rounded px-2 py-0.5 text-small text-primary hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed\"><span>✦ AI Assist</span> <span x-show=\"memoAssist.loading\" x-cloak class=\"text-text-muted2\">…</span></button>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 123, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 125, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if vm.IsEdit {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 124, "<p x-show=\"invoiceId === 0\" x-cloak class=\"mt-1 text-small text-text-muted2\">Save the draft first to use AI assist.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 126, "<p x-show=\"invoiceId === 0\" x-cloak class=\"mt-1 text-small text-text-muted2\">Save the draft first to use AI assist.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 125, "<div class=\"mt-3 max-w-2xl\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 127, "<div class=\"mt-3 max-w-2xl\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var65 = []any{fieldClass(false)}
-		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var65...)
+		var templ_7745c5c3_Var66 = []any{fieldClass(false)}
+		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var66...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 126, "<textarea name=\"memo\" rows=\"4\" placeholder=\"Internal note (supports <b>bold</b> and <i>italic</i> only)\" autocomplete=\"off\" x-ref=\"memoInput\" class=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var66 string
-		templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var65).String())
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 1, Col: 0}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 127, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 128, "<textarea name=\"memo\" rows=\"4\" placeholder=\"Internal note (supports <b>bold</b> and <i>italic</i> only)\" autocomplete=\"off\" x-ref=\"memoInput\" class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var67 string
-		templ_7745c5c3_Var67, templ_7745c5c3_Err = templ.JoinStringErrs(vm.Memo)
+		templ_7745c5c3_Var67, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var66).String())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 490, Col: 13}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 1, Col: 0}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var67))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 128, "</textarea><p class=\"mt-1 text-small text-text-muted3\">Only &lt;b&gt; and &lt;i&gt; tags are kept; other markup is stripped on save.</p></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 129, "\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var68 string
+		templ_7745c5c3_Var68, templ_7745c5c3_Err = templ.JoinStringErrs(vm.Memo)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 531, Col: 13}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var68))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 130, "</textarea><p class=\"mt-1 text-small text-text-muted3\">Only &lt;b&gt; and &lt;i&gt; tags are kept; other markup is stripped on save.</p></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if vm.IsEdit {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 129, "<div x-show=\"memoAssist.visible && !memoAssist.loading\" x-cloak class=\"mt-2 max-w-2xl rounded-md border border-border bg-surface p-3 text-body\" style=\"display:none\"><div x-show=\"memoAssist.error\" x-cloak class=\"text-danger\" x-text=\"memoAssist.error\"></div><div x-show=\"!memoAssist.error && memoAssist.empty\" x-cloak class=\"text-text-muted2\">No suggestion available right now.</div><div x-show=\"!memoAssist.error && memoAssist.suggestion\" x-cloak><p class=\"text-text-muted2 text-small mb-1\">Suggested memo:</p><p class=\"text-text\" x-text=\"memoAssist.suggestion\"></p><div class=\"mt-2 flex gap-2\"><button type=\"button\" @click=\"applyMemoSuggestion()\" class=\"rounded-md bg-primary px-3 py-1 text-small font-medium text-white hover:bg-primary-hover\">Apply</button> <button type=\"button\" @click=\"dismissMemoAssist()\" class=\"rounded-md border border-border px-3 py-1 text-small text-text hover:bg-surface-hover\">Dismiss</button></div></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 131, "<div x-show=\"memoAssist.visible && !memoAssist.loading\" x-cloak class=\"mt-2 max-w-2xl rounded-md border border-border bg-surface p-3 text-body\" style=\"display:none\"><div x-show=\"memoAssist.error\" x-cloak class=\"text-danger\" x-text=\"memoAssist.error\"></div><div x-show=\"!memoAssist.error && memoAssist.empty\" x-cloak class=\"text-text-muted2\">No suggestion available right now.</div><div x-show=\"!memoAssist.error && memoAssist.suggestion\" x-cloak><p class=\"text-text-muted2 text-small mb-1\">Suggested memo:</p><p class=\"text-text\" x-text=\"memoAssist.suggestion\"></p><div class=\"mt-2 flex gap-2\"><button type=\"button\" @click=\"applyMemoSuggestion()\" class=\"rounded-md bg-primary px-3 py-1 text-small font-medium text-white hover:bg-primary-hover\">Apply</button> <button type=\"button\" @click=\"dismissMemoAssist()\" class=\"rounded-md border border-border px-3 py-1 text-small text-text hover:bg-surface-hover\">Dismiss</button></div></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 130, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 132, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1414,25 +1456,25 @@ func invoiceCustomerQuickCreateDrawer(vm InvoiceEditorVM) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var68 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var68 == nil {
-			templ_7745c5c3_Var68 = templ.NopComponent
+		templ_7745c5c3_Var69 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var69 == nil {
+			templ_7745c5c3_Var69 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 131, "<div x-data=\"gobooksCustomerQuickCreate()\" data-currencies=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 133, "<div x-data=\"gobooksCustomerQuickCreate()\" data-currencies=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var69 string
-		templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.JoinStringErrs(vm.QuickCreateCurrenciesJSON)
+		var templ_7745c5c3_Var70 string
+		templ_7745c5c3_Var70, templ_7745c5c3_Err = templ.JoinStringErrs(vm.QuickCreateCurrenciesJSON)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 528, Col: 48}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_editor.templ`, Line: 569, Col: 48}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var69))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var70))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 132, "\" @gobooks-picker-create.window=\"onPickerCreate($event)\" @keydown.escape.window=\"if (drawerOpen) { cancel() }\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 134, "\" @gobooks-picker-create.window=\"onPickerCreate($event)\" @keydown.escape.window=\"if (drawerOpen) { cancel() }\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1444,7 +1486,7 @@ func invoiceCustomerQuickCreateDrawer(vm InvoiceEditorVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 133, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 135, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1468,12 +1510,12 @@ func invoiceCustomerQuickCreateBody() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var70 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var70 == nil {
-			templ_7745c5c3_Var70 = templ.NopComponent
+		templ_7745c5c3_Var71 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var71 == nil {
+			templ_7745c5c3_Var71 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 134, "<div class=\"flex-1 overflow-y-auto px-6 py-5 space-y-4\"><div><label class=\"block text-body font-medium text-text\">Name *</label> <input type=\"text\" x-model=\"name\" x-ref=\"nameInput\" @keydown.enter.prevent=\"save()\" placeholder=\"Customer name\" class=\"mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus\" :class=\"nameError ? 'border-danger focus:ring-danger-focus' : ''\"><div x-show=\"nameError\" class=\"mt-1 text-small text-danger\" x-text=\"nameError\"></div></div><div x-show=\"currencies.length > 1\" x-cloak><label class=\"block text-body font-medium text-text\">Currency *</label> <select x-model=\"currency\" class=\"mt-2 block w-full rounded-md border bg-surface px-3 py-2 text-body outline-none focus:ring-2\" :class=\"currencyError ? 'border-danger focus:ring-danger-focus' : 'border-border-input focus:ring-primary-focus'\"><option value=\"\">— Select currency —</option><template x-for=\"code in currencies\" :key=\"code\"><option :value=\"code\" x-text=\"code\"></option></template></select><div x-show=\"currencyError\" class=\"mt-1 text-small text-danger\" x-text=\"currencyError\"></div></div><div x-show=\"formError\" class=\"rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-small text-danger-hover\" x-text=\"formError\"></div></div><div class=\"flex items-center justify-end gap-3 border-t border-border px-6 py-4\"><button type=\"button\" @click=\"cancel()\" class=\"rounded-md border border-border-input px-4 py-2 text-body text-text-muted3 hover:bg-background\">Cancel</button> <button type=\"button\" @click=\"save()\" :disabled=\"saving\" class=\"rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed\"><span x-show=\"!saving\">Create Customer</span> <span x-show=\"saving\" x-cloak>Creating…</span></button></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 136, "<div class=\"flex-1 overflow-y-auto px-6 py-5 space-y-4\"><div><label class=\"block text-body font-medium text-text\">Name *</label> <input type=\"text\" x-model=\"name\" x-ref=\"nameInput\" @keydown.enter.prevent=\"save()\" placeholder=\"Customer name\" class=\"mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus\" :class=\"nameError ? 'border-danger focus:ring-danger-focus' : ''\"><div x-show=\"nameError\" class=\"mt-1 text-small text-danger\" x-text=\"nameError\"></div></div><div x-show=\"currencies.length > 1\" x-cloak><label class=\"block text-body font-medium text-text\">Currency *</label> <select x-model=\"currency\" class=\"mt-2 block w-full rounded-md border bg-surface px-3 py-2 text-body outline-none focus:ring-2\" :class=\"currencyError ? 'border-danger focus:ring-danger-focus' : 'border-border-input focus:ring-primary-focus'\"><option value=\"\">— Select currency —</option><template x-for=\"code in currencies\" :key=\"code\"><option :value=\"code\" x-text=\"code\"></option></template></select><div x-show=\"currencyError\" class=\"mt-1 text-small text-danger\" x-text=\"currencyError\"></div></div><div x-show=\"formError\" class=\"rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-small text-danger-hover\" x-text=\"formError\"></div></div><div class=\"flex items-center justify-end gap-3 border-t border-border px-6 py-4\"><button type=\"button\" @click=\"cancel()\" class=\"rounded-md border border-border-input px-4 py-2 text-body text-text-muted3 hover:bg-background\">Cancel</button> <button type=\"button\" @click=\"save()\" :disabled=\"saving\" class=\"rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed\"><span x-show=\"!saving\">Create Customer</span> <span x-show=\"saving\" x-cloak>Creating…</span></button></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

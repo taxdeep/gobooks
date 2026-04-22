@@ -1,5 +1,5 @@
 // invoice_editor.js — Alpine component for the invoice line-items editor.
-// v=15
+// v=16
 //
 // Composes gobooksLineItems() for line-array management (addLine / removeLine /
 // auto-grow) and layers Invoice-specific state on top: tax-code breakdown,
@@ -15,15 +15,16 @@ function invoiceEditor() {
   return Object.assign(
     gobooksLineItems({
       defaults: {
-        product_service_id: "",
-        description:        "",
-        qty:                "1",
-        unit_price:         "0.00",
-        tax_code_id:        "",
-        line_net:           "0.00",
-        line_tax:           "0.00",
-        error:              "",
-        locked:             false,
+        product_service_id:    "",
+        product_service_label: "",
+        description:           "",
+        qty:                   "1",
+        unit_price:            "0.00",
+        tax_code_id:           "",
+        line_net:              "0.00",
+        line_tax:              "0.00",
+        error:                 "",
+        locked:                false,
       },
       // Auto-grow fires when item + qty + unit price are all filled. Description
       // alone is not enough because Invoice allows blank-item ad-hoc lines.
@@ -118,6 +119,10 @@ function invoiceEditor() {
         if (this.taskReadOnly) {
           this.addLine();
         }
+        // Stamp stable _rowKey on every initial line so the x-for :key binding
+        // destroys/recreates rows cleanly on splice — required for per-row
+        // Alpine components (e.g. the Items SmartPicker).
+        this.assignRowKeys();
         this._recalcAll();
 
         // Restore saved tax overrides: aggregate saved_line_tax per tax code
@@ -563,6 +568,124 @@ function gobooksCustomerQuickCreate() {
       } finally {
         this.saving = false;
       }
+    },
+  };
+}
+
+// gobooksItemPicker — per-row product/service picker used inside the invoice
+// line-items table's x-for loop. Receives the Alpine-scope `line` object and
+// row `idx` at construction so it can write through to line.product_service_id
+// / product_service_label without dataset plumbing (SmartPicker's global
+// single-instance init-reads-dataset pattern doesn't work inside x-for).
+//
+// On select: writes to line, then dispatches "item-picker-select" up so the
+// parent invoiceEditor() can auto-fill description / unit price / tax code
+// via its existing onProductChange(idx, id) logic.
+function gobooksItemPicker(line, idx) {
+  return {
+    line:        line,
+    idx:         idx,
+    query:       line.product_service_label || "",
+    open:        false,
+    loading:     false,
+    failed:      false,
+    items:       [],       // [{id, primary, secondary, payload}]
+    highlighted: -1,
+    _fetchSeq:   0,
+
+    init() {
+      // Re-sync visible query when another code path writes to line.product_service_label
+      // (e.g. row reindex after delete). Alpine $watch hooks into the reactive system.
+      this.$watch(() => this.line.product_service_label, (v) => {
+        this.query = v || "";
+      });
+    },
+
+    onFocus() {
+      this.open = true;
+      // Empty query → load an initial page (top 20 by usage ranking).
+      if (this.items.length === 0 && !this.loading) this._fetch();
+    },
+
+    async onInput() {
+      this.open = true;
+      await this._fetch();
+    },
+
+    async _fetch() {
+      const seq = ++this._fetchSeq;
+      this.loading = true;
+      this.failed  = false;
+      try {
+        const q = encodeURIComponent(this.query);
+        const url = "/api/smart-picker/search?entity=product_service&context=invoice_line_item&q=" + q + "&limit=20";
+        const fetchFn = window.gobooksFetch || fetch;
+        const resp = await fetchFn(url);
+        const data = await resp.json();
+        if (seq !== this._fetchSeq) return;
+        if (!resp.ok) {
+          this.failed = true;
+          this.items  = [];
+        } else {
+          this.items = Array.isArray(data.candidates) ? data.candidates : [];
+        }
+      } catch (_) {
+        if (seq !== this._fetchSeq) return;
+        this.failed = true;
+        this.items  = [];
+      } finally {
+        if (seq === this._fetchSeq) this.loading = false;
+      }
+    },
+
+    onKeydown(e) {
+      if (e.key === "Escape") { this.close(); return; }
+      if (e.key === "ArrowDown") { e.preventDefault(); this._move(1); return; }
+      if (e.key === "ArrowUp")   { e.preventDefault(); this._move(-1); return; }
+      if (e.key === "Enter" && this.highlighted >= 0 && this.items[this.highlighted]) {
+        e.preventDefault();
+        this.select(this.items[this.highlighted]);
+      }
+    },
+
+    _move(delta) {
+      this.open = true;
+      if (this.items.length === 0) return;
+      this.highlighted = Math.max(0, Math.min(this.items.length - 1, this.highlighted + delta));
+    },
+
+    select(item) {
+      this.line.product_service_id    = String(item.id);
+      this.line.product_service_label = item.primary || "";
+      this.query = item.primary || "";
+      this.open = false;
+      this.highlighted = -1;
+      // Bubble up so invoiceEditor.onProductChange can pre-fill description /
+      // unit_price / tax_code from the chosen ProductService.
+      this.$dispatch("gobooks-item-picker-select", {
+        idx:     this.idx,
+        id:      String(item.id),
+        payload: item.payload || {},
+      });
+    },
+
+    clear() {
+      this.line.product_service_id    = "";
+      this.line.product_service_label = "";
+      this.query = "";
+      this.open  = false;
+      this.$dispatch("gobooks-item-picker-select", { idx: this.idx, id: "", payload: {} });
+    },
+
+    close() {
+      this.open = false;
+      this.highlighted = -1;
+      // Reset visible input to the committed label so unfinished typing doesn't linger.
+      this.query = this.line.product_service_label || "";
+    },
+
+    inputClass() {
+      return "border-border-input focus:ring-primary-focus";
     },
   };
 }

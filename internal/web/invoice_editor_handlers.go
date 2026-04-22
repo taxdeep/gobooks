@@ -231,12 +231,17 @@ func (s *Server) prefillInvoiceFromSalesOrder(companyID, soID uint, vm *pages.In
 		if !remaining.IsPositive() {
 			continue
 		}
+		psLabel := ""
+		if l.ProductService != nil {
+			psLabel = l.ProductService.Name
+		}
 		vm.Lines = append(vm.Lines, pages.InvoiceLineFormRow{
-			ProductServiceID: optUintStr(l.ProductServiceID),
-			Description:      l.Description,
-			Qty:              remaining.String(),
-			UnitPrice:        l.UnitPrice.StringFixed(4),
-			TaxCodeID:        optUintStr(l.TaxCodeID),
+			ProductServiceID:    optUintStr(l.ProductServiceID),
+			ProductServiceLabel: psLabel,
+			Description:         l.Description,
+			Qty:                 remaining.String(),
+			UnitPrice:           l.UnitPrice.StringFixed(4),
+			TaxCodeID:           optUintStr(l.TaxCodeID),
 		})
 	}
 }
@@ -326,16 +331,21 @@ func (s *Server) handleInvoiceEdit(c *fiber.Ctx) error {
 
 	// Build line form rows from existing lines.
 	for _, l := range inv.Lines {
+		psLabel := ""
+		if l.ProductService != nil {
+			psLabel = l.ProductService.Name
+		}
 		vm.Lines = append(vm.Lines, pages.InvoiceLineFormRow{
-			LineID:           strconv.FormatUint(uint64(l.ID), 10),
-			ProductServiceID: optUintStr(l.ProductServiceID),
-			Description:      l.Description,
-			Qty:              l.Qty.String(),
-			UnitPrice:        l.UnitPrice.StringFixed(4),
-			TaxCodeID:        optUintStr(l.TaxCodeID),
-			LineNet:          l.LineNet.StringFixed(2),
-			LineTax:          l.LineTax.StringFixed(2),
-			LineTotal:        l.LineTotal.StringFixed(2),
+			LineID:              strconv.FormatUint(uint64(l.ID), 10),
+			ProductServiceID:    optUintStr(l.ProductServiceID),
+			ProductServiceLabel: psLabel,
+			Description:         l.Description,
+			Qty:                 l.Qty.String(),
+			UnitPrice:           l.UnitPrice.StringFixed(4),
+			TaxCodeID:           optUintStr(l.TaxCodeID),
+			LineNet:             l.LineNet.StringFixed(2),
+			LineTax:             l.LineTax.StringFixed(2),
+			LineTotal:           l.LineTotal.StringFixed(2),
 		})
 	}
 
@@ -1134,12 +1144,13 @@ func buildInitialLinesJSON(rows []pages.InvoiceLineFormRow) string {
 		// InvoiceLineID is the DB primary key, non-empty for existing lines.
 		// Alpine uses it as line.invoice_line_id; the task-draft save handler
 		// submits it as line_invoice_line_id[i] to match locked lines.
-		InvoiceLineID    string `json:"invoice_line_id"`
-		ProductServiceID string `json:"product_service_id"`
-		Description      string `json:"description"`
-		Qty              string `json:"qty"`
-		UnitPrice        string `json:"unit_price"`
-		TaxCodeID        string `json:"tax_code_id"`
+		InvoiceLineID       string `json:"invoice_line_id"`
+		ProductServiceID    string `json:"product_service_id"`
+		ProductServiceLabel string `json:"product_service_label"`
+		Description         string `json:"description"`
+		Qty                 string `json:"qty"`
+		UnitPrice           string `json:"unit_price"`
+		TaxCodeID           string `json:"tax_code_id"`
 		LineNet          string `json:"line_net"`
 		// SavedLineTax carries the server-stored tax amount for this line.
 		// Used by init() to detect user tax overrides that differ from the
@@ -1154,15 +1165,16 @@ func buildInitialLinesJSON(rows []pages.InvoiceLineFormRow) string {
 			net = "0.00"
 		}
 		items = append(items, alpineLine{
-			InvoiceLineID:    r.LineID,
-			ProductServiceID: r.ProductServiceID,
-			Description:      r.Description,
-			Qty:              r.Qty,
-			UnitPrice:        r.UnitPrice,
-			TaxCodeID:        r.TaxCodeID,
-			LineNet:          net,
-			SavedLineTax:     r.LineTax,
-			Error:            r.Error,
+			InvoiceLineID:       r.LineID,
+			ProductServiceID:    r.ProductServiceID,
+			ProductServiceLabel: r.ProductServiceLabel,
+			Description:         r.Description,
+			Qty:                 r.Qty,
+			UnitPrice:           r.UnitPrice,
+			TaxCodeID:           r.TaxCodeID,
+			LineNet:             net,
+			SavedLineTax:        r.LineTax,
+			Error:               r.Error,
 		})
 	}
 	b, _ := json.Marshal(items)

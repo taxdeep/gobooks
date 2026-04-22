@@ -1,5 +1,6 @@
 // doc_line_items.js — shared Alpine factory for transaction-document line-item tables.
-// v=2 — adds insertLineBelow(idx) for the per-row "+" button UI.
+// v=3 — adds stable _rowKey per line so Alpine x-for destroys/recreates rows
+//       cleanly on splice (prerequisite for per-row SmartPicker Alpine components).
 // Used by Invoice, Quote, SO, Bill, PO, Expense editors via ui.DocLineItems.
 //
 // The factory returns a partial Alpine component that provides:
@@ -37,6 +38,18 @@ function gobooksLineItems(config) {
     // ── Configuration (private; read during method calls) ────────────────
     _lineDefaults:   config.defaults       || {},
     _isLineComplete: config.isLineComplete || (() => false),
+    _rowSeq:         0,
+
+    // assignRowKeys stamps a stable _rowKey on any line that doesn't already
+    // have one. Called from init() on initial lines so the x-for :key stays
+    // stable across splices (addLine / removeLine / insertLineBelow).
+    assignRowKeys() {
+      for (const line of this.lines) {
+        if (line._rowKey === undefined) {
+          line._rowKey = ++this._rowSeq;
+        }
+      }
+    },
 
     // ── Overridable hooks (no-op defaults) ───────────────────────────────
     // Called after lines array mutations. Override to trigger recalculation.
@@ -83,7 +96,7 @@ function gobooksLineItems(config) {
     // ── Internal helpers ─────────────────────────────────────────────────
 
     _blankLine() {
-      return Object.assign({}, this._lineDefaults);
+      return Object.assign({}, this._lineDefaults, { _rowKey: ++this._rowSeq });
     },
   };
 }
