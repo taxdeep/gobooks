@@ -51,14 +51,14 @@ func Layout(title string, sidebar ui.SidebarVM, content templ.Component) templ.C
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</title><link rel=\"stylesheet\" href=\"/static/app.css?v=4\"><!-- Theme init: runs synchronously before first paint to avoid FOUC.\r\n\t\t\t     Reads localStorage(\"gobooks-theme\"): \"dark\" | \"light\" | \"system\" (default).\r\n\t\t\t     Applies .dark class to <html> when appropriate. --><script>\r\n\t\t\t\t(function () {\r\n\t\t\t\t\tvar t = localStorage.getItem(\"gobooks-theme\") || \"system\";\r\n\t\t\t\t\tvar dark = t === \"dark\" || (t === \"system\" && window.matchMedia(\"(prefers-color-scheme: dark)\").matches);\r\n\t\t\t\t\tif (dark) document.documentElement.classList.add(\"dark\");\r\n\r\n\t\t\t\t\t// Expose theme helpers used by the toggle button and future Settings page.\r\n\t\t\t\t\twindow.gbTheme = {\r\n\t\t\t\t\t\tget: function () { return localStorage.getItem(\"gobooks-theme\") || \"system\"; },\r\n\t\t\t\t\t\tset: function (val) {\r\n\t\t\t\t\t\t\tlocalStorage.setItem(\"gobooks-theme\", val);\r\n\t\t\t\t\t\t\tvar isDark = val === \"dark\" || (val === \"system\" && window.matchMedia(\"(prefers-color-scheme: dark)\").matches);\r\n\t\t\t\t\t\t\tdocument.documentElement.classList.toggle(\"dark\", isDark);\r\n\t\t\t\t\t\t\twindow.gbTheme._updateBtn();\r\n\t\t\t\t\t\t},\r\n\t\t\t\t\t\tcycle: function () {\r\n\t\t\t\t\t\t\tvar order = [\"system\", \"light\", \"dark\"];\r\n\t\t\t\t\t\t\tvar cur = window.gbTheme.get();\r\n\t\t\t\t\t\t\tvar next = order[(order.indexOf(cur) + 1) % order.length];\r\n\t\t\t\t\t\t\twindow.gbTheme.set(next);\r\n\t\t\t\t\t\t},\r\n\t\t\t\t\t\t_updateBtn: function () {\r\n\t\t\t\t\t\t\tvar btn = document.getElementById(\"gb-theme-btn\");\r\n\t\t\t\t\t\t\tif (!btn) return;\r\n\t\t\t\t\t\t\tvar cur = window.gbTheme.get();\r\n\t\t\t\t\t\t\tvar labels = { system: \"Theme: system (click for light)\", light: \"Theme: light (click for dark)\", dark: \"Theme: dark (click for system)\" };\r\n\t\t\t\t\t\t\tbtn.title = labels[cur] || \"\";\r\n\t\t\t\t\t\t\t[\"sun\", \"moon\", \"monitor\"].forEach(function (n) {\r\n\t\t\t\t\t\t\t\tvar el = document.getElementById(\"gb-icon-\" + n);\r\n\t\t\t\t\t\t\t\tif (el) el.style.display = \"none\";\r\n\t\t\t\t\t\t\t});\r\n\t\t\t\t\t\t\tvar show = cur === \"dark\" ? \"moon\" : cur === \"light\" ? \"sun\" : \"monitor\";\r\n\t\t\t\t\t\t\tvar active = document.getElementById(\"gb-icon-\" + show);\r\n\t\t\t\t\t\t\tif (active) active.style.display = \"\";\r\n\t\t\t\t\t\t}\r\n\t\t\t\t\t};\r\n\r\n\t\t\t\t\t// Update icon when DOM is ready.\r\n\t\t\t\t\tdocument.addEventListener(\"DOMContentLoaded\", function () { window.gbTheme._updateBtn(); });\r\n\r\n\t\t\t\t\t// Respond to OS-level preference changes when in \"system\" mode.\r\n\t\t\t\t\twindow.matchMedia(\"(prefers-color-scheme: dark)\").addEventListener(\"change\", function (e) {\r\n\t\t\t\t\t\tif ((localStorage.getItem(\"gobooks-theme\") || \"system\") === \"system\") {\r\n\t\t\t\t\t\t\tdocument.documentElement.classList.toggle(\"dark\", e.matches);\r\n\t\t\t\t\t\t}\r\n\t\t\t\t\t});\r\n\t\t\t\t})();\r\n\t\t\t</script><script src=\"https://unpkg.com/htmx.org@1.9.12\"></script><script src=\"/static/smart_picker.js?v=9\" defer></script><script defer src=\"https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js\"></script><script src=\"/static/num-format.js?v=1\" defer></script><script>\r\n\t\t\t\t(function () {\r\n\t\t\t\t\tfunction readCookie(name) {\r\n\t\t\t\t\t\tconst prefix = name + \"=\";\r\n\t\t\t\t\t\tconst parts = document.cookie ? document.cookie.split(\"; \") : [];\r\n\t\t\t\t\t\tfor (const part of parts) {\r\n\t\t\t\t\t\t\tif (part.indexOf(prefix) === 0) return decodeURIComponent(part.substring(prefix.length));\r\n\t\t\t\t\t\t}\r\n\t\t\t\t\t\treturn \"\";\r\n\t\t\t\t\t}\r\n\r\n\t\t\t\t\tfunction csrfToken() {\r\n\t\t\t\t\t\treturn readCookie(\"gobooks_csrf\");\r\n\t\t\t\t\t}\r\n\r\n\t\t\t\t\tdocument.addEventListener(\"submit\", function (event) {\r\n\t\t\t\t\t\tconst form = event.target;\r\n\t\t\t\t\t\tif (!(form instanceof HTMLFormElement)) return;\r\n\t\t\t\t\t\tif ((form.method || \"get\").toLowerCase() === \"get\") return;\r\n\r\n\t\t\t\t\t\tconst token = csrfToken();\r\n\t\t\t\t\t\tif (!token) return;\r\n\r\n\t\t\t\t\t\tlet input = form.querySelector('input[name=\"_csrf\"]');\r\n\t\t\t\t\t\tif (!input) {\r\n\t\t\t\t\t\t\tinput = document.createElement(\"input\");\r\n\t\t\t\t\t\t\tinput.type = \"hidden\";\r\n\t\t\t\t\t\t\tinput.name = \"_csrf\";\r\n\t\t\t\t\t\t\tform.appendChild(input);\r\n\t\t\t\t\t\t}\r\n\t\t\t\t\t\tinput.value = token;\r\n\t\t\t\t\t});\r\n\r\n\t\t\t\t\tdocument.addEventListener(\"htmx:configRequest\", function (event) {\r\n\t\t\t\t\t\tconst token = csrfToken();\r\n\t\t\t\t\t\tif (token) {\r\n\t\t\t\t\t\t\tevent.detail.headers[\"X-CSRF-Token\"] = token;\r\n\t\t\t\t\t\t}\r\n\t\t\t\t\t});\r\n\r\n\t\t\t\t\t// gobooksFetch — CSRF-safe wrapper around window.fetch.\r\n\t\t\t\t\t// All Alpine / JS code must use this for non-GET requests so that\r\n\t\t\t\t\t// the X-CSRF-Token header is automatically injected from the cookie.\r\n\t\t\t\t\t// Usage: gobooksFetch(\"/api/some-endpoint\", { method: \"POST\", body: ... })\r\n\t\t\t\t\twindow.gobooksFetch = function (url, options) {\r\n\t\t\t\t\t\tconst opts = Object.assign({ credentials: \"same-origin\" }, options);\r\n\t\t\t\t\t\topts.headers = Object.assign({}, opts.headers || {});\r\n\t\t\t\t\t\tconst method = (opts.method || \"GET\").toUpperCase();\r\n\t\t\t\t\t\tif (method !== \"GET\" && method !== \"HEAD\" && method !== \"OPTIONS\") {\r\n\t\t\t\t\t\t\tconst tok = csrfToken();\r\n\t\t\t\t\t\t\tif (tok) opts.headers[\"X-CSRF-Token\"] = tok;\r\n\t\t\t\t\t\t}\r\n\t\t\t\t\t\treturn fetch(url, opts);\r\n\t\t\t\t\t};\r\n\t\t\t\t})();\r\n\t\t\t</script></head><body class=\"bg-background text-text\" data-numfmt=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</title><link rel=\"stylesheet\" href=\"/static/app.css?v=4\"><!-- Theme init: runs synchronously before first paint to avoid FOUC.\r\n\t\t\t     Reads localStorage(\"gobooks-theme\"): \"dark\" | \"light\" | \"system\" (default).\r\n\t\t\t     Applies .dark class to <html> when appropriate. --><script>\r\n\t\t\t\t(function () {\r\n\t\t\t\t\tvar t = localStorage.getItem(\"gobooks-theme\") || \"system\";\r\n\t\t\t\t\tvar dark = t === \"dark\" || (t === \"system\" && window.matchMedia(\"(prefers-color-scheme: dark)\").matches);\r\n\t\t\t\t\tif (dark) document.documentElement.classList.add(\"dark\");\r\n\r\n\t\t\t\t\t// Expose theme helpers used by the toggle button and future Settings page.\r\n\t\t\t\t\twindow.gbTheme = {\r\n\t\t\t\t\t\tget: function () { return localStorage.getItem(\"gobooks-theme\") || \"system\"; },\r\n\t\t\t\t\t\tset: function (val) {\r\n\t\t\t\t\t\t\tlocalStorage.setItem(\"gobooks-theme\", val);\r\n\t\t\t\t\t\t\tvar isDark = val === \"dark\" || (val === \"system\" && window.matchMedia(\"(prefers-color-scheme: dark)\").matches);\r\n\t\t\t\t\t\t\tdocument.documentElement.classList.toggle(\"dark\", isDark);\r\n\t\t\t\t\t\t\twindow.gbTheme._updateBtn();\r\n\t\t\t\t\t\t},\r\n\t\t\t\t\t\tcycle: function () {\r\n\t\t\t\t\t\t\tvar order = [\"system\", \"light\", \"dark\"];\r\n\t\t\t\t\t\t\tvar cur = window.gbTheme.get();\r\n\t\t\t\t\t\t\tvar next = order[(order.indexOf(cur) + 1) % order.length];\r\n\t\t\t\t\t\t\twindow.gbTheme.set(next);\r\n\t\t\t\t\t\t},\r\n\t\t\t\t\t\t_updateBtn: function () {\r\n\t\t\t\t\t\t\tvar btn = document.getElementById(\"gb-theme-btn\");\r\n\t\t\t\t\t\t\tif (!btn) return;\r\n\t\t\t\t\t\t\tvar cur = window.gbTheme.get();\r\n\t\t\t\t\t\t\tvar labels = { system: \"Theme: system (click for light)\", light: \"Theme: light (click for dark)\", dark: \"Theme: dark (click for system)\" };\r\n\t\t\t\t\t\t\tbtn.title = labels[cur] || \"\";\r\n\t\t\t\t\t\t\t[\"sun\", \"moon\", \"monitor\"].forEach(function (n) {\r\n\t\t\t\t\t\t\t\tvar el = document.getElementById(\"gb-icon-\" + n);\r\n\t\t\t\t\t\t\t\tif (el) el.style.display = \"none\";\r\n\t\t\t\t\t\t\t});\r\n\t\t\t\t\t\t\tvar show = cur === \"dark\" ? \"moon\" : cur === \"light\" ? \"sun\" : \"monitor\";\r\n\t\t\t\t\t\t\tvar active = document.getElementById(\"gb-icon-\" + show);\r\n\t\t\t\t\t\t\tif (active) active.style.display = \"\";\r\n\t\t\t\t\t\t}\r\n\t\t\t\t\t};\r\n\r\n\t\t\t\t\t// Update icon when DOM is ready.\r\n\t\t\t\t\tdocument.addEventListener(\"DOMContentLoaded\", function () { window.gbTheme._updateBtn(); });\r\n\r\n\t\t\t\t\t// Respond to OS-level preference changes when in \"system\" mode.\r\n\t\t\t\t\twindow.matchMedia(\"(prefers-color-scheme: dark)\").addEventListener(\"change\", function (e) {\r\n\t\t\t\t\t\tif ((localStorage.getItem(\"gobooks-theme\") || \"system\") === \"system\") {\r\n\t\t\t\t\t\t\tdocument.documentElement.classList.toggle(\"dark\", e.matches);\r\n\t\t\t\t\t\t}\r\n\t\t\t\t\t});\r\n\t\t\t\t})();\r\n\t\t\t</script><script src=\"https://unpkg.com/htmx.org@1.9.12\"></script><script src=\"/static/smart_picker.js?v=9\" defer></script><script src=\"/static/doc_line_items.js?v=1\" defer></script><script defer src=\"https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js\"></script><script src=\"/static/num-format.js?v=1\" defer></script><script>\r\n\t\t\t\t(function () {\r\n\t\t\t\t\tfunction readCookie(name) {\r\n\t\t\t\t\t\tconst prefix = name + \"=\";\r\n\t\t\t\t\t\tconst parts = document.cookie ? document.cookie.split(\"; \") : [];\r\n\t\t\t\t\t\tfor (const part of parts) {\r\n\t\t\t\t\t\t\tif (part.indexOf(prefix) === 0) return decodeURIComponent(part.substring(prefix.length));\r\n\t\t\t\t\t\t}\r\n\t\t\t\t\t\treturn \"\";\r\n\t\t\t\t\t}\r\n\r\n\t\t\t\t\tfunction csrfToken() {\r\n\t\t\t\t\t\treturn readCookie(\"gobooks_csrf\");\r\n\t\t\t\t\t}\r\n\r\n\t\t\t\t\tdocument.addEventListener(\"submit\", function (event) {\r\n\t\t\t\t\t\tconst form = event.target;\r\n\t\t\t\t\t\tif (!(form instanceof HTMLFormElement)) return;\r\n\t\t\t\t\t\tif ((form.method || \"get\").toLowerCase() === \"get\") return;\r\n\r\n\t\t\t\t\t\tconst token = csrfToken();\r\n\t\t\t\t\t\tif (!token) return;\r\n\r\n\t\t\t\t\t\tlet input = form.querySelector('input[name=\"_csrf\"]');\r\n\t\t\t\t\t\tif (!input) {\r\n\t\t\t\t\t\t\tinput = document.createElement(\"input\");\r\n\t\t\t\t\t\t\tinput.type = \"hidden\";\r\n\t\t\t\t\t\t\tinput.name = \"_csrf\";\r\n\t\t\t\t\t\t\tform.appendChild(input);\r\n\t\t\t\t\t\t}\r\n\t\t\t\t\t\tinput.value = token;\r\n\t\t\t\t\t});\r\n\r\n\t\t\t\t\tdocument.addEventListener(\"htmx:configRequest\", function (event) {\r\n\t\t\t\t\t\tconst token = csrfToken();\r\n\t\t\t\t\t\tif (token) {\r\n\t\t\t\t\t\t\tevent.detail.headers[\"X-CSRF-Token\"] = token;\r\n\t\t\t\t\t\t}\r\n\t\t\t\t\t});\r\n\r\n\t\t\t\t\t// gobooksFetch — CSRF-safe wrapper around window.fetch.\r\n\t\t\t\t\t// All Alpine / JS code must use this for non-GET requests so that\r\n\t\t\t\t\t// the X-CSRF-Token header is automatically injected from the cookie.\r\n\t\t\t\t\t// Usage: gobooksFetch(\"/api/some-endpoint\", { method: \"POST\", body: ... })\r\n\t\t\t\t\twindow.gobooksFetch = function (url, options) {\r\n\t\t\t\t\t\tconst opts = Object.assign({ credentials: \"same-origin\" }, options);\r\n\t\t\t\t\t\topts.headers = Object.assign({}, opts.headers || {});\r\n\t\t\t\t\t\tconst method = (opts.method || \"GET\").toUpperCase();\r\n\t\t\t\t\t\tif (method !== \"GET\" && method !== \"HEAD\" && method !== \"OPTIONS\") {\r\n\t\t\t\t\t\t\tconst tok = csrfToken();\r\n\t\t\t\t\t\t\tif (tok) opts.headers[\"X-CSRF-Token\"] = tok;\r\n\t\t\t\t\t\t}\r\n\t\t\t\t\t\treturn fetch(url, opts);\r\n\t\t\t\t\t};\r\n\t\t\t\t})();\r\n\t\t\t</script></head><body class=\"bg-background text-text\" data-numfmt=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(ui.SidebarDataFromCtx(ctx).NumberFormat)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 131, Col: 93}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 132, Col: 93}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
@@ -71,7 +71,7 @@ func Layout(title string, sidebar ui.SidebarVM, content templ.Component) templ.C
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(version.Version)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 150, Col: 27}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 151, Col: 27}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -89,7 +89,7 @@ func Layout(title string, sidebar ui.SidebarVM, content templ.Component) templ.C
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(ui.SidebarDataFromCtx(ctx).CompanyName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 166, Col: 87}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 167, Col: 87}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -107,7 +107,7 @@ func Layout(title string, sidebar ui.SidebarVM, content templ.Component) templ.C
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(ui.SidebarDataFromCtx(ctx).PlanName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 169, Col: 49}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 170, Col: 49}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -145,7 +145,7 @@ func Layout(title string, sidebar ui.SidebarVM, content templ.Component) templ.C
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(row.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 202, Col: 67}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 203, Col: 67}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
@@ -163,7 +163,7 @@ func Layout(title string, sidebar ui.SidebarVM, content templ.Component) templ.C
 					var templ_7745c5c3_Var8 string
 					templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(row.CompanyIDStr)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 206, Col: 78}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 207, Col: 78}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 					if templ_7745c5c3_Err != nil {
@@ -196,7 +196,7 @@ func Layout(title string, sidebar ui.SidebarVM, content templ.Component) templ.C
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(sidebar.UserEmail)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 270, Col: 71}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 271, Col: 71}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -238,7 +238,7 @@ func Layout(title string, sidebar ui.SidebarVM, content templ.Component) templ.C
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(time.Now().Year()))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 355, Col: 41}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 356, Col: 41}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
@@ -251,7 +251,7 @@ func Layout(title string, sidebar ui.SidebarVM, content templ.Component) templ.C
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(" ")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 355, Col: 49}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 356, Col: 49}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
@@ -264,7 +264,7 @@ func Layout(title string, sidebar ui.SidebarVM, content templ.Component) templ.C
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(" ")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 362, Col: 10}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 363, Col: 10}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
@@ -277,7 +277,7 @@ func Layout(title string, sidebar ui.SidebarVM, content templ.Component) templ.C
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(version.Version)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 362, Col: 62}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 363, Col: 62}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -321,7 +321,7 @@ func LayoutAuth(title string, content templ.Component) templ.Component {
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 377, Col: 17}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 378, Col: 17}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
@@ -342,7 +342,7 @@ func LayoutAuth(title string, content templ.Component) templ.Component {
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(time.Now().Year()))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 442, Col: 41}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 443, Col: 41}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
@@ -355,7 +355,7 @@ func LayoutAuth(title string, content templ.Component) templ.Component {
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(" ")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 442, Col: 49}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 443, Col: 49}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
@@ -368,7 +368,7 @@ func LayoutAuth(title string, content templ.Component) templ.Component {
 		var templ_7745c5c3_Var18 string
 		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(" ")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 449, Col: 10}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/layout/layout.templ`, Line: 450, Col: 10}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 		if templ_7745c5c3_Err != nil {

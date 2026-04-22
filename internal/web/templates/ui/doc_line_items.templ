@@ -1,0 +1,117 @@
+// 遵循project_guide.md
+package ui
+
+// DocLineItems is the shared Excel-like line-item table used by transaction-
+// document editors. It provides:
+//
+//   • Section title + "+ Add Lines" and "Clear all lines" action buttons.
+//   • A <table> scaffold with <thead> and <tbody>.
+//   • An Alpine <template x-for="(line, idx) in lines"> loop over the parent
+//     scope's `lines` array.
+//   • A trailing trash-icon column for row deletion (parent must expose
+//     removeLine(idx)).
+//   • A <input type="hidden" name="line_count"> kept in sync with lines.length.
+//   • An optional totals slot rendered below the table, right-aligned.
+//
+// The caller is responsible for the header row (<th> cells) and body row
+// (<td> cells) via templ.Component slots, because each document type has its
+// own column mix. The parent form provides the Alpine scope (via x-data) that
+// the cells and template loop rely on: `lines`, `addLine()`, `removeLine(idx)`,
+// `clearAllLines()`, and any per-cell event handlers referenced in the bodyRow.
+//
+// Auto-grow behaviour (last blank row becomes a new row when the user starts
+// typing) lives in the gobooksLineItems() Alpine factory and is wired by the
+// parent component; this templ just renders the markup.
+
+// DocLineItemsVM configures the table chrome.
+type DocLineItemsVM struct {
+	// Title is the section heading (e.g. "Line Items", "Product or service").
+	// Empty string skips the heading.
+	Title string
+	// AddLabel overrides the "+ Add Lines" button text.
+	AddLabel string
+	// ClearLabel overrides the "Clear all lines" button text.
+	ClearLabel string
+	// HideActionButtons hides both "+ Add Lines" and "Clear all lines"
+	// (e.g. when the editor is fully locked in review mode).
+	HideActionButtons bool
+	// ShowClearAll toggles the "Clear all lines" button. Defaults to off
+	// (most editors only show Add to keep the action area clean).
+	ShowClearAll bool
+	// DeleteDisabledWhen is an Alpine expression evaluated per row; when
+	// truthy, the trash button is disabled on that row.
+	// Defaults to "lines.length === 1" (prevent deleting the last row).
+	DeleteDisabledWhen string
+}
+
+templ DocLineItems(vm DocLineItemsVM, headerRow templ.Component, bodyRow templ.Component, totals templ.Component) {
+	<div class={ SectionCardChromeClass() }>
+		if vm.Title != "" || !vm.HideActionButtons {
+			<div class="flex items-center justify-between">
+				if vm.Title != "" {
+					<h2 class="text-section font-semibold text-text">{ vm.Title }</h2>
+				} else {
+					<span></span>
+				}
+				if !vm.HideActionButtons {
+					<div class="flex items-center gap-2">
+						if vm.ShowClearAll {
+							<button
+								type="button"
+								@click="clearAllLines()"
+								class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-body font-medium text-text hover:bg-background"
+							>
+								{ docLineItemsClearLabel(vm) }
+							</button>
+						}
+						<button
+							type="button"
+							@click="addLine()"
+							class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-body font-medium text-text hover:bg-background"
+						>
+							{ docLineItemsAddLabel(vm) }
+						</button>
+					</div>
+				}
+			</div>
+		}
+		<div class="mt-4 overflow-x-auto">
+			<table class="w-full text-left text-body">
+				<thead class="text-small uppercase tracking-wider text-text-muted">
+					<tr class="border-b border-border">
+						@headerRow
+						<th class="py-2 w-10"></th>
+					</tr>
+				</thead>
+				<tbody>
+					<template x-for="(line, idx) in lines" :key="idx">
+						<tr class="border-b border-border-subtle align-top">
+							@bodyRow
+							<td class="py-2 text-center">
+								<button
+									type="button"
+									@click="removeLine(idx)"
+									:disabled={ docLineItemsDeleteDisabled(vm) }
+									class="rounded p-1 text-text-muted3 hover:text-danger disabled:opacity-30"
+									title="Remove line"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+									</svg>
+								</button>
+							</td>
+						</tr>
+					</template>
+				</tbody>
+			</table>
+		</div>
+		<input type="hidden" name="line_count" :value="lines.length"/>
+		if totals != nil {
+			<div class="mt-4 flex justify-end">
+				<div class="w-72 space-y-1 text-body">
+					@totals
+				</div>
+			</div>
+		}
+	</div>
+}

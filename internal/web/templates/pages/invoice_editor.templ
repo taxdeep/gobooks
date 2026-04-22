@@ -13,527 +13,60 @@ templ InvoiceEditor(vm InvoiceEditorVM) {
 }
 
 templ bodyInvoiceEditor(vm InvoiceEditorVM) {
-	<div class="max-w-[95%]">
-		<div class="flex flex-wrap items-center justify-between gap-4">
-			<div>
-				<h1 class="text-title font-semibold">{ InvoiceEditorTitle(vm) }</h1>
-				<p class="mt-1 text-text-muted2">
-					if vm.TaskGeneratedReadOnly {
-						This draft was generated from Billable Work. Review it here, or delete the draft and regenerate from Billable Work to change the included work.
-					} else if vm.IsEdit {
-						Edit draft invoice. Changes are saved as a draft until posted.
-					} else {
-						Create a new invoice. Save as draft to review before posting.
-					}
-				</p>
-			</div>
-			<a href="/invoices" class="text-body text-text-muted3 hover:text-text">← Back to Invoices</a>
-		</div>
+	@ui.DocEditorShell(invoiceEditorShellVM(vm), invoiceEditorContent(vm))
+}
 
-		if vm.FormError != "" {
-			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">
-				{ vm.FormError }
-			</div>
-		}
-		if vm.LinesError != "" {
-			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">
-				{ vm.LinesError }
-			</div>
-		}
+templ invoiceEditorContent(vm InvoiceEditorVM) {
+	<form
+		method="post"
+		action="/invoices/save-draft"
+		class="space-y-6"
+		x-data="invoiceEditor()"
+		data-products={ vm.ProductsJSON }
+		data-tax-codes={ vm.TaxCodesJSON }
+		data-initial-lines={ vm.InitialLinesJSON }
+		data-payment-terms={ vm.PaymentTermsJSON }
+		data-contact-terms={ vm.CustomersTermsJSON }
+		data-initial-terms={ vm.TermCode }
+		data-initial-date={ vm.InvoiceDate }
+		data-initial-due-date={ vm.DueDate }
+		data-invoice-id={ Uitoa(vm.EditingID) }
 		if vm.TaskGeneratedReadOnly {
-			<div class="mt-4 rounded-md border border-border bg-background p-4 text-body text-text-muted2">
-				if vm.Saved {
-					<span class="font-semibold text-text">Changes saved.</span>
-					<span> </span>
-				}
-				Task-generated draft: memo, tax codes, GST, and extra lines are editable. All other fields are locked. To change the core line items, delete the draft and regenerate from Billable Work.
-			</div>
+			data-task-readonly="true"
+		} else {
+			data-task-readonly="false"
+		}
+	>
+		if vm.IsEdit {
+			<input type="hidden" name="invoice_id" value={ Uitoa(vm.EditingID) }/>
+		}
+		// SO↔Invoice tracking: carry sales_order_id through form submits so the
+		// save path can persist it and match invoice lines back to SO lines for
+		// InvoicedQty tracking (services/sales_order_invoice_tracking.go).
+		if vm.SalesOrderID != 0 {
+			<input type="hidden" name="sales_order_id" value={ Uitoa(vm.SalesOrderID) }/>
 		}
 
-		<form
-			method="post"
-			action="/invoices/save-draft"
-			class="mt-6 space-y-6"
-			x-data="invoiceEditor()"
-			data-products={ vm.ProductsJSON }
-			data-tax-codes={ vm.TaxCodesJSON }
-			data-initial-lines={ vm.InitialLinesJSON }
-			data-payment-terms={ vm.PaymentTermsJSON }
-			data-contact-terms={ vm.CustomersTermsJSON }
-			data-initial-terms={ vm.TermCode }
-			data-initial-date={ vm.InvoiceDate }
-			data-initial-due-date={ vm.DueDate }
-			data-invoice-id={ Uitoa(vm.EditingID) }
-			if vm.TaskGeneratedReadOnly {
-				data-task-readonly="true"
-			} else {
-				data-task-readonly="false"
-			}
-		>
-			if vm.IsEdit {
-				<input type="hidden" name="invoice_id" value={ Uitoa(vm.EditingID) }/>
-			}
-			// SO↔Invoice tracking: when the editor was opened via
-			// the "Create Invoice" shortcut on a Sales Order detail
-			// page (or saved with a SO link previously), carry the
-			// sales_order_id through form submits so the save path
-			// can persist it + the server can match invoice lines
-			// back to SO lines for InvoicedQty tracking.
-			if vm.SalesOrderID != 0 {
-				<input type="hidden" name="sales_order_id" value={ Uitoa(vm.SalesOrderID) }/>
-			}
+		// TaskGeneratedReadOnly opts out of fieldset-level lock so per-field
+		// disabled?= attrs can exempt Memo / Tax Code / GST from the lock.
+		<fieldset id="ie-fields" disabled?={ vm.ReviewLocked && !vm.TaskGeneratedReadOnly }>
+			@ui.DocHeaderGrid(
+				"Invoice Details",
+				invoiceHeaderLeft(vm),
+				invoiceHeaderRight(vm),
+				nil,
+			)
+			@ui.DocLineItems(
+				ui.DocLineItemsVM{Title: "Line Items"},
+				invoiceLinesHeader(vm),
+				invoiceLinesBody(vm),
+				invoiceLinesTotals(vm),
+			)
+			@invoiceMemoCard(vm)
+		</fieldset>
 
-			// Wrapper div — JS adds 'ie-reviewing' class to lock fields.
-			// TaskGeneratedReadOnly uses field-level disabled?= instead of the fieldset,
-			// so we can exempt Memo, Tax Code, and GST inputs from the lock.
-			<fieldset id="ie-fields" disabled?={ vm.ReviewLocked && !vm.TaskGeneratedReadOnly }>
-
-			// ── Header ──────────────────────────────────────────────────────
-			<div class="rounded-lg border border-border bg-surface p-6">
-				<h2 class="text-section font-semibold text-text">Invoice Details</h2>
-				<div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-3">
-					// Invoice Number
-					<div>
-						<label class="block text-body font-medium text-text">Invoice Number *</label>
-						if vm.InvoiceNumberError != "" {
-							<input
-								type="text"
-								name="invoice_number"
-								value={ vm.InvoiceNumber }
-								placeholder="e.g. IN001"
-								autocomplete="off"
-								disabled?={ vm.TaskGeneratedReadOnly }
-								class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-danger-focus disabled:opacity-60 disabled:cursor-not-allowed"
-							/>
-							<div class="mt-1 text-body text-danger">{ vm.InvoiceNumberError }</div>
-						} else {
-							<input
-								type="text"
-								name="invoice_number"
-								value={ vm.InvoiceNumber }
-								placeholder="e.g. IN001"
-								autocomplete="off"
-								disabled?={ vm.TaskGeneratedReadOnly }
-								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
-							/>
-						}
-					</div>
-
-					// Customer — SmartPicker (entity="customer")
-					// gobooks-picker-select bubbles up from the picker; we forward
-					// the selected ID + payload to onContactChange for terms/currency auto-fill.
-					<div @gobooks-picker-select="onContactChange($event.detail.id, $event.detail.payload)">
-						@ui.SmartPicker(ui.SmartPickerVM{
-							Label:         "Customer *",
-							FieldName:     "customer_id",
-							Entity:        "customer",
-							Context:       "invoice_editor_customer",
-							Value:         vm.CustomerID,
-							SelectedLabel: InvoiceEditorCustomerLabel(vm),
-							Placeholder:   "Search customers…",
-							Required:      true,
-							Error:         vm.CustomerError,
-							Limit:         20,
-							Disabled:      vm.TaskGeneratedReadOnly,
-							AllowCreate:   !vm.TaskGeneratedReadOnly,
-						})
-					</div>
-
-					// Invoice Date (Alpine-managed for due date calc)
-					<div>
-						<label class="block text-body font-medium text-text">Invoice Date *</label>
-						if vm.DateError != "" {
-							<input
-								type="date"
-								name="invoice_date"
-								value={ vm.InvoiceDate }
-								x-model="invoiceDate"
-								@change="onDateChange($event.target.value)"
-								disabled?={ vm.TaskGeneratedReadOnly }
-								style="color-scheme:dark"
-								class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-danger-focus disabled:opacity-60 disabled:cursor-not-allowed"
-							/>
-							<div class="mt-1 text-body text-danger">{ vm.DateError }</div>
-						} else {
-							<input
-								type="date"
-								name="invoice_date"
-								value={ vm.InvoiceDate }
-								x-model="invoiceDate"
-								@change="onDateChange($event.target.value)"
-								disabled?={ vm.TaskGeneratedReadOnly }
-								style="color-scheme:dark"
-								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
-							/>
-						}
-					</div>
-
-					// Terms
-					<div>
-						<label class="block text-body font-medium text-text">Terms</label>
-						<select
-							name="terms"
-							x-model="terms"
-							@change="onTermsChange($event.target.value)"
-							disabled?={ vm.TaskGeneratedReadOnly }
-							class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
-						>
-							<option value="">-- Select --</option>
-							for _, pt := range vm.PaymentTerms {
-								<option value={ pt.Code } selected?={ pt.Code == vm.TermCode }>{ pt.DropdownLabel() }</option>
-							}
-						</select>
-					</div>
-
-					// Due Date
-					<div>
-						<label class="block text-body font-medium text-text">Due Date</label>
-						<input
-							type="date"
-							name="due_date"
-							x-model="dueDate"
-							disabled?={ vm.TaskGeneratedReadOnly }
-							:readonly="!dueDateEditable"
-							style="color-scheme:dark"
-							:class="dueDateEditable
-								? 'mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus'
-								: 'mt-2 block w-full cursor-not-allowed rounded-md border border-border-input bg-background px-3 py-2 text-body text-text-muted2 outline-none'"
-						/>
-						<p class="mt-1 text-small text-text-muted2" x-show="!dueDateEditable">Auto-computed from terms and invoice date.</p>
-						<p class="mt-1 text-small text-text-muted2" x-show="dueDateEditable" x-cloak>Enter the custom due date.</p>
-					</div>
-
-					// Memo — with optional AI Assist button (edit page only)
-					<div>
-						<div class="flex items-center justify-between">
-							<label class="block text-body font-medium text-text">Memo</label>
-							if vm.IsEdit {
-								<button
-									type="button"
-									@click="aiMemoAssist()"
-									:disabled="invoiceId === 0 || memoAssist.loading || memoAssist.visible"
-									class="flex items-center gap-1 rounded px-2 py-0.5 text-small text-primary hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed"
-								>
-									<span>✦ AI Assist</span>
-									<span x-show="memoAssist.loading" x-cloak class="text-text-muted2">…</span>
-								</button>
-							}
-						</div>
-						if vm.IsEdit {
-							<p x-show="invoiceId === 0" x-cloak class="mt-1 text-small text-text-muted2">Save the draft first to use AI assist.</p>
-						}
-						<input
-							type="text"
-							name="memo"
-							value={ vm.Memo }
-							placeholder="Internal note or reference"
-							autocomplete="off"
-							x-ref="memoInput"
-							class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
-						/>
-						// AI Assist suggestion panel (only visible after a successful call)
-						if vm.IsEdit {
-							<div
-								x-show="memoAssist.visible && !memoAssist.loading"
-								x-cloak
-								class="mt-2 rounded-md border border-border bg-surface p-3 text-body"
-								style="display:none"
-							>
-								<div x-show="memoAssist.error" x-cloak class="text-danger" x-text="memoAssist.error"></div>
-								<div x-show="!memoAssist.error && memoAssist.empty" x-cloak class="text-text-muted2">No suggestion available right now.</div>
-								<div x-show="!memoAssist.error && memoAssist.suggestion" x-cloak>
-									<p class="text-text-muted2 text-small mb-1">Suggested memo:</p>
-									<p class="text-text" x-text="memoAssist.suggestion"></p>
-									<div class="mt-2 flex gap-2">
-										<button
-											type="button"
-											@click="applyMemoSuggestion()"
-											class="rounded-md bg-primary px-3 py-1 text-small font-medium text-white hover:bg-primary-hover"
-										>Apply</button>
-										<button
-											type="button"
-											@click="dismissMemoAssist()"
-											class="rounded-md border border-border px-3 py-1 text-small text-text hover:bg-surface-hover"
-										>Dismiss</button>
-									</div>
-								</div>
-							</div>
-						}
-					</div>
-
-					if len(vm.Warehouses) > 0 {
-						// Warehouse (inventory routing)
-						<div>
-							<label class="block text-body font-medium text-text">Warehouse <span class="font-normal text-text-muted2">(optional)</span></label>
-							<select
-								name="warehouse_id"
-								disabled?={ vm.TaskGeneratedReadOnly }
-								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
-							>
-								<option value="">— Company default —</option>
-								for _, w := range vm.Warehouses {
-									<option value={ Uitoa(w.ID) } selected?={ Uitoa(w.ID) == vm.WarehouseID }>{ w.Name } ({ w.Code })</option>
-								}
-							</select>
-							<p class="mt-1 text-small text-text-muted2">Inventory sold on this invoice will be deducted from the selected warehouse.</p>
-						</div>
-					}
-
-					if vm.MultiCurrencyEnabled {
-						// Currency
-						<div>
-							<label class="block text-body font-medium text-text">Currency</label>
-							if vm.CurrencyError != "" {
-								<select
-									name="currency_code"
-									disabled?={ vm.TaskGeneratedReadOnly }
-									class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-danger-focus disabled:opacity-60 disabled:cursor-not-allowed"
-								>
-									<option value="">{ vm.BaseCurrencyCode } (base)</option>
-									for _, cc := range vm.CompanyCurrencies {
-										<option value={ cc.CurrencyCode } selected?={ cc.CurrencyCode == vm.CurrencyCode }>{ cc.CurrencyCode }</option>
-									}
-								</select>
-								<div class="mt-1 text-body text-danger">{ vm.CurrencyError }</div>
-							} else {
-								<select
-									name="currency_code"
-									disabled?={ vm.TaskGeneratedReadOnly }
-									class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
-								>
-									<option value="">{ vm.BaseCurrencyCode } (base)</option>
-									for _, cc := range vm.CompanyCurrencies {
-										<option value={ cc.CurrencyCode } selected?={ cc.CurrencyCode == vm.CurrencyCode }>{ cc.CurrencyCode }</option>
-									}
-								</select>
-							}
-						</div>
-
-						// Exchange Rate
-						<div>
-							<label class="block text-body font-medium text-text">Exchange Rate</label>
-							if vm.ExchangeRateError != "" {
-								<input
-									type="text"
-									name="exchange_rate"
-									value={ vm.ExchangeRate }
-									placeholder="e.g. 1.3500 (leave blank to auto-lookup)"
-									autocomplete="off"
-									inputmode="decimal"
-									disabled?={ vm.TaskGeneratedReadOnly }
-									class="mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-danger-focus disabled:opacity-60 disabled:cursor-not-allowed"
-								/>
-								<div class="mt-1 text-body text-danger">{ vm.ExchangeRateError }</div>
-							} else {
-								<input
-									type="text"
-									name="exchange_rate"
-									value={ vm.ExchangeRate }
-									placeholder="e.g. 1.3500 (leave blank to auto-lookup)"
-									autocomplete="off"
-									inputmode="decimal"
-									disabled?={ vm.TaskGeneratedReadOnly }
-									class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
-								/>
-							}
-							<p class="mt-1 text-small text-text-muted2">Base units per 1 foreign unit. Leave blank to auto-lookup from exchange rates.</p>
-						</div>
-					}
-				</div>
-			</div>
-
-			// ── Line Items (Alpine-driven) ────────────────────────────────────
+		if !vm.TaskGeneratedReadOnly {
 			<div
-				class="rounded-lg border border-border bg-surface p-6"
-			>
-				<div class="flex items-center justify-between">
-					<h2 class="text-section font-semibold text-text">Line Items</h2>
-					<button
-						type="button"
-						@click="addLine()"
-						class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-body font-medium text-text hover:bg-background"
-					>
-						+ Add Line
-					</button>
-				</div>
-
-				<div class="mt-4 overflow-x-auto">
-					<table class="w-full text-left text-body">
-						<thead class="text-small uppercase tracking-wider text-text-muted">
-							<tr class="border-b border-border">
-								<th class="py-2 pr-3 w-40">Item</th>
-								<th class="py-2 pr-3">Description *</th>
-								<th class="py-2 pr-3 w-20">Qty</th>
-								<th class="py-2 pr-3 w-28">Unit Price</th>
-								<th class="py-2 pr-3 w-36">Tax Code</th>
-								<th class="py-2 pr-3 w-24 text-right">Net</th>
-								<th class="py-2 w-10"></th>
-							</tr>
-						</thead>
-						<tbody>
-							<template x-for="(line, idx) in lines" :key="idx">
-								<tr class="border-b border-border-subtle align-top">
-									// Item (optional product/service picker)
-									<td class="py-2 pr-3">
-										<select
-											:name="'line_product_service_id[' + idx + ']'"
-											x-model="line.product_service_id"
-											@change="onProductChange(idx, $event.target.value)"
-											:disabled="taskReadOnly && line.locked"
-											class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
-										>
-											<option value="">-- None --</option>
-											<template x-for="p in products" :key="p.id">
-												<option :value="p.id" :selected="String(line.product_service_id) === String(p.id)" x-text="p.name"></option>
-											</template>
-										</select>
-									</td>
-									// Description
-									<td class="py-2 pr-3">
-										<input
-											type="text"
-											:name="'line_description[' + idx + ']'"
-											x-model="line.description"
-											placeholder="Description"
-											autocomplete="off"
-											@input="calcLine(idx)"
-											:disabled="taskReadOnly && line.locked"
-											class="block w-full rounded-md bg-surface px-2 py-1.5 text-body text-text outline-none disabled:opacity-60 disabled:cursor-not-allowed"
-											:class="line.error
-												? 'border border-danger focus:ring-2 focus:ring-danger-focus'
-												: 'border border-border-input focus:ring-2 focus:ring-primary-focus'"
-										/>
-										<p
-											x-cloak
-											x-show="line.error"
-											x-text="line.error"
-											class="mt-1 text-small text-danger"
-										></p>
-									</td>
-									// Qty
-									<td class="py-2 pr-3">
-										<input
-											type="text"
-											:name="'line_qty[' + idx + ']'"
-											x-model="line.qty"
-											@input="calcLine(idx)"
-											@blur="onQtyBlur(idx)"
-											inputmode="decimal"
-											:disabled="taskReadOnly && line.locked"
-											class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
-										/>
-									</td>
-									// Unit Price
-									<td class="py-2 pr-3">
-										<input
-											type="text"
-											:name="'line_unit_price[' + idx + ']'"
-											x-model="line.unit_price"
-											@input="calcLine(idx)"
-											@blur="onPriceBlur(idx)"
-											inputmode="decimal"
-											:disabled="taskReadOnly && line.locked"
-											class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
-										/>
-									</td>
-									// Tax Code
-									<td class="py-2 pr-3">
-										<select
-											:name="'line_tax_code_id[' + idx + ']'"
-											x-model="line.tax_code_id"
-											@change="onTaxCodeChange(idx)"
-											class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus"
-										>
-											<option value="">-- None --</option>
-											<template x-for="tc in taxCodes" :key="tc.id">
-												<option :value="tc.id" :selected="String(line.tax_code_id) === String(tc.id)" x-text="tc.code + ' — ' + tc.name"></option>
-											</template>
-										</select>
-									</td>
-									// Net (computed)
-									<td class="py-2 pr-3 text-right tabular-nums">
-										<span x-text="line.line_net"></span>
-									</td>
-									// Remove
-									<td class="py-2 text-center">
-										<button
-											type="button"
-											@click="removeLine(idx)"
-											:disabled="lines.length === 1 || (taskReadOnly && line.locked)"
-											class="rounded p-1 text-text-muted3 hover:text-danger disabled:opacity-30"
-											title="Remove line"
-										>
-											<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-												<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-											</svg>
-										</button>
-										// Hidden: DB id of existing line + locked flag.
-										// Used by the task-draft save handler to match lines for tax-code updates.
-										<input type="hidden" :name="'line_invoice_line_id[' + idx + ']'" :value="line.invoice_line_id || ''"/>
-										<input type="hidden" :name="'line_is_locked[' + idx + ']'" :value="line.locked ? '1' : '0'"/>
-									</td>
-								</tr>
-							</template>
-						</tbody>
-					</table>
-				</div>
-
-				// hidden line_count — read by handler
-				<input type="hidden" name="line_count" :value="lines.length"/>
-
-				// ── Totals ───────────────────────────────────────────────────
-				<div class="mt-4 flex justify-end">
-					<div class="w-72 space-y-1 text-body">
-						// Pre-tax subtotal
-						<div class="flex items-center justify-between">
-							<span class="text-text-muted">Pre-tax subtotal</span>
-							<span class="tabular-nums text-text" x-text="subtotal()"></span>
-						</div>
-
-						// Per-tax-code breakdown (editable)
-						<template x-for="tc in taxBreakdown()" :key="tc.id">
-							<div class="flex items-center justify-between gap-2">
-								<span class="text-small text-text-muted truncate" x-text="tc.code + ' @ ' + (tc.rate * 100).toFixed(2).replace(/\.?0+$/, '') + '%'"></span>
-								<input
-									type="text"
-									inputmode="decimal"
-									:value="taxAdjValue(tc.id)"
-									@input="onTaxAdjInput(tc.id, $event.target.value)"
-									@blur="if (!$event.target.value.trim()) { $event.target.value = taxAdjValue(tc.id) }"
-									class="w-24 rounded-md border border-border-input bg-surface px-2 py-0.5 text-right text-body text-text tabular-nums outline-none focus:ring-2 focus:ring-primary-focus"
-								/>
-							</div>
-						</template>
-
-						// Hidden inputs submitted with the form
-						<template x-if="taxBreakdown().length > 0">
-							<span>
-								<input type="hidden" name="tax_adj_count" :value="taxBreakdown().length"/>
-								<template x-for="(tc, i) in taxBreakdown()" :key="tc.id">
-									<span>
-										<input type="hidden" :name="'tax_adj_id[' + i + ']'" :value="tc.id"/>
-										<input type="hidden" :name="'tax_adj_amount[' + i + ']'" :value="taxAdjValue(tc.id)"/>
-									</span>
-								</template>
-							</span>
-						</template>
-
-						// Grand total
-						<div class="flex items-center justify-between border-t border-border pt-2 font-semibold">
-							<span>Total</span>
-							<span class="tabular-nums" x-text="grandTotal()"></span>
-						</div>
-					</div>
-				</div>
-
-				<script src="/static/invoice_editor.js?v=12"></script>
-			</div>
-
-			</fieldset>
-
-			// ── Review banner ─────────────────────────────────────────────────
-			if !vm.TaskGeneratedReadOnly {
-				<div
 				id="ie-review-banner"
 				style={ editorDisplay(vm.ReviewLocked) }
 				class="rounded-md border border-border bg-background px-4 py-3 text-body text-text-muted2"
@@ -543,179 +76,421 @@ templ bodyInvoiceEditor(vm InvoiceEditorVM) {
 					<span> </span>
 				}
 				Review your invoice. If everything looks correct, click <strong class="text-text">Submit</strong> to save — or click <strong class="text-text">← Edit</strong> to make changes.
-				</div>
-			}
-
-			// ── Actions ──────────────────────────────────────────────────────
-			<div class="flex flex-wrap items-center justify-end gap-3">
-				if vm.TaskGeneratedReadOnly {
-					<a
-						href="/invoices"
-						class="rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text"
-					>
-						Back to Invoices
-					</a>
-					if vm.DeletePath != "" {
-						<form
-							method="post"
-							action={ vm.DeletePath }
-							class="inline"
-							onsubmit="return confirm('Delete this draft invoice? This will release the linked Billable Work so you can regenerate it.');"
-						>
-							<button
-								type="submit"
-								class="rounded-md border border-border-danger px-4 py-2 text-body font-semibold text-danger hover:bg-danger-soft"
-							>
-								Delete Draft
-							</button>
-						</form>
-					}
-					// Save Changes: persists memo, tax-code edits, and extra lines.
-					// Uses a dedicated endpoint that only touches the allowed fields.
-					if vm.SaveTaskDraftPath != "" {
-						<button
-							type="submit"
-							formmethod="post"
-							formaction={ vm.SaveTaskDraftPath }
-							class="rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text"
-						>
-							Save Changes
-						</button>
-					}
-					if vm.SubmitPath != "" {
-						<button
-							id="ie-submit-btn"
-							type="submit"
-							formmethod="post"
-							formaction={ vm.SubmitPath }
-							class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
-						>
-							Submit
-						</button>
-					}
-				} else {
-					<a
-					id="ie-cancel-link"
-					href="/invoices"
-					style={ editorDisplay(!vm.ReviewLocked) }
-					class="rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text"
-				>
-					Cancel
-				</a>
-				<button
-					id="ie-edit-btn"
-					style={ editorDisplay(vm.ReviewLocked) }
-					type="button"
-					onclick="ieExitReview()"
-					class="rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text"
-				>
-					← Edit
-				</button>
-				<button
-					id="ie-save-btn"
-					style={ editorDisplay(!vm.ReviewLocked) }
-					type="submit"
-					class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
-				>
-					Save Draft
-				</button>
-					if vm.SubmitPath != "" {
-					<button
-						id="ie-submit-btn"
-						style={ editorDisplay(vm.ReviewLocked) }
-						type="submit"
-						formmethod="post"
-						formaction={ vm.SubmitPath }
-						class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
-					>
-						Submit
-					</button>
-				}
-				}
 			</div>
+		}
 
-			// ── Quick Create Customer drawer ──────────────────────────────────
-			// Listens for gobooks-picker-create from the Customer SmartPicker and
-			// opens a slide-over panel to create a new customer without leaving the page.
+		@ui.DocEditorFooter(invoiceEditorFooterVM(vm))
+
+		@invoiceCustomerQuickCreateDrawer(vm)
+
+		<script src="/static/invoice_editor.js?v=14"></script>
+		<script>
+			function ieExitReview() {
+				var fieldset = document.getElementById('ie-fields');
+				var submitBtn = document.getElementById('ie-submit-btn');
+				if (fieldset) fieldset.disabled = false;
+				document.getElementById('ie-review-banner').style.display = 'none';
+				document.getElementById('ie-cancel-link').style.display = '';
+				document.getElementById('ie-edit-btn').style.display = 'none';
+				document.getElementById('ie-save-btn').style.display = '';
+				if (submitBtn) submitBtn.style.display = 'none';
+			}
+		</script>
+	</form>
+}
+
+// invoiceHeaderLeft is the counterparty column. AR invoices have no separate
+// mailing / bill-to block (that's an AP concern), so only the SmartPicker lives
+// here — gobooks-picker-select bubbles up and onContactChange auto-fills terms
+// and currency from the customer's defaults (via the picker's payload).
+templ invoiceHeaderLeft(vm InvoiceEditorVM) {
+	<div @gobooks-picker-select="onContactChange($event.detail.id, $event.detail.payload)">
+		@ui.SmartPicker(ui.SmartPickerVM{
+			Label:         "Customer *",
+			FieldName:     "customer_id",
+			Entity:        "customer",
+			Context:       "invoice_editor_customer",
+			Value:         vm.CustomerID,
+			SelectedLabel: InvoiceEditorCustomerLabel(vm),
+			Placeholder:   "Search customers…",
+			Required:      true,
+			Error:         vm.CustomerError,
+			Limit:         20,
+			Disabled:      vm.TaskGeneratedReadOnly,
+			AllowCreate:   !vm.TaskGeneratedReadOnly,
+		})
+	</div>
+}
+
+templ invoiceHeaderRight(vm InvoiceEditorVM) {
+	<div>
+		<label class="block text-body font-medium text-text">Invoice Number *</label>
+		<input
+			type="text"
+			name="invoice_number"
+			value={ vm.InvoiceNumber }
+			placeholder="e.g. IN001"
+			autocomplete="off"
+			disabled?={ vm.TaskGeneratedReadOnly }
+			class={ fieldClass(vm.InvoiceNumberError != "") }
+		/>
+		@fieldError(vm.InvoiceNumberError)
+	</div>
+
+	<div>
+		<label class="block text-body font-medium text-text">Invoice Date *</label>
+		<input
+			type="date"
+			name="invoice_date"
+			value={ vm.InvoiceDate }
+			x-model="invoiceDate"
+			@change="onDateChange($event.target.value)"
+			disabled?={ vm.TaskGeneratedReadOnly }
+			style="color-scheme:dark"
+			class={ fieldClass(vm.DateError != "") }
+		/>
+		@fieldError(vm.DateError)
+	</div>
+
+	<div>
+		<label class="block text-body font-medium text-text">Terms</label>
+		<select
+			name="terms"
+			x-model="terms"
+			@change="onTermsChange($event.target.value)"
+			disabled?={ vm.TaskGeneratedReadOnly }
+			class={ fieldClass(false) }
+		>
+			<option value="">-- Select --</option>
+			for _, pt := range vm.PaymentTerms {
+				<option value={ pt.Code } selected?={ pt.Code == vm.TermCode }>{ pt.DropdownLabel() }</option>
+			}
+		</select>
+	</div>
+
+	// Due Date — :class ternary picks an editable vs muted style based on whether
+	// terms are set; the non-editable variant swaps bg-surface for bg-background
+	// so the field reads as read-only without using the disabled attribute.
+	<div>
+		<label class="block text-body font-medium text-text">Due Date</label>
+		<input
+			type="date"
+			name="due_date"
+			x-model="dueDate"
+			disabled?={ vm.TaskGeneratedReadOnly }
+			:readonly="!dueDateEditable"
+			style="color-scheme:dark"
+			:class="dueDateEditable
+				? 'mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus'
+				: 'mt-2 block w-full cursor-not-allowed rounded-md border border-border-input bg-background px-3 py-2 text-body text-text-muted2 outline-none'"
+		/>
+		<p class="mt-1 text-small text-text-muted2" x-show="!dueDateEditable">Auto-computed from terms and invoice date.</p>
+		<p class="mt-1 text-small text-text-muted2" x-show="dueDateEditable" x-cloak>Enter the custom due date.</p>
+	</div>
+
+	if len(vm.Warehouses) > 0 {
+		<div>
+			<label class="block text-body font-medium text-text">Warehouse <span class="font-normal text-text-muted2">(optional)</span></label>
+			<select
+				name="warehouse_id"
+				disabled?={ vm.TaskGeneratedReadOnly }
+				class={ fieldClass(false) }
+			>
+				<option value="">— Company default —</option>
+				for _, w := range vm.Warehouses {
+					<option value={ Uitoa(w.ID) } selected?={ Uitoa(w.ID) == vm.WarehouseID }>{ w.Name } ({ w.Code })</option>
+				}
+			</select>
+			<p class="mt-1 text-small text-text-muted2">Inventory sold on this invoice will be deducted from the selected warehouse.</p>
+		</div>
+	}
+
+	if vm.MultiCurrencyEnabled {
+		<div>
+			<label class="block text-body font-medium text-text">Currency</label>
+			<select
+				name="currency_code"
+				disabled?={ vm.TaskGeneratedReadOnly }
+				class={ fieldClass(vm.CurrencyError != "") }
+			>
+				<option value="">{ vm.BaseCurrencyCode } (base)</option>
+				for _, cc := range vm.CompanyCurrencies {
+					<option value={ cc.CurrencyCode } selected?={ cc.CurrencyCode == vm.CurrencyCode }>{ cc.CurrencyCode }</option>
+				}
+			</select>
+			@fieldError(vm.CurrencyError)
+		</div>
+
+		<div>
+			<label class="block text-body font-medium text-text">Exchange Rate</label>
+			<input
+				type="text"
+				name="exchange_rate"
+				value={ vm.ExchangeRate }
+				placeholder="e.g. 1.3500 (leave blank to auto-lookup)"
+				autocomplete="off"
+				inputmode="decimal"
+				disabled?={ vm.TaskGeneratedReadOnly }
+				class={ fieldClass(vm.ExchangeRateError != "") }
+			/>
+			@fieldError(vm.ExchangeRateError)
+			<p class="mt-1 text-small text-text-muted2">Base units per 1 foreign unit. Leave blank to auto-lookup from exchange rates.</p>
+		</div>
+	}
+}
+
+// fieldError renders the standard inline error message under a form field.
+// Skips rendering entirely when the message is empty.
+templ fieldError(msg string) {
+	if msg != "" {
+		<div class="mt-1 text-body text-danger">{ msg }</div>
+	}
+}
+
+templ invoiceLinesHeader(vm InvoiceEditorVM) {
+	<th class="py-2 pr-3 w-40">Item</th>
+	<th class="py-2 pr-3">Description *</th>
+	<th class="py-2 pr-3 w-20">Qty</th>
+	<th class="py-2 pr-3 w-28">Unit Price</th>
+	<th class="py-2 pr-3 w-36">Tax Code</th>
+	<th class="py-2 pr-3 w-24 text-right">Net</th>
+}
+
+templ invoiceLinesBody(vm InvoiceEditorVM) {
+	<td class="py-2 pr-3">
+		<select
+			:name="'line_product_service_id[' + idx + ']'"
+			x-model="line.product_service_id"
+			@change="onProductChange(idx, $event.target.value)"
+			:disabled="taskReadOnly && line.locked"
+			class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
+		>
+			<option value="">-- None --</option>
+			<template x-for="p in products" :key="p.id">
+				<option :value="p.id" x-text="p.name"></option>
+			</template>
+		</select>
+	</td>
+	<td class="py-2 pr-3">
+		<input
+			type="text"
+			:name="'line_description[' + idx + ']'"
+			x-model="line.description"
+			placeholder="Description"
+			autocomplete="off"
+			@input="calcLine(idx)"
+			:disabled="taskReadOnly && line.locked"
+			class="block w-full rounded-md bg-surface px-2 py-1.5 text-body text-text outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+			:class="line.error
+				? 'border border-danger focus:ring-2 focus:ring-danger-focus'
+				: 'border border-border-input focus:ring-2 focus:ring-primary-focus'"
+		/>
+		<p
+			x-cloak
+			x-show="line.error"
+			x-text="line.error"
+			class="mt-1 text-small text-danger"
+		></p>
+	</td>
+	<td class="py-2 pr-3">
+		<input
+			type="text"
+			:name="'line_qty[' + idx + ']'"
+			x-model="line.qty"
+			@input="calcLine(idx)"
+			@blur="onQtyBlur(idx)"
+			inputmode="decimal"
+			:disabled="taskReadOnly && line.locked"
+			class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
+		/>
+	</td>
+	<td class="py-2 pr-3">
+		<input
+			type="text"
+			:name="'line_unit_price[' + idx + ']'"
+			x-model="line.unit_price"
+			@input="calcLine(idx)"
+			@blur="onPriceBlur(idx)"
+			inputmode="decimal"
+			:disabled="taskReadOnly && line.locked"
+			class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
+		/>
+	</td>
+	<td class="py-2 pr-3">
+		<select
+			:name="'line_tax_code_id[' + idx + ']'"
+			x-model="line.tax_code_id"
+			@change="onTaxCodeChange(idx)"
+			class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-primary-focus"
+		>
+			<option value="">-- None --</option>
+			<template x-for="tc in taxCodes" :key="tc.id">
+				<option :value="tc.id" x-text="tc.code + ' — ' + tc.name"></option>
+			</template>
+		</select>
+	</td>
+	<td class="py-2 pr-3 text-right tabular-nums">
+		<span x-text="line.line_net"></span>
+		// line_invoice_line_id + line_is_locked: used by the task-draft save
+		// handler to match locked lines for tax-code-only updates.
+		<input type="hidden" :name="'line_invoice_line_id[' + idx + ']'" :value="line.invoice_line_id || ''"/>
+		<input type="hidden" :name="'line_is_locked[' + idx + ']'" :value="line.locked ? '1' : '0'"/>
+	</td>
+}
+
+templ invoiceLinesTotals(vm InvoiceEditorVM) {
+	<div class="flex items-center justify-between">
+		<span class="text-text-muted">Pre-tax subtotal</span>
+		<span class="tabular-nums text-text" x-text="subtotalStr"></span>
+	</div>
+
+	<template x-for="tc in taxBreakdown" :key="tc.id">
+		<div class="flex items-center justify-between gap-2">
+			<span class="text-small text-text-muted truncate" x-text="tc.code + ' @ ' + (tc.rate * 100).toFixed(2).replace(/\.?0+$/, '') + '%'"></span>
+			<input
+				type="text"
+				inputmode="decimal"
+				:value="taxAdjValue(tc.id)"
+				@input="onTaxAdjInput(tc.id, $event.target.value)"
+				@blur="if (!$event.target.value.trim()) { $event.target.value = taxAdjValue(tc.id) }"
+				class="w-24 rounded-md border border-border-input bg-surface px-2 py-0.5 text-right text-body text-text tabular-nums outline-none focus:ring-2 focus:ring-primary-focus"
+			/>
+		</div>
+	</template>
+
+	<template x-if="taxBreakdown.length > 0">
+		<span>
+			<input type="hidden" name="tax_adj_count" :value="taxBreakdown.length"/>
+			<template x-for="(tc, i) in taxBreakdown" :key="tc.id">
+				<span>
+					<input type="hidden" :name="'tax_adj_id[' + i + ']'" :value="tc.id"/>
+					<input type="hidden" :name="'tax_adj_amount[' + i + ']'" :value="taxAdjValue(tc.id)"/>
+				</span>
+			</template>
+		</span>
+	</template>
+
+	<div class="flex items-center justify-between border-t border-border pt-2 font-semibold">
+		<span>Total</span>
+		<span class="tabular-nums" x-text="grandTotalStr"></span>
+	</div>
+}
+
+// invoiceMemoCard is a dedicated card matching the QBO layout where notes
+// live below the line items rather than mixed into the header metadata.
+templ invoiceMemoCard(vm InvoiceEditorVM) {
+	<div class={ ui.SectionCardChromeClass() }>
+		<div class="flex items-center justify-between">
+			<h2 class="text-section font-semibold text-text">Memo</h2>
+			if vm.IsEdit {
+				<button
+					type="button"
+					@click="aiMemoAssist()"
+					:disabled="invoiceId === 0 || memoAssist.loading || memoAssist.visible"
+					class="flex items-center gap-1 rounded px-2 py-0.5 text-small text-primary hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed"
+				>
+					<span>✦ AI Assist</span>
+					<span x-show="memoAssist.loading" x-cloak class="text-text-muted2">…</span>
+				</button>
+			}
+		</div>
+		if vm.IsEdit {
+			<p x-show="invoiceId === 0" x-cloak class="mt-1 text-small text-text-muted2">Save the draft first to use AI assist.</p>
+		}
+		<input
+			type="text"
+			name="memo"
+			value={ vm.Memo }
+			placeholder="Internal note or reference"
+			autocomplete="off"
+			x-ref="memoInput"
+			class="mt-3 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
+		/>
+		if vm.IsEdit {
 			<div
-				x-data="gobooksCustomerQuickCreate()"
-				data-currencies={ vm.QuickCreateCurrenciesJSON }
-				@gobooks-picker-create.window="onPickerCreate($event)"
-				x-show="open"
+				x-show="memoAssist.visible && !memoAssist.loading"
 				x-cloak
-				class="fixed inset-0 z-50"
+				class="mt-2 rounded-md border border-border bg-surface p-3 text-body"
 				style="display:none"
 			>
-				<!-- Backdrop -->
-				<div class="absolute inset-0 bg-black/50" @click="cancel()"></div>
-				<!-- Panel -->
-				<div class="absolute right-0 top-0 flex h-full w-full max-w-sm flex-col border-l border-border bg-surface shadow-xl">
-					<div class="flex items-center justify-between border-b border-border px-6 py-4">
-						<h2 class="text-section font-semibold text-text">New Customer</h2>
-						<button type="button" @click="cancel()" class="rounded p-1 text-text-muted3 hover:text-text" aria-label="Close">
-							<svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-								<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-							</svg>
-						</button>
-					</div>
-					<div class="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-						<div>
-							<label class="block text-body font-medium text-text">Name *</label>
-							<input
-								type="text"
-								x-model="name"
-								x-ref="nameInput"
-								@keydown.enter.prevent="save()"
-								placeholder="Customer name"
-								class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus"
-								:class="nameError ? 'border-danger focus:ring-danger-focus' : ''"
-							/>
-							<div x-show="nameError" class="mt-1 text-small text-danger" x-text="nameError"></div>
-						</div>
-						<!-- Currency select — only rendered when multi-currency is enabled for this company -->
-						<div x-show="currencies.length > 1" x-cloak>
-							<label class="block text-body font-medium text-text">Currency *</label>
-							<select
-								x-model="currency"
-								class="mt-2 block w-full rounded-md border bg-surface px-3 py-2 text-body outline-none focus:ring-2"
-								:class="currencyError ? 'border-danger focus:ring-danger-focus' : 'border-border-input focus:ring-primary-focus'"
-							>
-								<option value="">— Select currency —</option>
-								<template x-for="code in currencies" :key="code">
-									<option :value="code" x-text="code"></option>
-								</template>
-							</select>
-							<div x-show="currencyError" class="mt-1 text-small text-danger" x-text="currencyError"></div>
-						</div>
-						<div x-show="formError" class="rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-small text-danger-hover" x-text="formError"></div>
-					</div>
-					<div class="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
-						<button type="button" @click="cancel()" class="rounded-md border border-border-input px-4 py-2 text-body text-text-muted3 hover:bg-background">Cancel</button>
+				<div x-show="memoAssist.error" x-cloak class="text-danger" x-text="memoAssist.error"></div>
+				<div x-show="!memoAssist.error && memoAssist.empty" x-cloak class="text-text-muted2">No suggestion available right now.</div>
+				<div x-show="!memoAssist.error && memoAssist.suggestion" x-cloak>
+					<p class="text-text-muted2 text-small mb-1">Suggested memo:</p>
+					<p class="text-text" x-text="memoAssist.suggestion"></p>
+					<div class="mt-2 flex gap-2">
 						<button
 							type="button"
-							@click="save()"
-							:disabled="saving"
-							class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
-						>
-							<span x-show="!saving">Create Customer</span>
-							<span x-show="saving" x-cloak>Creating…</span>
-						</button>
+							@click="applyMemoSuggestion()"
+							class="rounded-md bg-primary px-3 py-1 text-small font-medium text-white hover:bg-primary-hover"
+						>Apply</button>
+						<button
+							type="button"
+							@click="dismissMemoAssist()"
+							class="rounded-md border border-border px-3 py-1 text-small text-text hover:bg-surface-hover"
+						>Dismiss</button>
 					</div>
 				</div>
 			</div>
+		}
+	</div>
+}
 
-			<script>
-				function ieExitReview() {
-					var fieldset = document.getElementById('ie-fields');
-					var submitBtn = document.getElementById('ie-submit-btn');
-					if (fieldset) fieldset.disabled = false;
-					document.getElementById('ie-review-banner').style.display = 'none';
-					document.getElementById('ie-cancel-link').style.display = '';
-					document.getElementById('ie-edit-btn').style.display = 'none';
-					document.getElementById('ie-save-btn').style.display = '';
-					if (submitBtn) submitBtn.style.display = 'none';
-				}
-			</script>
-		</form>
+// invoiceCustomerQuickCreateDrawer is a slide-over that the Customer SmartPicker
+// opens (via gobooks-picker-create) when the user clicks "+ Add new".
+templ invoiceCustomerQuickCreateDrawer(vm InvoiceEditorVM) {
+	<div
+		x-data="gobooksCustomerQuickCreate()"
+		data-currencies={ vm.QuickCreateCurrenciesJSON }
+		@gobooks-picker-create.window="onPickerCreate($event)"
+		@keydown.escape.window="if (drawerOpen) { cancel() }"
+	>
+		@ui.RightDrawerBackdrop()
+		@ui.RightDrawerPanel("quickCreatePanel", "quick-create-customer-title", "New Customer", "", invoiceCustomerQuickCreateBody())
+	</div>
+}
+
+templ invoiceCustomerQuickCreateBody() {
+	<div class="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+		<div>
+			<label class="block text-body font-medium text-text">Name *</label>
+			<input
+				type="text"
+				x-model="name"
+				x-ref="nameInput"
+				@keydown.enter.prevent="save()"
+				placeholder="Customer name"
+				class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus"
+				:class="nameError ? 'border-danger focus:ring-danger-focus' : ''"
+			/>
+			<div x-show="nameError" class="mt-1 text-small text-danger" x-text="nameError"></div>
+		</div>
+		<div x-show="currencies.length > 1" x-cloak>
+			<label class="block text-body font-medium text-text">Currency *</label>
+			<select
+				x-model="currency"
+				class="mt-2 block w-full rounded-md border bg-surface px-3 py-2 text-body outline-none focus:ring-2"
+				:class="currencyError ? 'border-danger focus:ring-danger-focus' : 'border-border-input focus:ring-primary-focus'"
+			>
+				<option value="">— Select currency —</option>
+				<template x-for="code in currencies" :key="code">
+					<option :value="code" x-text="code"></option>
+				</template>
+			</select>
+			<div x-show="currencyError" class="mt-1 text-small text-danger" x-text="currencyError"></div>
+		</div>
+		<div x-show="formError" class="rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-small text-danger-hover" x-text="formError"></div>
+	</div>
+	<div class="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
+		<button type="button" @click="cancel()" class="rounded-md border border-border-input px-4 py-2 text-body text-text-muted3 hover:bg-background">Cancel</button>
+		<button
+			type="button"
+			@click="save()"
+			:disabled="saving"
+			class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
+		>
+			<span x-show="!saving">Create Customer</span>
+			<span x-show="saving" x-cloak>Creating…</span>
+		</button>
 	</div>
 }

@@ -16,9 +16,9 @@ package pages
 // encoded in a class string.
 func fieldClass(hasErr bool) string {
 	if hasErr {
-		return "mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-danger-focus"
+		return "mt-2 block w-full rounded-md border border-danger bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-danger-focus disabled:opacity-60 disabled:cursor-not-allowed"
 	}
-	return "mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus"
+	return "mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-60 disabled:cursor-not-allowed"
 }
 
 // tableInputClass returns the compact variant for inline inputs inside tables

@@ -1,0 +1,217 @@
+// 遵循project_guide.md
+package ui
+
+// DocEditorShell is the common outer chrome for transaction-document editors
+// (Invoice, Quote, Sales Order, Bill, Purchase Order, Expense).
+//
+// It renders:
+//   • the page title + optional subtitle + back link
+//   • optional top-of-page banners (form error, lines error, info banner)
+//   • a slot for the editor form body
+//
+// Callers provide their own <form> element inside the body slot so they can
+// control method/action/x-data/data-* attributes. The sticky action bar is
+// rendered via ui.DocEditorFooter, which the caller places inside the form
+// so that footer submit buttons naturally submit the form (and so that no
+// nested-form HTML is needed for secondary POSTs — use `formaction` instead).
+
+// DocEditorShellVM — top-level editor page configuration.
+type DocEditorShellVM struct {
+	// Title is the page heading (e.g. "New Invoice", "Edit Bill").
+	Title string
+	// Subtitle is an optional description rendered under the title.
+	Subtitle string
+	// BackURL / BackLabel render the right-aligned "← Back to X" link.
+	// If BackURL is empty, the link is omitted.
+	BackURL   string
+	BackLabel string
+	// FormError is shown as a red danger banner above the form body.
+	FormError string
+	// LinesError is a second red banner (for line-specific validation).
+	LinesError string
+	// InfoBanner is an optional gray info banner shown below errors.
+	// Used for task-generated read-only notice, saved-draft notice, etc.
+	InfoBanner string
+}
+
+// DocEditorFooterVM — sticky bottom action bar configuration.
+//
+// Layout:
+//   [Left cancel link]  [Secondary links, centered]  [Primary buttons, right]
+//
+// Any slot may be empty. Buttons with Style="display:none" are hidden but still
+// emitted (used by Invoice's review-mode toggle which JS flips client-side).
+type DocEditorFooterVM struct {
+	// Cancel — typically a back link to the list page.
+	Cancel *DocEditorFooterLink
+	// SecondaryLinks — centered, e.g. Print, Duplicate, Make recurring.
+	SecondaryLinks []DocEditorFooterLink
+	// Buttons — right-aligned primary CTAs (Save, Submit, etc.).
+	Buttons []DocEditorFooterButton
+}
+
+// DocEditorFooterLink is a left/center anchor or text button in the footer.
+// Exactly one of Href / OnClick should be set; if Href is non-empty it renders
+// as <a>, otherwise as <button type="button">.
+type DocEditorFooterLink struct {
+	// ID is an optional HTML id (used by review-mode JS to toggle display).
+	ID string
+	// Label is the visible text.
+	Label string
+	// Href makes this an anchor link (list navigation, etc.).
+	Href string
+	// OnClick is inline JS for button-mode links (rarely used).
+	OnClick string
+	// Style is optional inline style, typically "display:none" for JS-toggled.
+	Style string
+	// Variant selects styling. See FooterLinkVariant constants.
+	Variant FooterLinkVariant
+}
+
+// DocEditorFooterButton is a right-side primary/secondary action button.
+type DocEditorFooterButton struct {
+	// ID is an optional HTML id (used by review-mode JS to toggle display).
+	ID string
+	// Label is the visible button text.
+	Label string
+	// Variant selects styling. See FooterBtnVariant constants.
+	// Empty string defaults to FooterBtnPrimary.
+	Variant FooterBtnVariant
+	// Type: "submit" (form submit) or "button" (no submit). Default "submit".
+	Type string
+	// FormAction overrides the parent form's action attribute when this
+	// button is clicked (used by Invoice submit / save-task-draft flows).
+	FormAction string
+	// FormMethod overrides the parent form's method (rarely needed).
+	FormMethod string
+	// OnClick is inline JS for Type="button" hooks.
+	OnClick string
+	// Style is optional inline style, typically "display:none" for JS-toggled.
+	Style string
+	// Disabled is forwarded to the underlying button element.
+	Disabled bool
+}
+
+templ DocEditorShell(vm DocEditorShellVM, content templ.Component) {
+	// pb-20 reserves space for the sticky footer (rendered inside the content slot).
+	<div class="max-w-[95%] pb-20">
+		<div class="flex flex-wrap items-center justify-between gap-4">
+			<div>
+				<h1 class="text-title font-semibold">{ vm.Title }</h1>
+				if vm.Subtitle != "" {
+					<p class="mt-1 text-text-muted2">{ vm.Subtitle }</p>
+				}
+			</div>
+			if vm.BackURL != "" {
+				<a href={ templ.SafeURL(vm.BackURL) } class="text-body text-text-muted3 hover:text-text">
+					← { docEditorBackLabel(vm) }
+				</a>
+			}
+		</div>
+		if vm.FormError != "" {
+			<div class="mt-4">
+				@AlertError(vm.FormError)
+			</div>
+		}
+		if vm.LinesError != "" {
+			<div class="mt-4">
+				@AlertError(vm.LinesError)
+			</div>
+		}
+		if vm.InfoBanner != "" {
+			<div class="mt-4">
+				@AlertInfo(vm.InfoBanner)
+			</div>
+		}
+		<div class="mt-6">
+			@content
+		</div>
+	</div>
+}
+
+// DocEditorFooter renders the sticky bottom action bar on its own.
+// Usually rendered via DocEditorShell, but exposed as a standalone component
+// so pages that need a custom body wrapper can still use the footer.
+templ DocEditorFooter(vm DocEditorFooterVM) {
+	// -mx-6 + px-6 undoes the parent main tag's p-6 so the footer spans the
+	// full content width. Shadow provides upward elevation above scrolling content.
+	<div class="sticky bottom-0 -mx-6 border-t border-border bg-surface px-6 py-3 shadow-[0_-2px_4px_rgba(0,0,0,0.04)]">
+		<div class="flex flex-wrap items-center justify-between gap-3">
+			<div class="flex items-center gap-3">
+				if vm.Cancel != nil {
+					@docEditorFooterLink(*vm.Cancel)
+				}
+			</div>
+			<div class="flex items-center gap-6">
+				for _, link := range vm.SecondaryLinks {
+					@docEditorFooterLink(link)
+				}
+			</div>
+			<div class="flex items-center gap-3">
+				for _, btn := range vm.Buttons {
+					@docEditorFooterButton(btn)
+				}
+			</div>
+		</div>
+	</div>
+}
+
+// docEditorFooterLink renders one link slot (anchor or button-mode link).
+templ docEditorFooterLink(link DocEditorFooterLink) {
+	if link.Href != "" {
+		<a
+			if link.ID != "" {
+				id={ link.ID }
+			}
+			href={ templ.SafeURL(link.Href) }
+			if link.Style != "" {
+				style={ link.Style }
+			}
+			class={ docEditorFooterLinkClass(link.Variant) }
+		>
+			{ link.Label }
+		</a>
+	} else {
+		<button
+			type="button"
+			if link.ID != "" {
+				id={ link.ID }
+			}
+			if link.OnClick != "" {
+				@click={ link.OnClick }
+			}
+			if link.Style != "" {
+				style={ link.Style }
+			}
+			class={ docEditorFooterLinkClass(link.Variant) }
+		>
+			{ link.Label }
+		</button>
+	}
+}
+
+// docEditorFooterButton renders one right-aligned button.
+templ docEditorFooterButton(btn DocEditorFooterButton) {
+	<button
+		if btn.ID != "" {
+			id={ btn.ID }
+		}
+		type={ docEditorButtonType(btn.Type) }
+		if btn.FormAction != "" {
+			formaction={ templ.SafeURL(btn.FormAction) }
+		}
+		if btn.FormMethod != "" {
+			formmethod={ btn.FormMethod }
+		}
+		if btn.OnClick != "" {
+			@click={ btn.OnClick }
+		}
+		if btn.Style != "" {
+			style={ btn.Style }
+		}
+		disabled?={ btn.Disabled }
+		class={ docEditorFooterButtonClass(btn.Variant) }
+	>
+		{ btn.Label }
+	</button>
+}

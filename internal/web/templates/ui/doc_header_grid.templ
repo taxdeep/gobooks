@@ -1,0 +1,66 @@
+// 遵循project_guide.md
+package ui
+
+// DocHeaderGrid is the shared two-column header block used by transaction-
+// document editors (Invoice, Quote, Sales Order, Bill, Purchase Order, Expense).
+//
+// Layout mirrors the QuickBooks-style reference design:
+//   • Left column: counterparty picker + follow-up fields (email, mailing
+//     address, bill-to, etc.) that are specific to the document type.
+//   • Right column: document metadata (number, terms, dates, warehouse, FX).
+//   • Top-right: balance / amount badge (optional, rendered via the
+//     BadgeSlot component).
+//
+// Callers render the field contents themselves (so each document type can
+// include the fields it cares about); the grid component only owns the
+// two-column shell and optional top-right badge.
+//
+// Usage:
+//
+//   @ui.DocHeaderGrid(
+//       "Invoice Details",
+//       invoiceHeaderLeft(vm),    // left column content
+//       invoiceHeaderRight(vm),   // right column content
+//       invoiceBalanceBadge(vm),  // top-right badge (nil-safe — may be blank templ.Component)
+//   )
+
+templ DocHeaderGrid(title string, left templ.Component, right templ.Component, badge templ.Component) {
+	<div class={ SectionCardChromeClass() }>
+		if title != "" || badge != nil {
+			<div class="flex items-start justify-between gap-4">
+				if title != "" {
+					<h2 class="text-section font-semibold text-text">{ title }</h2>
+				} else {
+					<span></span>
+				}
+				if badge != nil {
+					<div class="text-right">
+						@badge
+					</div>
+				}
+			</div>
+		}
+		<div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
+			<div class="space-y-4">
+				if left != nil {
+					@left
+				}
+			</div>
+			<div class="space-y-4">
+				if right != nil {
+					@right
+				}
+			</div>
+		</div>
+	</div>
+}
+
+// DocBalanceBadge is a standard top-right balance-due badge (label + amount).
+// Provided as a convenience; callers can pass their own templ.Component to
+// DocHeaderGrid's badge slot if they need a different layout.
+templ DocBalanceBadge(label string, amount string) {
+	<div class="text-right">
+		<div class="text-small uppercase tracking-wider text-text-muted2">{ label }</div>
+		<div class="mt-0.5 text-title font-semibold tabular-nums text-text">{ amount }</div>
+	</div>
+}
