@@ -1,5 +1,5 @@
 // invoice_editor.js — Alpine component for the invoice line-items editor.
-// v=16
+// v=17
 //
 // Composes gobooksLineItems() for line-array management (addLine / removeLine /
 // auto-grow) and layers Invoice-specific state on top: tax-code breakdown,
@@ -59,6 +59,19 @@ function invoiceEditor() {
       shipToLabel:     "",
       shippingOptions: [],   // [{label, address, is_default}]
 
+      // Last-known customer-record email at the time the customer was
+      // selected. Used to detect email overrides so we can prompt the
+      // operator on submit ("also update the customer record?").
+      _customerRecordEmail: "",
+
+      // Dialog state for the "update customer contact?" prompt.
+      contactUpdatePrompt: { open: false, pending: false, newEmail: "", oldEmail: "" },
+
+      // updateCustomerContactFlag maps to the hidden form input
+      // `update_customer_contact`; backend applies the email override back
+      // to Customer.Email when "1".
+      updateCustomerContactFlag: "0",
+
       // Cached reactive properties maintained by _recalcAll(). Templates read
       // these directly (no parens) so Alpine doesn't rescan lines per render.
       taxBreakdown:    [],
@@ -98,6 +111,12 @@ function invoiceEditor() {
         this.billTo        = el.dataset.initialBillTo        || "";
         this.shipTo        = el.dataset.initialShipTo        || "";
         this.shipToLabel   = el.dataset.initialShipToLabel   || "";
+        // On edit-page rehydration the customer record's email is the
+        // same as customerEmail unless a prior invoice saved an override.
+        // That's acceptable: we only prompt when the user changes the
+        // field DURING this editor session (so false positives from
+        // existing overrides don't re-prompt on every save).
+        this._customerRecordEmail = this.customerEmail;
         try {
           this.shippingOptions = JSON.parse(el.dataset.initialShippingAddresses || "[]");
         } catch (_) {
@@ -338,6 +357,7 @@ function invoiceEditor() {
           if (sel) sel.value = p.default_currency;
         }
         this.customerEmail = p.email    || "";
+        this._customerRecordEmail = this.customerEmail;
         this.billTo        = p.bill_to  || "";
         this.shippingOptions = this._parseShippingAddresses(p.shipping_addresses);
         // Pick the default shipping address (first entry — payload sorts is_default
@@ -370,6 +390,49 @@ function invoiceEditor() {
         } catch (_) {
           return [];
         }
+      },
+
+      // ── Submit interceptor: "update customer record?" prompt ─────────────
+
+      // onFormSubmit intercepts the save-draft submission when the operator
+      // has typed a new email (different from the customer-record's). It
+      // opens a dialog offering two paths:
+      //   • "Update customer"   → sets update_customer_contact=1 so the
+      //                            backend rewrites Customer.Email; invoice
+      //                            snapshot still captures the same value.
+      //   • "Just this invoice" → snapshots to the invoice only (default).
+      // Dialog emits a proper form.submit() after the choice so CSRF and
+      // handler routing run unchanged.
+      onFormSubmit($event) {
+        if (this.contactUpdatePrompt.pending) return true;  // already confirmed
+        const changed = this._emailOverrideChanged();
+        if (!changed) return true;
+        $event.preventDefault();
+        this.contactUpdatePrompt = {
+          open: true, pending: false,
+          newEmail: this.customerEmail, oldEmail: this._customerRecordEmail,
+        };
+        return false;
+      },
+
+      _emailOverrideChanged() {
+        const now = (this.customerEmail || "").trim();
+        const ref = (this._customerRecordEmail || "").trim();
+        return now !== ref && (now !== "" || ref !== "");
+      },
+
+      confirmContactUpdate(update) {
+        this.updateCustomerContactFlag = update ? "1" : "0";
+        this.contactUpdatePrompt.open = false;
+        this.contactUpdatePrompt.pending = true;
+        // Resubmit; onFormSubmit short-circuits via the pending flag.
+        this.$root.submit();
+      },
+
+      cancelContactUpdate() {
+        this.contactUpdatePrompt.open = false;
+        // leave pending=false so re-submitting still triggers the dialog
+        // if the operator edits further.
       },
 
       onTermsChange(val) {

@@ -22,6 +22,7 @@ templ invoiceEditorContent(vm InvoiceEditorVM) {
 		action="/invoices/save-draft"
 		class="space-y-6"
 		x-data="invoiceEditor()"
+		@submit="onFormSubmit($event)"
 		@gobooks-item-picker-select="onProductChange($event.detail.idx, $event.detail.id)"
 		data-products={ vm.ProductsJSON }
 		data-tax-codes={ vm.TaxCodesJSON }
@@ -46,6 +47,9 @@ templ invoiceEditorContent(vm InvoiceEditorVM) {
 		if vm.IsEdit {
 			<input type="hidden" name="invoice_id" value={ Uitoa(vm.EditingID) }/>
 		}
+		// Toggled to "1" by the "update customer record" dialog choice so the
+		// backend rewrites Customer.Email alongside the invoice snapshot.
+		<input type="hidden" name="update_customer_contact" :value="updateCustomerContactFlag"/>
 		// SO↔Invoice tracking: carry sales_order_id through form submits so the
 		// save path can persist it and match invoice lines back to SO lines for
 		// InvoicedQty tracking (services/sales_order_invoice_tracking.go).
@@ -87,9 +91,10 @@ templ invoiceEditorContent(vm InvoiceEditorVM) {
 
 		@ui.DocEditorFooter(invoiceEditorFooterVM(vm))
 
+		@invoiceContactUpdateDialog()
 		@invoiceCustomerQuickCreateDrawer(vm)
 
-		<script src="/static/invoice_editor.js?v=16"></script>
+		<script src="/static/invoice_editor.js?v=17"></script>
 		<script>
 			function ieExitReview() {
 				var fieldset = document.getElementById('ie-fields');
@@ -558,6 +563,49 @@ templ invoiceMemoCard(vm InvoiceEditorVM) {
 				</div>
 			</div>
 		}
+	</div>
+}
+
+// invoiceContactUpdateDialog is the centered modal that appears on save when
+// the operator has typed a different email than the customer record holds.
+// Lives in the invoiceEditor() Alpine scope and drives the submit path via
+// confirmContactUpdate(true|false).
+templ invoiceContactUpdateDialog() {
+	<div
+		x-show="contactUpdatePrompt.open"
+		x-cloak
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+		style="display:none"
+		@keydown.escape.window="cancelContactUpdate()"
+	>
+		<div class="w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-xl" @click.stop>
+			<h2 class="text-section font-semibold text-text">Update customer record?</h2>
+			<p class="mt-2 text-body text-text-muted2">
+				You changed the email on this invoice. Do you want to also update the customer's record so future invoices use the new value? Picking "Just this invoice" snapshots the new email only on the current document.
+			</p>
+			<div class="mt-4 rounded-md border border-border bg-background p-3 text-small">
+				<div class="flex items-start justify-between gap-2">
+					<span class="text-text-muted">Was:</span>
+					<span class="font-mono text-text" x-text="contactUpdatePrompt.oldEmail || '—'"></span>
+				</div>
+				<div class="mt-1 flex items-start justify-between gap-2">
+					<span class="text-text-muted">New:</span>
+					<span class="font-mono text-text" x-text="contactUpdatePrompt.newEmail || '—'"></span>
+				</div>
+			</div>
+			<p class="mt-3 text-small text-text-muted3">Bill-to and ship-to address edits always snapshot to this invoice only. Edit the customer page to change the stored billing address or shipping-address catalogue.</p>
+			<div class="mt-5 flex flex-wrap items-center justify-end gap-3">
+				<button type="button" @click="cancelContactUpdate()" class="rounded-md border border-border-input px-4 py-2 text-body text-text-muted3 hover:bg-background">
+					Cancel
+				</button>
+				<button type="button" @click="confirmContactUpdate(false)" class="rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text hover:bg-background">
+					Just this invoice
+				</button>
+				<button type="button" @click="confirmContactUpdate(true)" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
+					Update customer
+				</button>
+			</div>
+		</div>
 	</div>
 }
 

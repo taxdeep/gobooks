@@ -381,6 +381,12 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 	billToOverride := strings.TrimSpace(c.FormValue("bill_to"))
 	shipToSnapshot := strings.TrimSpace(c.FormValue("ship_to"))
 	shipToLabel := strings.TrimSpace(c.FormValue("ship_to_label"))
+	// update_customer_contact=1 means "also write the email override back to
+	// the Customer record" (so future invoices default to it). Set by the
+	// Invoice editor's "Update customer record?" dialog. Bill-to / ship-to
+	// are snapshot-only regardless — address updates happen on the customer
+	// page where the structured fields can be edited directly.
+	updateCustomerContact := strings.TrimSpace(c.FormValue("update_customer_contact")) == "1"
 	currencyCodeRaw := strings.ToUpper(strings.TrimSpace(c.FormValue("currency_code")))
 	exchangeRateRaw := strings.TrimSpace(c.FormValue("exchange_rate"))
 	warehouseIDRaw := strings.TrimSpace(c.FormValue("warehouse_id"))
@@ -735,6 +741,17 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 		First(&customer).Error; err != nil {
 		vm.FormError = "Customer not found."
 		return pages.InvoiceEditor(vm).Render(c.Context(), c)
+	}
+
+	// "Update customer record?" dialog path. When the operator typed a
+	// different email and picked "Update customer", rewrite Customer.Email
+	// here so the snapshot (computed below) and the live record stay in sync
+	// and future invoices default to the new value. Only applied when the
+	// override is non-empty and actually differs from the current record.
+	if updateCustomerContact && customerEmailOverride != "" && customerEmailOverride != customer.Email {
+		if err := s.DB.Model(&customer).Update("email", customerEmailOverride).Error; err == nil {
+			customer.Email = customerEmailOverride
+		}
 	}
 
 	// Parse optional warehouse selection.
