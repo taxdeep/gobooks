@@ -82,6 +82,34 @@ const (
 	// rejects stock lines entirely so Receipt remains the only
 	// inbound-inventory surface.
 	LedgerSourceExpense LedgerSourceType = "expense"
+	// LedgerSourceARReturnReceipt is used by Phase I.6a.2
+	// ARReturnReceipt post under companies.shipment_required=true —
+	// Dr Inventory / Cr COGS at the traced original-sale cost
+	// (read from the original Invoice's inventory_movement via
+	// CreditNoteLine.OriginalInvoiceLineID). Under controlled mode
+	// (I.6a.3) this becomes the Rule #4 movement owner for AR-return
+	// stock lines; the paired CreditNote books only the revenue leg
+	// (Dr Revenue / Cr AR). Under legacy mode (shipment_required=false)
+	// ARReturnReceipt post is a status-flip only and this source_type
+	// is not emitted — IN.5's CreditNote continues to own movement.
+	LedgerSourceARReturnReceipt LedgerSourceType = "ar_return_receipt"
+	// LedgerSourceVendorReturnShipment is used by Phase I.6b.2
+	// VendorReturnShipment post under companies.receipt_required=true —
+	// Dr AP / Cr Inventory at the traced original-receipt cost
+	// (read from the original Bill's inventory_movement via
+	// VendorCreditNoteLine.OriginalBillLineID). Under controlled mode
+	// (I.6b.3) this becomes the Rule #4 movement owner for AP-return
+	// stock lines; the paired VendorCreditNote skips the JE for stock
+	// lines. Under legacy mode (receipt_required=false) VRS post is a
+	// status-flip only and this source_type is not emitted — IN.6a's
+	// VCN continues to own the reversal path.
+	//
+	// Asymmetry vs AR side: VRS posts BOTH legs (Dr AP + Cr Inventory),
+	// where the AR-side split was ARR books inventory-leg only + CN
+	// books revenue-leg only. This is because AP purchase accounting
+	// (Dr Inventory / Cr AP) has no separate "revenue" leg — the
+	// reversal needs only two accounts on one document to self-balance.
+	LedgerSourceVendorReturnShipment LedgerSourceType = "vendor_return_shipment"
 )
 
 // LedgerEntry is one row in the accounting fact layer.

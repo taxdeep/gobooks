@@ -446,6 +446,30 @@ func PostReceipt(db *gorm.DB, companyID, id uint, actor string, actorUserID *uui
 		if err := tx.Save(r).Error; err != nil {
 			return fmt.Errorf("save receipt: %w", err)
 		}
+
+		// IN.8 Rule #4 post-time invariant. Under receipt_required=true
+		// this document IS the movement owner (Rule4DocReceipt) and
+		// MUST have produced at least one inventory_movements row per
+		// stock-item line. Under receipt_required=false it is NOT the
+		// owner — assertion expects zero rows, H.2's boundary-lock
+		// tests already enforce that separately but this double-locks
+		// against future regressions.
+		stockLineCount := 0
+		for _, ln := range r.Lines {
+			if ln.ProductService != nil && ln.ProductService.IsStockItem {
+				stockLineCount++
+			}
+		}
+		if err := AssertRule4PostTimeInvariant(tx, companyID,
+			Rule4DocReceipt, r.ID, stockLineCount,
+			Rule4WorkflowState{
+				ReceiptRequired:  company.ReceiptRequired,
+				ShipmentRequired: company.ShipmentRequired,
+			},
+		); err != nil {
+			return err
+		}
+
 		cid := companyID
 		TryWriteAuditLogWithContextDetails(
 			tx,

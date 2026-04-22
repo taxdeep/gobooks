@@ -206,6 +206,32 @@ WHERE company_id = $CID;
 - **Rationale:** pilot starts against a known-empty WFI so
   subsequent queue population is attributable to pilot traffic.
 
+### Gate 5a — Schema patch IN.7 is applied (CRITICAL — blocks post)
+
+Phase I.3 wired `PostShipment` under `shipment_required=true` to
+write the JE id back via `shipments.journal_entry_id`, but
+`migrations/076_shipments_and_lines.sql` never created the column.
+**migration 084** (IN.7) closes this gap. Verify:
+
+```sql
+SELECT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'shipments' AND column_name = 'journal_entry_id'
+) AS has_journal_entry_id;
+-- MUST return true before enabling shipment_required.
+```
+
+If this returns `false`, the first `PostShipment` under the flipped
+rail will fail with `column "journal_entry_id" does not exist` and
+block the pilot. Apply migration 084 + all intermediate migrations
+before flipping the rail.
+
+Dev / test DBs that were previously populated via GORM AutoMigrate
+(tests, local dev with fresh install) already have the column —
+this gate primarily protects production DBs that took the
+SQL-only migration path.
+
 ### Gate 5 — Operator & CS readiness sign-off
 
 **Check:** Written or ticketed confirmation from:

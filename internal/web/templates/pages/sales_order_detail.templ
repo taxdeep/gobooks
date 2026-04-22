@@ -398,6 +398,19 @@ templ soActionButtons(vm SalesOrderDetailVM) {
 					</button>
 				</form>
 			case models.SalesOrderStatusConfirmed:
+				// "Create Invoice" shortcut — opens a pre-filled draft
+				// invoice editor. Visible on every Confirmed SO. The
+				// handler decides per-line which rows to pre-fill based
+				// on remaining qty (Quantity - InvoicedQty); if nothing
+				// is left to invoice the editor still opens blank and
+				// the operator can decide (full SO->Invoice tracking
+				// with auto-close is a follow-on slice).
+				<a
+					href={ templ.SafeURL("/invoices/new?sales_order_id=" + Uitoa(vm.Order.ID)) }
+					class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+				>
+					Create Invoice
+				</a>
 				<form method="post" action={ templ.SafeURL("/sales-orders/" + Uitoa(vm.Order.ID) + "/cancel") }
 					onsubmit="return confirm('Cancel this confirmed sales order?')">
 					<button type="submit" class="rounded-md border border-border-danger px-4 py-2 text-body font-semibold text-danger hover:bg-danger-soft">

@@ -270,11 +270,47 @@ func Migrate(db *gorm.DB) error {
 		&models.VendorPrepayment{},
 		&models.VendorReturn{},
 		&models.VendorCreditNote{},
+		&models.VendorCreditNoteLine{},
 		&models.VendorRefund{},
 		&models.APCreditApplication{},
 		// Phase C: inter-warehouse stock transfers.
 		// Warehouse must precede WarehouseTransfer (FK deps already above).
 		&models.WarehouseTransfer{},
+		// Phase I.6a.1: AR-side return receipt (customer returns stock).
+		// ARReturnReceipt depends on Customer, Warehouse, and CreditNote
+		// (FK deps already above). ARReturnReceiptLine depends on
+		// ProductService and CreditNoteLine. Both FKs to the commercial
+		// document are nullable at schema per charter Q7 hard rule #1;
+		// legality is enforced at service-layer post time. I.6a.1 is
+		// document-shell-only — no inventory/JE side effects until I.6a.2.
+		&models.ARReturnReceipt{},
+		&models.ARReturnReceiptLine{},
+		// Phase I.6b.1: AP-side return shipment (we return stock to
+		// vendor). UI label "Return to Vendor" per charter Q2; internal
+		// model name VendorReturnShipment to avoid collision with the
+		// pre-existing models.VendorReturn business-fact concept.
+		// Symmetric to ARReturnReceipt: nullable FKs at schema per Q7;
+		// legality enforced at service. I.6b.1 is document-shell-only —
+		// inventory/JE side effects land in I.6b.2 (which calls the
+		// dedicated narrow traced-cost outflow verb from I.6b.2a).
+		&models.VendorReturnShipment{},
+		&models.VendorReturnShipmentLine{},
+		// IN.7 (2026-04-21) — defense-in-depth: register the physical-
+		// truth inventory documents (Phase H Receipt, Phase I Shipment,
+		// Phase I waiting_for_invoice queue). These were historically
+		// relying on SQL migrations ONLY, which missed
+		// `shipments.journal_entry_id` at I.3 wiring time and blocked
+		// `shipment_required=true` pilot in production. Registering
+		// them here ensures future column additions on the model are
+		// applied via AutoMigrate on fresh installs + dev DBs even if
+		// a dedicated SQL migration is omitted. Companion migration
+		// 084_shipments_add_journal_entry_id.sql closes the production
+		// gap for pre-IN.7 DBs.
+		&models.Receipt{},
+		&models.ReceiptLine{},
+		&models.Shipment{},
+		&models.ShipmentLine{},
+		&models.WaitingForInvoiceItem{},
 	); err != nil {
 		return err
 	}

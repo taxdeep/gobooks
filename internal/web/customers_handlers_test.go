@@ -141,7 +141,12 @@ func TestCustomerDetailPageHappyPath(t *testing.T) {
 			Amount:        decimal.RequireFromString("80.00"),
 			BalanceDue:    decimal.RequireFromString("30.00"),
 			CurrencyCode:  "CAD",
-			DueDate:       datePtrWeb(t, "2026-04-20"),
+			// Due date is kept in the future (rolling) so the
+			// "exactly 1 overdue invoice" assertion below stays
+			// stable as wall-clock time advances. Pre-IN.9 this
+			// was a fixed "2026-04-20" literal that rotted on
+			// 2026-04-21 when today's-date crossed it.
+			DueDate: futureDueDateWeb(1),
 		},
 		{
 			CompanyID:     companyID,
@@ -265,5 +270,17 @@ func datePtrWeb(t *testing.T, value string) *time.Time {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return &d
+}
+
+// futureDueDateWeb returns a *time.Time `monthsOut` months from
+// today at UTC midnight. Used by tests that need a guaranteed-
+// future due date for "not-yet-overdue" invoice fixtures, so the
+// test's overdue-count assertions stay stable as wall-clock time
+// advances.
+func futureDueDateWeb(monthsOut int) *time.Time {
+	today := time.Now().UTC()
+	d := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, time.UTC).
+		AddDate(0, monthsOut, 0)
 	return &d
 }

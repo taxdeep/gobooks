@@ -17,7 +17,7 @@ func SectionKeyForActivePage(active string) string {
 		return "expenses"
 	case "Bank Reconcile", "Reports", "Accounts":
 		return "accounting"
-	case "Products & Services", "Warehouses", "Warehouse Transfers", "Stock Report":
+	case "Products & Services", "Warehouses", "Warehouse Transfers", "Stock Report", "Return Receipts", "Returns to Vendor":
 		return "inventory"
 	default:
 		if IsSettingsNavActive(active) {

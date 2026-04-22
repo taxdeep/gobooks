@@ -112,7 +112,16 @@ type VendorCreditNoteDetailVM struct {
 	Accounts   []models.Account
 	Bills      []models.Bill // bills for same vendor (linked bill selector)
 	// OpenBills are vendor's open bills available for credit application.
-	OpenBills   []models.Bill
+	OpenBills []models.Bill
+
+	// IN.6b stock-return line editor support.
+	// BillLines populated when the VCN has a linked Bill; each entry is
+	// a candidate OriginalBillLineID the operator may select.
+	// Products lists the company's active stock items so the line picker
+	// can display names / costs without additional queries.
+	BillLines []models.BillLine
+	Products  []models.ProductService
+
 	FormError   string
 	ApplyError  string
 	RemoveError string
@@ -146,6 +155,20 @@ type VendorRefundDetailVM struct {
 	Posted     bool
 	Voided     bool
 	Reversed   bool
+}
+
+// vendorCreditNoteHasStockLine reports whether the VCN carries at
+// least one stock-item line — i.e. whether a matching Return to
+// Vendor could be produced from it (Q4 shortcut visibility). Lines
+// must be preloaded with ProductService (GetVendorCreditNote does
+// this via Preload("Lines.ProductService")).
+func vendorCreditNoteHasStockLine(vcn models.VendorCreditNote) bool {
+	for _, ln := range vcn.Lines {
+		if ln.ProductService != nil && ln.ProductService.IsStockItem {
+			return true
+		}
+	}
+	return false
 }
 
 // ── APAging VM ────────────────────────────────────────────────────────────────

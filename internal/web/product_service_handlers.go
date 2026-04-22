@@ -199,7 +199,18 @@ func (s *Server) handleProductServiceCreate(c *fiber.Ctx) error {
 			return err
 		}
 		if item.ItemStructureType == models.ItemStructureBundle {
-			return services.SaveBundleComponents(tx, companyID, item.ID, bundleComps)
+			if err := services.SaveBundleComponents(tx, companyID, item.ID, bundleComps); err != nil {
+				return err
+			}
+		}
+		// PS.1: saving a stock item without a warehouse is a latent
+		// Rule #4 trap — inventory movements need a warehouse. Auto-
+		// provision a MAIN default on first stock item; idempotent
+		// thereafter.
+		if item.IsStockItem {
+			if _, err := services.EnsureDefaultWarehouse(tx, companyID); err != nil {
+				return fmt.Errorf("ensure default warehouse: %w", err)
+			}
 		}
 		return nil
 	})
@@ -356,12 +367,21 @@ func (s *Server) handleProductServiceUpdate(c *fiber.Ctx) error {
 			return err
 		}
 		if isBundle {
-			return services.SaveBundleComponents(tx, companyID, itemID, bundleComps)
-		}
-		// If switching away from bundle, clear components.
-		if existing.ItemStructureType == models.ItemStructureSingle {
+			if err := services.SaveBundleComponents(tx, companyID, itemID, bundleComps); err != nil {
+				return err
+			}
+		} else if existing.ItemStructureType == models.ItemStructureSingle {
+			// If switching away from bundle, clear components.
 			tx.Where("company_id = ? AND parent_item_id = ?", companyID, itemID).
 				Delete(&models.ItemComponent{})
+		}
+		// PS.1: parallel to the Create path — if the saved item is a
+		// stock item, ensure the company has a default warehouse.
+		// Idempotent.
+		if existing.IsStockItem {
+			if _, err := services.EnsureDefaultWarehouse(tx, companyID); err != nil {
+				return fmt.Errorf("ensure default warehouse: %w", err)
+			}
 		}
 		return nil
 	})

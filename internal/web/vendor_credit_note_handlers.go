@@ -269,6 +269,18 @@ func (s *Server) loadVCNFormData(companyID uint, vm *pages.VendorCreditNoteDetai
 			Order("bill_date desc").Find(&vm.Bills)
 		vm.OpenBills, _ = services.ListOpenBillsForVendor(s.DB, companyID, vm.CreditNote.VendorID)
 	}
+
+	// IN.6b — load bill lines (source for OriginalBillLineID picker)
+	// and active stock items (product picker for return lines). Lines
+	// are only useful when the VCN links to a specific Bill; skip the
+	// query otherwise.
+	if vm.CreditNote.BillID != nil && *vm.CreditNote.BillID > 0 {
+		s.DB.Preload("ProductService").
+			Where("company_id = ? AND bill_id = ?", companyID, *vm.CreditNote.BillID).
+			Order("sort_order asc").Find(&vm.BillLines)
+	}
+	s.DB.Where("company_id = ? AND is_active = true AND is_stock_item = true",
+		companyID).Order("name asc").Find(&vm.Products)
 }
 
 func parseVCNInput(c *fiber.Ctx) services.VendorCreditNoteInput {
@@ -325,5 +337,84 @@ func parseVCNInput(c *fiber.Ctx) services.VendorCreditNoteInput {
 		OffsetAccountID: offsetAccountID,
 		Reason:          strings.TrimSpace(c.FormValue("reason")),
 		Memo:            strings.TrimSpace(c.FormValue("memo")),
+		Lines:           parseVCNLineInputs(c),
 	}
+}
+
+// parseVCNLineInputs reads the parallel line arrays from the form
+// and builds VendorCreditNoteLineInput rows. Returns nil (NOT an
+// empty slice) when no lines were submitted so the service layer
+// continues down the legacy "don't touch lines" path on update.
+// Blank rows (no description + no product) are skipped so the
+// operator can hold an empty row open in the UI.
+func parseVCNLineInputs(c *fiber.Ctx) []services.VendorCreditNoteLineInput {
+	args := c.Request().PostArgs()
+	descriptions := args.PeekMulti("line_description[]")
+	productIDs := args.PeekMulti("line_product_service_id[]")
+	origLineIDs := args.PeekMulti("line_original_bill_line_id[]")
+	qtys := args.PeekMulti("line_qty[]")
+	prices := args.PeekMulti("line_unit_price[]")
+
+	maxLen := len(descriptions)
+	if n := len(productIDs); n > maxLen {
+		maxLen = n
+	}
+	if n := len(qtys); n > maxLen {
+		maxLen = n
+	}
+	if maxLen == 0 {
+		return nil
+	}
+
+	out := make([]services.VendorCreditNoteLineInput, 0, maxLen)
+	for i := 0; i < maxLen; i++ {
+		desc := ""
+		if i < len(descriptions) {
+			desc = strings.TrimSpace(string(descriptions[i]))
+		}
+		pidRaw := ""
+		if i < len(productIDs) {
+			pidRaw = strings.TrimSpace(string(productIDs[i]))
+		}
+		// Skip a fully empty row so the operator can keep a blank
+		// slot visible without forcing a save-time error.
+		if desc == "" && pidRaw == "" {
+			continue
+		}
+
+		qty := decimal.Zero
+		if i < len(qtys) {
+			qty, _ = decimal.NewFromString(strings.TrimSpace(string(qtys[i])))
+		}
+		price := decimal.Zero
+		if i < len(prices) {
+			price, _ = decimal.NewFromString(strings.TrimSpace(string(prices[i])))
+		}
+		var productID *uint
+		if pidRaw != "" {
+			if id, err := strconv.ParseUint(pidRaw, 10, 64); err == nil && id > 0 {
+				v := uint(id)
+				productID = &v
+			}
+		}
+		var origLineID *uint
+		if i < len(origLineIDs) {
+			raw := strings.TrimSpace(string(origLineIDs[i]))
+			if raw != "" {
+				if id, err := strconv.ParseUint(raw, 10, 64); err == nil && id > 0 {
+					v := uint(id)
+					origLineID = &v
+				}
+			}
+		}
+		out = append(out, services.VendorCreditNoteLineInput{
+			SortOrder:          uint(i + 1),
+			ProductServiceID:   productID,
+			OriginalBillLineID: origLineID,
+			Description:        desc,
+			Qty:                qty,
+			UnitPrice:          price,
+		})
+	}
+	return out
 }

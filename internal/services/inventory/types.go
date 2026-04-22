@@ -335,6 +335,77 @@ type ReverseMovementResult struct {
 	ReversalValueBase  decimal.Decimal // sign opposite of original
 }
 
+// ── IN: IssueVendorReturn (Phase I.6b.2a — narrow traced-cost outflow) ──────
+//
+// IssueVendorReturn is a dedicated narrow-semantic outflow verb for the
+// "we return goods to a vendor at the ORIGINAL receipt cost" path —
+// the keystone decision of PHASE_I6_CHARTER.md Q3. It is DELIBERATELY
+// NOT a generalisation of IssueStock:
+//
+//   IssueStock        — callers never pass a cost. Module returns the
+//                       cost (current weighted avg or FIFO peel).
+//                       Cost authority lives in the inventory engine.
+//   ReverseMovement   — reverses a SPECIFIC prior movement at its exact
+//                       original cost. Full-qty only — the reversal
+//                       delta matches the original's delta magnitude.
+//   IssueVendorReturn — outflow at the traced original-receipt cost,
+//                       supporting PARTIAL qty. Caller passes lineage
+//                       (OriginalMovementID) + intent (Quantity, where);
+//                       module reads unit_cost_base from the source
+//                       movement internally. Narrow by name — there is
+//                       no "just pass a cost" affordance.
+//
+// Charter Q3 rejected the "extend IssueStock with a UnitCostOverride
+// (allow-listed by SourceType)" path. If a future caller pressures to
+// widen this verb to accept arbitrary costs, the request opens its own
+// new narrow verb — it does NOT relax this one.
+//
+// The verb does NOT peel FIFO layers. Traced-cost outflow is out-of-
+// band with respect to the oldest-first ordering used by cost-method
+// FIFO issues. Balance on-hand decrements; average_cost is unchanged
+// (outbound convention, same as IssueStock weighted-avg). Layer-sum
+// drift is a known-acceptable pattern that `InspectFIFOLayerDrift` /
+// `RepairFIFOLayerDrift` already surface for audit repair.
+
+// IssueVendorReturnInput carries the complete payload for a
+// traced-cost outflow event.
+type IssueVendorReturnInput struct {
+	CompanyID          uint
+	OriginalMovementID uint            // lineage: source Bill's inventory_movement — the cost anchor
+	Quantity           decimal.Decimal // strictly positive; partial ≤ original ok
+	MovementDate       time.Time
+
+	// WarehouseID is where the goods PHYSICALLY leave from. If zero,
+	// the verb inherits the original movement's warehouse (most common
+	// case — goods haven't moved between receipt and return). If set,
+	// it may differ from the original's warehouse (e.g. post-transfer
+	// return); caller is responsible for ensuring stock exists at the
+	// named warehouse.
+	WarehouseID uint
+
+	// Caller-supplied source trace for the NEW outflow movement. These
+	// are NOT the cost-trace source — that's OriginalMovementID. These
+	// identify the business document producing the return (e.g.
+	// 'vendor_return_shipment' for the I.6b.2 caller).
+	SourceType   string
+	SourceID     uint
+	SourceLineID *uint
+
+	IdempotencyKey string
+	ActorUserID    *uint
+	Memo           string
+}
+
+// IssueVendorReturnResult reports the booked outflow at the traced
+// original cost. Callers use UnitCostBase + OutflowValueBase to
+// construct the Cr Inventory / Dr AP portion of the JE — same
+// authoritative-cost shape as IssueStock for COGS.
+type IssueVendorReturnResult struct {
+	MovementID       uint
+	UnitCostBase     decimal.Decimal // READ from source movement; NEVER caller-supplied
+	OutflowValueBase decimal.Decimal // Quantity × UnitCostBase (positive magnitude)
+}
+
 // ── IN: ReserveStock / ReleaseStock (Phase E placeholders) ──────────────────
 
 // ReserveStockInput / ReleaseStockInput are defined but their implementations

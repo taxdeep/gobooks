@@ -15,3 +15,16 @@ type CreditNoteFormVM struct {
 	FormError  string
 	Reasons    []models.CreditNoteReason
 }
+
+// creditNoteHasStockLine reports whether the CN carries at least one
+// stock-item line — i.e. whether a matching Return Receipt could be
+// produced from it (Q4 shortcut visibility). Lines must be preloaded
+// with ProductService (GetCreditNote does this).
+func creditNoteHasStockLine(cn models.CreditNote) bool {
+	for _, ln := range cn.Lines {
+		if ln.ProductService != nil && ln.ProductService.IsStockItem {
+			return true
+		}
+	}
+	return false
+}

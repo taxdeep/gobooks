@@ -156,8 +156,29 @@ type CreditNoteLine struct {
 
 	// ProductServiceID optionally links to the catalogue item.
 	// When set, RevenueAccountID, Description, and UnitPrice may be pre-filled.
+	//
+	// IN.5 / Rule #4: when ProductService.IsStockItem=true the line
+	// becomes a stock-return line on post — inventory is restored
+	// at the authoritative original unit cost (legacy mode), or the
+	// post is rejected for routing through Phase I.6 Return Receipt
+	// (controlled mode).
 	ProductServiceID *uint           `gorm:"index"`
 	ProductService   *ProductService `gorm:"foreignKey:ProductServiceID"`
+
+	// OriginalInvoiceLineID — IN.5 trace back to the InvoiceLine
+	// that originally sold this qty. Required when the line points
+	// at a stock item (IsStockItem=true); ignored otherwise.
+	//
+	// Serves as the key to inventory.ReverseMovement at post time,
+	// which uses the ORIGINAL movement's snapshot cost to book the
+	// return (March's COGS reverses at March's cost, never at
+	// today's weighted average).
+	//
+	// No DB-level FK constraint so mixed-company joins stay legal
+	// at the schema layer. Cross-tenant + existence checks live in
+	// credit_note_post.go.
+	OriginalInvoiceLineID *uint        `gorm:"index"`
+	OriginalInvoiceLine   *InvoiceLine `gorm:"foreignKey:OriginalInvoiceLineID"`
 
 	// RevenueAccountID is the account to debit when posting (reversal of the original
 	// revenue credit on the invoice). Required when posting the credit note.
