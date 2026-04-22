@@ -67,6 +67,59 @@ type Customer struct {
 	CreatedAt time.Time
 }
 
+// CustomerShippingAddress is an optional secondary shipping location for a
+// Customer (1-many). The Customer's own `Addr*` fields are the billing
+// address; this table stores additional ship-to locations. One row per
+// customer may have IsDefault=true; the service layer enforces single-default.
+type CustomerShippingAddress struct {
+	ID             uint   `gorm:"primaryKey"`
+	CustomerID     uint   `gorm:"not null;index"`
+	Label          string `gorm:"type:varchar(64);not null;default:''"` // "Warehouse A", "Store 3", etc.
+	AddrStreet1    string `gorm:"type:text;not null;default:''"`
+	AddrStreet2    string `gorm:"type:text;not null;default:''"`
+	AddrCity       string `gorm:"type:text;not null;default:''"`
+	AddrProvince   string `gorm:"type:text;not null;default:''"`
+	AddrPostalCode string `gorm:"type:text;not null;default:''"`
+	AddrCountry    string `gorm:"type:text;not null;default:''"`
+	IsDefault      bool   `gorm:"not null;default:false"`
+	CreatedAt      time.Time
+}
+
+// FormattedAddress returns this shipping address as a newline-separated string
+// (same layout as Customer.FormattedAddress so invoice snapshots match).
+func (s CustomerShippingAddress) FormattedAddress() string {
+	parts := make([]string, 0, 4)
+	if s.AddrStreet1 != "" {
+		parts = append(parts, s.AddrStreet1)
+	}
+	if s.AddrStreet2 != "" {
+		parts = append(parts, s.AddrStreet2)
+	}
+	cityProv := ""
+	if s.AddrCity != "" {
+		cityProv = s.AddrCity
+	}
+	if s.AddrProvince != "" {
+		if cityProv != "" {
+			cityProv += ", "
+		}
+		cityProv += s.AddrProvince
+	}
+	if s.AddrPostalCode != "" {
+		if cityProv != "" {
+			cityProv += " "
+		}
+		cityProv += s.AddrPostalCode
+	}
+	if cityProv != "" {
+		parts = append(parts, cityProv)
+	}
+	if s.AddrCountry != "" {
+		parts = append(parts, s.AddrCountry)
+	}
+	return strings.Join(parts, "\n")
+}
+
 // FormattedAddress returns a newline-separated address string composed from
 // structured fields, matching the format used in invoice snapshots and PDF rendering.
 func (c Customer) FormattedAddress() string {

@@ -2,6 +2,7 @@
 package web
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -207,9 +208,7 @@ func (p *CustomerProvider) Search(db *gorm.DB, ctx SmartPickerContext, query str
 			ID:        fmt.Sprintf("%d", c.ID),
 			Primary:   c.Name,
 			Secondary: secondary,
-		}
-		if c.CurrencyCode != "" {
-			item.Payload = map[string]string{"default_currency": c.CurrencyCode}
+			Payload:   customerPickerPayload(db, c),
 		}
 		items = append(items, item)
 	}
@@ -227,15 +226,52 @@ func (p *CustomerProvider) GetByID(db *gorm.DB, ctx SmartPickerContext, id strin
 		}
 		return nil, fmt.Errorf("customer get by id: %w", err)
 	}
-	item := &SmartPickerItem{
+	return &SmartPickerItem{
 		ID:        fmt.Sprintf("%d", customer.ID),
 		Primary:   customer.Name,
 		Secondary: customer.Email,
+		Payload:   customerPickerPayload(db, customer),
+	}, nil
+}
+
+// customerPickerPayload assembles the payload map the SmartPicker ships to the
+// frontend when a customer is selected. The Invoice editor uses this to pre-
+// fill email / bill-to / ship-to without a separate fetch: default_currency
+// (unchanged from prior behaviour), email, bill_to, and a JSON list of
+// shipping addresses with the default marked first.
+func customerPickerPayload(db *gorm.DB, c models.Customer) map[string]string {
+	payload := make(map[string]string, 4)
+	if c.CurrencyCode != "" {
+		payload["default_currency"] = c.CurrencyCode
 	}
-	if customer.CurrencyCode != "" {
-		item.Payload = map[string]string{"default_currency": customer.CurrencyCode}
+	if c.Email != "" {
+		payload["email"] = c.Email
 	}
-	return item, nil
+	if billTo := c.FormattedAddress(); billTo != "" {
+		payload["bill_to"] = billTo
+	}
+	var shipAddrs []models.CustomerShippingAddress
+	if err := db.
+		Where("customer_id = ?", c.ID).
+		Order("is_default DESC, id ASC").
+		Find(&shipAddrs).Error; err == nil && len(shipAddrs) > 0 {
+		// Serialise shipping addresses as JSON so the Alpine editor can
+		// populate a dropdown; the first element (default) is what the
+		// editor preselects.
+		type sa struct {
+			Label   string `json:"label"`
+			Address string `json:"address"`
+			Default bool   `json:"is_default"`
+		}
+		entries := make([]sa, 0, len(shipAddrs))
+		for _, a := range shipAddrs {
+			entries = append(entries, sa{Label: a.Label, Address: a.FormattedAddress(), Default: a.IsDefault})
+		}
+		if b, err := json.Marshal(entries); err == nil {
+			payload["shipping_addresses"] = string(b)
+		}
+	}
+	return payload
 }
 
 // ── VendorProvider ───────────────────────────────────────────────────────────

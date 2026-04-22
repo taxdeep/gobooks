@@ -220,9 +220,11 @@ func (s *Server) prefillInvoiceFromSalesOrder(companyID, soID uint, vm *pages.In
 	vm.CurrencyCode = so.CurrencyCode
 	vm.SalesOrderID = so.ID
 	vm.SalesOrderNumber = so.OrderNumber
+	vm.CustomerPONumber = so.CustomerPONumber
 	if so.Memo != "" {
 		vm.Memo = so.Memo
 	}
+	s.loadCustomerContactInto(companyID, so.CustomerID, vm)
 
 	for _, l := range so.Lines {
 		remaining := l.Quantity.Sub(l.InvoicedQty)
@@ -279,6 +281,11 @@ func (s *Server) handleInvoiceEdit(c *fiber.Ctx) error {
 		InvoiceDate:           inv.InvoiceDate.Format("2006-01-02"),
 		TermCode:              inv.TermCode,
 		Memo:                  inv.Memo,
+		CustomerPONumber:      inv.CustomerPONumber,
+		CustomerEmail:         inv.CustomerEmailSnapshot,
+		BillTo:                inv.CustomerAddressSnapshot,
+		ShipTo:                inv.ShipToSnapshot,
+		ShipToLabel:           inv.ShipToLabel,
 		WarehouseID:           optUintStr(inv.WarehouseID),
 		FormError:             strings.TrimSpace(c.Query("error")),
 		Saved:                 c.Query("saved") == "1",
@@ -311,6 +318,11 @@ func (s *Server) handleInvoiceEdit(c *fiber.Ctx) error {
 	if inv.DueDate != nil {
 		vm.DueDate = inv.DueDate.Format("2006-01-02")
 	}
+
+	// Load the customer's shipping-address catalogue so the ship-to dropdown
+	// shows current named options. Snapshot fields above are already loaded,
+	// so loadCustomerContactInto's empty-skip guards leave them alone.
+	s.loadCustomerContactInto(companyID, inv.CustomerID, &vm)
 
 	// Build line form rows from existing lines.
 	for _, l := range inv.Lines {
@@ -352,7 +364,13 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 	dateRaw := strings.TrimSpace(c.FormValue("invoice_date"))
 	termsRaw := strings.TrimSpace(c.FormValue("terms"))
 	dueDateRaw := strings.TrimSpace(c.FormValue("due_date"))
-	memo := strings.TrimSpace(c.FormValue("memo"))
+	memoRaw := c.FormValue("memo")
+	memo := services.SanitizeMemoHTML(memoRaw)
+	customerPONumber := strings.TrimSpace(c.FormValue("customer_po_number"))
+	customerEmailOverride := strings.TrimSpace(c.FormValue("customer_email"))
+	billToOverride := strings.TrimSpace(c.FormValue("bill_to"))
+	shipToSnapshot := strings.TrimSpace(c.FormValue("ship_to"))
+	shipToLabel := strings.TrimSpace(c.FormValue("ship_to_label"))
 	currencyCodeRaw := strings.ToUpper(strings.TrimSpace(c.FormValue("currency_code")))
 	exchangeRateRaw := strings.TrimSpace(c.FormValue("exchange_rate"))
 	warehouseIDRaw := strings.TrimSpace(c.FormValue("warehouse_id"))
@@ -383,18 +401,23 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 	}
 
 	vm := pages.InvoiceEditorVM{
-		HasCompany:    true,
-		IsEdit:        isEdit,
-		EditingID:     editingID,
-		InvoiceNumber: invoiceNo,
-		CustomerID:    customerRaw,
-		InvoiceDate:   dateRaw,
-		TermCode:      termsRaw,
-		DueDate:       dueDateRaw,
-		Memo:          memo,
-		WarehouseID:   warehouseIDRaw,
-		CurrencyCode:  currencyCodeRaw,
-		ExchangeRate:  exchangeRateRaw,
+		HasCompany:       true,
+		IsEdit:           isEdit,
+		EditingID:        editingID,
+		InvoiceNumber:    invoiceNo,
+		CustomerID:       customerRaw,
+		InvoiceDate:      dateRaw,
+		TermCode:         termsRaw,
+		DueDate:          dueDateRaw,
+		Memo:             memo,
+		CustomerPONumber: customerPONumber,
+		CustomerEmail:    customerEmailOverride,
+		BillTo:           billToOverride,
+		ShipTo:           shipToSnapshot,
+		ShipToLabel:      shipToLabel,
+		WarehouseID:      warehouseIDRaw,
+		CurrencyCode:     currencyCodeRaw,
+		ExchangeRate:     exchangeRateRaw,
 	}
 	if isEdit && CanFromCtx(c, ActionInvoiceApprove) {
 		vm.SubmitPath = fmt.Sprintf("/invoices/%d/issue", editingID)
@@ -747,8 +770,15 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 			inv.Amount = grandTotal
 			inv.BalanceDue = grandTotal
 			inv.CustomerNameSnapshot = customer.Name
-			inv.CustomerEmailSnapshot = customer.Email
-			inv.CustomerAddressSnapshot = customer.FormattedAddress()
+			// Snapshot fields honour editor overrides when provided; empty
+			// override falls back to the live Customer values so pre-Phase-2
+			// drafts re-saved without the new form inputs keep their
+			// existing behaviour.
+			inv.CustomerEmailSnapshot = customerSnapshotOrDefault(customerEmailOverride, customer.Email)
+			inv.CustomerAddressSnapshot = customerSnapshotOrDefault(billToOverride, customer.FormattedAddress())
+			inv.ShipToSnapshot = shipToSnapshot
+			inv.ShipToLabel = shipToLabel
+			inv.CustomerPONumber = customerPONumber
 			// SO tracking: on re-save of a draft, re-apply the
 			// sales_order_id carried on the form. Operator can edit
 			// the hidden field out or leave it — we persist whatever
@@ -786,8 +816,11 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 				Amount:                  grandTotal,
 				BalanceDue:              grandTotal,
 				CustomerNameSnapshot:    customer.Name,
-				CustomerEmailSnapshot:   customer.Email,
-				CustomerAddressSnapshot: customer.FormattedAddress(),
+				CustomerEmailSnapshot:   customerSnapshotOrDefault(customerEmailOverride, customer.Email),
+				CustomerAddressSnapshot: customerSnapshotOrDefault(billToOverride, customer.FormattedAddress()),
+				ShipToSnapshot:          shipToSnapshot,
+				ShipToLabel:             shipToLabel,
+				CustomerPONumber:        customerPONumber,
 				SalesOrderID:            invoiceSalesOrderID,
 			}
 			// Auto-assign company active default template on new invoice creation.
@@ -916,6 +949,57 @@ func optUintStr(p *uint) string {
 		return ""
 	}
 	return strconv.FormatUint(uint64(*p), 10)
+}
+
+// customerSnapshotOrDefault returns override if non-empty, otherwise fallback.
+// Used at Invoice save time: empty override means "no editor override; copy
+// the live Customer value into the snapshot" (pre-Phase-2 behaviour).
+func customerSnapshotOrDefault(override, fallback string) string {
+	override = strings.TrimSpace(override)
+	if override != "" {
+		return override
+	}
+	return fallback
+}
+
+// loadCustomerContactInto pre-fills the Invoice editor's contact block (email,
+// bill-to, ship-to + named-shipping-address dropdown) from the live Customer
+// record + customer_shipping_addresses table. Best-effort: missing customer or
+// query errors leave the corresponding fields untouched.
+//
+// Skips fields the operator already set on the VM (e.g. when re-rendering after
+// a validation error) so user input isn't clobbered. Always rebuilds the
+// dropdown options though, since those depend on the customer record only.
+func (s *Server) loadCustomerContactInto(companyID, customerID uint, vm *pages.InvoiceEditorVM) {
+	if customerID == 0 {
+		return
+	}
+	var c models.Customer
+	if err := s.DB.Where("id = ? AND company_id = ?", customerID, companyID).First(&c).Error; err != nil {
+		return
+	}
+	if vm.CustomerEmail == "" {
+		vm.CustomerEmail = c.Email
+	}
+	if vm.BillTo == "" {
+		vm.BillTo = c.FormattedAddress()
+	}
+	var shipAddrs []models.CustomerShippingAddress
+	if err := s.DB.Where("customer_id = ?", customerID).
+		Order("is_default DESC, id ASC").
+		Find(&shipAddrs).Error; err == nil && len(shipAddrs) > 0 {
+		opts := make([]pages.ShippingAddressOption, 0, len(shipAddrs))
+		for _, a := range shipAddrs {
+			opts = append(opts, pages.ShippingAddressOption{
+				Label: a.Label, Address: a.FormattedAddress(), IsDefault: a.IsDefault,
+			})
+		}
+		vm.AvailableShippingAddresses = opts
+		if vm.ShipTo == "" && len(opts) > 0 {
+			vm.ShipTo = opts[0].Address
+			vm.ShipToLabel = opts[0].Label
+		}
+	}
 }
 
 // loadEditorDropdowns fills customers, products, taxCodes, paymentTerms + JSON blobs on vm.

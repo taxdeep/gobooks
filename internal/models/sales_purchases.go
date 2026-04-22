@@ -215,6 +215,21 @@ type Invoice struct {
 	SalesOrderID *uint       `gorm:"index"`
 	SalesOrder   *SalesOrder `gorm:"foreignKey:SalesOrderID"`
 
+	// CustomerPONumber — migration 088. The reference number the customer
+	// quoted when they sent us this order's PO. Prefilled from the sourcing
+	// SalesOrder.CustomerPONumber on invoice creation but editable per-invoice.
+	CustomerPONumber string `gorm:"type:varchar(64);not null;default:''"`
+
+	// ShipToSnapshot — migration 088. Free-form text saved at save/post time
+	// so printed invoices show exactly the ship-to address the operator chose
+	// at the time (distinct from the billing address in CustomerAddressSnapshot).
+	// Empty means "no ship-to specified; fall back to CustomerAddressSnapshot".
+	ShipToSnapshot string `gorm:"type:text;not null;default:''"`
+	// ShipToLabel records which named shipping-address row was selected
+	// (e.g. "Warehouse A"). Purely informational; the authoritative text is
+	// ShipToSnapshot. Empty means an ad-hoc override was typed, or nothing.
+	ShipToLabel string `gorm:"type:varchar(64);not null;default:''"`
+
 	Lines []InvoiceLine `gorm:"foreignKey:InvoiceID"`
 
 	CreatedAt time.Time

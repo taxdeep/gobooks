@@ -1,7 +1,42 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/ui"
+import (
+	"encoding/json"
+	"fmt"
+
+	"gobooks/internal/web/templates/ui"
+)
+
+// invoiceSalesOrderLink returns the SO detail-page URL the "SO Number" cell
+// links to in the invoice editor header. Centralised so SO routing changes
+// only need updating in one place.
+func invoiceSalesOrderLink(salesOrderID uint) string {
+	return fmt.Sprintf("/sales-orders/%d", salesOrderID)
+}
+
+// shippingAddressesJSON serialises a customer's named shipping addresses for
+// the editor's data-initial-shipping-addresses attribute. Empty list yields
+// "[]" so JSON.parse never fails on the Alpine side.
+func shippingAddressesJSON(opts []ShippingAddressOption) string {
+	if len(opts) == 0 {
+		return "[]"
+	}
+	type entry struct {
+		Label   string `json:"label"`
+		Address string `json:"address"`
+		Default bool   `json:"is_default"`
+	}
+	out := make([]entry, 0, len(opts))
+	for _, o := range opts {
+		out = append(out, entry{Label: o.Label, Address: o.Address, Default: o.IsDefault})
+	}
+	b, err := json.Marshal(out)
+	if err != nil {
+		return "[]"
+	}
+	return string(b)
+}
 
 // invoiceEditorShellVM maps InvoiceEditorVM → the shell's DocEditorShellVM,
 // assembling title / subtitle / info-banner copy for all three editor modes

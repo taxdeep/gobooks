@@ -1,10 +1,10 @@
 // invoice_editor.js — Alpine component for the invoice line-items editor.
-// v=14
+// v=15
 //
 // Composes gobooksLineItems() for line-array management (addLine / removeLine /
 // auto-grow) and layers Invoice-specific state on top: tax-code breakdown,
 // terms → due-date computation, AI memo assist, customer auto-fill via
-// SmartPicker payload.
+// SmartPicker payload, contact-block (email / bill-to / ship-to) overrides.
 //
 // Caching: taxBreakdown, subtotalStr, totalTaxStr, grandTotalStr are properties
 // recomputed once per _recalcAll() call (which fires on line / tax edits).
@@ -48,6 +48,16 @@ function invoiceEditor() {
       // allowing tax-code edits; user-added lines are always unlocked.
       taskReadOnly:    false,
 
+      // Contact block — pre-filled from the Customer record via the
+      // SmartPicker payload (or from existing snapshot fields on edit).
+      // Operators can override per-invoice; values save through the
+      // form's customer_email / bill_to / ship_to / ship_to_label inputs.
+      customerEmail:   "",
+      billTo:          "",
+      shipTo:          "",
+      shipToLabel:     "",
+      shippingOptions: [],   // [{label, address, is_default}]
+
       // Cached reactive properties maintained by _recalcAll(). Templates read
       // these directly (no parens) so Alpine doesn't rescan lines per render.
       taxBreakdown:    [],
@@ -82,6 +92,16 @@ function invoiceEditor() {
         this._taxCodesById = Object.fromEntries(this.taxCodes.map(t => [String(t.id), t]));
         this._productsById = Object.fromEntries(this.products.map(p => [String(p.id), p]));
         this._paymentTermsByCode = Object.fromEntries(this.paymentTerms.map(p => [p.code, p]));
+
+        this.customerEmail = el.dataset.initialCustomerEmail || "";
+        this.billTo        = el.dataset.initialBillTo        || "";
+        this.shipTo        = el.dataset.initialShipTo        || "";
+        this.shipToLabel   = el.dataset.initialShipToLabel   || "";
+        try {
+          this.shippingOptions = JSON.parse(el.dataset.initialShippingAddresses || "[]");
+        } catch (_) {
+          this.shippingOptions = [];
+        }
 
         const initial = JSON.parse(el.dataset.initialLines || "[]");
         if (initial.length > 0) {
@@ -296,18 +316,54 @@ function invoiceEditor() {
 
       // ── Terms / due-date auto-computation ────────────────────────────────
 
-      // onContactChange auto-fills terms and currency from the customer's
-      // defaults (carried in the SmartPicker payload).
+      // onContactChange auto-fills terms / currency / contact block from the
+      // customer's defaults (carried in the SmartPicker payload).
+      // Picking a different customer always replaces the contact-block
+      // overrides — operators who want to keep manual overrides shouldn't
+      // re-pick the customer.
       onContactChange(contactId, payload) {
         if (!contactId) return;
+        const p = payload || {};
         const termCode = this.contactTerms[String(contactId)];
         if (termCode) {
           this.onTermsChange(termCode);
         }
-        const defaultCurrency = (payload || {}).default_currency || "";
-        if (defaultCurrency) {
+        if (p.default_currency) {
           const sel = document.querySelector('select[name="currency_code"]');
-          if (sel) sel.value = defaultCurrency;
+          if (sel) sel.value = p.default_currency;
+        }
+        this.customerEmail = p.email    || "";
+        this.billTo        = p.bill_to  || "";
+        this.shippingOptions = this._parseShippingAddresses(p.shipping_addresses);
+        // Pick the default shipping address (first entry — payload sorts is_default
+        // DESC). If none, leave ship-to blank — operator can type freeform.
+        if (this.shippingOptions.length > 0) {
+          this.shipToLabel = this.shippingOptions[0].label;
+          this.shipTo      = this.shippingOptions[0].address;
+        } else {
+          this.shipToLabel = "";
+          this.shipTo      = "";
+        }
+      },
+
+      // onShipToLabelChange syncs the ship-to textarea when the named-address
+      // dropdown changes. "" means "Custom" — leave the textarea content alone
+      // so the operator can keep typing.
+      onShipToLabelChange(label) {
+        if (!label) return;
+        const opt = this.shippingOptions.find(o => o.label === label);
+        if (opt) {
+          this.shipTo = opt.address;
+        }
+      },
+
+      _parseShippingAddresses(raw) {
+        if (!raw) return [];
+        try {
+          const arr = JSON.parse(raw);
+          return Array.isArray(arr) ? arr : [];
+        } catch (_) {
+          return [];
         }
       },
 

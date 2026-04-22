@@ -34,6 +34,24 @@ type InvoiceEditorVM struct {
 	DueDate       string
 	Memo          string
 
+	// CustomerPONumber is the reference number the customer quoted on their PO.
+	// Prefilled from the sourcing SalesOrder on new invoices created via the
+	// "Create Invoice" shortcut.
+	CustomerPONumber string
+
+	// Contact block — editable overrides that snapshot onto the invoice. On
+	// the first render these are pre-filled from the Customer record (or SO
+	// prefill). Operators can tweak them per-invoice without touching the
+	// Customer record; the override-or-update prompt for pushing changes
+	// back to Customer lives in a separate Phase 2 step.
+	CustomerEmail string
+	BillTo        string
+	ShipTo        string
+	ShipToLabel   string
+	// AvailableShippingAddresses lists the customer's named shipping-address
+	// rows for the ship-to dropdown (empty if the customer has none).
+	AvailableShippingAddresses []ShippingAddressOption
+
 	// SalesOrderID — when non-zero, the editor renders a hidden
 	// input `sales_order_id` that the save path persists onto the
 	// invoice. Populated on pre-fill via
@@ -122,6 +140,14 @@ type InvoiceLineFormRow struct {
 	LineTax   string
 	LineTotal string
 	Error     string
+}
+
+// ShippingAddressOption is one row in the customer's shipping-address catalogue
+// rendered into the Invoice editor's ship-to dropdown.
+type ShippingAddressOption struct {
+	Label     string
+	Address   string
+	IsDefault bool
 }
 
 // InvoiceEditorTitle returns the page / drawer title.

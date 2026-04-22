@@ -93,6 +93,7 @@ func Migrate(db *gorm.DB) error {
 		&models.NumberingSetting{},
 		&models.Account{},
 		&models.Customer{},
+		&models.CustomerShippingAddress{},
 		&models.Vendor{},
 		&models.PaymentTerm{},
 		&models.Invoice{},

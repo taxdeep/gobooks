@@ -103,6 +103,12 @@ type SalesOrder struct {
 	Notes string `gorm:"type:text;not null;default:''"`
 	Memo  string `gorm:"type:text;not null;default:''"`
 
+	// CustomerPONumber — migration 088. The reference number the customer
+	// quoted when they sent us this PO. Populated by the SO editor; prefills
+	// downstream documents (Invoice, Shipment display) so the whole AR chain
+	// shows the same reference.
+	CustomerPONumber string `gorm:"type:varchar(64);not null;default:''"`
+
 	// ConfirmedAt is set when the order is confirmed.
 	ConfirmedAt *time.Time
 
