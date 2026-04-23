@@ -3,30 +3,45 @@ package search_engine
 
 import (
 	"context"
-	"errors"
+
+	"gobooks/internal/logging"
 )
 
-// LegacyEngine is the placeholder Phase 0 wrapper around the existing
-// SmartPicker fan-out. It does NOT call SmartPicker today — Phase 0
-// keeps the existing /api/smart-picker/search HTTP handler untouched —
-// but exists so the Selector compiles end-to-end and Phase 4 only has
-// to switch the wiring rather than introduce new types.
+// LegacyEngine is the temporary fallback for /api/global-search while
+// the original SmartPicker fan-out continues to serve per-entity
+// pickers (the SmartPicker HTTP path is unchanged and unaffected).
 //
-// When Phase 4 lands, this engine becomes the bridge that lets the
-// new global-search dropdown talk through search_engine.Selector
-// while still being backed by the original SmartPicker providers
-// during the dual-run validation window.
+// Phase 5 contract: LegacyEngine.Search NEVER fails. It returns an
+// empty SearchResponse and emits a WARN log line with enough context to
+// identify what was lost. The HTTP handler MUST treat empty results
+// from this engine as "no matches" rather than an error condition —
+// 500s here would block the dropdown UI in production for what is, by
+// our own design choice, a deliberately-stubbed code path.
+//
+// Sunset: this engine exists only to give operators an escape hatch
+// during the ent rollout. Once ent has been the default for one full
+// release cycle without incident, delete LegacyEngine entirely along
+// with the SEARCH_ENGINE flag's "legacy" value.
 type LegacyEngine struct{}
 
-// NewLegacyEngine returns the Phase 0 stub.
+// NewLegacyEngine returns the empty-result fallback engine.
 func NewLegacyEngine() *LegacyEngine { return &LegacyEngine{} }
 
 func (*LegacyEngine) Mode() Mode { return ModeLegacy }
 
-// Search returns an explicit "not implemented" error in Phase 0.
-// Nothing in the codebase calls Selector.Search yet — this method only
-// exists to satisfy the Engine interface and force Phase 4 to consciously
-// wire it up rather than accidentally inherit a stub.
+// Search returns an empty candidate list. Logs WARN so an operator who
+// has accidentally pinned to legacy can spot the cause of "the search
+// box never returns anything." The query and company context go into
+// the log line for triage.
 func (*LegacyEngine) Search(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
-	return nil, errors.New("search_engine: LegacyEngine.Search is a Phase 0 stub; wire SmartPicker dispatch in Phase 4")
+	logging.L().Warn(
+		"search_engine.LegacyEngine: empty result — SEARCH_ENGINE=legacy is a temporary fallback, switch to ent for projection-backed search",
+		"company_id", req.CompanyID,
+		"query", req.Query,
+		"limit", req.Limit,
+	)
+	return &SearchResponse{
+		Candidates: []Candidate{},
+		Source:     "legacy_empty",
+	}, nil
 }

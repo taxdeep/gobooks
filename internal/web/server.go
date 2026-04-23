@@ -105,16 +105,22 @@ func initSearchProjection(db *gorm.DB) (*ent.Client, searchprojection.Projector)
 	return client, p
 }
 
-// initSearchSelector assembles the read-side engine. Phase 4 ships only
-// the legacy + ent engines; the DualEngine is a Phase 4.5 follow-up. The
-// mode defaults to ModeLegacy when ent isn't available or the config
-// says so — SmartPicker continues to serve from the in-process fan-out.
+// initSearchSelector assembles the read-side engine. Phase 5 default
+// is ent — the legacy engine returns empty results so a misconfigured
+// fallback doesn't 500 the header dropdown.
 //
-// When mode=ent but entClient is nil, the Selector silently falls back
-// to legacy (defensive: we'd rather serve stale results than crash the
-// header dropdown).
+// cfg.SearchEngine is already validated by config.Load (unknown values
+// fail there); the ParseMode call here is purely a string→Mode adapter
+// and any error path is a defensive log.Fatal.
 func initSearchSelector(cfg config.Config, entClient *ent.Client) *search_engine.Selector {
-	mode := search_engine.ParseMode(cfg.SearchEngine)
+	mode, err := search_engine.ParseMode(cfg.SearchEngine)
+	if err != nil {
+		// Should never reach here — config.Load validated this string
+		// at startup. If it does, fail loudly rather than silently
+		// degrade to legacy.
+		logging.L().Error("search engine: invalid SEARCH_ENGINE slipped past config validation", "err", err, "raw", cfg.SearchEngine)
+		mode = search_engine.DefaultMode
+	}
 	legacy := search_engine.NewLegacyEngine()
 
 	var entEng search_engine.Engine
@@ -122,11 +128,11 @@ func initSearchSelector(cfg config.Config, entClient *ent.Client) *search_engine
 		if e, err := search_engine.NewEntEngine(entClient, searchprojection.AsciiNormalizer{}); err == nil {
 			entEng = e
 		} else {
-			logging.L().Warn("search engine: ent impl unavailable, legacy only", "err", err)
+			logging.L().Warn("search engine: ent impl unavailable, legacy fallback only", "err", err)
 		}
 	}
 
-	// DualEngine is currently a Phase 4.5 stub; requesting mode=dual
+	// DualEngine is currently a Phase 5.5+ stub; requesting mode=dual
 	// dispatches through Selector's fallback to legacy.
 	var dualEng search_engine.Engine
 	return search_engine.NewSelector(mode, legacy, dualEng, entEng)

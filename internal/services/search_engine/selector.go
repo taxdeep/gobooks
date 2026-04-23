@@ -16,6 +16,7 @@ package search_engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -29,17 +30,40 @@ const (
 	ModeEnt    Mode = "ent"
 )
 
+// DefaultMode is the value used when the SEARCH_ENGINE env var is empty.
+// Phase 5: defaults to ent so the new projection-backed engine is the
+// shipping default; legacy stays only as an explicit short-term fallback.
+//
+// Rationale: in pre-prod / test windows we don't want a "default = legacy"
+// trap that silently leaves new code paths un-exercised. Whichever module
+// completes its minimum viable closure should become the default — old
+// paths exist as opt-in escape hatches with documented sunset dates.
+const DefaultMode = ModeEnt
+
+// ErrUnknownMode is returned by ParseMode when the input doesn't match
+// any known engine. Operator-facing config typos must surface loudly at
+// startup — never silently degrade to a different engine than asked for.
+var ErrUnknownMode = errors.New("search_engine: unknown mode")
+
 // ParseMode normalises a free-form string (typically the env var value)
-// into a Mode. Unknown values fall back to ModeLegacy with no error;
-// the env var is operator-facing and a typo should never break startup.
-func ParseMode(raw string) Mode {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
+// into a Mode + validation error.
+//
+//   - empty string  → DefaultMode (ModeEnt), no error
+//   - "legacy" / "dual" / "ent" → matching Mode, no error (case-insensitive)
+//   - anything else → "", ErrUnknownMode wrapped with the offending input
+func ParseMode(raw string) (Mode, error) {
+	s := strings.ToLower(strings.TrimSpace(raw))
+	switch s {
+	case "":
+		return DefaultMode, nil
+	case string(ModeLegacy):
+		return ModeLegacy, nil
 	case string(ModeDual):
-		return ModeDual
+		return ModeDual, nil
 	case string(ModeEnt):
-		return ModeEnt
+		return ModeEnt, nil
 	default:
-		return ModeLegacy
+		return "", fmt.Errorf("%w: %q (valid: legacy | dual | ent)", ErrUnknownMode, raw)
 	}
 }
 

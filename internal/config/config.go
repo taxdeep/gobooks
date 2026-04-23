@@ -6,6 +6,8 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
+
+	"gobooks/internal/services/search_engine"
 )
 
 // Config holds all application configuration in one place.
@@ -30,19 +32,26 @@ type Config struct {
 	// If empty, handlers fall back to the request host (logged as WARN).
 	PublicBaseURL string
 
-	// SearchEngine selects between the legacy SmartPicker fan-out and the
-	// upcoming ent-backed search projection. Phase 0 always defaults to
-	// "legacy" — flipping to "dual" or "ent" is opt-in and arrives only
-	// after the projector has been written and validated.
+	// SearchEngine selects between the legacy fallback and the ent-backed
+	// search projection.
+	//
+	// Phase 5+ default: "ent" — the new projection-backed engine is the
+	// shipping path and `legacy` exists only as a temporary escape hatch.
+	// We default to ent intentionally: in pre-prod windows a "default
+	// legacy" trap silently leaves new code paths un-exercised and
+	// accumulates migration debt across modules.
 	//
 	// Valid values:
-	//   legacy  → existing per-entity SmartPicker providers (status quo)
-	//   dual    → call legacy AND ent; return legacy results, log diffs
-	//   ent     → call ent only (post-validation cutover)
+	//   ent     → query search_documents projection (default)
+	//   legacy  → return empty results + WARN log (sunset path; remove
+	//             after one full release cycle of ent stability)
+	//   dual    → reserved for legacy + ent diff comparison; not yet
+	//             implemented — falls back to legacy at runtime
 	//
-	// Read once at startup; SIGHUP reload is intentionally unsupported —
-	// the search engine is a foundational dependency and a runtime swap
-	// would let inconsistent reads slip through. Restart to change.
+	// Unknown values cause Load to fail fast — never silently degrade to
+	// a different engine than the operator asked for.
+	//
+	// Read once at startup; SIGHUP reload intentionally unsupported.
 	SearchEngine string
 }
 
@@ -64,11 +73,20 @@ func Load() (Config, error) {
 		DBSSLMode:  getenv("DB_SSLMODE", "disable"),
 		AISecretKey:   getenv("AI_SECRET_KEY", ""),
 		PublicBaseURL: getenv("APP_PUBLIC_URL", ""),
-		SearchEngine:  getenv("SEARCH_ENGINE", "legacy"),
+		// Empty string here is fine — search_engine.ParseMode resolves it
+		// to DefaultMode (ent). Validation below catches typos.
+		SearchEngine: os.Getenv("SEARCH_ENGINE"),
 	}
 
 	if cfg.DBHost == "" || cfg.DBPort == "" || cfg.DBUser == "" || cfg.DBName == "" {
 		return Config{}, fmt.Errorf("missing required DB config")
+	}
+
+	// Fail-fast on unknown SEARCH_ENGINE values — silent fallback to a
+	// different engine than the operator asked for is exactly the kind
+	// of surprise that should crash startup, not be papered over.
+	if _, err := search_engine.ParseMode(cfg.SearchEngine); err != nil {
+		return Config{}, fmt.Errorf("invalid SEARCH_ENGINE: %w", err)
 	}
 
 	return cfg, nil
