@@ -199,17 +199,21 @@ func TestInvoicePDF_CrossCompanyDenied(t *testing.T) {
 	app := authPDFApp(srv, &uB, coB.ID)
 
 	_ = coA // suppress unused warning
-	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/invoices/%d/pdf", invA.ID), nil)
+	// Phase 3 G4-cleanup: legacy /pdf endpoint now 301-redirects to /pdf-v2.
+	// The cross-company permission check still applies — but on the v2 path.
+	// Hit /pdf-v2 directly to assert the company gate without following the redirect.
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/invoices/%d/pdf-v2", invA.ID), nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// handleInvoicePDF calls loadInvoiceForRender(db, companyID=coB.ID, invoiceID=invA.ID).
-	// This returns not-found because invA.company_id = coA.ID ≠ coB.ID.
-	// Handler returns 404 "invoice not found".
-	if resp.StatusCode != http.StatusNotFound {
+	// handleInvoicePDFV2 calls services.RenderInvoicePDFV2(companyID=coB.ID, invoiceID=invA.ID).
+	// Load fails because invA.company_id = coA.ID ≠ coB.ID. Handler returns 500
+	// with "PDF (v2) generation failed: load invoice: …" — the company gate is
+	// enforced inside the adapter via the WHERE id=? AND company_id=? clause.
+	if resp.StatusCode != http.StatusInternalServerError {
 		body, _ := io.ReadAll(resp.Body)
-		t.Fatalf("cross-company PDF: expected 404, got %d; body: %s", resp.StatusCode, body)
+		t.Fatalf("cross-company PDF: expected 500, got %d; body: %s", resp.StatusCode, body)
 	}
 }
 

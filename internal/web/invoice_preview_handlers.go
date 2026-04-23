@@ -71,41 +71,12 @@ func (s *Server) handleInvoicePDFV2(c *fiber.Ctx) error {
 	return c.Send(pdfBytes)
 }
 
-// handleInvoicePDF generates and downloads invoice as PDF.
-// GET /invoices/:id/pdf
+// handleInvoicePDF is the legacy /invoices/:id/pdf endpoint. After Phase 3
+// G4-cleanup it redirects to /pdf-v2 (the chromedp pipeline) so old
+// bookmarks / external links stay functional. Removed entirely after a
+// release cycle when no production traffic still hits this path.
 func (s *Server) handleInvoicePDF(c *fiber.Ctx) error {
-	companyID, ok := ActiveCompanyIDFromCtx(c)
-	if !ok {
-		return c.Status(fiber.StatusBadRequest).SendString("company context required")
-	}
-
-	invoiceID, err := strconv.ParseUint(c.Params("id"), 10, 32)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString("invalid invoice ID")
-	}
-
-	invoice, err := loadInvoiceForRender(s.DB, companyID, uint(invoiceID))
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("invoice not found")
-	}
-
-	renderData, err := services.BuildInvoiceRenderData(s.DB, companyID, invoice)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("render failed: " + err.Error())
-	}
-
-	html := services.RenderInvoiceToHTML(*renderData)
-
-	pdfBytes, err := services.GenerateInvoicePDF(html)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("PDF generation failed: " + err.Error())
-	}
-
-	filename := services.InvoicePDFSafeFilename(invoice.InvoiceNumber)
-
-	c.Set("Content-Type", "application/pdf")
-	c.Set("Content-Disposition", `attachment; filename="`+filename+`"`)
-	return c.Send(pdfBytes)
+	return c.Redirect("/invoices/"+c.Params("id")+"/pdf-v2", fiber.StatusMovedPermanently)
 }
 
 // handleInvoicePrint renders a print-friendly invoice page that auto-triggers window.print().

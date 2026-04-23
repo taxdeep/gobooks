@@ -138,7 +138,7 @@ func bodyPODetail(vm PurchaseOrderDetailVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" class=\"inline-block rounded-md border border-primary-soft bg-primary-soft px-3 py-2 text-small font-medium text-primary hover:bg-primary/10\">Download PDF (Beta)</a> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" class=\"inline-block rounded-md border border-border px-3 py-2 text-small font-medium text-text hover:bg-background\">Download PDF</a> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -52,8 +52,8 @@ templ bodyPODetail(vm PurchaseOrderDetailVM) {
 			</div>
 			<div class="flex items-center gap-3">
 				if vm.PurchaseOrder.ID != 0 {
-					<a href={ templ.SafeURL("/purchase-orders/" + Uitoa(vm.PurchaseOrder.ID) + "/pdf-v2") } class="inline-block rounded-md border border-primary-soft bg-primary-soft px-3 py-2 text-small font-medium text-primary hover:bg-primary/10">
-						Download PDF (Beta)
+					<a href={ templ.SafeURL("/purchase-orders/" + Uitoa(vm.PurchaseOrder.ID) + "/pdf-v2") } class="inline-block rounded-md border border-border px-3 py-2 text-small font-medium text-text hover:bg-background">
+						Download PDF
 					</a>
 				}
 				<a href="/purchase-orders" class="text-body text-text-muted3 hover:text-text">← Back to Purchase Orders</a>

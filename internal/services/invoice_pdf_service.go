@@ -110,9 +110,19 @@ func GenerateInvoicePDF(htmlContent string) ([]byte, error) {
 // internal detail page, hosted invoice page, and email attachment.
 // All three paths call this function rather than each running their own LookPath.
 // An inexpensive OS call (~0.1 ms); safe to call per-request.
+//
+// Phase 3 G4-cleanup: PDF generation switched from wkhtmltopdf to chromedp
+// (headless Chrome). The check accepts any of the chromium-family binaries
+// chromedp's auto-detection looks for. wkhtmltopdf is also accepted for the
+// transitional period in case any caller still uses the legacy renderer
+// (none after G4-cleanup, but kept for forward compat).
 func PDFGeneratorAvailable() bool {
-	_, err := exec.LookPath("wkhtmltopdf")
-	return err == nil
+	for _, bin := range []string{"chromium-browser", "chromium", "google-chrome", "chrome", "wkhtmltopdf"} {
+		if _, err := exec.LookPath(bin); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 // InvoicePDFSafeFilename returns the Content-Disposition filename for an invoice PDF.

@@ -32,31 +32,16 @@ func (s *Server) handleHostedInvoiceDownload(c *fiber.Ctx) error {
 		return sendHostedErrorPage(c)
 	}
 
-	invoice, err := loadInvoiceForRender(s.DB, link.CompanyID, link.InvoiceID)
-	if err != nil {
-		logging.L().Warn("hosted download: invoice load failed",
-			"link_id", link.ID, "invoice_id", link.InvoiceID, "error", err.Error())
-		return sendHostedErrorPage(c)
-	}
-
-	renderData, err := services.BuildInvoiceRenderData(s.DB, link.CompanyID, invoice)
-	if err != nil {
-		logging.L().Warn("hosted download: render data failed",
-			"link_id", link.ID, "invoice_id", link.InvoiceID, "error", err.Error())
-		return sendHostedErrorPage(c)
-	}
-
-	// RenderInvoiceToHTML — no toolbar. Consistent with internal /invoices/:id/pdf.
-	html := services.RenderInvoiceToHTML(*renderData)
-
-	pdfBytes, err := services.GenerateInvoicePDF(html)
+	// Phase 3 G4-cleanup: switched to chromedp pipeline. The legacy
+	// BuildInvoiceRenderData → RenderInvoiceToHTML → GenerateInvoicePDF
+	// chain is retired here; same chromedp engine the internal /pdf-v2
+	// route uses, so hosted + internal downloads stay byte-identical.
+	pdfBytes, filename, err := services.RenderInvoicePDFV2(c.Context(), s.DB, link.CompanyID, link.InvoiceID)
 	if err != nil {
 		logging.L().Warn("hosted download: PDF generation failed",
 			"link_id", link.ID, "invoice_id", link.InvoiceID, "error", err.Error())
 		return c.Status(fiber.StatusServiceUnavailable).SendString("PDF generation is not available")
 	}
-
-	filename := services.InvoicePDFSafeFilename(invoice.InvoiceNumber)
 	c.Set("Content-Type", "application/pdf")
 	c.Set("Content-Disposition", `attachment; filename="`+filename+`"`)
 	c.Set("Cache-Control", "no-store")

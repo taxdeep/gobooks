@@ -2,6 +2,7 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/mail"
@@ -137,7 +138,12 @@ func SendInvoiceByEmail(db *gorm.DB, req SendInvoiceEmailRequest) (*models.Invoi
 			return logEntry, fmt.Errorf("PDF attachment requested but wkhtmltopdf is not installed on this server")
 		}
 
-		pdfBytes, err = GenerateInvoicePDF(htmlContent)
+		// Phase 3 G4-cleanup: PDF attachments now go through the chromedp
+		// pipeline (block templates + system presets). The email body still
+		// uses the legacy HTML renderer (renderData / htmlContent above) —
+		// retiring that is a separate "hosted page redesign" pass.
+		_ = htmlContent
+		pdfBytes, _, err = RenderInvoicePDFV2(context.Background(), db, req.CompanyID, req.InvoiceID)
 		if err != nil {
 			logEntry, logErr := createFailedEmailLog(db, req,
 				"PDF generation failed: "+err.Error(),

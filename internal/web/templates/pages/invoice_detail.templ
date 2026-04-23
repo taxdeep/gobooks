@@ -106,26 +106,16 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 				>
 					Preview
 				</a>
-				// PDF download only shown when wkhtmltopdf is available (PDFAvailable=true).
-				// Falls back to Print link when generator is absent, preventing a 500.
+				// PDF download — chromedp pipeline (Phase 3). Always shown when an
+				// engine is available; print fallback when not.
 				if vm.PDFAvailable {
 					<a
-						href={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/pdf" }
+						href={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/pdf-v2" }
 						class="inline-block rounded-md border border-border px-3 py-2 text-small font-medium text-text hover:bg-background"
 					>
 						Download PDF
 					</a>
-				}
-				// Phase 3 G4: side-by-side new PDF pipeline (block-template + chromedp).
-				// Always shown — once we confirm parity in G4-cleanup the legacy button
-				// above gets retired.
-				<a
-					href={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/pdf-v2" }
-					class="inline-block rounded-md border border-primary-soft bg-primary-soft px-3 py-2 text-small font-medium text-primary hover:bg-primary/10"
-				>
-					Download PDF (Beta)
-				</a>
-				if !vm.PDFAvailable {
+				} else {
 					<a
 						href={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/print" }
 						target="_blank"
