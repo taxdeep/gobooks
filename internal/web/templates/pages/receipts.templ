@@ -60,32 +60,44 @@ templ bodyReceipts(vm ReceiptsVM) {
 			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Receipt saved.</div>
 		}
 
-		<!-- Filters -->
-		<form method="GET" action="/receipts" class="mt-4 flex flex-wrap gap-3">
-			<select
-				name="status"
-				class="rounded-md border border-border bg-surface px-3 py-1.5 text-body text-text"
-				onchange="this.form.submit()"
-			>
-				<option value="">All Statuses</option>
-				for _, s := range models.AllCustomerReceiptStatuses() {
-					<option value={ string(s) } selected?={ vm.FilterStatus == string(s) }>
-						{ models.CustomerReceiptStatusLabel(s) }
-					</option>
-				}
-			</select>
-			<select
-				name="customer_id"
-				class="rounded-md border border-border bg-surface px-3 py-1.5 text-body text-text"
-				onchange="this.form.submit()"
-			>
-				<option value="">All Customers</option>
-				for _, cust := range vm.Customers {
-					<option value={ fmt.Sprintf("%d", cust.ID) } selected?={ vm.FilterCustomer == fmt.Sprintf("%d", cust.ID) }>
-						{ cust.Name }
-					</option>
-				}
-			</select>
+		<!-- Filter bar — single row: Customer (SmartPicker) | Status | From | To | Apply | Reset.
+		     Mirrors Sales Orders / Quotes layout for cross-page consistency. -->
+		<form method="get" action="/receipts" class="mt-6 rounded-lg border border-border bg-surface p-4">
+			<div class="flex flex-wrap items-end gap-3">
+				<div class="min-w-[220px] flex-1">
+					<label class={ compactLabelClass() }>Customer</label>
+					@ui.SmartPicker(ui.SmartPickerVM{
+						FieldName:     "customer_id",
+						Entity:        "customer",
+						Context:       "receipts_filter",
+						Value:         vm.FilterCustomer,
+						SelectedLabel: vm.FilterCustomerLabel,
+						Placeholder:   "All customers",
+						Limit:         20,
+					})
+				</div>
+				<div class="min-w-[160px]">
+					<label for="receipts-filter-status" class={ compactLabelClass() }>Status</label>
+					<select id="receipts-filter-status" name="status" class={ listFilterInputClass() }>
+						<option value="" selected?={ vm.FilterStatus == "" }>-- All --</option>
+						for _, s := range models.AllCustomerReceiptStatuses() {
+							<option value={ string(s) } selected?={ string(s) == vm.FilterStatus }>{ models.CustomerReceiptStatusLabel(s) }</option>
+						}
+					</select>
+				</div>
+				<div>
+					<label for="receipts-filter-from" class={ compactLabelClass() }>From</label>
+					<input id="receipts-filter-from" type="date" name="from" value={ vm.FilterDateFrom } class={ listFilterInputClass() }/>
+				</div>
+				<div>
+					<label for="receipts-filter-to" class={ compactLabelClass() }>To</label>
+					<input id="receipts-filter-to" type="date" name="to" value={ vm.FilterDateTo } class={ listFilterInputClass() }/>
+				</div>
+				<div class="flex items-end gap-2">
+					<button type="submit" class="rounded-md bg-primary px-3 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover">Apply Filter</button>
+					<a href="/receipts" class="rounded-md border border-border-input px-3 py-1.5 text-small text-text-muted3 hover:bg-background hover:text-text">Reset</a>
+				</div>
+			</div>
 		</form>
 
 		<!-- Table -->

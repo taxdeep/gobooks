@@ -78,21 +78,34 @@ func (s *Server) handleInvoices(c *fiber.Ctx) error {
 		nextNo = "IN001"
 	}
 
+	// Resolve the customer name for SmartPicker echo display. One extra
+	// query, only when the filter is active — cheap.
+	customerLabel := ""
+	if filterCustomerID != "" {
+		if id, err := services.ParseUint(filterCustomerID); err == nil && id > 0 {
+			var cust models.Customer
+			if err := s.DB.Select("name").Where("id = ? AND company_id = ?", uint(id), companyID).First(&cust).Error; err == nil {
+				customerLabel = cust.Name
+			}
+		}
+	}
+
 	return pages.Invoices(pages.InvoicesVM{
-		HasCompany:       true,
-		Customers:        customers,
-		Invoices:         invoices,
-		InvoiceDate:      time.Now().Format("2006-01-02"),
-		InvoiceNumber:    nextNo,
-		Created:          c.Query("created") == "1",
-		Saved:            c.Query("saved") == "1",
-		Posted:           c.Query("posted") == "1",
-		Deleted:          c.Query("deleted") == "1",
-		FilterQ:          filterQ,
-		FilterCustomerID: filterCustomerID,
-		FilterStatus:     filterStatus,
-		FilterFrom:       filterFrom,
-		FilterTo:         filterTo,
+		HasCompany:          true,
+		Customers:           customers,
+		Invoices:            invoices,
+		InvoiceDate:         time.Now().Format("2006-01-02"),
+		InvoiceNumber:       nextNo,
+		Created:             c.Query("created") == "1",
+		Saved:               c.Query("saved") == "1",
+		Posted:              c.Query("posted") == "1",
+		Deleted:             c.Query("deleted") == "1",
+		FilterQ:             filterQ,
+		FilterCustomerID:    filterCustomerID,
+		FilterCustomerLabel: customerLabel,
+		FilterStatus:        filterStatus,
+		FilterFrom:          filterFrom,
+		FilterTo:            filterTo,
 	}).Render(c.Context(), c)
 }
 

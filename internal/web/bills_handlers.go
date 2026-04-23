@@ -72,18 +72,31 @@ func (s *Server) handleBills(c *fiber.Ctx) error {
 		formError = "Could not void bill. Check that it is posted and has no other dependencies."
 	}
 
+	// Resolve the vendor name for SmartPicker echo display. One extra
+	// query, only when the filter is active — cheap.
+	vendorLabel := ""
+	if filterVendorID != "" {
+		if id, err := services.ParseUint(filterVendorID); err == nil && id > 0 {
+			var vend models.Vendor
+			if err := s.DB.Select("name").Where("id = ? AND company_id = ?", uint(id), companyID).First(&vend).Error; err == nil {
+				vendorLabel = vend.Name
+			}
+		}
+	}
+
 	return pages.Bills(pages.BillsVM{
-		HasCompany:     true,
-		Vendors:        vendors,
-		Bills:          bills,
-		Posted:         c.Query("posted") == "1",
-		Saved:          c.Query("saved") == "1",
-		Voided:         c.Query("voided") == "1",
-		FormError:      formError,
-		FilterQ:        filterQ,
-		FilterVendorID: filterVendorID,
-		FilterFrom:     filterFrom,
-		FilterTo:       filterTo,
+		HasCompany:        true,
+		Vendors:           vendors,
+		Bills:             bills,
+		Posted:            c.Query("posted") == "1",
+		Saved:             c.Query("saved") == "1",
+		Voided:            c.Query("voided") == "1",
+		FormError:         formError,
+		FilterQ:           filterQ,
+		FilterVendorID:    filterVendorID,
+		FilterVendorLabel: vendorLabel,
+		FilterFrom:        filterFrom,
+		FilterTo:          filterTo,
 	}).Render(c.Context(), c)
 }
 

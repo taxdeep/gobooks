@@ -161,7 +161,7 @@ func bodySalesOrders(vm SalesOrdersVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var7 = []any{salesOrderFilterInputClass()}
+		var templ_7745c5c3_Var7 = []any{listFilterInputClass()}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var7...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -261,7 +261,7 @@ func bodySalesOrders(vm SalesOrdersVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var13 = []any{salesOrderFilterInputClass()}
+		var templ_7745c5c3_Var13 = []any{listFilterInputClass()}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var13...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -318,7 +318,7 @@ func bodySalesOrders(vm SalesOrdersVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var18 = []any{salesOrderFilterInputClass()}
+		var templ_7745c5c3_Var18 = []any{listFilterInputClass()}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var18...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -504,14 +504,6 @@ func bodySalesOrders(vm SalesOrdersVM) templ.Component {
 		}
 		return nil
 	})
-}
-
-// salesOrderFilterInputClass is the compact dark-mode-safe styling for
-// the Sales Orders filter bar's <select> + <input type=date>. Matches
-// the Sales Transactions density (py-1) so the two surfaces feel
-// consistent.
-func salesOrderFilterInputClass() string {
-	return "mt-2 block w-full rounded-md border border-border-input bg-surface px-2.5 py-1 text-small text-text outline-none focus:ring-2 focus:ring-primary-focus"
 }
 
 // soStatusBadgeClass returns a Tailwind badge class for a SalesOrderStatus.

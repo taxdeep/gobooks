@@ -23,9 +23,10 @@ func (s *Server) handleReceipts(c *fiber.Ctx) error {
 		return c.Redirect("/select-company", fiber.StatusSeeOther)
 	}
 
-	customers, _ := s.customersForCompany(companyID)
 	filterStatus := strings.TrimSpace(c.Query("status"))
 	filterCustomer := strings.TrimSpace(c.Query("customer_id"))
+	filterFromStr := strings.TrimSpace(c.Query("from"))
+	filterToStr := strings.TrimSpace(c.Query("to"))
 
 	var customerID uint
 	if filterCustomer != "" {
@@ -34,19 +35,51 @@ func (s *Server) handleReceipts(c *fiber.Ctx) error {
 		}
 	}
 
-	receipts, err := services.ListCustomerReceipts(s.DB, companyID, filterStatus, customerID)
+	// Date parsing: tolerate empty/unparseable inputs by leaving the
+	// pointer nil. DateTo bumps to end-of-day so a row dated `to` itself
+	// isn't excluded by a < comparison.
+	var dateFrom, dateTo *time.Time
+	if filterFromStr != "" {
+		if t, err := time.Parse("2006-01-02", filterFromStr); err == nil {
+			dateFrom = &t
+		}
+	}
+	if filterToStr != "" {
+		if t, err := time.Parse("2006-01-02", filterToStr); err == nil {
+			end := time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 0, t.Location())
+			dateTo = &end
+		}
+	}
+
+	receipts, err := services.ListCustomerReceipts(s.DB, companyID, services.CustomerReceiptListFilter{
+		Status:     filterStatus,
+		CustomerID: customerID,
+		DateFrom:   dateFrom,
+		DateTo:     dateTo,
+	})
 	if err != nil {
 		receipts = nil
 	}
 
+	// Resolve customer name for SmartPicker echo display.
+	customerLabel := ""
+	if customerID != 0 {
+		var cust models.Customer
+		if err := s.DB.Select("name").Where("id = ? AND company_id = ?", customerID, companyID).First(&cust).Error; err == nil {
+			customerLabel = cust.Name
+		}
+	}
+
 	return pages.Receipts(pages.ReceiptsVM{
-		HasCompany:     true,
-		Receipts:       receipts,
-		Customers:      customers,
-		FilterStatus:   filterStatus,
-		FilterCustomer: filterCustomer,
-		Created:        c.Query("created") == "1",
-		Saved:          c.Query("saved") == "1",
+		HasCompany:          true,
+		Receipts:            receipts,
+		FilterStatus:        filterStatus,
+		FilterCustomer:      filterCustomer,
+		FilterCustomerLabel: customerLabel,
+		FilterDateFrom:      filterFromStr,
+		FilterDateTo:        filterToStr,
+		Created:             c.Query("created") == "1",
+		Saved:               c.Query("saved") == "1",
 	}).Render(c.Context(), c)
 }
 

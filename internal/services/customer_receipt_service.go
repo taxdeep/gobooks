@@ -138,15 +138,31 @@ func GetCustomerReceipt(db *gorm.DB, companyID, receiptID uint) (*models.Custome
 	return &rcpt, err
 }
 
+// CustomerReceiptListFilter bundles the optional list-page filters.
+// Mirrors SalesOrderListFilter so the AR list pages stay structurally
+// aligned.
+type CustomerReceiptListFilter struct {
+	Status     string     // empty = all statuses
+	CustomerID uint       // 0 = all customers
+	DateFrom   *time.Time // nil = no lower bound on receipt_date
+	DateTo     *time.Time // nil = no upper bound on receipt_date
+}
+
 // ListCustomerReceipts returns receipts for a company, newest first.
-// statusFilter: empty = all; customerID: 0 = all.
-func ListCustomerReceipts(db *gorm.DB, companyID uint, statusFilter string, customerID uint) ([]models.CustomerReceipt, error) {
+// All filters are optional — see CustomerReceiptListFilter.
+func ListCustomerReceipts(db *gorm.DB, companyID uint, f CustomerReceiptListFilter) ([]models.CustomerReceipt, error) {
 	q := db.Preload("Customer").Where("company_id = ?", companyID)
-	if statusFilter != "" {
-		q = q.Where("status = ?", statusFilter)
+	if f.Status != "" {
+		q = q.Where("status = ?", f.Status)
 	}
-	if customerID > 0 {
-		q = q.Where("customer_id = ?", customerID)
+	if f.CustomerID > 0 {
+		q = q.Where("customer_id = ?", f.CustomerID)
+	}
+	if f.DateFrom != nil {
+		q = q.Where("receipt_date >= ?", *f.DateFrom)
+	}
+	if f.DateTo != nil {
+		q = q.Where("receipt_date <= ?", *f.DateTo)
 	}
 	var receipts []models.CustomerReceipt
 	err := q.Order("id desc").Find(&receipts).Error

@@ -177,16 +177,30 @@ func GetQuote(db *gorm.DB, companyID, quoteID uint) (*models.Quote, error) {
 	return &q, err
 }
 
-// ListQuotes returns quotes for a company, newest first.
-// statusFilter: empty = all statuses.
-// customerID: 0 = all customers.
-func ListQuotes(db *gorm.DB, companyID uint, statusFilter string, customerID uint) ([]models.Quote, error) {
+// QuoteListFilter bundles the optional list-page filters. Mirrors
+// SalesOrderListFilter so the AR list pages stay structurally aligned.
+type QuoteListFilter struct {
+	Status     string     // empty = all statuses
+	CustomerID uint       // 0 = all customers
+	DateFrom   *time.Time // nil = no lower bound on quote_date
+	DateTo     *time.Time // nil = no upper bound on quote_date
+}
+
+// ListQuotes returns quotes for a company, newest first. All filters
+// are optional — see QuoteListFilter for the contract.
+func ListQuotes(db *gorm.DB, companyID uint, f QuoteListFilter) ([]models.Quote, error) {
 	q := db.Where("company_id = ?", companyID)
-	if statusFilter != "" {
-		q = q.Where("status = ?", statusFilter)
+	if f.Status != "" {
+		q = q.Where("status = ?", f.Status)
 	}
-	if customerID > 0 {
-		q = q.Where("customer_id = ?", customerID)
+	if f.CustomerID > 0 {
+		q = q.Where("customer_id = ?", f.CustomerID)
+	}
+	if f.DateFrom != nil {
+		q = q.Where("quote_date >= ?", *f.DateFrom)
+	}
+	if f.DateTo != nil {
+		q = q.Where("quote_date <= ?", *f.DateTo)
 	}
 	var quotes []models.Quote
 	err := q.Preload("Customer").Order("id desc").Find(&quotes).Error

@@ -33,11 +33,12 @@ type InvoicesVM struct {
 	// Deleted is set after a draft delete redirect (?deleted=1).
 	Deleted bool
 
-	FilterQ          string
-	FilterCustomerID string
-	FilterStatus     string
-	FilterFrom       string
-	FilterTo         string
+	FilterQ             string
+	FilterCustomerID    string
+	FilterCustomerLabel string // resolved customer name for SmartPicker echo display
+	FilterStatus        string
+	FilterFrom          string
+	FilterTo            string
 }
 
 type BillsVM struct {
@@ -55,9 +56,10 @@ type BillsVM struct {
 	// Voided is set after a successful void redirect (?voided=1).
 	Voided bool
 
-	FilterQ        string
-	FilterVendorID string
-	FilterFrom     string
-	FilterTo       string
+	FilterQ           string
+	FilterVendorID    string
+	FilterVendorLabel string // resolved vendor name for SmartPicker echo display
+	FilterFrom        string
+	FilterTo          string
 }
 
