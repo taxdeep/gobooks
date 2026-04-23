@@ -90,6 +90,35 @@ func SetDefaultPDFTemplate(db *gorm.DB, companyID, tmplID uint) error {
 	})
 }
 
+// UpdatePDFTemplateSchema replaces the schema_json on a company-owned
+// template. Validates the schema parses (the renderer would otherwise
+// fail at PDF time). System rows are rejected — clone first, then edit
+// the clone.
+func UpdatePDFTemplateSchema(db *gorm.DB, companyID, tmplID uint, name, description string, schemaJSON []byte) error {
+	if len(schemaJSON) == 0 {
+		return errors.New("schema_json is empty")
+	}
+	var t models.PDFTemplate
+	if err := db.First(&t, tmplID).Error; err != nil {
+		return fmt.Errorf("template not found: %w", err)
+	}
+	if t.IsSystem || t.CompanyID == nil {
+		return errors.New("system templates cannot be edited — clone first")
+	}
+	if *t.CompanyID != companyID {
+		return errors.New("template belongs to a different company")
+	}
+	updates := map[string]any{
+		"schema_json": datatypes.JSON(schemaJSON),
+	}
+	if name != "" {
+		updates["name"] = name
+	}
+	// Always allow description update (including clearing to empty).
+	updates["description"] = description
+	return db.Model(&t).Updates(updates).Error
+}
+
 // DeletePDFTemplate removes a company-owned template. System rows are
 // rejected (operators clone first, then can delete the clone). Removing
 // the current default falls back to the system preset on next render.

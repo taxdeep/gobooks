@@ -95,10 +95,12 @@ templ pdfTemplatesGroup(docType models.PDFDocumentType, rows []models.PDFTemplat
 									<div class="inline-flex items-center gap-2">
 										<a href={ templ.SafeURL(fmt.Sprintf("/pdf-templates/%d/preview", row.ID)) } target="_blank" class="rounded px-2 py-1 text-small text-primary hover:bg-surface-hover">Preview</a>
 										if row.IsSystem {
+											<a href={ templ.SafeURL(fmt.Sprintf("/pdf-templates/%d/edit", row.ID)) } class="rounded px-2 py-1 text-small text-text hover:bg-surface-hover">View</a>
 											<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/pdf-templates/%d/clone", row.ID)) } class="inline">
 												<button type="submit" class="rounded px-2 py-1 text-small text-text hover:bg-surface-hover">Clone</button>
 											</form>
 										} else {
+											<a href={ templ.SafeURL(fmt.Sprintf("/pdf-templates/%d/edit", row.ID)) } class="rounded px-2 py-1 text-small text-primary hover:bg-surface-hover">Edit</a>
 											if !row.IsDefault {
 												<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/pdf-templates/%d/set-default", row.ID)) } class="inline">
 													<button type="submit" class="rounded px-2 py-1 text-small text-primary hover:bg-surface-hover">Set default</button>

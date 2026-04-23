@@ -234,6 +234,11 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Post("/pdf-templates/:id/clone",      s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handlePDFTemplateClone)
 	app.Post("/pdf-templates/:id/set-default", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handlePDFTemplateSetDefault)
 	app.Post("/pdf-templates/:id/delete",     s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handlePDFTemplateDelete)
+	// Phase 3 G7: visual editor + save endpoints + HTML preview backend.
+	app.Get("/pdf-templates/:id/edit",        s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handlePDFTemplateEdit)
+	app.Post("/pdf-templates/:id/save-schema", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handlePDFTemplateSaveSchema)
+	app.Post("/pdf-templates/:id/save-as",    s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceCreate), s.handlePDFTemplateSaveAs)
+	app.Post("/pdf-templates/preview-html",   s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handlePDFTemplatePreviewHTML)
 
 	// Invoice lifecycle management (issue → send → mark paid / void)
 	app.Post("/invoices/:id/save-task-draft", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceSaveTaskDraft)
