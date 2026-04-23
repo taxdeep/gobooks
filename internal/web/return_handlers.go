@@ -10,6 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"gobooks/internal/models"
+	"gobooks/internal/searchprojection/producers"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 )
@@ -136,6 +137,7 @@ func (s *Server) handleReturnCreate(c *fiber.Ctx) error {
 
 	if returnID == 0 {
 		ret, err := services.CreateARReturn(s.DB, companyID, in)
+		_ = producers.ProjectARReturn(c.Context(), s.DB, s.SearchProjector, companyID, ret.ID)
 		if err != nil {
 			vm := pages.ReturnDetailVM{HasCompany: true, FormError: err.Error()}
 			s.loadReturnFormData(companyID, &vm)
@@ -145,6 +147,7 @@ func (s *Server) handleReturnCreate(c *fiber.Ctx) error {
 	}
 
 	_, err = services.UpdateARReturn(s.DB, companyID, returnID, in)
+	_ = producers.ProjectARReturn(c.Context(), s.DB, s.SearchProjector, companyID, returnID)
 	if err != nil {
 		vm := pages.ReturnDetailVM{HasCompany: true, FormError: err.Error()}
 		if ret, e := services.GetARReturn(s.DB, companyID, returnID); e == nil {
@@ -177,6 +180,7 @@ func (s *Server) handleReturnSubmit(c *fiber.Ctx) error {
 		s.loadReturnFormData(companyID, &vm)
 		return pages.ReturnDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectARReturn(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/returns/"+strconv.FormatUint(uint64(id), 10)+"?submitted=1", fiber.StatusSeeOther)
 }
 
@@ -202,6 +206,7 @@ func (s *Server) handleReturnApprove(c *fiber.Ctx) error {
 		s.loadReturnFormData(companyID, &vm)
 		return pages.ReturnDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectARReturn(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/returns/"+strconv.FormatUint(uint64(id), 10)+"?approved=1", fiber.StatusSeeOther)
 }
 
@@ -226,6 +231,7 @@ func (s *Server) handleReturnReject(c *fiber.Ctx) error {
 		s.loadReturnFormData(companyID, &vm)
 		return pages.ReturnDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectARReturn(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/returns/"+strconv.FormatUint(uint64(id), 10)+"?rejected=1", fiber.StatusSeeOther)
 }
 
@@ -250,6 +256,7 @@ func (s *Server) handleReturnCancel(c *fiber.Ctx) error {
 		s.loadReturnFormData(companyID, &vm)
 		return pages.ReturnDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectARReturn(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/returns/"+strconv.FormatUint(uint64(id), 10)+"?cancelled=1", fiber.StatusSeeOther)
 }
 

@@ -25,6 +25,17 @@ const (
 	EntityTypePurchaseOrder   = "purchase_order"
 	EntityTypeCustomerReceipt = "customer_receipt"
 	EntityTypeExpense         = "expense"
+
+	// Phase 5.4 / 5.5 — remaining transaction families.
+	EntityTypeJournalEntry     = "journal_entry"
+	EntityTypeCreditNote       = "credit_note"
+	EntityTypeVendorCreditNote = "vendor_credit_note"
+	EntityTypeARReturn         = "ar_return"
+	EntityTypeVendorReturn     = "vendor_return"
+	EntityTypeARRefund         = "ar_refund"
+	EntityTypeVendorRefund     = "vendor_refund"
+	EntityTypeCustomerDeposit  = "customer_deposit"
+	EntityTypeVendorPrepayment = "vendor_prepayment"
 )
 
 // Shared Document-building pattern (mirrors contact.go / product.go):
@@ -554,4 +565,500 @@ func formatTxSubtitle(label, number, date, currency, amount string) string {
 		out = out + " · " + p
 	}
 	return out
+}
+
+
+// ─────────────────────────────────────────────────────────────────────
+// Phase 5.4 / 5.5 — JournalEntry + 4 AR docs + 4 AP docs
+// ─────────────────────────────────────────────────────────────────────
+
+// JournalEntry is structurally different from the other transaction
+// types: no counterparty (it is a debit/credit ledger row), no Memo /
+// Description field, no aggregate Amount on the header row (Amount
+// lives on JournalLine.Debit/Credit). For search we surface:
+//   Title    "Journal Entry <JournalNo>"
+//   Subtitle "Journal Entry <JournalNo> · <date> · source=<SourceType>"
+//   Amount   empty (would require summing lines — defer)
+//   Memo     empty (no native field)
+
+func ProjectJournalEntry(ctx context.Context, db *gorm.DB, p searchprojection.Projector, companyID, entryID uint) error {
+	if p == nil {
+		return nil
+	}
+	if companyID == 0 {
+		return errors.New("producers.ProjectJournalEntry: companyID is required")
+	}
+	var je models.JournalEntry
+	err := db.Where("id = ? AND company_id = ?", entryID, companyID).First(&je).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrEntityNotInCompany
+		}
+		return fmt.Errorf("producers.ProjectJournalEntry: load %d for company %d: %w", entryID, companyID, err)
+	}
+	doc := JournalEntryDocument(je)
+	if err := p.Upsert(ctx, companyID, doc); err != nil {
+		logging.L().Warn("searchprojection.ProjectJournalEntry upsert failed",
+			"entry_id", entryID, "company_id", companyID, "err", err)
+		return err
+	}
+	return nil
+}
+
+func DeleteJournalEntryProjection(ctx context.Context, p searchprojection.Projector, companyID, entryID uint) error {
+	if p == nil {
+		return nil
+	}
+	return p.Delete(ctx, companyID, EntityTypeJournalEntry, entryID)
+}
+
+func JournalEntryDocument(je models.JournalEntry) searchprojection.Document {
+	number := je.JournalNo
+	title := "Journal Entry " + number
+	if number == "" {
+		title = "Journal Entry (no number)"
+	}
+	src := string(je.SourceType)
+	if src == "" {
+		src = "manual"
+	}
+	subtitle := "Journal Entry " + number + " · " + je.EntryDate.Format("2006-01-02") + " · source=" + src
+	docDate := je.EntryDate
+	return searchprojection.Document{
+		CompanyID:  je.CompanyID,
+		EntityType: EntityTypeJournalEntry,
+		EntityID:   je.ID,
+		DocNumber:  number,
+		Title:      title,
+		Subtitle:   subtitle,
+		Memo:       "",
+		DocDate:    &docDate,
+		Currency:   je.TransactionCurrencyCode,
+		Status:     string(je.Status),
+		URLPath:    "/journal-entry/" + strconv.FormatUint(uint64(je.ID), 10),
+	}
+}
+
+// CreditNote (customer-side)
+func ProjectCreditNote(ctx context.Context, db *gorm.DB, p searchprojection.Projector, companyID, cnID uint) error {
+	if p == nil {
+		return nil
+	}
+	if companyID == 0 {
+		return errors.New("producers.ProjectCreditNote: companyID is required")
+	}
+	var cn models.CreditNote
+	err := db.Where("id = ? AND company_id = ?", cnID, companyID).Preload("Customer").First(&cn).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrEntityNotInCompany
+		}
+		return fmt.Errorf("producers.ProjectCreditNote: load %d for company %d: %w", cnID, companyID, err)
+	}
+	doc := CreditNoteDocument(cn)
+	if err := p.Upsert(ctx, companyID, doc); err != nil {
+		logging.L().Warn("searchprojection.ProjectCreditNote upsert failed",
+			"credit_note_id", cnID, "company_id", companyID, "err", err)
+		return err
+	}
+	return nil
+}
+
+func DeleteCreditNoteProjection(ctx context.Context, p searchprojection.Projector, companyID, cnID uint) error {
+	if p == nil {
+		return nil
+	}
+	return p.Delete(ctx, companyID, EntityTypeCreditNote, cnID)
+}
+
+func CreditNoteDocument(cn models.CreditNote) searchprojection.Document {
+	number := cn.CreditNoteNumber
+	title := counterpartyTitle(cn.Customer.Name, "Customer", number)
+	subtitle := formatTxSubtitle("Credit Memo", number, cn.CreditNoteDate.Format("2006-01-02"), cn.CurrencyCode, cn.Amount.StringFixed(2))
+	docDate := cn.CreditNoteDate
+	return searchprojection.Document{
+		CompanyID:  cn.CompanyID,
+		EntityType: EntityTypeCreditNote,
+		EntityID:   cn.ID,
+		DocNumber:  number,
+		Title:      title,
+		Subtitle:   subtitle,
+		Memo:       cn.Memo,
+		DocDate:    &docDate,
+		Amount:     cn.Amount.StringFixed(2),
+		Currency:   cn.CurrencyCode,
+		Status:     string(cn.Status),
+		URLPath:    "/credit-notes/" + strconv.FormatUint(uint64(cn.ID), 10),
+	}
+}
+
+// VendorCreditNote (AP)
+func ProjectVendorCreditNote(ctx context.Context, db *gorm.DB, p searchprojection.Projector, companyID, vcnID uint) error {
+	if p == nil {
+		return nil
+	}
+	if companyID == 0 {
+		return errors.New("producers.ProjectVendorCreditNote: companyID is required")
+	}
+	var vcn models.VendorCreditNote
+	err := db.Where("id = ? AND company_id = ?", vcnID, companyID).Preload("Vendor").First(&vcn).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrEntityNotInCompany
+		}
+		return fmt.Errorf("producers.ProjectVendorCreditNote: load %d for company %d: %w", vcnID, companyID, err)
+	}
+	doc := VendorCreditNoteDocument(vcn)
+	if err := p.Upsert(ctx, companyID, doc); err != nil {
+		logging.L().Warn("searchprojection.ProjectVendorCreditNote upsert failed",
+			"vcn_id", vcnID, "company_id", companyID, "err", err)
+		return err
+	}
+	return nil
+}
+
+func DeleteVendorCreditNoteProjection(ctx context.Context, p searchprojection.Projector, companyID, vcnID uint) error {
+	if p == nil {
+		return nil
+	}
+	return p.Delete(ctx, companyID, EntityTypeVendorCreditNote, vcnID)
+}
+
+func VendorCreditNoteDocument(vcn models.VendorCreditNote) searchprojection.Document {
+	number := vcn.CreditNoteNumber
+	title := counterpartyTitle(vcn.Vendor.Name, "Vendor", number)
+	subtitle := formatTxSubtitle("Vendor Credit", number, vcn.CreditNoteDate.Format("2006-01-02"), vcn.CurrencyCode, vcn.Amount.StringFixed(2))
+	docDate := vcn.CreditNoteDate
+	return searchprojection.Document{
+		CompanyID:  vcn.CompanyID,
+		EntityType: EntityTypeVendorCreditNote,
+		EntityID:   vcn.ID,
+		DocNumber:  number,
+		Title:      title,
+		Subtitle:   subtitle,
+		Memo:       vcn.Memo,
+		DocDate:    &docDate,
+		Amount:     vcn.Amount.StringFixed(2),
+		Currency:   vcn.CurrencyCode,
+		Status:     string(vcn.Status),
+		URLPath:    "/vendor-credit-notes/" + strconv.FormatUint(uint64(vcn.ID), 10),
+	}
+}
+
+// ARReturn (customer return)
+func ProjectARReturn(ctx context.Context, db *gorm.DB, p searchprojection.Projector, companyID, retID uint) error {
+	if p == nil {
+		return nil
+	}
+	if companyID == 0 {
+		return errors.New("producers.ProjectARReturn: companyID is required")
+	}
+	var r models.ARReturn
+	err := db.Where("id = ? AND company_id = ?", retID, companyID).Preload("Customer").First(&r).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrEntityNotInCompany
+		}
+		return fmt.Errorf("producers.ProjectARReturn: load %d for company %d: %w", retID, companyID, err)
+	}
+	doc := ARReturnDocument(r)
+	if err := p.Upsert(ctx, companyID, doc); err != nil {
+		logging.L().Warn("searchprojection.ProjectARReturn upsert failed",
+			"return_id", retID, "company_id", companyID, "err", err)
+		return err
+	}
+	return nil
+}
+
+func DeleteARReturnProjection(ctx context.Context, p searchprojection.Projector, companyID, retID uint) error {
+	if p == nil {
+		return nil
+	}
+	return p.Delete(ctx, companyID, EntityTypeARReturn, retID)
+}
+
+func ARReturnDocument(r models.ARReturn) searchprojection.Document {
+	number := r.ReturnNumber
+	title := counterpartyTitle(r.Customer.Name, "Customer", number)
+	subtitle := formatTxSubtitle("Return", number, r.ReturnDate.Format("2006-01-02"), r.CurrencyCode, r.ReturnAmount.StringFixed(2))
+	docDate := r.ReturnDate
+	return searchprojection.Document{
+		CompanyID:  r.CompanyID,
+		EntityType: EntityTypeARReturn,
+		EntityID:   r.ID,
+		DocNumber:  number,
+		Title:      title,
+		Subtitle:   subtitle,
+		Memo:       r.Description,
+		DocDate:    &docDate,
+		Amount:     r.ReturnAmount.StringFixed(2),
+		Currency:   r.CurrencyCode,
+		Status:     string(r.Status),
+		URLPath:    "/returns/" + strconv.FormatUint(uint64(r.ID), 10),
+	}
+}
+
+// VendorReturn
+func ProjectVendorReturn(ctx context.Context, db *gorm.DB, p searchprojection.Projector, companyID, retID uint) error {
+	if p == nil {
+		return nil
+	}
+	if companyID == 0 {
+		return errors.New("producers.ProjectVendorReturn: companyID is required")
+	}
+	var r models.VendorReturn
+	err := db.Where("id = ? AND company_id = ?", retID, companyID).Preload("Vendor").First(&r).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrEntityNotInCompany
+		}
+		return fmt.Errorf("producers.ProjectVendorReturn: load %d for company %d: %w", retID, companyID, err)
+	}
+	doc := VendorReturnDocument(r)
+	if err := p.Upsert(ctx, companyID, doc); err != nil {
+		logging.L().Warn("searchprojection.ProjectVendorReturn upsert failed",
+			"return_id", retID, "company_id", companyID, "err", err)
+		return err
+	}
+	return nil
+}
+
+func DeleteVendorReturnProjection(ctx context.Context, p searchprojection.Projector, companyID, retID uint) error {
+	if p == nil {
+		return nil
+	}
+	return p.Delete(ctx, companyID, EntityTypeVendorReturn, retID)
+}
+
+func VendorReturnDocument(r models.VendorReturn) searchprojection.Document {
+	number := r.ReturnNumber
+	title := counterpartyTitle(r.Vendor.Name, "Vendor", number)
+	subtitle := formatTxSubtitle("Vendor Return", number, r.ReturnDate.Format("2006-01-02"), r.CurrencyCode, r.Amount.StringFixed(2))
+	docDate := r.ReturnDate
+	return searchprojection.Document{
+		CompanyID:  r.CompanyID,
+		EntityType: EntityTypeVendorReturn,
+		EntityID:   r.ID,
+		DocNumber:  number,
+		Title:      title,
+		Subtitle:   subtitle,
+		Memo:       r.Memo,
+		DocDate:    &docDate,
+		Amount:     r.Amount.StringFixed(2),
+		Currency:   r.CurrencyCode,
+		Status:     string(r.Status),
+		URLPath:    "/vendor-returns/" + strconv.FormatUint(uint64(r.ID), 10),
+	}
+}
+
+// ARRefund
+func ProjectARRefund(ctx context.Context, db *gorm.DB, p searchprojection.Projector, companyID, refID uint) error {
+	if p == nil {
+		return nil
+	}
+	if companyID == 0 {
+		return errors.New("producers.ProjectARRefund: companyID is required")
+	}
+	var r models.ARRefund
+	err := db.Where("id = ? AND company_id = ?", refID, companyID).Preload("Customer").First(&r).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrEntityNotInCompany
+		}
+		return fmt.Errorf("producers.ProjectARRefund: load %d for company %d: %w", refID, companyID, err)
+	}
+	doc := ARRefundDocument(r)
+	if err := p.Upsert(ctx, companyID, doc); err != nil {
+		logging.L().Warn("searchprojection.ProjectARRefund upsert failed",
+			"refund_id", refID, "company_id", companyID, "err", err)
+		return err
+	}
+	return nil
+}
+
+func DeleteARRefundProjection(ctx context.Context, p searchprojection.Projector, companyID, refID uint) error {
+	if p == nil {
+		return nil
+	}
+	return p.Delete(ctx, companyID, EntityTypeARRefund, refID)
+}
+
+func ARRefundDocument(r models.ARRefund) searchprojection.Document {
+	number := r.RefundNumber
+	title := counterpartyTitle(r.Customer.Name, "Customer", number)
+	subtitle := formatTxSubtitle("Refund", number, r.RefundDate.Format("2006-01-02"), r.CurrencyCode, r.Amount.StringFixed(2))
+	docDate := r.RefundDate
+	return searchprojection.Document{
+		CompanyID:  r.CompanyID,
+		EntityType: EntityTypeARRefund,
+		EntityID:   r.ID,
+		DocNumber:  number,
+		Title:      title,
+		Subtitle:   subtitle,
+		Memo:       r.Memo,
+		DocDate:    &docDate,
+		Amount:     r.Amount.StringFixed(2),
+		Currency:   r.CurrencyCode,
+		Status:     string(r.Status),
+		URLPath:    "/refunds/" + strconv.FormatUint(uint64(r.ID), 10),
+	}
+}
+
+// VendorRefund
+func ProjectVendorRefund(ctx context.Context, db *gorm.DB, p searchprojection.Projector, companyID, refID uint) error {
+	if p == nil {
+		return nil
+	}
+	if companyID == 0 {
+		return errors.New("producers.ProjectVendorRefund: companyID is required")
+	}
+	var r models.VendorRefund
+	err := db.Where("id = ? AND company_id = ?", refID, companyID).Preload("Vendor").First(&r).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrEntityNotInCompany
+		}
+		return fmt.Errorf("producers.ProjectVendorRefund: load %d for company %d: %w", refID, companyID, err)
+	}
+	doc := VendorRefundDocument(r)
+	if err := p.Upsert(ctx, companyID, doc); err != nil {
+		logging.L().Warn("searchprojection.ProjectVendorRefund upsert failed",
+			"refund_id", refID, "company_id", companyID, "err", err)
+		return err
+	}
+	return nil
+}
+
+func DeleteVendorRefundProjection(ctx context.Context, p searchprojection.Projector, companyID, refID uint) error {
+	if p == nil {
+		return nil
+	}
+	return p.Delete(ctx, companyID, EntityTypeVendorRefund, refID)
+}
+
+func VendorRefundDocument(r models.VendorRefund) searchprojection.Document {
+	number := r.RefundNumber
+	title := counterpartyTitle(r.Vendor.Name, "Vendor", number)
+	subtitle := formatTxSubtitle("Vendor Refund", number, r.RefundDate.Format("2006-01-02"), r.CurrencyCode, r.Amount.StringFixed(2))
+	docDate := r.RefundDate
+	return searchprojection.Document{
+		CompanyID:  r.CompanyID,
+		EntityType: EntityTypeVendorRefund,
+		EntityID:   r.ID,
+		DocNumber:  number,
+		Title:      title,
+		Subtitle:   subtitle,
+		Memo:       r.Memo,
+		DocDate:    &docDate,
+		Amount:     r.Amount.StringFixed(2),
+		Currency:   r.CurrencyCode,
+		Status:     string(r.Status),
+		URLPath:    "/vendor-refunds/" + strconv.FormatUint(uint64(r.ID), 10),
+	}
+}
+
+// CustomerDeposit
+func ProjectCustomerDeposit(ctx context.Context, db *gorm.DB, p searchprojection.Projector, companyID, depID uint) error {
+	if p == nil {
+		return nil
+	}
+	if companyID == 0 {
+		return errors.New("producers.ProjectCustomerDeposit: companyID is required")
+	}
+	var d models.CustomerDeposit
+	err := db.Where("id = ? AND company_id = ?", depID, companyID).Preload("Customer").First(&d).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrEntityNotInCompany
+		}
+		return fmt.Errorf("producers.ProjectCustomerDeposit: load %d for company %d: %w", depID, companyID, err)
+	}
+	doc := CustomerDepositDocument(d)
+	if err := p.Upsert(ctx, companyID, doc); err != nil {
+		logging.L().Warn("searchprojection.ProjectCustomerDeposit upsert failed",
+			"deposit_id", depID, "company_id", companyID, "err", err)
+		return err
+	}
+	return nil
+}
+
+func DeleteCustomerDepositProjection(ctx context.Context, p searchprojection.Projector, companyID, depID uint) error {
+	if p == nil {
+		return nil
+	}
+	return p.Delete(ctx, companyID, EntityTypeCustomerDeposit, depID)
+}
+
+func CustomerDepositDocument(d models.CustomerDeposit) searchprojection.Document {
+	number := d.DepositNumber
+	title := counterpartyTitle(d.Customer.Name, "Customer", number)
+	subtitle := formatTxSubtitle("Deposit", number, d.DepositDate.Format("2006-01-02"), d.CurrencyCode, d.Amount.StringFixed(2))
+	docDate := d.DepositDate
+	return searchprojection.Document{
+		CompanyID:  d.CompanyID,
+		EntityType: EntityTypeCustomerDeposit,
+		EntityID:   d.ID,
+		DocNumber:  number,
+		Title:      title,
+		Subtitle:   subtitle,
+		Memo:       d.Memo,
+		DocDate:    &docDate,
+		Amount:     d.Amount.StringFixed(2),
+		Currency:   d.CurrencyCode,
+		Status:     string(d.Status),
+		URLPath:    "/deposits/" + strconv.FormatUint(uint64(d.ID), 10),
+	}
+}
+
+// VendorPrepayment
+func ProjectVendorPrepayment(ctx context.Context, db *gorm.DB, p searchprojection.Projector, companyID, prepID uint) error {
+	if p == nil {
+		return nil
+	}
+	if companyID == 0 {
+		return errors.New("producers.ProjectVendorPrepayment: companyID is required")
+	}
+	var pr models.VendorPrepayment
+	err := db.Where("id = ? AND company_id = ?", prepID, companyID).Preload("Vendor").First(&pr).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrEntityNotInCompany
+		}
+		return fmt.Errorf("producers.ProjectVendorPrepayment: load %d for company %d: %w", prepID, companyID, err)
+	}
+	doc := VendorPrepaymentDocument(pr)
+	if err := p.Upsert(ctx, companyID, doc); err != nil {
+		logging.L().Warn("searchprojection.ProjectVendorPrepayment upsert failed",
+			"prepayment_id", prepID, "company_id", companyID, "err", err)
+		return err
+	}
+	return nil
+}
+
+func DeleteVendorPrepaymentProjection(ctx context.Context, p searchprojection.Projector, companyID, prepID uint) error {
+	if p == nil {
+		return nil
+	}
+	return p.Delete(ctx, companyID, EntityTypeVendorPrepayment, prepID)
+}
+
+func VendorPrepaymentDocument(pr models.VendorPrepayment) searchprojection.Document {
+	number := pr.PrepaymentNumber
+	title := counterpartyTitle(pr.Vendor.Name, "Vendor", number)
+	subtitle := formatTxSubtitle("Prepayment", number, pr.PrepaymentDate.Format("2006-01-02"), pr.CurrencyCode, pr.Amount.StringFixed(2))
+	docDate := pr.PrepaymentDate
+	return searchprojection.Document{
+		CompanyID:  pr.CompanyID,
+		EntityType: EntityTypeVendorPrepayment,
+		EntityID:   pr.ID,
+		DocNumber:  number,
+		Title:      title,
+		Subtitle:   subtitle,
+		Memo:       pr.Memo,
+		DocDate:    &docDate,
+		Amount:     pr.Amount.StringFixed(2),
+		Currency:   pr.CurrencyCode,
+		Status:     string(pr.Status),
+		URLPath:    "/vendor-prepayments/" + strconv.FormatUint(uint64(pr.ID), 10),
+	}
 }

@@ -118,6 +118,52 @@ var allFamilies = []entityFamily{
 		businessIDs: idsOf[models.Expense],
 		project:     producers.ProjectExpense,
 	},
+	// Phase 5.4 / 5.5
+	{
+		entityType:  producers.EntityTypeJournalEntry,
+		businessIDs: idsOf[models.JournalEntry],
+		project:     producers.ProjectJournalEntry,
+	},
+	{
+		entityType:  producers.EntityTypeCreditNote,
+		businessIDs: idsOf[models.CreditNote],
+		project:     producers.ProjectCreditNote,
+	},
+	{
+		entityType:  producers.EntityTypeVendorCreditNote,
+		businessIDs: idsOf[models.VendorCreditNote],
+		project:     producers.ProjectVendorCreditNote,
+	},
+	{
+		entityType:  producers.EntityTypeARReturn,
+		businessIDs: idsOf[models.ARReturn],
+		project:     producers.ProjectARReturn,
+	},
+	{
+		entityType:  producers.EntityTypeVendorReturn,
+		businessIDs: idsOf[models.VendorReturn],
+		project:     producers.ProjectVendorReturn,
+	},
+	{
+		entityType:  producers.EntityTypeARRefund,
+		businessIDs: idsOf[models.ARRefund],
+		project:     producers.ProjectARRefund,
+	},
+	{
+		entityType:  producers.EntityTypeVendorRefund,
+		businessIDs: idsOf[models.VendorRefund],
+		project:     producers.ProjectVendorRefund,
+	},
+	{
+		entityType:  producers.EntityTypeCustomerDeposit,
+		businessIDs: idsOf[models.CustomerDeposit],
+		project:     producers.ProjectCustomerDeposit,
+	},
+	{
+		entityType:  producers.EntityTypeVendorPrepayment,
+		businessIDs: idsOf[models.VendorPrepayment],
+		project:     producers.ProjectVendorPrepayment,
+	},
 }
 
 // idsOf is the generic ID-enumerator used by every entity family.
@@ -392,6 +438,15 @@ func init() {
 		producers.EntityTypePurchaseOrder:   {},
 		producers.EntityTypeCustomerReceipt: {},
 		producers.EntityTypeExpense:         {},
+		producers.EntityTypeJournalEntry:     {},
+		producers.EntityTypeCreditNote:       {},
+		producers.EntityTypeVendorCreditNote: {},
+		producers.EntityTypeARReturn:         {},
+		producers.EntityTypeVendorReturn:     {},
+		producers.EntityTypeARRefund:         {},
+		producers.EntityTypeVendorRefund:     {},
+		producers.EntityTypeCustomerDeposit:  {},
+		producers.EntityTypeVendorPrepayment: {},
 	}
 	for _, fam := range allFamilies {
 		delete(expected, fam.entityType)

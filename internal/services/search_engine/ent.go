@@ -244,8 +244,15 @@ func groupAndCap(rows []*ent.SearchDocument, cap int) []*ent.SearchDocument {
 // the search layer ignorant of business packages.
 func isTransactionType(t string) bool {
 	switch t {
+	// Phase 3 + Phase 3 re-audit (Expense)
 	case "invoice", "bill", "quote", "sales_order", "purchase_order",
-		"customer_receipt", "expense":
+		"customer_receipt", "expense",
+		// Phase 5.4 / 5.5
+		"journal_entry",
+		"credit_note", "vendor_credit_note",
+		"ar_return", "vendor_return",
+		"ar_refund", "vendor_refund",
+		"customer_deposit", "vendor_prepayment":
 		return true
 	}
 	return false

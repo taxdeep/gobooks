@@ -11,6 +11,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"gobooks/internal/models"
+	"gobooks/internal/searchprojection/producers"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 )
@@ -122,6 +123,7 @@ func (s *Server) handleDepositSave(c *fiber.Ctx) error {
 
 	if depositID == 0 {
 		dep, err := services.CreateCustomerDeposit(s.DB, companyID, in)
+		_ = producers.ProjectCustomerDeposit(c.Context(), s.DB, s.SearchProjector, companyID, dep.ID)
 		if err != nil {
 			vm := pages.DepositDetailVM{HasCompany: true, FormError: err.Error()}
 			s.loadDepositFormData(companyID, &vm)
@@ -131,6 +133,7 @@ func (s *Server) handleDepositSave(c *fiber.Ctx) error {
 	}
 
 	_, err = services.UpdateCustomerDeposit(s.DB, companyID, depositID, in)
+	_ = producers.ProjectCustomerDeposit(c.Context(), s.DB, s.SearchProjector, companyID, depositID)
 	if err != nil {
 		vm := pages.DepositDetailVM{HasCompany: true, FormError: err.Error()}
 		if dep, e := services.GetCustomerDeposit(s.DB, companyID, depositID); e == nil {
@@ -164,6 +167,7 @@ func (s *Server) handleDepositPost(c *fiber.Ctx) error {
 		s.loadDepositFormData(companyID, &vm)
 		return pages.DepositDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectCustomerDeposit(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/deposits/"+strconv.FormatUint(uint64(id), 10)+"?posted=1", fiber.StatusSeeOther)
 }
 
@@ -225,6 +229,7 @@ func (s *Server) handleDepositVoid(c *fiber.Ctx) error {
 		s.loadDepositFormData(companyID, &vm)
 		return pages.DepositDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectCustomerDeposit(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/deposits/"+strconv.FormatUint(uint64(id), 10)+"?voided=1", fiber.StatusSeeOther)
 }
 

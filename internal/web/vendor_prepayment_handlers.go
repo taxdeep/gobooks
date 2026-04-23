@@ -10,6 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"gobooks/internal/models"
+	"gobooks/internal/searchprojection/producers"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 )
@@ -121,6 +122,7 @@ func (s *Server) handleVendorPrepaymentSave(c *fiber.Ctx) error {
 
 	if ppID == 0 {
 		pp, err := services.CreateVendorPrepayment(s.DB, companyID, in)
+		_ = producers.ProjectVendorPrepayment(c.Context(), s.DB, s.SearchProjector, companyID, pp.ID)
 		if err != nil {
 			vm := pages.VendorPrepaymentDetailVM{HasCompany: true, FormError: err.Error()}
 			s.loadVPFormData(companyID, &vm)
@@ -130,6 +132,7 @@ func (s *Server) handleVendorPrepaymentSave(c *fiber.Ctx) error {
 	}
 
 	_, err = services.UpdateVendorPrepayment(s.DB, companyID, ppID, in)
+	_ = producers.ProjectVendorPrepayment(c.Context(), s.DB, s.SearchProjector, companyID, ppID)
 	if err != nil {
 		vm := pages.VendorPrepaymentDetailVM{HasCompany: true, FormError: err.Error()}
 		if pp, e := services.GetVendorPrepayment(s.DB, companyID, ppID); e == nil {
@@ -163,6 +166,7 @@ func (s *Server) handleVendorPrepaymentPost(c *fiber.Ctx) error {
 		s.loadVPFormData(companyID, &vm)
 		return pages.VendorPrepaymentDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectVendorPrepayment(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/vendor-prepayments/"+strconv.FormatUint(uint64(id), 10)+"?posted=1", fiber.StatusSeeOther)
 }
 
@@ -187,6 +191,7 @@ func (s *Server) handleVendorPrepaymentVoid(c *fiber.Ctx) error {
 		s.loadVPFormData(companyID, &vm)
 		return pages.VendorPrepaymentDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectVendorPrepayment(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/vendor-prepayments/"+strconv.FormatUint(uint64(id), 10)+"?voided=1", fiber.StatusSeeOther)
 }
 

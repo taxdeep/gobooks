@@ -10,6 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"gobooks/internal/models"
+	"gobooks/internal/searchprojection/producers"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 )
@@ -130,6 +131,7 @@ func (s *Server) handleVendorCreditNoteSave(c *fiber.Ctx) error {
 
 	if vcnID == 0 {
 		vcn, err := services.CreateVendorCreditNote(s.DB, companyID, in)
+		_ = producers.ProjectVendorCreditNote(c.Context(), s.DB, s.SearchProjector, companyID, vcn.ID)
 		if err != nil {
 			vm := pages.VendorCreditNoteDetailVM{HasCompany: true, FormError: err.Error()}
 			s.loadVCNFormData(companyID, &vm)
@@ -139,6 +141,7 @@ func (s *Server) handleVendorCreditNoteSave(c *fiber.Ctx) error {
 	}
 
 	_, err := services.UpdateVendorCreditNote(s.DB, companyID, vcnID, in)
+	_ = producers.ProjectVendorCreditNote(c.Context(), s.DB, s.SearchProjector, companyID, vcnID)
 	if err != nil {
 		vm := pages.VendorCreditNoteDetailVM{HasCompany: true, FormError: err.Error()}
 		if vcn, e := services.GetVendorCreditNote(s.DB, companyID, vcnID); e == nil {
@@ -172,6 +175,7 @@ func (s *Server) handleVendorCreditNotePost(c *fiber.Ctx) error {
 		s.loadVCNFormData(companyID, &vm)
 		return pages.VendorCreditNoteDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectVendorCreditNote(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/vendor-credit-notes/"+strconv.FormatUint(uint64(id), 10)+"?posted=1", fiber.StatusSeeOther)
 }
 
@@ -196,6 +200,7 @@ func (s *Server) handleVendorCreditNoteVoid(c *fiber.Ctx) error {
 		s.loadVCNFormData(companyID, &vm)
 		return pages.VendorCreditNoteDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectVendorCreditNote(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/vendor-credit-notes/"+strconv.FormatUint(uint64(id), 10)+"?voided=1", fiber.StatusSeeOther)
 }
 

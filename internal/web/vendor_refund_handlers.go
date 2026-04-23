@@ -10,6 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"gobooks/internal/models"
+	"gobooks/internal/searchprojection/producers"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 )
@@ -134,6 +135,7 @@ func (s *Server) handleVendorRefundSave(c *fiber.Ctx) error {
 
 	if vrfID == 0 {
 		vrf, err := services.CreateVendorRefund(s.DB, companyID, in)
+		_ = producers.ProjectVendorRefund(c.Context(), s.DB, s.SearchProjector, companyID, vrf.ID)
 		if err != nil {
 			vm := pages.VendorRefundDetailVM{HasCompany: true, FormError: err.Error()}
 			s.loadVRFFormData(companyID, &vm)
@@ -143,6 +145,7 @@ func (s *Server) handleVendorRefundSave(c *fiber.Ctx) error {
 	}
 
 	_, err := services.UpdateVendorRefund(s.DB, companyID, vrfID, in)
+	_ = producers.ProjectVendorRefund(c.Context(), s.DB, s.SearchProjector, companyID, vrfID)
 	if err != nil {
 		vm := pages.VendorRefundDetailVM{HasCompany: true, FormError: err.Error()}
 		if vrf, e := services.GetVendorRefund(s.DB, companyID, vrfID); e == nil {
@@ -176,6 +179,7 @@ func (s *Server) handleVendorRefundPost(c *fiber.Ctx) error {
 		s.loadVRFFormData(companyID, &vm)
 		return pages.VendorRefundDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectVendorRefund(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/vendor-refunds/"+strconv.FormatUint(uint64(id), 10)+"?posted=1", fiber.StatusSeeOther)
 }
 
@@ -200,6 +204,7 @@ func (s *Server) handleVendorRefundVoid(c *fiber.Ctx) error {
 		s.loadVRFFormData(companyID, &vm)
 		return pages.VendorRefundDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectVendorRefund(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/vendor-refunds/"+strconv.FormatUint(uint64(id), 10)+"?voided=1", fiber.StatusSeeOther)
 }
 

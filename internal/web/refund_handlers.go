@@ -10,6 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"gobooks/internal/models"
+	"gobooks/internal/searchprojection/producers"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 )
@@ -144,6 +145,7 @@ func (s *Server) handleRefundCreate(c *fiber.Ctx) error {
 
 	if refundID == 0 {
 		ref, err := services.CreateARRefund(s.DB, companyID, in)
+		_ = producers.ProjectARRefund(c.Context(), s.DB, s.SearchProjector, companyID, ref.ID)
 		if err != nil {
 			vm := pages.RefundDetailVM{HasCompany: true, FormError: err.Error()}
 			s.loadRefundFormData(companyID, &vm)
@@ -153,6 +155,7 @@ func (s *Server) handleRefundCreate(c *fiber.Ctx) error {
 	}
 
 	_, err = services.UpdateARRefund(s.DB, companyID, refundID, in)
+	_ = producers.ProjectARRefund(c.Context(), s.DB, s.SearchProjector, companyID, refundID)
 	if err != nil {
 		vm := pages.RefundDetailVM{HasCompany: true, FormError: err.Error()}
 		if ref, e := services.GetARRefund(s.DB, companyID, refundID); e == nil {
@@ -189,6 +192,7 @@ func (s *Server) handleRefundPost(c *fiber.Ctx) error {
 		s.loadRefundFormData(companyID, &vm)
 		return pages.RefundDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectARRefund(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/refunds/"+strconv.FormatUint(uint64(id), 10)+"?posted=1", fiber.StatusSeeOther)
 }
 
@@ -213,6 +217,7 @@ func (s *Server) handleRefundVoid(c *fiber.Ctx) error {
 		s.loadRefundFormData(companyID, &vm)
 		return pages.RefundDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectARRefund(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/refunds/"+strconv.FormatUint(uint64(id), 10)+"?voided=1", fiber.StatusSeeOther)
 }
 
@@ -238,6 +243,7 @@ func (s *Server) handleRefundReverse(c *fiber.Ctx) error {
 		s.loadRefundFormData(companyID, &vm)
 		return pages.RefundDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectARRefund(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/refunds/"+strconv.FormatUint(uint64(id), 10)+"?reversed=1", fiber.StatusSeeOther)
 }
 

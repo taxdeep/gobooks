@@ -117,11 +117,12 @@ func TestFilterFamilies(t *testing.T) {
 	}
 }
 
-// Sanity: the registry must list all 10 entity types Phase 1-3 ship,
+// Sanity: the registry must list all 19 entity types Phase 1-5.5 ship,
 // and no extras. If a producer is added/removed without updating the
 // reconciler registry, this catches it before prod drift accumulates.
 func TestAllFamiliesRegistry_HasExpectedTypes(t *testing.T) {
 	want := map[string]bool{
+		// Phase 1 + 2 + 3
 		"customer":         true,
 		"vendor":           true,
 		"product_service":  true,
@@ -132,6 +133,16 @@ func TestAllFamiliesRegistry_HasExpectedTypes(t *testing.T) {
 		"purchase_order":   true,
 		"customer_receipt": true,
 		"expense":          true,
+		// Phase 5.4 + 5.5
+		"journal_entry":      true,
+		"credit_note":        true,
+		"vendor_credit_note": true,
+		"ar_return":          true,
+		"vendor_return":      true,
+		"ar_refund":          true,
+		"vendor_refund":      true,
+		"customer_deposit":   true,
+		"vendor_prepayment":  true,
 	}
 	got := map[string]bool{}
 	for _, fam := range allFamilies {

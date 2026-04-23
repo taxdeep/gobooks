@@ -10,6 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"gobooks/internal/models"
+	"gobooks/internal/searchprojection/producers"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 )
@@ -123,6 +124,7 @@ func (s *Server) handleVendorReturnSave(c *fiber.Ctx) error {
 
 	if vrID == 0 {
 		vr, err := services.CreateVendorReturn(s.DB, companyID, in)
+		_ = producers.ProjectVendorReturn(c.Context(), s.DB, s.SearchProjector, companyID, vr.ID)
 		if err != nil {
 			vm := pages.VendorReturnDetailVM{HasCompany: true, FormError: err.Error()}
 			s.loadVRFormData(companyID, &vm)
@@ -132,6 +134,7 @@ func (s *Server) handleVendorReturnSave(c *fiber.Ctx) error {
 	}
 
 	_, err := services.UpdateVendorReturn(s.DB, companyID, vrID, in)
+	_ = producers.ProjectVendorReturn(c.Context(), s.DB, s.SearchProjector, companyID, vrID)
 	if err != nil {
 		vm := pages.VendorReturnDetailVM{HasCompany: true, FormError: err.Error()}
 		if vr, e := services.GetVendorReturn(s.DB, companyID, vrID); e == nil {
@@ -163,6 +166,7 @@ func (s *Server) handleVendorReturnSubmit(c *fiber.Ctx) error {
 		s.loadVRFormData(companyID, &vm)
 		return pages.VendorReturnDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectVendorReturn(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/vendor-returns/"+strconv.FormatUint(uint64(id), 10)+"?submitted=1", fiber.StatusSeeOther)
 }
 
@@ -186,6 +190,7 @@ func (s *Server) handleVendorReturnApprove(c *fiber.Ctx) error {
 		s.loadVRFormData(companyID, &vm)
 		return pages.VendorReturnDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectVendorReturn(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/vendor-returns/"+strconv.FormatUint(uint64(id), 10)+"?approved=1", fiber.StatusSeeOther)
 }
 
@@ -209,6 +214,7 @@ func (s *Server) handleVendorReturnCancel(c *fiber.Ctx) error {
 		s.loadVRFormData(companyID, &vm)
 		return pages.VendorReturnDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectVendorReturn(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/vendor-returns/"+strconv.FormatUint(uint64(id), 10)+"?cancelled=1", fiber.StatusSeeOther)
 }
 
@@ -232,6 +238,7 @@ func (s *Server) handleVendorReturnProcess(c *fiber.Ctx) error {
 		s.loadVRFormData(companyID, &vm)
 		return pages.VendorReturnDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectVendorReturn(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/vendor-returns/"+strconv.FormatUint(uint64(id), 10)+"?processed=1", fiber.StatusSeeOther)
 }
 

@@ -14,6 +14,7 @@ import (
 	"gorm.io/gorm"
 
 	"gobooks/internal/models"
+	"gobooks/internal/searchprojection/producers"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 )
@@ -265,6 +266,7 @@ func (s *Server) handleJournalEntryPost(c *fiber.Ctx) error {
 		"exchange_rate_effective_date": prepared.JournalEntry.ExchangeRateDate.Format("2006-01-02"),
 	}, &cid, &uid)
 	s.ReportCache.InvalidateCompany(companyID)
+	_ = producers.ProjectJournalEntry(c.Context(), s.DB, s.SearchProjector, companyID, postedJEID)
 
 	return c.Redirect("/journal-entry?saved=1", fiber.StatusSeeOther)
 }
@@ -612,6 +614,10 @@ func (s *Server) handleJournalEntryReverse(c *fiber.Ctx) error {
 		"company_id":   companyID,
 	}, &cid, &uid)
 	s.ReportCache.InvalidateCompany(companyID)
+	// Both the original (now status=reversed) and the new reversal JE
+	// need projecting so search reflects the linkage.
+	_ = producers.ProjectJournalEntry(c.Context(), s.DB, s.SearchProjector, companyID, uint(idU64))
+	_ = producers.ProjectJournalEntry(c.Context(), s.DB, s.SearchProjector, companyID, reversedID)
 
 	return c.Redirect("/journal-entry/list?reversed=1", fiber.StatusSeeOther)
 }

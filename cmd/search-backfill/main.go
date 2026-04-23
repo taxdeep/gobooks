@@ -136,6 +136,52 @@ func main() {
 			log.Fatalf("expense backfill failed: %v", err)
 		}
 	}
+	// Phase 5.4 / 5.5
+	if *only == "all" || *only == "journal_entry" {
+		if err := backfillJournalEntries(ctx, gormDB, projector, *companyFilter, *batchSize); err != nil {
+			log.Fatalf("journal_entry backfill failed: %v", err)
+		}
+	}
+	if *only == "all" || *only == "credit_note" {
+		if err := backfillCreditNotes(ctx, gormDB, projector, *companyFilter, *batchSize); err != nil {
+			log.Fatalf("credit_note backfill failed: %v", err)
+		}
+	}
+	if *only == "all" || *only == "vendor_credit_note" {
+		if err := backfillVendorCreditNotes(ctx, gormDB, projector, *companyFilter, *batchSize); err != nil {
+			log.Fatalf("vendor_credit_note backfill failed: %v", err)
+		}
+	}
+	if *only == "all" || *only == "ar_return" {
+		if err := backfillARReturns(ctx, gormDB, projector, *companyFilter, *batchSize); err != nil {
+			log.Fatalf("ar_return backfill failed: %v", err)
+		}
+	}
+	if *only == "all" || *only == "vendor_return" {
+		if err := backfillVendorReturns(ctx, gormDB, projector, *companyFilter, *batchSize); err != nil {
+			log.Fatalf("vendor_return backfill failed: %v", err)
+		}
+	}
+	if *only == "all" || *only == "ar_refund" {
+		if err := backfillARRefunds(ctx, gormDB, projector, *companyFilter, *batchSize); err != nil {
+			log.Fatalf("ar_refund backfill failed: %v", err)
+		}
+	}
+	if *only == "all" || *only == "vendor_refund" {
+		if err := backfillVendorRefunds(ctx, gormDB, projector, *companyFilter, *batchSize); err != nil {
+			log.Fatalf("vendor_refund backfill failed: %v", err)
+		}
+	}
+	if *only == "all" || *only == "customer_deposit" {
+		if err := backfillCustomerDeposits(ctx, gormDB, projector, *companyFilter, *batchSize); err != nil {
+			log.Fatalf("customer_deposit backfill failed: %v", err)
+		}
+	}
+	if *only == "all" || *only == "vendor_prepayment" {
+		if err := backfillVendorPrepayments(ctx, gormDB, projector, *companyFilter, *batchSize); err != nil {
+			log.Fatalf("vendor_prepayment backfill failed: %v", err)
+		}
+	}
 
 	logging.L().Info("search-backfill complete", "elapsed_ms", time.Since(start).Milliseconds(), "dry", *dry)
 }
@@ -456,5 +502,286 @@ func backfillExpenses(ctx context.Context, db *gorm.DB, p searchprojection.Proje
 		logging.L().Info("backfill expenses progress", "scanned_total", total)
 	}
 	logging.L().Info("backfill expenses done", "total", total)
+	return nil
+}
+
+// Phase 5.4 / 5.5 backfills.
+
+func backfillJournalEntries(ctx context.Context, db *gorm.DB, p searchprojection.Projector, companyFilter uint, batch int) error {
+	logging.L().Info("backfill journal_entries start")
+	var cursor uint
+	total := 0
+	for {
+		q := db.Model(&models.JournalEntry{}).Where("id > ?", cursor).Order("id ASC").Limit(batch)
+		if companyFilter != 0 {
+			q = q.Where("company_id = ?", companyFilter)
+		}
+		var rows []models.JournalEntry
+		if err := q.Find(&rows).Error; err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			break
+		}
+		for _, r := range rows {
+			doc := producers.JournalEntryDocument(r)
+			if err := p.Upsert(ctx, doc.CompanyID, doc); err != nil {
+				logging.L().Warn("journal_entries upsert failed (continuing)", "id", r.ID, "company_id", r.CompanyID, "err", err)
+				continue
+			}
+			cursor = r.ID
+			total++
+		}
+		logging.L().Info("backfill journal_entries progress", "scanned_total", total)
+	}
+	logging.L().Info("backfill journal_entries done", "total", total)
+	return nil
+}
+
+func backfillCreditNotes(ctx context.Context, db *gorm.DB, p searchprojection.Projector, companyFilter uint, batch int) error {
+	logging.L().Info("backfill credit_notes start")
+	var cursor uint
+	total := 0
+	for {
+		q := db.Model(&models.CreditNote{}).Where("id > ?", cursor).Order("id ASC").Limit(batch).Preload("Customer")
+		if companyFilter != 0 {
+			q = q.Where("company_id = ?", companyFilter)
+		}
+		var rows []models.CreditNote
+		if err := q.Find(&rows).Error; err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			break
+		}
+		for _, r := range rows {
+			doc := producers.CreditNoteDocument(r)
+			if err := p.Upsert(ctx, doc.CompanyID, doc); err != nil {
+				logging.L().Warn("credit_notes upsert failed (continuing)", "id", r.ID, "company_id", r.CompanyID, "err", err)
+				continue
+			}
+			cursor = r.ID
+			total++
+		}
+		logging.L().Info("backfill credit_notes progress", "scanned_total", total)
+	}
+	logging.L().Info("backfill credit_notes done", "total", total)
+	return nil
+}
+
+func backfillVendorCreditNotes(ctx context.Context, db *gorm.DB, p searchprojection.Projector, companyFilter uint, batch int) error {
+	logging.L().Info("backfill vendor_credit_notes start")
+	var cursor uint
+	total := 0
+	for {
+		q := db.Model(&models.VendorCreditNote{}).Where("id > ?", cursor).Order("id ASC").Limit(batch).Preload("Vendor")
+		if companyFilter != 0 {
+			q = q.Where("company_id = ?", companyFilter)
+		}
+		var rows []models.VendorCreditNote
+		if err := q.Find(&rows).Error; err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			break
+		}
+		for _, r := range rows {
+			doc := producers.VendorCreditNoteDocument(r)
+			if err := p.Upsert(ctx, doc.CompanyID, doc); err != nil {
+				logging.L().Warn("vendor_credit_notes upsert failed (continuing)", "id", r.ID, "company_id", r.CompanyID, "err", err)
+				continue
+			}
+			cursor = r.ID
+			total++
+		}
+		logging.L().Info("backfill vendor_credit_notes progress", "scanned_total", total)
+	}
+	logging.L().Info("backfill vendor_credit_notes done", "total", total)
+	return nil
+}
+
+func backfillARReturns(ctx context.Context, db *gorm.DB, p searchprojection.Projector, companyFilter uint, batch int) error {
+	logging.L().Info("backfill ar_returns start")
+	var cursor uint
+	total := 0
+	for {
+		q := db.Model(&models.ARReturn{}).Where("id > ?", cursor).Order("id ASC").Limit(batch).Preload("Customer")
+		if companyFilter != 0 {
+			q = q.Where("company_id = ?", companyFilter)
+		}
+		var rows []models.ARReturn
+		if err := q.Find(&rows).Error; err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			break
+		}
+		for _, r := range rows {
+			doc := producers.ARReturnDocument(r)
+			if err := p.Upsert(ctx, doc.CompanyID, doc); err != nil {
+				logging.L().Warn("ar_returns upsert failed (continuing)", "id", r.ID, "company_id", r.CompanyID, "err", err)
+				continue
+			}
+			cursor = r.ID
+			total++
+		}
+		logging.L().Info("backfill ar_returns progress", "scanned_total", total)
+	}
+	logging.L().Info("backfill ar_returns done", "total", total)
+	return nil
+}
+
+func backfillVendorReturns(ctx context.Context, db *gorm.DB, p searchprojection.Projector, companyFilter uint, batch int) error {
+	logging.L().Info("backfill vendor_returns start")
+	var cursor uint
+	total := 0
+	for {
+		q := db.Model(&models.VendorReturn{}).Where("id > ?", cursor).Order("id ASC").Limit(batch).Preload("Vendor")
+		if companyFilter != 0 {
+			q = q.Where("company_id = ?", companyFilter)
+		}
+		var rows []models.VendorReturn
+		if err := q.Find(&rows).Error; err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			break
+		}
+		for _, r := range rows {
+			doc := producers.VendorReturnDocument(r)
+			if err := p.Upsert(ctx, doc.CompanyID, doc); err != nil {
+				logging.L().Warn("vendor_returns upsert failed (continuing)", "id", r.ID, "company_id", r.CompanyID, "err", err)
+				continue
+			}
+			cursor = r.ID
+			total++
+		}
+		logging.L().Info("backfill vendor_returns progress", "scanned_total", total)
+	}
+	logging.L().Info("backfill vendor_returns done", "total", total)
+	return nil
+}
+
+func backfillARRefunds(ctx context.Context, db *gorm.DB, p searchprojection.Projector, companyFilter uint, batch int) error {
+	logging.L().Info("backfill ar_refunds start")
+	var cursor uint
+	total := 0
+	for {
+		q := db.Model(&models.ARRefund{}).Where("id > ?", cursor).Order("id ASC").Limit(batch).Preload("Customer")
+		if companyFilter != 0 {
+			q = q.Where("company_id = ?", companyFilter)
+		}
+		var rows []models.ARRefund
+		if err := q.Find(&rows).Error; err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			break
+		}
+		for _, r := range rows {
+			doc := producers.ARRefundDocument(r)
+			if err := p.Upsert(ctx, doc.CompanyID, doc); err != nil {
+				logging.L().Warn("ar_refunds upsert failed (continuing)", "id", r.ID, "company_id", r.CompanyID, "err", err)
+				continue
+			}
+			cursor = r.ID
+			total++
+		}
+		logging.L().Info("backfill ar_refunds progress", "scanned_total", total)
+	}
+	logging.L().Info("backfill ar_refunds done", "total", total)
+	return nil
+}
+
+func backfillVendorRefunds(ctx context.Context, db *gorm.DB, p searchprojection.Projector, companyFilter uint, batch int) error {
+	logging.L().Info("backfill vendor_refunds start")
+	var cursor uint
+	total := 0
+	for {
+		q := db.Model(&models.VendorRefund{}).Where("id > ?", cursor).Order("id ASC").Limit(batch).Preload("Vendor")
+		if companyFilter != 0 {
+			q = q.Where("company_id = ?", companyFilter)
+		}
+		var rows []models.VendorRefund
+		if err := q.Find(&rows).Error; err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			break
+		}
+		for _, r := range rows {
+			doc := producers.VendorRefundDocument(r)
+			if err := p.Upsert(ctx, doc.CompanyID, doc); err != nil {
+				logging.L().Warn("vendor_refunds upsert failed (continuing)", "id", r.ID, "company_id", r.CompanyID, "err", err)
+				continue
+			}
+			cursor = r.ID
+			total++
+		}
+		logging.L().Info("backfill vendor_refunds progress", "scanned_total", total)
+	}
+	logging.L().Info("backfill vendor_refunds done", "total", total)
+	return nil
+}
+
+func backfillCustomerDeposits(ctx context.Context, db *gorm.DB, p searchprojection.Projector, companyFilter uint, batch int) error {
+	logging.L().Info("backfill customer_deposits start")
+	var cursor uint
+	total := 0
+	for {
+		q := db.Model(&models.CustomerDeposit{}).Where("id > ?", cursor).Order("id ASC").Limit(batch).Preload("Customer")
+		if companyFilter != 0 {
+			q = q.Where("company_id = ?", companyFilter)
+		}
+		var rows []models.CustomerDeposit
+		if err := q.Find(&rows).Error; err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			break
+		}
+		for _, r := range rows {
+			doc := producers.CustomerDepositDocument(r)
+			if err := p.Upsert(ctx, doc.CompanyID, doc); err != nil {
+				logging.L().Warn("customer_deposits upsert failed (continuing)", "id", r.ID, "company_id", r.CompanyID, "err", err)
+				continue
+			}
+			cursor = r.ID
+			total++
+		}
+		logging.L().Info("backfill customer_deposits progress", "scanned_total", total)
+	}
+	logging.L().Info("backfill customer_deposits done", "total", total)
+	return nil
+}
+
+func backfillVendorPrepayments(ctx context.Context, db *gorm.DB, p searchprojection.Projector, companyFilter uint, batch int) error {
+	logging.L().Info("backfill vendor_prepayments start")
+	var cursor uint
+	total := 0
+	for {
+		q := db.Model(&models.VendorPrepayment{}).Where("id > ?", cursor).Order("id ASC").Limit(batch).Preload("Vendor")
+		if companyFilter != 0 {
+			q = q.Where("company_id = ?", companyFilter)
+		}
+		var rows []models.VendorPrepayment
+		if err := q.Find(&rows).Error; err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			break
+		}
+		for _, r := range rows {
+			doc := producers.VendorPrepaymentDocument(r)
+			if err := p.Upsert(ctx, doc.CompanyID, doc); err != nil {
+				logging.L().Warn("vendor_prepayments upsert failed (continuing)", "id", r.ID, "company_id", r.CompanyID, "err", err)
+				continue
+			}
+			cursor = r.ID
+			total++
+		}
+		logging.L().Info("backfill vendor_prepayments progress", "scanned_total", total)
+	}
+	logging.L().Info("backfill vendor_prepayments done", "total", total)
 	return nil
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"gobooks/internal/models"
+	"gobooks/internal/searchprojection/producers"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 )
@@ -308,6 +309,7 @@ func (s *Server) handleCreditNoteIssue(c *fiber.Ctx) error {
 	}
 
 	issueErr := services.PostCreditNote(s.DB, companyID, uint(id), actor, nil)
+	_ = producers.ProjectCreditNote(c.Context(), s.DB, s.SearchProjector, companyID, uint(id))
 	if issueErr != nil {
 		cn, _ := services.GetCreditNote(s.DB, companyID, uint(id))
 		if cn == nil {
@@ -338,6 +340,7 @@ func (s *Server) handleCreditNoteVoid(c *fiber.Ctx) error {
 		actor = user.Email
 	}
 	services.VoidCreditNote(s.DB, companyID, uint(id), actor, nil)
+	_ = producers.ProjectCreditNote(c.Context(), s.DB, s.SearchProjector, companyID, uint(id))
 	return c.Redirect(c.Path()[:len(c.Path())-len("/void")], fiber.StatusSeeOther)
 }
 
