@@ -186,7 +186,9 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	// SmartPicker 通用实体搜索 API（只读，仅需成员资格）
 	app.Get("/api/smart-picker/search", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleSmartPickerSearch)
 	// Phase 4 global search: unified dropdown over search_documents projection.
-	app.Get("/api/global-search", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleGlobalSearch)
+	// Rate limit (Phase 5.2) sits AFTER auth so KeyGenerator can read the
+	// authenticated user; before the handler so 429 short-circuits the work.
+	app.Get("/api/global-search", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), NewGlobalSearchLimiter(), s.handleGlobalSearch)
 	app.Get("/api/exchange-rate", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleExchangeRateGet)
 	// SmartPicker 使用事件（fire-and-forget，用于未来的排名信号）
 	app.Post("/api/smart-picker/usage", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleSmartPickerUsage)
