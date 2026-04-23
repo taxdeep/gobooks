@@ -72,6 +72,7 @@ templ Layout(title string, sidebar ui.SidebarVM, content templ.Component) {
 			<script src="/static/doc_line_items.js?v=3" defer></script>
 			<script src="/static/doc_item_picker.js?v=1" defer></script>
 			<script src="/static/doc_transaction_editor.js?v=1" defer></script>
+			<script src="/static/global_search.js?v=1" defer></script>
 			<script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 			<script src="/static/num-format.js?v=1" defer></script>
 			<script>
@@ -221,14 +222,7 @@ templ Layout(title string, sidebar ui.SidebarVM, content templ.Component) {
 							}
 						</div>
 
-						<div class="hidden md:block" title="Search is not available yet">
-							<input
-								type="search"
-								disabled
-								placeholder="Search…"
-								class="w-[360px] max-w-[40vw] cursor-not-allowed rounded-md border border-border-input bg-background px-3 py-2 text-body text-text-muted3 outline-none opacity-70"
-							/>
-						</div>
+						@globalSearchDropdown()
 
 						<!-- Right-side controls: theme toggle + user menu (grouped so they sit close together) -->
 						<div class="flex items-center gap-2">
@@ -454,4 +448,94 @@ templ LayoutAuth(title string, content templ.Component) {
 			</div>
 		</body>
 	</html>
+}
+
+// globalSearchDropdown is the topbar search input + Alpine-driven
+// results panel. Wired to /api/global-search via the gobooksGlobalSearch
+// Alpine factory in static/global_search.js.
+//
+// Layout: input is the always-visible click target; the panel is
+// position:absolute so it overlays page content without reflow. Hidden
+// on screens narrower than md to preserve mobile chrome density.
+templ globalSearchDropdown() {
+	// Alpine auto-invokes init() on x-data components; no x-init needed.
+	<div class="hidden md:block relative" x-data="gobooksGlobalSearch()" @click.outside="close()">
+		<input
+			x-ref="input"
+			type="text"
+			role="combobox"
+			aria-haspopup="listbox"
+			:aria-expanded="open"
+			x-model="query"
+			@focus="onFocus()"
+			@input="onInput()"
+			@keydown="onKeydown($event)"
+			placeholder="Search transactions, contacts, products…"
+			autocomplete="off"
+			class="w-[360px] max-w-[40vw] rounded-md border border-border-input bg-background px-3 py-2 text-body text-text placeholder:text-text-muted3 outline-none focus:ring-2 focus:ring-primary-focus"
+		/>
+		// Cmd-K hint chip — visible when input is empty + unfocused.
+		<div
+			x-show="!open && query === ''"
+			class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded border border-border-input bg-surface px-1.5 py-0.5 text-[10px] font-mono text-text-muted3"
+			x-cloak
+		>⌘K</div>
+
+		// ── Results panel ───────────────────────────────────────────
+		<div
+			x-show="open"
+			x-cloak
+			x-transition.opacity.duration.100ms
+			class="absolute left-0 right-0 z-40 mt-1 max-h-[480px] w-[480px] max-w-[90vw] overflow-y-auto rounded-md border border-border bg-surface shadow-lg"
+			role="listbox"
+		>
+			// Loading state
+			<div x-show="loading" class="px-3 py-2 text-small text-text-muted2">Searching…</div>
+
+			// Failed state
+			<div x-show="!loading && failed" class="px-3 py-2 text-small text-danger">Search failed. Try again.</div>
+
+			// Empty state — no items + not loading + not failed
+			<div x-show="!loading && !failed && items.length === 0" class="px-3 py-6 text-center text-small text-text-muted2">
+				<span x-show="query === ''">Start typing to search.</span>
+				<span x-show="query !== ''">No matches.</span>
+			</div>
+
+			// Grouped results
+			<template x-for="(group, gIdx) in groups" :key="group.key">
+				<div>
+					<div class="border-b border-border-subtle bg-background px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+						<span x-text="group.label"></span>
+					</div>
+					<ul class="py-1">
+						<template x-for="(row, rIdx) in group.rows" :key="row.id + ':' + row.entity_type">
+							<li
+								role="option"
+								:data-global-search-row="flatIndex(gIdx, rIdx)"
+								:class="isHighlighted(flatIndex(gIdx, rIdx))
+									? 'flex cursor-pointer items-start gap-2 px-3 py-2 bg-background'
+									: 'flex cursor-pointer items-start gap-2 px-3 py-2 hover:bg-background'"
+								@mouseenter="highlighted = flatIndex(gIdx, rIdx)"
+								@click="select(row)"
+							>
+								<span class="mt-0.5 w-4 shrink-0 text-center text-text-muted3" x-text="groupIcon(row.group_key)"></span>
+								<div class="min-w-0 flex-1">
+									<div class="truncate text-body text-text" x-text="row.primary"></div>
+									<div x-show="row.secondary" class="truncate text-small text-text-muted2" x-text="row.secondary"></div>
+								</div>
+							</li>
+						</template>
+					</ul>
+				</div>
+			</template>
+
+			// Footer: Advanced search link
+			<div x-show="!loading && (items.length > 0 || query !== '')" class="border-t border-border-subtle bg-background px-3 py-2 text-small">
+				<a href="#" @click.prevent="openAdvanced()" class="text-primary hover:underline">
+					Advanced transactions search<span x-show="query !== ''"> { "for" } <span class="font-mono" x-text="'\u201C' + query + '\u201D'"></span></span> →
+				</a>
+				<span x-show="mode === 'legacy'" class="ml-2 text-text-muted3">(legacy fallback)</span>
+			</div>
+		</div>
+	</div>
 }
