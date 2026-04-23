@@ -45,3 +45,20 @@ func (*LegacyEngine) Search(ctx context.Context, req SearchRequest) (*SearchResp
 		Source:     "legacy_empty",
 	}, nil
 }
+
+// SearchAdvanced mirrors Search's empty-fallback contract for the
+// /advanced-search page. Same WARN log so operators see the cause.
+func (*LegacyEngine) SearchAdvanced(ctx context.Context, req AdvancedRequest) (*AdvancedResponse, error) {
+	logging.L().Warn(
+		"search_engine.LegacyEngine: empty advanced search result — SEARCH_ENGINE=legacy is a temporary fallback, switch to ent",
+		"company_id", req.CompanyID,
+		"query", req.Query,
+		"entity_type", req.EntityType,
+	)
+	return &AdvancedResponse{
+		Rows:     []Candidate{},
+		Total:    0,
+		Page:     req.Page,
+		PageSize: req.PageSize,
+	}, nil
+}

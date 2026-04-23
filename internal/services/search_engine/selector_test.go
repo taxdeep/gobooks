@@ -84,6 +84,12 @@ func (s *stubEngine) Search(_ context.Context, _ SearchRequest) (*SearchResponse
 	}
 	return &SearchResponse{Source: string(s.mode)}, nil
 }
+func (s *stubEngine) SearchAdvanced(_ context.Context, _ AdvancedRequest) (*AdvancedResponse, error) {
+	if s.hit != nil {
+		*s.hit = true
+	}
+	return &AdvancedResponse{}, nil
+}
 
 func TestSelector_DispatchesToConfiguredMode(t *testing.T) {
 	var legacyHit, dualHit, entHit bool

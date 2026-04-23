@@ -29,3 +29,7 @@ func (*DualEngine) Mode() Mode { return ModeDual }
 func (*DualEngine) Search(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
 	return nil, errors.New("search_engine: DualEngine.Search not yet implemented (Phase 1)")
 }
+
+func (*DualEngine) SearchAdvanced(ctx context.Context, req AdvancedRequest) (*AdvancedResponse, error) {
+	return nil, errors.New("search_engine: DualEngine.SearchAdvanced not yet implemented")
+}

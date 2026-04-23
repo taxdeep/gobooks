@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // Mode identifies which search backend the selector should dispatch to.
@@ -75,9 +76,15 @@ type Engine interface {
 	Mode() Mode
 
 	// Search executes a global search for the given query in the given
-	// company. The Phase 0 contract is intentionally minimal — Phase 4
-	// expands it once the response shape is agreed.
+	// company. Returns up to ~20 candidates grouped by family — designed
+	// for the topbar dropdown's small fixed-height results list.
 	Search(ctx context.Context, req SearchRequest) (*SearchResponse, error)
+
+	// SearchAdvanced powers the full-page /advanced-search view. Returns
+	// a paginated FLAT list (no per-family caps) plus the total result
+	// count for pager rendering. Supports richer filters (entity type,
+	// date range) than the dropdown query.
+	SearchAdvanced(ctx context.Context, req AdvancedRequest) (*AdvancedResponse, error)
 }
 
 // SearchRequest is the input shape passed through the selector. Kept tiny
@@ -87,6 +94,35 @@ type SearchRequest struct {
 	CompanyID uint
 	Query     string
 	Limit     int
+}
+
+// AdvancedRequest powers the /advanced-search full-page view. Filters
+// beyond the query string narrow the projection scan; pagination
+// returns offset/limit windows of the matched set.
+type AdvancedRequest struct {
+	CompanyID uint
+	Query     string
+	// EntityType narrows to a single entity family (e.g. "invoice").
+	// Empty = all 19 covered families.
+	EntityType string
+	// DateFrom / DateTo bound doc_date inclusively. Zero values = no bound.
+	DateFrom time.Time
+	DateTo   time.Time
+	// Status filters by native status string (e.g. "paid", "voided").
+	// Empty = all statuses.
+	Status string
+	// Page is 1-indexed; PageSize must be in (0, 200].
+	Page     int
+	PageSize int
+}
+
+// AdvancedResponse pairs the page slice with the total match count so
+// the templ can render the pager correctly.
+type AdvancedResponse struct {
+	Rows     []Candidate
+	Total    int
+	Page     int
+	PageSize int
 }
 
 // SearchResponse holds the raw candidate list. Mirrors SmartPickerItem
@@ -185,5 +221,27 @@ func (s *Selector) Search(ctx context.Context, req SearchRequest) (*SearchRespon
 		return s.legacy.Search(ctx, req)
 	default:
 		return s.legacy.Search(ctx, req)
+	}
+}
+
+// SearchAdvanced mirrors Search but for the full-page /advanced-search
+// view. Same engine fallback rules.
+func (s *Selector) SearchAdvanced(ctx context.Context, req AdvancedRequest) (*AdvancedResponse, error) {
+	if s == nil || s.legacy == nil {
+		return nil, fmt.Errorf("search_engine: selector not initialised")
+	}
+	switch s.mode {
+	case ModeDual:
+		if s.dual != nil {
+			return s.dual.SearchAdvanced(ctx, req)
+		}
+		return s.legacy.SearchAdvanced(ctx, req)
+	case ModeEnt:
+		if s.entImpl != nil {
+			return s.entImpl.SearchAdvanced(ctx, req)
+		}
+		return s.legacy.SearchAdvanced(ctx, req)
+	default:
+		return s.legacy.SearchAdvanced(ctx, req)
 	}
 }

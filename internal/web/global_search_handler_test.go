@@ -27,6 +27,9 @@ func (s *stubEngineForHandler) Mode() search_engine.Mode { return s.mode }
 func (s *stubEngineForHandler) Search(_ context.Context, _ search_engine.SearchRequest) (*search_engine.SearchResponse, error) {
 	return s.resp, s.err
 }
+func (s *stubEngineForHandler) SearchAdvanced(_ context.Context, _ search_engine.AdvancedRequest) (*search_engine.AdvancedResponse, error) {
+	return &search_engine.AdvancedResponse{}, s.err
+}
 
 // newGlobalSearchTestApp wires a Fiber app with handleGlobalSearch and
 // a synthetic ResolveActiveCompany middleware that injects companyID=42

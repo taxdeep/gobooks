@@ -189,6 +189,10 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	// Rate limit (Phase 5.2) sits AFTER auth so KeyGenerator can read the
 	// authenticated user; before the handler so 429 short-circuits the work.
 	app.Get("/api/global-search", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), NewGlobalSearchLimiter(), s.handleGlobalSearch)
+	// Phase 5.6: full-page Advanced Transactions Search (reachable from
+	// the dropdown's "Advanced transactions search" link). Same projection,
+	// flat paginated results, richer filter set.
+	app.Get("/advanced-search", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleAdvancedSearch)
 	app.Get("/api/exchange-rate", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleExchangeRateGet)
 	// SmartPicker 使用事件（fire-and-forget，用于未来的排名信号）
 	app.Post("/api/smart-picker/usage", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleSmartPickerUsage)

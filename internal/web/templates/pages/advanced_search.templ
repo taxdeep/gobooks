@@ -1,0 +1,247 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"gobooks/internal/services/search_engine"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+// AdvancedSearch renders /advanced-search — the full-page filter view
+// reachable from the topbar dropdown's "Advanced transactions search"
+// link. Backed by the search_documents projection (same source as the
+// dropdown), but with explicit entity_type / date / status filters and
+// flat paginated results instead of the dropdown's per-family caps.
+templ AdvancedSearch(vm AdvancedSearchVM) {
+	@layout.Layout(
+		"GoBooks - Advanced search",
+		ui.SidebarVM{Active: "Advanced search", HasCompany: vm.HasCompany},
+		bodyAdvancedSearch(vm),
+	)
+}
+
+templ bodyAdvancedSearch(vm AdvancedSearchVM) {
+	<div class="max-w-[95%] space-y-4">
+		<div class="flex flex-wrap items-end justify-between gap-3">
+			<div>
+				<h1 class="text-title font-semibold">Advanced search</h1>
+				<p class="mt-1 text-small text-text-muted2">
+					Search across every transaction, contact, and product/service in this company.
+					Filter by type, date range, or status — results page links jump straight to the underlying record.
+				</p>
+			</div>
+		</div>
+
+		@advSearchFilterBar(vm)
+		@advSearchTable(vm)
+		@advSearchPager(vm)
+		@advSearchModeFooter(vm)
+	</div>
+}
+
+// advSearchFilterBar — query input + entity-type dropdown (grouped by
+// Transactions / Contacts / Products) + date range + status text +
+// Apply / Reset buttons. Submit is plain GET so the URL fully describes
+// the result set and is shareable.
+templ advSearchFilterBar(vm AdvancedSearchVM) {
+	<form method="get" action="/advanced-search" class="rounded-lg border border-border bg-surface p-3 shadow-sm">
+		<div class="flex flex-wrap items-end gap-3">
+			<div class="min-w-[220px] flex-1">
+				<label for="adv-search-q" class={ compactLabelClass() }>Search</label>
+				<input
+					id="adv-search-q"
+					type="text"
+					name="q"
+					value={ vm.Query }
+					placeholder="Number, name, memo…"
+					autocomplete="off"
+					class={ advSearchSelectClass() }
+				/>
+			</div>
+
+			<div class="min-w-[200px]">
+				<label for="adv-search-type" class={ compactLabelClass() }>Type</label>
+				<select id="adv-search-type" name="type" class={ advSearchSelectClass() }>
+					<option value="" selected?={ vm.EntityType == "" }>All types</option>
+					for _, g := range AdvSearchEntityGroups() {
+						<optgroup label={ g.Label }>
+							for _, opt := range g.Options {
+								<option value={ opt.Value } selected?={ opt.Value == vm.EntityType }>{ opt.Label }</option>
+							}
+						</optgroup>
+					}
+				</select>
+			</div>
+
+			<div>
+				<label for="adv-search-from" class={ compactLabelClass() }>From</label>
+				<input id="adv-search-from" type="date" name="from" value={ vm.DateFrom } class={ advSearchSelectClass() }/>
+			</div>
+			<div>
+				<label for="adv-search-to" class={ compactLabelClass() }>To</label>
+				<input id="adv-search-to" type="date" name="to" value={ vm.DateTo } class={ advSearchSelectClass() }/>
+			</div>
+
+			<div class="min-w-[140px]">
+				<label for="adv-search-status" class={ compactLabelClass() }>Status</label>
+				<input
+					id="adv-search-status"
+					type="text"
+					name="status"
+					value={ vm.Status }
+					placeholder="paid, voided…"
+					class={ advSearchSelectClass() }
+				/>
+			</div>
+
+			<div class="flex items-end gap-2">
+				<button type="submit" class="rounded-md bg-primary px-3 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover">Apply</button>
+				<a href="/advanced-search" class="rounded-md border border-border-input px-3 py-1.5 text-small text-text-muted3 hover:bg-background hover:text-text">Reset</a>
+			</div>
+		</div>
+	</form>
+}
+
+// advSearchTable renders the flat paginated result set. Type / Number /
+// Counterparty / Memo / Status columns map onto Candidate fields:
+//
+//	Number       → Payload["doc_num"] (falls back to Primary)
+//	Counterparty → Primary (title_native — "Lighting Geek Inc")
+//	Memo         → Secondary (subtitle — "Invoice INV-202604 · 2026-04-22 · CAD 3600.00")
+//	Amount       → Payload["amount"] + Payload["currency"]
+//	Status       → Payload["status"]
+templ advSearchTable(vm AdvancedSearchVM) {
+	<div class="rounded-lg border border-border bg-surface shadow-sm">
+		<div class="overflow-x-auto">
+			<table class="w-full text-left text-body">
+				<thead class="border-b border-border text-[11px] uppercase tracking-wider text-text-muted">
+					<tr>
+						<th class="px-3 py-2">Type</th>
+						<th class="px-3 py-2">Number</th>
+						<th class="px-3 py-2">Title</th>
+						<th class="px-3 py-2">Detail</th>
+						<th class="px-3 py-2 text-right">Amount</th>
+						<th class="px-3 py-2">Status</th>
+						<th class="w-24 px-3 py-2 text-right">Action</th>
+					</tr>
+				</thead>
+				<tbody class="text-text">
+					if len(vm.Rows) == 0 {
+						<tr>
+							<td colspan="7" class="px-3 py-10 text-center text-small text-text-muted2">
+								No results match your filters.
+							</td>
+						</tr>
+					} else {
+						for _, r := range vm.Rows {
+							@advSearchRow(r)
+						}
+					}
+				</tbody>
+			</table>
+		</div>
+	</div>
+}
+
+templ advSearchRow(r search_engine.Candidate) {
+	<tr class="border-b border-border-subtle hover:bg-background">
+		<td class="px-3 py-2 text-small">
+			<span class="rounded-full bg-background px-2 py-0.5 text-[11px] font-medium text-text-muted2">
+				{ AdvSearchEntityLabel(r.EntityType) }
+			</span>
+		</td>
+		<td class="px-3 py-2 text-small font-mono">
+			if AdvSearchPayload(r.Payload, "doc_num") != "" {
+				if r.URL != "" {
+					<a href={ templ.SafeURL(r.URL) } class="text-primary hover:underline">{ AdvSearchPayload(r.Payload, "doc_num") }</a>
+				} else {
+					{ AdvSearchPayload(r.Payload, "doc_num") }
+				}
+			} else {
+				<span class="text-text-muted3">—</span>
+			}
+		</td>
+		<td class="px-3 py-2 text-small">
+			if r.URL != "" {
+				<a href={ templ.SafeURL(r.URL) } class="hover:text-primary hover:underline">{ r.Primary }</a>
+			} else {
+				{ r.Primary }
+			}
+		</td>
+		<td class="max-w-[360px] px-3 py-2 text-small text-text-muted2">
+			<span class="block truncate" title={ r.Secondary }>
+				if r.Secondary == "" {
+					—
+				} else {
+					{ r.Secondary }
+				}
+			</span>
+		</td>
+		<td class="px-3 py-2 text-right text-small font-mono tabular-nums">
+			if AdvSearchPayload(r.Payload, "amount") != "" {
+				<span data-numfmt>{ AdvSearchPayload(r.Payload, "amount") }</span>
+				if c := AdvSearchPayload(r.Payload, "currency"); c != "" {
+					<span class="ml-1 text-text-muted3">{ c }</span>
+				}
+			} else {
+				<span class="text-text-muted3">—</span>
+			}
+		</td>
+		<td class="px-3 py-2 text-small">
+			if s := AdvSearchPayload(r.Payload, "status"); s != "" {
+				<span class="rounded-full bg-background px-2 py-0.5 text-[11px] font-medium text-text-muted2">{ s }</span>
+			} else {
+				<span class="text-text-muted3">—</span>
+			}
+		</td>
+		<td class="w-24 px-3 py-2 text-right text-small">
+			if r.URL != "" {
+				<a href={ templ.SafeURL(r.URL) } class="text-primary hover:underline">Open</a>
+			}
+		</td>
+	</tr>
+}
+
+// advSearchPager — same pattern as the Sales Transactions pager so
+// returning users see one consistent control. Hidden when there are
+// zero results so the empty state isn't crowded.
+templ advSearchPager(vm AdvancedSearchVM) {
+	if vm.Total > 0 {
+		{{ totalPages := AdvSearchTotalPages(vm) }}
+		<div class="flex flex-wrap items-center justify-between gap-2 px-1 text-small text-text-muted2">
+			<div>
+				Showing { Itoa((vm.Page - 1) * vm.PageSize + 1) }–{ Itoa(AdvSearchPageEnd(vm)) } of { Itoa(vm.Total) }
+			</div>
+			<div class="flex items-center gap-3">
+				if vm.Page > 1 {
+					<a href={ templ.SafeURL(AdvSearchPageHref(vm, 1)) } class="hover:text-text">First</a>
+					<a href={ templ.SafeURL(AdvSearchPageHref(vm, vm.Page - 1)) } class="hover:text-text">Previous</a>
+				} else {
+					<span class="text-text-muted3">First</span>
+					<span class="text-text-muted3">Previous</span>
+				}
+				<span class="tabular-nums text-text">{ Itoa(vm.Page) } / { Itoa(totalPages) }</span>
+				if vm.Page < totalPages {
+					<a href={ templ.SafeURL(AdvSearchPageHref(vm, vm.Page + 1)) } class="hover:text-text">Next</a>
+					<a href={ templ.SafeURL(AdvSearchPageHref(vm, totalPages)) } class="hover:text-text">Last</a>
+				} else {
+					<span class="text-text-muted3">Next</span>
+					<span class="text-text-muted3">Last</span>
+				}
+			</div>
+		</div>
+	}
+}
+
+// advSearchModeFooter is the small operator hint at page bottom telling
+// the operator which engine served the request. Surfaces "legacy"
+// / "dual" deviations from the default ent path so a misconfigured
+// SEARCH_ENGINE flag is visible in the UI rather than only in logs.
+templ advSearchModeFooter(vm AdvancedSearchVM) {
+	if vm.Mode != "" && vm.Mode != "ent" {
+		<div class="rounded-md border border-warning/40 bg-warning/10 px-3 py-1.5 text-[11px] text-text-muted2">
+			Search engine mode: <span class="font-mono font-semibold">{ vm.Mode }</span>
+			— results may be empty or stale until SEARCH_ENGINE is set back to <span class="font-mono">ent</span>.
+		</div>
+	}
+}

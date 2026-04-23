@@ -9,6 +9,7 @@ import (
 	entsql "entgo.io/ent/dialect/sql"
 
 	"gobooks/ent"
+	"gobooks/ent/predicate"
 	"gobooks/ent/searchdocument"
 	"gobooks/internal/searchprojection"
 )
@@ -310,6 +311,88 @@ func groupLabelFor(entityType string) string {
 		return "Products & Services"
 	}
 	return entityType
+}
+
+// SearchAdvanced powers the /advanced-search full-page view. Unlike
+// Search (which bucket-caps for the dropdown), this returns the flat
+// paginated match set + total row count, with optional entity_type /
+// date / status filters layered on top of the same three-tier query.
+//
+// Sort order: matches by doc_number first (exact-code wins), then by
+// doc_date DESC (NULLS LAST). Same predicates as Search so query
+// behaviour is consistent across surfaces.
+func (e *EntEngine) SearchAdvanced(ctx context.Context, req AdvancedRequest) (*AdvancedResponse, error) {
+	if e == nil || e.client == nil {
+		return nil, errors.New("search_engine: EntEngine not initialised")
+	}
+	if req.CompanyID == 0 {
+		return nil, errors.New("search_engine: CompanyID is required")
+	}
+	page := req.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := req.PageSize
+	if pageSize <= 0 {
+		pageSize = 50
+	}
+	if pageSize > 200 {
+		pageSize = 200
+	}
+
+	// Build the predicate stack. The query is OPTIONAL — empty query
+	// + just an entity_type filter is a legitimate "browse all invoices"
+	// flow (covers the QB pattern where a user opens advanced search
+	// from a sidebar link rather than from the dropdown).
+	preds := []predicate.SearchDocument{
+		searchdocument.CompanyIDEQ(req.CompanyID),
+	}
+	if req.EntityType != "" {
+		preds = append(preds, searchdocument.EntityTypeEQ(req.EntityType))
+	}
+	if req.Status != "" {
+		preds = append(preds, searchdocument.StatusEQ(req.Status))
+	}
+	if !req.DateFrom.IsZero() {
+		preds = append(preds, searchdocument.DocDateGTE(req.DateFrom))
+	}
+	if !req.DateTo.IsZero() {
+		preds = append(preds, searchdocument.DocDateLTE(req.DateTo))
+	}
+	if q := strings.TrimSpace(req.Query); q != "" {
+		normalized := e.normalizer.Native(q)
+		if normalized != "" {
+			preds = append(preds, searchdocument.Or(
+				searchdocument.DocNumberContainsFold(q),
+				searchdocument.TitleNativeContainsFold(normalized),
+				searchdocument.MemoNativeContainsFold(normalized),
+			))
+		}
+	}
+
+	// Total first — same predicates, no pagination.
+	total, err := e.client.SearchDocument.Query().Where(preds...).Count(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := e.client.SearchDocument.Query().
+		Where(preds...).
+		Order(searchdocument.ByDocDate(entsql.OrderDesc(), entsql.OrderNullsLast())).
+		Order(searchdocument.ByID(entsql.OrderDesc())). // tie-breaker for same date
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AdvancedResponse{
+		Rows:     rowsToCandidates(rows),
+		Total:    total,
+		Page:     page,
+		PageSize: pageSize,
+	}, nil
 }
 
 // uintKey stringifies an entity ID for Candidate.ID. Isolated so future
