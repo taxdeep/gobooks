@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"gobooks/internal/models"
+	"gobooks/internal/searchprojection/producers"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 )
@@ -233,6 +234,7 @@ func (s *Server) handleInvoiceCreate(c *fiber.Ctx) error {
 		vm.FormError = invoiceSaveErrorMessage(err)
 		return pages.Invoices(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectInvoice(c.Context(), s.DB, s.SearchProjector, companyID, inv.ID)
 
 	if c.Get("HX-Request") == "true" {
 		c.Set("HX-Redirect", "/invoices?created=1")

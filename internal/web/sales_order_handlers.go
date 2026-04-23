@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"gobooks/internal/models"
+	"gobooks/internal/searchprojection/producers"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 )
@@ -139,6 +140,7 @@ func (s *Server) handleSalesOrderSave(c *fiber.Ctx) error {
 			s.loadSOFormData(companyID, &vm)
 			return pages.SalesOrderDetail(vm).Render(c.Context(), c)
 		}
+		_ = producers.ProjectSalesOrder(c.Context(), s.DB, s.SearchProjector, companyID, so.ID)
 		return c.Redirect("/sales-orders/"+strconv.FormatUint(uint64(so.ID), 10)+"?created=1", fiber.StatusSeeOther)
 	}
 
@@ -151,6 +153,7 @@ func (s *Server) handleSalesOrderSave(c *fiber.Ctx) error {
 		s.loadSOFormData(companyID, &vm)
 		return pages.SalesOrderDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectSalesOrder(c.Context(), s.DB, s.SearchProjector, companyID, orderID)
 	return c.Redirect("/sales-orders/"+strconv.FormatUint(uint64(orderID), 10)+"?saved=1", fiber.StatusSeeOther)
 }
 
@@ -166,6 +169,7 @@ func (s *Server) handleSalesOrderConfirm(c *fiber.Ctx) error {
 		return c.Redirect("/sales-orders", fiber.StatusSeeOther)
 	}
 	_ = services.ConfirmSalesOrder(s.DB, companyID, id)
+	_ = producers.ProjectSalesOrder(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/sales-orders/"+strconv.FormatUint(uint64(id), 10)+"?confirmed=1", fiber.StatusSeeOther)
 }
 
@@ -179,6 +183,7 @@ func (s *Server) handleSalesOrderCancel(c *fiber.Ctx) error {
 		return c.Redirect("/sales-orders", fiber.StatusSeeOther)
 	}
 	_ = services.CancelSalesOrder(s.DB, companyID, id)
+	_ = producers.ProjectSalesOrder(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/sales-orders/"+strconv.FormatUint(uint64(id), 10)+"?cancelled=1", fiber.StatusSeeOther)
 }
 

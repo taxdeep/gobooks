@@ -116,7 +116,7 @@ func (s *Server) handleVendorUpdate(c *fiber.Ctx) error {
 		vm.FormError = "Could not save vendor. Please try again."
 		return pages.VendorDetail(vm).Render(c.Context(), c)
 	}
-	_ = producers.ProjectVendor(c.Context(), s.DB, s.SearchProjector, vendorID)
+	_ = producers.ProjectVendor(c.Context(), s.DB, s.SearchProjector, companyID, vendorID)
 
 	cid := companyID
 	uid := user.ID

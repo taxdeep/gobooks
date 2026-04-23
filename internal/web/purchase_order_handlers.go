@@ -10,6 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"gobooks/internal/models"
+	"gobooks/internal/searchprojection/producers"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 )
@@ -125,6 +126,7 @@ func (s *Server) handlePurchaseOrderSave(c *fiber.Ctx) error {
 			s.loadPOFormData(companyID, &vm)
 			return pages.PurchaseOrderDetail(vm).Render(c.Context(), c)
 		}
+		_ = producers.ProjectPurchaseOrder(c.Context(), s.DB, s.SearchProjector, companyID, po.ID)
 		return c.Redirect("/purchase-orders/"+strconv.FormatUint(uint64(po.ID), 10)+"?created=1", fiber.StatusSeeOther)
 	}
 
@@ -137,6 +139,7 @@ func (s *Server) handlePurchaseOrderSave(c *fiber.Ctx) error {
 		s.loadPOFormData(companyID, &vm)
 		return pages.PurchaseOrderDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectPurchaseOrder(c.Context(), s.DB, s.SearchProjector, companyID, poID)
 	return c.Redirect("/purchase-orders/"+strconv.FormatUint(uint64(poID), 10)+"?saved=1", fiber.StatusSeeOther)
 }
 
@@ -161,6 +164,7 @@ func (s *Server) handlePurchaseOrderConfirm(c *fiber.Ctx) error {
 		s.loadPOFormData(companyID, &vm)
 		return pages.PurchaseOrderDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectPurchaseOrder(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/purchase-orders/"+strconv.FormatUint(uint64(id), 10)+"?confirmed=1", fiber.StatusSeeOther)
 }
 
@@ -185,6 +189,7 @@ func (s *Server) handlePurchaseOrderCancel(c *fiber.Ctx) error {
 		s.loadPOFormData(companyID, &vm)
 		return pages.PurchaseOrderDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectPurchaseOrder(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/purchase-orders/"+strconv.FormatUint(uint64(id), 10)+"?cancelled=1", fiber.StatusSeeOther)
 }
 
@@ -209,6 +214,7 @@ func (s *Server) handlePurchaseOrderMarkReceived(c *fiber.Ctx) error {
 		s.loadPOFormData(companyID, &vm)
 		return pages.PurchaseOrderDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectPurchaseOrder(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/purchase-orders/"+strconv.FormatUint(uint64(id), 10)+"?saved=1", fiber.StatusSeeOther)
 }
 
@@ -233,6 +239,7 @@ func (s *Server) handlePurchaseOrderClose(c *fiber.Ctx) error {
 		s.loadPOFormData(companyID, &vm)
 		return pages.PurchaseOrderDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectPurchaseOrder(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/purchase-orders/"+strconv.FormatUint(uint64(id), 10)+"?saved=1", fiber.StatusSeeOther)
 }
 

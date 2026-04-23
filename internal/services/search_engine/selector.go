@@ -70,19 +70,52 @@ type SearchRequest struct {
 // callable from non-web code (e.g. CLI / batch jobs in later phases).
 type SearchResponse struct {
 	Candidates []Candidate
-	Source     string
+	// Source identifies whether the result came from recent-bucket
+	// ordering (empty query), exact-code match, or substring match —
+	// used for debug / dual-run diffing.
+	Source string
 }
 
-// Candidate is the proto-version of the upgraded SmartPickerCandidate
-// (Phase 4 spec — adds GroupKey / GroupLabel / ActionKind / EntityType
-// fields). Phase 0 stores only what the legacy engine already produces
-// so the selector compiles end-to-end.
+// Candidate is the unified shape for the upgraded SmartPicker / global
+// search response. Extends the original SmartPickerItem with the five
+// fields that make grouped navigation-style results possible:
+//
+//   - GroupKey    programmatic bucket ("transactions" / "contacts" / …)
+//   - GroupLabel  display string for the group header
+//   - ActionKind  "navigate" (open URL) vs "select" (fill a form field)
+//   - URL         detail-page URL, used when ActionKind == "navigate"
+//   - EntityType  exact row type ("invoice" / "customer" / …) — drives
+//                 icon + per-type rendering
+//
+// Existing form-fill callers (Invoice line-item picker, etc.) ignore
+// the navigation fields and treat the candidate as selectable — so the
+// upgrade is backwards-compatible with the legacy SmartPickerItem.
 type Candidate struct {
-	ID        string
-	Primary   string
-	Secondary string
-	Payload   map[string]string
+	ID         string
+	Primary    string
+	Secondary  string
+	GroupKey   string
+	GroupLabel string
+	ActionKind string // "navigate" | "select"
+	URL        string
+	EntityType string
+	Payload    map[string]string
 }
+
+// Action kind constants. Centralised so grep finds all sites that rely
+// on the discriminator.
+const (
+	ActionNavigate = "navigate"
+	ActionSelect   = "select"
+)
+
+// Group key constants — match the taxonomy the UI dropdown renders.
+const (
+	GroupJumpTo       = "jump_to"
+	GroupTransactions = "transactions"
+	GroupContacts     = "contacts"
+	GroupProducts     = "products"
+)
 
 // Selector picks the right Engine implementation for the configured Mode
 // and dispatches calls. Initialise once at server startup; concurrent

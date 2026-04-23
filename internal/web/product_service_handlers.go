@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"gobooks/internal/models"
+	"gobooks/internal/searchprojection/producers"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 )
@@ -219,6 +220,7 @@ func (s *Server) handleProductServiceCreate(c *fiber.Ctx) error {
 		s.loadItemsForVM(companyID, &vm)
 		return pages.ProductServices(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectProductService(c.Context(), s.DB, s.SearchProjector, companyID, item.ID)
 
 	cid := companyID
 	uid := user.ID
@@ -390,6 +392,7 @@ func (s *Server) handleProductServiceUpdate(c *fiber.Ctx) error {
 		s.loadItemsForVM(companyID, &vm)
 		return pages.ProductServices(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectProductService(c.Context(), s.DB, s.SearchProjector, companyID, existing.ID)
 
 	cid := companyID
 	uid := user.ID
@@ -432,6 +435,9 @@ func (s *Server) handleProductServiceInactive(c *fiber.Ctx) error {
 		return redirectErr(c, "/products-services", err.Error())
 	}
 	s.DB.Model(&item).Update("is_active", false)
+	// Re-project with status=inactive so search results fade the row out
+	// (kept in the index so reactivation flows still find it).
+	_ = producers.ProjectProductService(c.Context(), s.DB, s.SearchProjector, companyID, item.ID)
 
 	cid := companyID
 	uid := user.ID

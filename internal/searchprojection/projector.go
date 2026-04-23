@@ -1,7 +1,10 @@
 // 遵循project_guide.md
 package searchprojection
 
-import "context"
+import (
+	"context"
+	"errors"
+)
 
 // NoopProjector is the test / fallback Projector: it validates the input
 // shape (same rules as the real projector) and then does nothing. Useful
@@ -10,9 +13,18 @@ import "context"
 //     tools that don't need to write);
 //   - unit tests exercise producer code and want to assert "would have
 //     projected this document" without involving ent.
+//
+// Mirrors EntProjector's company-mismatch check so the two implementations
+// fail the same tests and surface the same class of bug.
 type NoopProjector struct{}
 
-func (NoopProjector) Upsert(ctx context.Context, doc Document) error {
+func (NoopProjector) Upsert(ctx context.Context, companyID uint, doc Document) error {
+	if companyID == 0 {
+		return errors.New("searchprojection: companyID is required")
+	}
+	if doc.CompanyID != companyID {
+		return ErrCompanyMismatch
+	}
 	return validateDocument(doc)
 }
 

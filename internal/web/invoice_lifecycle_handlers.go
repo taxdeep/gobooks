@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"gobooks/internal/models"
+	"gobooks/internal/searchprojection/producers"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 	"gorm.io/gorm"
@@ -35,6 +36,7 @@ func (s *Server) handleInvoiceIssue(c *fiber.Ctx) error {
 	if err != nil {
 		return redirectErr(c, fmt.Sprintf("/invoices/%d", invoiceID), "Could not issue invoice.")
 	}
+	_ = producers.ProjectInvoice(c.Context(), s.DB, s.SearchProjector, companyID, invoiceID)
 
 	return redirectTo(c, fmt.Sprintf("/invoices/%d?issued=1", invoiceID))
 }
@@ -56,6 +58,7 @@ func (s *Server) handleInvoiceSend(c *fiber.Ctx) error {
 	if err != nil {
 		return redirectErr(c, fmt.Sprintf("/invoices/%d", invoiceID), "Could not mark invoice as sent.")
 	}
+	_ = producers.ProjectInvoice(c.Context(), s.DB, s.SearchProjector, companyID, invoiceID)
 
 	return redirectTo(c, fmt.Sprintf("/invoices/%d?sent=1", invoiceID))
 }
@@ -99,6 +102,7 @@ func (s *Server) handleInvoiceVoid(c *fiber.Ctx) error {
 		return c.Redirect(fmt.Sprintf("/invoices/%d?voiderror=Could+not+void+invoice.", invoiceID), fiber.StatusSeeOther)
 	}
 	s.ReportCache.InvalidateCompany(companyID)
+	_ = producers.ProjectInvoice(c.Context(), s.DB, s.SearchProjector, companyID, invoiceID)
 
 	return redirectTo(c, fmt.Sprintf("/invoices/%d?voided=1", invoiceID))
 }
@@ -131,6 +135,7 @@ func (s *Server) handleInvoicePost(c *fiber.Ctx) error {
 		return redirectErr(c, fmt.Sprintf("/invoices/%d", invoiceID), "Could not post invoice.")
 	}
 	s.ReportCache.InvalidateCompany(companyID)
+	_ = producers.ProjectInvoice(c.Context(), s.DB, s.SearchProjector, companyID, invoiceID)
 
 	return redirectTo(c, fmt.Sprintf("/invoices/%d?issued=1", invoiceID))
 }
@@ -162,6 +167,7 @@ func (s *Server) handleInvoiceDelete(c *fiber.Ctx) error {
 	if err := services.DeleteInvoice(s.DB, companyID, invoiceID, actor, userID); err != nil {
 		return redirectErr(c, fmt.Sprintf("/invoices/%d", invoiceID), "Could not delete invoice.")
 	}
+	_ = producers.DeleteInvoiceProjection(c.Context(), s.SearchProjector, companyID, invoiceID)
 
 	return redirectTo(c, "/invoices?deleted=1")
 }

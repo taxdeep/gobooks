@@ -16,6 +16,7 @@ package producers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -25,6 +26,16 @@ import (
 	"gobooks/internal/models"
 	"gobooks/internal/searchprojection"
 )
+
+// ErrEntityNotInCompany is returned when a producer is asked to project an
+// entity ID that doesn't belong to the supplied companyID. Strong signal of
+// a programmer bug in the calling handler — the entity was loaded without
+// re-checking tenant ownership, or a stray ID was passed in from user input.
+//
+// Returning an error rather than panicking on the theory that production
+// should never crash on a single malformed projection — but the caller MUST
+// log it: silent drop = invisible cross-tenant leak attempt.
+var ErrEntityNotInCompany = errors.New("producers: entity does not belong to the supplied company")
 
 // Entity-type discriminators. Must match the SmartPicker entity keys
 // so the Phase 4 engine layer can serve both old-style per-entity
@@ -36,31 +47,40 @@ const (
 )
 
 // ProjectCustomer refreshes the search_documents row for one customer.
-// Loads the full record from GORM (callers pass only the ID so the
-// producer is the single source of truth for Document shape), builds a
-// Document, and upserts.
+// Loads the full record from GORM scoped by (id, company_id), builds a
+// Document, and upserts via the Projector. The companyID is the
+// authoritative tenant scope from the request context — if the row's
+// stored company_id disagrees (or the row doesn't exist for this
+// company), the call returns ErrEntityNotInCompany and skips the upsert.
 //
 // Invoke from:
 //   - customer create handler, after successful db.Create
 //   - customer update handler, after successful db.Save
-//   - party_lifecycle_service.SetCustomerActive, after status flip
+//   - customer lifecycle handler, after SetCustomerActive
 //   - cmd/search-backfill, for every existing customer on first run
 //
 // A nil projector is a legitimate "projection disabled" state and
 // returns nil without logging — used during tests and tools that
 // only need the GORM side of the work.
-func ProjectCustomer(ctx context.Context, db *gorm.DB, p searchprojection.Projector, customerID uint) error {
+func ProjectCustomer(ctx context.Context, db *gorm.DB, p searchprojection.Projector, companyID, customerID uint) error {
 	if p == nil {
 		return nil
 	}
+	if companyID == 0 {
+		return errors.New("producers.ProjectCustomer: companyID is required")
+	}
 	var c models.Customer
-	if err := db.First(&c, customerID).Error; err != nil {
-		return fmt.Errorf("producers.ProjectCustomer: load customer %d: %w", customerID, err)
+	err := db.Where("id = ? AND company_id = ?", customerID, companyID).First(&c).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrEntityNotInCompany
+		}
+		return fmt.Errorf("producers.ProjectCustomer: load customer %d for company %d: %w", customerID, companyID, err)
 	}
 	doc := CustomerDocument(c)
-	if err := p.Upsert(ctx, doc); err != nil {
+	if err := p.Upsert(ctx, companyID, doc); err != nil {
 		logging.L().Warn("searchprojection.ProjectCustomer upsert failed",
-			"customer_id", customerID, "company_id", c.CompanyID, "err", err)
+			"customer_id", customerID, "company_id", companyID, "err", err)
 		return err
 	}
 	return nil
@@ -110,20 +130,27 @@ func CustomerDocument(c models.Customer) searchprojection.Document {
 }
 
 // ProjectVendor refreshes the search_documents row for one vendor.
-// Same contract as ProjectCustomer — call after every successful GORM
-// write, pass only the ID.
-func ProjectVendor(ctx context.Context, db *gorm.DB, p searchprojection.Projector, vendorID uint) error {
+// Same contract as ProjectCustomer — caller MUST pass the authoritative
+// companyID; cross-tenant rows are rejected with ErrEntityNotInCompany.
+func ProjectVendor(ctx context.Context, db *gorm.DB, p searchprojection.Projector, companyID, vendorID uint) error {
 	if p == nil {
 		return nil
 	}
+	if companyID == 0 {
+		return errors.New("producers.ProjectVendor: companyID is required")
+	}
 	var v models.Vendor
-	if err := db.First(&v, vendorID).Error; err != nil {
-		return fmt.Errorf("producers.ProjectVendor: load vendor %d: %w", vendorID, err)
+	err := db.Where("id = ? AND company_id = ?", vendorID, companyID).First(&v).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrEntityNotInCompany
+		}
+		return fmt.Errorf("producers.ProjectVendor: load vendor %d for company %d: %w", vendorID, companyID, err)
 	}
 	doc := VendorDocument(v)
-	if err := p.Upsert(ctx, doc); err != nil {
+	if err := p.Upsert(ctx, companyID, doc); err != nil {
 		logging.L().Warn("searchprojection.ProjectVendor upsert failed",
-			"vendor_id", vendorID, "company_id", v.CompanyID, "err", err)
+			"vendor_id", vendorID, "company_id", companyID, "err", err)
 		return err
 	}
 	return nil

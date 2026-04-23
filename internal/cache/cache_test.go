@@ -140,6 +140,63 @@ func TestTTLCache_Len(t *testing.T) {
 	}
 }
 
+func TestTTLCache_BoundedEvictsOldestOnInsert(t *testing.T) {
+	// Cap of 3 — fourth Set should evict "a" (oldest by write time).
+	c := NewBounded[string, string](1*time.Minute, 3)
+	defer c.Close()
+
+	c.Set("a", "1")
+	c.Set("b", "2")
+	c.Set("c", "3")
+	if c.Len() != 3 {
+		t.Fatalf("expected 3 entries, got %d", c.Len())
+	}
+
+	c.Set("d", "4")
+	if c.Len() != 3 {
+		t.Fatalf("expected cap to hold Len at 3, got %d", c.Len())
+	}
+	if _, ok := c.Get("a"); ok {
+		t.Error("expected oldest entry 'a' to be evicted")
+	}
+	for _, k := range []string{"b", "c", "d"} {
+		if _, ok := c.Get(k); !ok {
+			t.Errorf("expected %q to remain", k)
+		}
+	}
+}
+
+func TestTTLCache_BoundedSetMovesToFront(t *testing.T) {
+	// Re-Setting a key bumps it back to the front; subsequent eviction
+	// targets the next-oldest, not the just-refreshed key.
+	c := NewBounded[string, string](1*time.Minute, 3)
+	defer c.Close()
+
+	c.Set("a", "1")
+	c.Set("b", "2")
+	c.Set("c", "3")
+	c.Set("a", "1-refreshed") // bumps "a" back to front; LRU back is now "b"
+
+	c.Set("d", "4") // should evict "b" (now oldest), not "a"
+	if _, ok := c.Get("a"); !ok {
+		t.Error("expected refreshed 'a' to survive")
+	}
+	if _, ok := c.Get("b"); ok {
+		t.Error("expected 'b' to be evicted")
+	}
+}
+
+func TestTTLCache_BoundedZeroMeansUnbounded(t *testing.T) {
+	c := NewBounded[int, int](1*time.Minute, 0)
+	defer c.Close()
+	for i := 0; i < 100; i++ {
+		c.Set(i, i)
+	}
+	if c.Len() != 100 {
+		t.Fatalf("expected 100 entries (unbounded), got %d", c.Len())
+	}
+}
+
 func TestTTLCache_FlushWhere(t *testing.T) {
 	c := New[string, string](1 * time.Minute)
 	defer c.Close()

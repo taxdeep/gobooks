@@ -80,7 +80,7 @@ func setVendorActiveAndRedirect(s *Server, c *fiber.Ctx, active bool, auditActio
 	if err := services.SetVendorActive(s.DB, companyID, vendorID, active); err != nil {
 		return redirectErr(c, "/vendors/"+c.Params("id"), "Could not update vendor status.")
 	}
-	_ = producers.ProjectVendor(c.Context(), s.DB, s.SearchProjector, vendorID)
+	_ = producers.ProjectVendor(c.Context(), s.DB, s.SearchProjector, companyID, vendorID)
 
 	cid := companyID
 	uid := user.ID

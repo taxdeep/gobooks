@@ -10,7 +10,16 @@ import (
 
 	"gobooks/ent"
 	"gobooks/ent/searchdocument"
+	"gobooks/internal/logging"
 )
+
+// ErrCompanyMismatch is returned by Projector.Upsert when the supplied
+// companyID does not match doc.CompanyID. Indicates a producer wrote
+// the wrong CompanyID into the Document — almost always a programmer
+// bug (e.g. handler skipped tenant-ownership check before loading the
+// entity). Callers that see this error MUST log + investigate; never
+// retry with a coerced value.
+var ErrCompanyMismatch = errors.New("searchprojection: document CompanyID disagrees with caller-supplied companyID")
 
 // EntProjector is the production Projector implementation. Writes to the
 // search_documents table via the ent client. Safe for concurrent use —
@@ -43,7 +52,25 @@ func NewEntProjector(client *ent.Client, n Normalizer) (*EntProjector, error) {
 // Upsert inserts the projection row or — on conflict with the company /
 // entity-type / entity-id unique index — updates every column with the
 // new values. PostgreSQL handles this atomically via ON CONFLICT DO UPDATE.
-func (p *EntProjector) Upsert(ctx context.Context, doc Document) error {
+//
+// companyID is the AUTHORITATIVE tenant scope passed in from the calling
+// handler / backfill loop (sourced from session ctx, never user input).
+// If doc.CompanyID disagrees, the call fails with ErrCompanyMismatch and
+// nothing is written. This is the second line of defence after the
+// producer's own load-with-company-filter; see internal/searchprojection/
+// producers/contact.go for the contract.
+func (p *EntProjector) Upsert(ctx context.Context, companyID uint, doc Document) error {
+	if companyID == 0 {
+		return errors.New("searchprojection: companyID is required")
+	}
+	if doc.CompanyID != companyID {
+		logging.L().Error("searchprojection.Upsert company mismatch",
+			"expected_company_id", companyID,
+			"doc_company_id", doc.CompanyID,
+			"entity_type", doc.EntityType,
+			"entity_id", doc.EntityID)
+		return ErrCompanyMismatch
+	}
 	if err := validateDocument(doc); err != nil {
 		return err
 	}

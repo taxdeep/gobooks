@@ -85,7 +85,7 @@ func setCustomerActiveAndRedirect(s *Server, c *fiber.Ctx, active bool, auditAct
 		return redirectErr(c, "/customers/"+c.Params("id"), "Could not update customer status.")
 	}
 	// Re-project so the row's status flips (active/inactive) in search.
-	_ = producers.ProjectCustomer(c.Context(), s.DB, s.SearchProjector, customerID)
+	_ = producers.ProjectCustomer(c.Context(), s.DB, s.SearchProjector, companyID, customerID)
 
 	cid := companyID
 	uid := user.ID

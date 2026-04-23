@@ -11,6 +11,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"gobooks/internal/models"
+	"gobooks/internal/searchprojection/producers"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 )
@@ -138,6 +139,7 @@ func (s *Server) handleQuoteSave(c *fiber.Ctx) error {
 			s.loadQuoteFormData(companyID, &vm)
 			return pages.QuoteDetail(vm).Render(c.Context(), c)
 		}
+		_ = producers.ProjectQuote(c.Context(), s.DB, s.SearchProjector, companyID, q.ID)
 		return c.Redirect("/quotes/"+strconv.FormatUint(uint64(q.ID), 10)+"?created=1", fiber.StatusSeeOther)
 	}
 
@@ -150,6 +152,7 @@ func (s *Server) handleQuoteSave(c *fiber.Ctx) error {
 		s.loadQuoteFormData(companyID, &vm)
 		return pages.QuoteDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectQuote(c.Context(), s.DB, s.SearchProjector, companyID, quoteID)
 	return c.Redirect("/quotes/"+strconv.FormatUint(uint64(quoteID), 10)+"?saved=1", fiber.StatusSeeOther)
 }
 
@@ -165,6 +168,7 @@ func (s *Server) handleQuoteSend(c *fiber.Ctx) error {
 		return c.Redirect("/quotes", fiber.StatusSeeOther)
 	}
 	_ = services.SendQuote(s.DB, companyID, id, "")
+	_ = producers.ProjectQuote(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/quotes/"+strconv.FormatUint(uint64(id), 10)+"?sent=1", fiber.StatusSeeOther)
 }
 
@@ -178,6 +182,7 @@ func (s *Server) handleQuoteAccept(c *fiber.Ctx) error {
 		return c.Redirect("/quotes", fiber.StatusSeeOther)
 	}
 	_ = services.AcceptQuote(s.DB, companyID, id)
+	_ = producers.ProjectQuote(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/quotes/"+strconv.FormatUint(uint64(id), 10)+"?accepted=1", fiber.StatusSeeOther)
 }
 
@@ -191,6 +196,7 @@ func (s *Server) handleQuoteReject(c *fiber.Ctx) error {
 		return c.Redirect("/quotes", fiber.StatusSeeOther)
 	}
 	_ = services.RejectQuote(s.DB, companyID, id)
+	_ = producers.ProjectQuote(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/quotes/"+strconv.FormatUint(uint64(id), 10)+"?rejected=1", fiber.StatusSeeOther)
 }
 
@@ -204,6 +210,7 @@ func (s *Server) handleQuoteCancel(c *fiber.Ctx) error {
 		return c.Redirect("/quotes", fiber.StatusSeeOther)
 	}
 	_ = services.CancelQuote(s.DB, companyID, id)
+	_ = producers.ProjectQuote(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/quotes/"+strconv.FormatUint(uint64(id), 10)+"?cancelled=1", fiber.StatusSeeOther)
 }
 
@@ -220,6 +227,10 @@ func (s *Server) handleQuoteConvert(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Redirect("/quotes/"+strconv.FormatUint(uint64(id), 10)+"?converted=0", fiber.StatusSeeOther)
 	}
+	// Convert flips quote.status to "converted" AND creates the new SO
+	// — project both so search reflects the linkage immediately.
+	_ = producers.ProjectQuote(c.Context(), s.DB, s.SearchProjector, companyID, id)
+	_ = producers.ProjectSalesOrder(c.Context(), s.DB, s.SearchProjector, companyID, so.ID)
 	return c.Redirect("/sales-orders/"+strconv.FormatUint(uint64(so.ID), 10)+"?created=1", fiber.StatusSeeOther)
 }
 

@@ -297,7 +297,7 @@ func (s *Server) handleCustomerCreate(c *fiber.Ctx) error {
 		return pages.CustomerNew(vm).Render(c.Context(), c)
 	}
 	// Post-commit projection — failure logged, not surfaced to caller.
-	_ = producers.ProjectCustomer(c.Context(), s.DB, s.SearchProjector, customer.ID)
+	_ = producers.ProjectCustomer(c.Context(), s.DB, s.SearchProjector, companyID, customer.ID)
 
 	cid := companyID
 	uid := user.ID
@@ -407,7 +407,7 @@ func (s *Server) handleCustomerUpdate(c *fiber.Ctx) error {
 	if err := s.DB.Save(&existing).Error; err != nil {
 		return pages.Customers(buildErrVM("", "", "Could not update customer. Please try again.")).Render(c.Context(), c)
 	}
-	_ = producers.ProjectCustomer(c.Context(), s.DB, s.SearchProjector, existing.ID)
+	_ = producers.ProjectCustomer(c.Context(), s.DB, s.SearchProjector, companyID, existing.ID)
 
 	cid := companyID
 	uid := user.ID
@@ -620,7 +620,7 @@ func (s *Server) handleCustomerQuickCreate(c *fiber.Ctx) error {
 	if err := s.DB.Create(&customer).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not create customer."})
 	}
-	_ = producers.ProjectCustomer(c.Context(), s.DB, s.SearchProjector, customer.ID)
+	_ = producers.ProjectCustomer(c.Context(), s.DB, s.SearchProjector, companyID, customer.ID)
 
 	cid := companyID
 	uid := user.ID

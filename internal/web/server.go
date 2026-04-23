@@ -7,6 +7,7 @@ import (
 	"gobooks/internal/config"
 	"gobooks/internal/logging"
 	"gobooks/internal/searchprojection"
+	"gobooks/internal/services/search_engine"
 	"gobooks/internal/web/admin"
 
 	"github.com/gofiber/fiber/v2"
@@ -43,11 +44,17 @@ type Server struct {
 	// ent client wired up, or a NoopProjector fallback. Handlers can call
 	// producers.ProjectCustomer / ProjectVendor / … without nil-checking.
 	SearchProjector searchprojection.Projector
+
+	// SearchSelector routes /api/global-search through legacy | dual |
+	// ent based on the SEARCH_ENGINE config flag. Nil when ent wiring
+	// failed — handlers should guard explicitly.
+	SearchSelector *search_engine.Selector
 }
 
 // NewServer creates a Fiber app with basic middleware and routes.
 func NewServer(cfg config.Config, db *gorm.DB) *fiber.App {
 	entClient, projector := initSearchProjection(db)
+	selector := initSearchSelector(cfg, entClient)
 
 	s := &Server{
 		Cfg:             cfg,
@@ -57,6 +64,7 @@ func NewServer(cfg config.Config, db *gorm.DB) *fiber.App {
 		AIAssist:        ai.New(db),
 		EntClient:       entClient,
 		SearchProjector: projector,
+		SearchSelector:  selector,
 	}
 
 	app := fiber.New(fiber.Config{
@@ -95,4 +103,31 @@ func initSearchProjection(db *gorm.DB) (*ent.Client, searchprojection.Projector)
 		return client, searchprojection.NoopProjector{}
 	}
 	return client, p
+}
+
+// initSearchSelector assembles the read-side engine. Phase 4 ships only
+// the legacy + ent engines; the DualEngine is a Phase 4.5 follow-up. The
+// mode defaults to ModeLegacy when ent isn't available or the config
+// says so — SmartPicker continues to serve from the in-process fan-out.
+//
+// When mode=ent but entClient is nil, the Selector silently falls back
+// to legacy (defensive: we'd rather serve stale results than crash the
+// header dropdown).
+func initSearchSelector(cfg config.Config, entClient *ent.Client) *search_engine.Selector {
+	mode := search_engine.ParseMode(cfg.SearchEngine)
+	legacy := search_engine.NewLegacyEngine()
+
+	var entEng search_engine.Engine
+	if entClient != nil {
+		if e, err := search_engine.NewEntEngine(entClient, searchprojection.AsciiNormalizer{}); err == nil {
+			entEng = e
+		} else {
+			logging.L().Warn("search engine: ent impl unavailable, legacy only", "err", err)
+		}
+	}
+
+	// DualEngine is currently a Phase 4.5 stub; requesting mode=dual
+	// dispatches through Selector's fallback to legacy.
+	var dualEng search_engine.Engine
+	return search_engine.NewSelector(mode, legacy, dualEng, entEng)
 }

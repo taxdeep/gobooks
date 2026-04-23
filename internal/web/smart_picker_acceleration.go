@@ -34,10 +34,18 @@ type SmartPickerAcceleration struct {
 	cache *cache.TTLCache[string, *SmartPickerResult]
 }
 
+// smartPickerCacheMaxEntries caps the in-memory cache so a hostile or
+// buggy client can't blow up the heap by issuing many distinct queries.
+// 10k entries × ~1KB per SmartPickerResult ≈ 10MB worst case — generous
+// for typical mid-size tenants (active companies × ~5 contexts × ~10
+// distinct queries per minute easily fits). LRU eviction picks off the
+// least-recently-written when the cap is hit.
+const smartPickerCacheMaxEntries = 10000
+
 // NewSmartPickerAcceleration returns a ready-to-use acceleration layer.
 func NewSmartPickerAcceleration() *SmartPickerAcceleration {
 	return &SmartPickerAcceleration{
-		cache: cache.New[string, *SmartPickerResult](2 * time.Minute),
+		cache: cache.NewBounded[string, *SmartPickerResult](2*time.Minute, smartPickerCacheMaxEntries),
 	}
 }
 

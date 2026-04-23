@@ -101,22 +101,22 @@ func TestSelector_NilLegacyIsAnError(t *testing.T) {
 	}
 }
 
-func TestPhase0Stubs_ReturnNotImplementedErrors(t *testing.T) {
-	// Sanity: the three engine stubs should all return errors so anyone
-	// who tries to call them in Phase 0 sees a loud failure rather than
-	// silent empty responses.
+// TestRemainingStubs_ReturnNotImplementedErrors keeps an eye on the engines
+// that haven't graduated from stub to real implementation yet. Phase 4
+// fully implemented EntEngine (see ent_test.go) but LegacyEngine and
+// DualEngine still return placeholder errors — when either of those
+// grows real logic this test will break loudly, prompting an update.
+func TestRemainingStubs_ReturnNotImplementedErrors(t *testing.T) {
 	engines := []Engine{
 		NewLegacyEngine(),
-		NewEntEngine(),
-		NewDualEngine(NewLegacyEngine(), NewEntEngine()),
+		NewDualEngine(NewLegacyEngine(), nil),
 	}
 	for _, e := range engines {
 		_, err := e.Search(context.Background(), SearchRequest{})
 		if err == nil {
-			t.Errorf("engine %q returned nil error from Phase 0 stub", e.Mode())
+			t.Errorf("engine %q returned nil error from stub", e.Mode())
 			continue
 		}
-		// Make sure the error mentions Phase or stub so callers can grep.
 		if errors.Unwrap(err) == nil && err.Error() == "" {
 			t.Errorf("engine %q returned empty error", e.Mode())
 		}

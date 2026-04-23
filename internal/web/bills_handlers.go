@@ -14,6 +14,7 @@ import (
 	"gorm.io/gorm"
 
 	"gobooks/internal/models"
+	"gobooks/internal/searchprojection/producers"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 )
@@ -891,6 +892,7 @@ func (s *Server) handleBillSaveDraft(c *fiber.Ctx) error {
 		vm.FormError = billSaveErrorMessage(err)
 		return pages.BillEditor(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectBill(c.Context(), s.DB, s.SearchProjector, companyID, savedBillID)
 
 	return redirectTo(c, fmt.Sprintf("/bills/%d/edit?saved=1&locked=1", savedBillID))
 }
@@ -930,6 +932,7 @@ func (s *Server) handleBillPost(c *fiber.Ctx) error {
 			"Could not submit bill: "+err.Error())
 	}
 	s.ReportCache.InvalidateCompany(companyID)
+	_ = producers.ProjectBill(c.Context(), s.DB, s.SearchProjector, companyID, billID)
 
 	return redirectTo(c, fmt.Sprintf("/bills/%d", billID))
 }
@@ -1293,6 +1296,7 @@ func (s *Server) handleBillVoid(c *fiber.Ctx) error {
 		return c.Redirect("/bills?voiderror=1", fiber.StatusSeeOther)
 	}
 	s.ReportCache.InvalidateCompany(companyID)
+	_ = producers.ProjectBill(c.Context(), s.DB, s.SearchProjector, companyID, billID)
 
 	return c.Redirect("/bills?voided=1", fiber.StatusSeeOther)
 }

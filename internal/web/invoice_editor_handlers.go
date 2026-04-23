@@ -13,6 +13,7 @@ import (
 	"gorm.io/gorm"
 
 	"gobooks/internal/models"
+	"gobooks/internal/searchprojection/producers"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 )
@@ -937,6 +938,7 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 		vm.FormError = invoiceSaveErrorMessage(err)
 		return pages.InvoiceEditor(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectInvoice(c.Context(), s.DB, s.SearchProjector, companyID, savedInvoiceID)
 
 	return redirectTo(c, fmt.Sprintf("/invoices/%d/edit?saved=1&locked=1", savedInvoiceID))
 }
@@ -1553,6 +1555,7 @@ func (s *Server) handleInvoiceSaveTaskDraft(c *fiber.Ctx) error {
 	if err != nil {
 		return redirectErr(c, fmt.Sprintf("/invoices/%d/edit", invoiceID), "could not save changes: "+err.Error())
 	}
+	_ = producers.ProjectInvoice(c.Context(), s.DB, s.SearchProjector, companyID, invoiceID)
 
 	return redirectTo(c, fmt.Sprintf("/invoices/%d/edit?saved=1", invoiceID))
 }

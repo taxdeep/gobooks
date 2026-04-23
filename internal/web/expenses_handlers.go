@@ -14,6 +14,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"gobooks/internal/models"
+	"gobooks/internal/searchprojection/producers"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 )
@@ -111,7 +112,7 @@ func (s *Server) handleExpenseCreate(c *fiber.Ctx) error {
 		s.applyExpenseServiceError(&vm, err)
 		return pages.ExpenseForm(vm).Render(c.Context(), c)
 	}
-	_ = expense
+	_ = producers.ProjectExpense(c.Context(), s.DB, s.SearchProjector, companyID, expense.ID)
 	return redirectTo(c, "/expenses?created=1")
 }
 
@@ -165,6 +166,7 @@ func (s *Server) handleExpenseUpdate(c *fiber.Ctx) error {
 		return pages.ExpenseForm(vm).Render(c.Context(), c)
 	}
 	_ = expense
+	_ = producers.ProjectExpense(c.Context(), s.DB, s.SearchProjector, companyID, expenseID)
 	return redirectTo(c, "/expenses?updated=1")
 }
 
@@ -647,6 +649,7 @@ func (s *Server) handleExpensePost(c *fiber.Ctx) error {
 				url.QueryEscape(pErr.Error())),
 			fiber.StatusSeeOther)
 	}
+	_ = producers.ProjectExpense(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect(fmt.Sprintf("/expenses/%d/edit?posted=1", id), fiber.StatusSeeOther)
 }
 
@@ -673,6 +676,7 @@ func (s *Server) handleExpenseVoid(c *fiber.Ctx) error {
 				url.QueryEscape(vErr.Error())),
 			fiber.StatusSeeOther)
 	}
+	_ = producers.ProjectExpense(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect(fmt.Sprintf("/expenses/%d/edit?voided=1", id), fiber.StatusSeeOther)
 }
 

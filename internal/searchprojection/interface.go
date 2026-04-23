@@ -60,15 +60,23 @@ type Document struct {
 
 // Projector is the write interface used by domain services after a
 // successful business commit. Implementations MUST be company-scoped:
-// every method takes a CompanyID and never crosses tenant boundaries.
+// every method takes an explicit companyID and rejects calls where the
+// document's CompanyID disagrees, so a producer that mis-loaded an
+// entity from a foreign tenant can never silently project the row.
 type Projector interface {
 	// Upsert inserts or updates the projection row for
-	// (CompanyID, EntityType, EntityID). Idempotent — safe to retry.
-	// Returns nil on success; logs and surfaces only persistent errors
-	// (transient DB errors are retried internally per Phase 1+ policy).
-	Upsert(ctx context.Context, doc Document) error
+	// (companyID, doc.EntityType, doc.EntityID). The companyID parameter
+	// is the AUTHORITATIVE tenant scope from the request context;
+	// doc.CompanyID is the loaded entity's stored value. The two MUST
+	// match — if they don't, Upsert logs at ERROR and returns
+	// ErrCompanyMismatch without touching the projection table.
+	//
+	// Idempotent — safe to retry. Returns nil on success; transient DB
+	// errors are surfaced (callers in handlers log + continue; backfill
+	// continues to the next row).
+	Upsert(ctx context.Context, companyID uint, doc Document) error
 
-	// Delete removes the projection row for (CompanyID, EntityType, EntityID).
+	// Delete removes the projection row for (companyID, entityType, entityID).
 	// No-op if the row doesn't exist.
 	Delete(ctx context.Context, companyID uint, entityType string, entityID uint) error
 }

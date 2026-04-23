@@ -30,12 +30,20 @@ type ReportAcceleration struct {
 	arCache  *cache.TTLCache[string, services.ARAgingReport]
 }
 
+// reportCacheMaxEntries caps each report cache. Reports are heavier
+// than SmartPicker results — a single P&L can hold dozens of accounts
+// with computed totals, so we cap at half the SmartPicker number per
+// cache (5k × 2 caches = 10k slots total, comparable budget). The cap
+// also protects against per-report-parameter combinatorial explosions
+// (date range × group-by mode × cost centre etc.).
+const reportCacheMaxEntries = 5000
+
 // NewReportAcceleration returns a ready-to-use acceleration layer.
 func NewReportAcceleration() *ReportAcceleration {
 	ttl := 5 * time.Minute
 	return &ReportAcceleration{
-		plCache: cache.New[string, services.IncomeStatement](ttl),
-		arCache: cache.New[string, services.ARAgingReport](ttl),
+		plCache: cache.NewBounded[string, services.IncomeStatement](ttl, reportCacheMaxEntries),
+		arCache: cache.NewBounded[string, services.ARAgingReport](ttl, reportCacheMaxEntries),
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"gobooks/internal/models"
+	"gobooks/internal/searchprojection/producers"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 )
@@ -131,6 +132,7 @@ func (s *Server) handleReceiptSave(c *fiber.Ctx) error {
 			s.loadReceiptFormData(companyID, &vm)
 			return pages.ReceiptDetail(vm).Render(c.Context(), c)
 		}
+		_ = producers.ProjectCustomerReceipt(c.Context(), s.DB, s.SearchProjector, companyID, rcpt.ID)
 		return c.Redirect("/receipts/"+strconv.FormatUint(uint64(rcpt.ID), 10)+"?created=1", fiber.StatusSeeOther)
 	}
 
@@ -143,6 +145,7 @@ func (s *Server) handleReceiptSave(c *fiber.Ctx) error {
 		s.loadReceiptFormData(companyID, &vm)
 		return pages.ReceiptDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectCustomerReceipt(c.Context(), s.DB, s.SearchProjector, companyID, receiptID)
 	return c.Redirect("/receipts/"+strconv.FormatUint(uint64(receiptID), 10)+"?saved=1", fiber.StatusSeeOther)
 }
 
@@ -168,6 +171,7 @@ func (s *Server) handleReceiptConfirm(c *fiber.Ctx) error {
 		s.loadReceiptFormData(companyID, &vm)
 		return pages.ReceiptDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectCustomerReceipt(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/receipts/"+strconv.FormatUint(uint64(id), 10)+"?confirmed=1", fiber.StatusSeeOther)
 }
 
@@ -261,6 +265,7 @@ func (s *Server) handleReceiptReverse(c *fiber.Ctx) error {
 		s.loadReceiptFormData(companyID, &vm)
 		return pages.ReceiptDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectCustomerReceipt(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/receipts/"+strconv.FormatUint(uint64(id), 10)+"?reversed=1", fiber.StatusSeeOther)
 }
 
@@ -285,6 +290,7 @@ func (s *Server) handleReceiptVoid(c *fiber.Ctx) error {
 		s.loadReceiptFormData(companyID, &vm)
 		return pages.ReceiptDetail(vm).Render(c.Context(), c)
 	}
+	_ = producers.ProjectCustomerReceipt(c.Context(), s.DB, s.SearchProjector, companyID, id)
 	return c.Redirect("/receipts/"+strconv.FormatUint(uint64(id), 10)+"?voided=1", fiber.StatusSeeOther)
 }
 

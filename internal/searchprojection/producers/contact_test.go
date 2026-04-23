@@ -3,6 +3,7 @@ package producers
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -33,9 +34,12 @@ type deleteKey struct {
 	EntityID   uint
 }
 
-func (r *recordingProjector) Upsert(_ context.Context, d searchprojection.Document) error {
+func (r *recordingProjector) Upsert(_ context.Context, companyID uint, d searchprojection.Document) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if d.CompanyID != companyID {
+		return searchprojection.ErrCompanyMismatch
+	}
 	r.upserts = append(r.upserts, d)
 	return r.upsertErr
 }
@@ -133,7 +137,7 @@ func TestProjectCustomer_LoadsFromDBAndUpserts(t *testing.T) {
 		t.Fatal(err)
 	}
 	rec := &recordingProjector{}
-	if err := ProjectCustomer(context.Background(), db, rec, c.ID); err != nil {
+	if err := ProjectCustomer(context.Background(), db, rec, c.CompanyID, c.ID); err != nil {
 		t.Fatalf("ProjectCustomer: %v", err)
 	}
 	if len(rec.upserts) != 1 {
@@ -146,9 +150,7 @@ func TestProjectCustomer_LoadsFromDBAndUpserts(t *testing.T) {
 
 func TestProjectCustomer_NilProjectorIsNoop(t *testing.T) {
 	db := newProducerTestDB(t)
-	// No customer rows — nil projector must still return nil without
-	// trying to load anything.
-	if err := ProjectCustomer(context.Background(), db, nil, 9999); err != nil {
+	if err := ProjectCustomer(context.Background(), db, nil, 1, 9999); err != nil {
 		t.Errorf("nil projector should be no-op, got %v", err)
 	}
 }
@@ -156,12 +158,45 @@ func TestProjectCustomer_NilProjectorIsNoop(t *testing.T) {
 func TestProjectCustomer_MissingCustomerReturnsError(t *testing.T) {
 	db := newProducerTestDB(t)
 	rec := &recordingProjector{}
-	err := ProjectCustomer(context.Background(), db, rec, 9999)
+	err := ProjectCustomer(context.Background(), db, rec, 1, 9999)
 	if err == nil {
 		t.Error("expected error for missing customer")
 	}
 	if len(rec.upserts) != 0 {
 		t.Error("should not upsert when load fails")
+	}
+}
+
+// TestProjectCustomer_RejectsCrossTenantID is the H1 hardening contract:
+// a handler that mistakenly passes a customer ID belonging to company B
+// while the request is for company A must NOT result in B's row being
+// projected. The producer rejects with ErrEntityNotInCompany.
+func TestProjectCustomer_RejectsCrossTenantID(t *testing.T) {
+	db := newProducerTestDB(t)
+	companyA := &models.Customer{CompanyID: 1, Name: "Co-A Customer", IsActive: true}
+	companyB := &models.Customer{CompanyID: 2, Name: "Co-B Customer", IsActive: true}
+	if err := db.Create(companyA).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(companyB).Error; err != nil {
+		t.Fatal(err)
+	}
+	rec := &recordingProjector{}
+	// Authenticated as company 1, but caller supplies B's customer ID.
+	err := ProjectCustomer(context.Background(), db, rec, 1, companyB.ID)
+	if !errors.Is(err, ErrEntityNotInCompany) {
+		t.Errorf("expected ErrEntityNotInCompany, got %v", err)
+	}
+	if len(rec.upserts) != 0 {
+		t.Errorf("nothing should be upserted on cross-tenant attempt, got %d", len(rec.upserts))
+	}
+}
+
+func TestProjectCustomer_ZeroCompanyIDIsAnError(t *testing.T) {
+	db := newProducerTestDB(t)
+	rec := &recordingProjector{}
+	if err := ProjectCustomer(context.Background(), db, rec, 0, 1); err == nil {
+		t.Error("expected error for companyID == 0")
 	}
 }
 
@@ -226,10 +261,30 @@ func TestProjectVendor_LoadsFromDBAndUpserts(t *testing.T) {
 		t.Fatal(err)
 	}
 	rec := &recordingProjector{}
-	if err := ProjectVendor(context.Background(), db, rec, v.ID); err != nil {
+	if err := ProjectVendor(context.Background(), db, rec, v.CompanyID, v.ID); err != nil {
 		t.Fatal(err)
 	}
 	if len(rec.upserts) != 1 || rec.upserts[0].Title != "LGTek" {
 		t.Errorf("unexpected upserts: %+v", rec.upserts)
+	}
+}
+
+func TestProjectVendor_RejectsCrossTenantID(t *testing.T) {
+	db := newProducerTestDB(t)
+	a := &models.Vendor{CompanyID: 1, Name: "A", IsActive: true}
+	b := &models.Vendor{CompanyID: 2, Name: "B", IsActive: true}
+	if err := db.Create(a).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(b).Error; err != nil {
+		t.Fatal(err)
+	}
+	rec := &recordingProjector{}
+	err := ProjectVendor(context.Background(), db, rec, 1, b.ID)
+	if !errors.Is(err, ErrEntityNotInCompany) {
+		t.Errorf("expected ErrEntityNotInCompany, got %v", err)
+	}
+	if len(rec.upserts) != 0 {
+		t.Error("must not upsert cross-tenant vendor")
 	}
 }
