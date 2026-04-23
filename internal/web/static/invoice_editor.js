@@ -1,5 +1,5 @@
 // invoice_editor.js — Alpine component for the invoice line-items editor.
-// v=19
+// v=20
 //
 // Composes gobooksLineItems() for line-array management (addLine / removeLine /
 // auto-grow) and layers Invoice-specific state on top: tax-code breakdown,
@@ -71,6 +71,24 @@ function invoiceEditor() {
       // `update_customer_contact`; backend applies the email override back
       // to Customer.Email when "1".
       updateCustomerContactFlag: "0",
+
+      // Address-parser dialog state. Opens on Bill-to / Ship-to blur when
+      // the textarea content has 2+ commas — heuristic that the user typed
+      // a free-form address that's not yet in canonical layout. The dialog
+      // splits by comma, runs simple pattern matching (postal regex,
+      // country/province keyword lists), and lets the operator confirm
+      // before the textarea is rewritten in canonical format.
+      addressDialog: {
+        open:     false,
+        field:    "",     // "bill" or "ship" — which textarea to write back
+        hasEmail: false,  // bill-to includes Email row; ship-to does not
+        email:    "",
+        street:   "",
+        city:     "",
+        province: "",
+        postal:   "",
+        country:  "",
+      },
 
       // Cached reactive properties maintained by _recalcAll(). Templates read
       // these directly (no parens) so Alpine doesn't rescan lines per render.
@@ -406,6 +424,146 @@ function invoiceEditor() {
           this.customerEmail = "";
         }
       },
+
+      // ── Address-parser dialog ─────────────────────────────────────────────
+
+      // _addressKnownCountries / _addressKnownProvinces drive the heuristics
+      // in _parseAddressIntoDialog. Lower-cased for case-insensitive match.
+      _addressKnownCountries: [
+        "canada", "usa", "us", "u.s.", "u.s.a.", "united states", "united states of america",
+        "uk", "u.k.", "united kingdom", "england", "scotland", "wales", "northern ireland",
+        "australia", "new zealand", "china", "hong kong", "singapore", "japan", "mexico",
+        "germany", "france", "spain", "italy", "netherlands", "ireland", "india",
+      ],
+      _addressKnownProvinces: [
+        // Canada
+        "ab","bc","mb","nb","nl","ns","nt","nu","on","pe","qc","sk","yt",
+        // US (50 + DC)
+        "al","ak","az","ar","ca","co","ct","de","dc","fl","ga","hi","id","il","in","ia","ks","ky",
+        "la","me","md","ma","mi","mn","ms","mo","mt","ne","nv","nh","nj","nm","ny","nc","nd",
+        "oh","ok","or","pa","ri","sc","sd","tn","tx","ut","vt","va","wa","wv","wi","wy",
+      ],
+
+      // _addressPostalRegex matches Canadian + US (5 or 9-digit) + simple
+      // UK / generic alphanumeric postal codes. Permissive on purpose —
+      // false positives go straight to a user-editable dialog field.
+      _addressPostalRegex: /^([A-Z]\d[A-Z][\s-]?\d[A-Z]\d|\d{5}(-\d{4})?|[A-Z]{1,2}\d[A-Z\d]?[\s-]?\d[A-Z]{2})$/i,
+
+      // onBillToBlur / onShipToBlur are the textarea blur handlers. Open
+      // the parser dialog when the content has enough commas to suggest
+      // it's still in raw "Street, City, Province, …" form.
+      onBillToBlur() { this._maybeOpenAddressParser("bill"); },
+      onShipToBlur() { this._maybeOpenAddressParser("ship"); },
+
+      _maybeOpenAddressParser(field) {
+        const raw = field === "bill" ? this.billTo : this.shipTo;
+        if (!raw) return;
+        // 2+ commas heuristic: canonical output has at most 1 comma per address
+        // ("City, Province Postal"), so 2+ implies the operator is still in the
+        // free-form input phase.
+        const commaCount = (raw.match(/,/g) || []).length;
+        if (commaCount < 2) return;
+        this._parseAddressIntoDialog(field, raw);
+        this.addressDialog.open = true;
+      },
+
+      _parseAddressIntoDialog(field, raw) {
+        const dlg = this.addressDialog;
+        dlg.field    = field;
+        dlg.hasEmail = (field === "bill");
+        dlg.email = ""; dlg.street = ""; dlg.city = "";
+        dlg.province = ""; dlg.postal = ""; dlg.country = "";
+
+        const lines = raw.split("\n").map(s => s.trim()).filter(Boolean);
+
+        // Bill-to: pull email out of the first line that contains @, before
+        // running the comma-split parse on what's left.
+        let emailIdx = -1;
+        if (field === "bill") {
+          for (let i = 0; i < lines.length; i++) {
+            if (this._emailRegex.test(lines[i])) {
+              dlg.email = lines[i];
+              emailIdx = i;
+              break;
+            }
+          }
+        }
+        const restLines = lines.filter((_, i) => i !== emailIdx);
+
+        // Flatten remaining lines into comma-split parts.
+        const parts = [];
+        for (const line of restLines) {
+          for (const p of line.split(",")) {
+            const t = p.trim();
+            if (t) parts.push(t);
+          }
+        }
+
+        // Walk from end, claiming postal / country / province by pattern
+        // match. Whatever's left becomes street + city.
+        const remaining = [...parts];
+
+        for (let i = remaining.length - 1; i >= 0; i--) {
+          if (this._addressPostalRegex.test(remaining[i])) {
+            dlg.postal = remaining[i].toUpperCase();
+            remaining.splice(i, 1);
+            break;
+          }
+        }
+        for (let i = remaining.length - 1; i >= 0; i--) {
+          if (this._addressKnownCountries.includes(remaining[i].toLowerCase())) {
+            dlg.country = this._titleCase(remaining[i]);
+            remaining.splice(i, 1);
+            break;
+          }
+        }
+        for (let i = remaining.length - 1; i >= 0; i--) {
+          if (this._addressKnownProvinces.includes(remaining[i].toLowerCase())) {
+            dlg.province = remaining[i].toUpperCase();
+            remaining.splice(i, 1);
+            break;
+          }
+        }
+        // Last remaining → city; everything before → street (re-joined with ", ").
+        if (remaining.length === 1) {
+          dlg.street = remaining[0];
+        } else if (remaining.length >= 2) {
+          dlg.city   = remaining[remaining.length - 1];
+          dlg.street = remaining.slice(0, -1).join(", ");
+        }
+      },
+
+      _titleCase(s) {
+        return s.replace(/\b([a-z])([a-z]*)/g, (_, a, b) => a.toUpperCase() + b);
+      },
+
+      confirmAddressParse() {
+        const dlg = this.addressDialog;
+        // Canonical format:
+        //   email           (bill-to only)
+        //   street
+        //   city, province postal
+        //   country
+        const out = [];
+        if (dlg.hasEmail && dlg.email) out.push(dlg.email);
+        if (dlg.street) out.push(dlg.street);
+
+        const cityRight = [dlg.province, dlg.postal].filter(Boolean).join(" ");
+        const cityLine  = [dlg.city, cityRight].filter(Boolean).join(", ");
+        if (cityLine) out.push(cityLine);
+        if (dlg.country) out.push(dlg.country);
+
+        const formatted = out.join("\n");
+        if (dlg.field === "bill") {
+          this.billTo = formatted;
+          this.syncEmailFromBillTo();
+        } else {
+          this.shipTo = formatted;
+        }
+        dlg.open = false;
+      },
+
+      cancelAddressParse() { this.addressDialog.open = false; },
 
       // onShipToLabelChange syncs the ship-to textarea when the named-address
       // dropdown changes. "" means "Custom" — leave the textarea content alone

@@ -92,9 +92,10 @@ templ invoiceEditorContent(vm InvoiceEditorVM) {
 		@ui.DocEditorFooter(invoiceEditorFooterVM(vm))
 
 		@invoiceContactUpdateDialog()
+		@invoiceAddressParserDialog()
 		@invoiceCustomerQuickCreateDrawer(vm)
 
-		<script src="/static/invoice_editor.js?v=19"></script>
+		<script src="/static/invoice_editor.js?v=20"></script>
 		<script>
 			function ieExitReview() {
 				var fieldset = document.getElementById('ie-fields');
@@ -144,6 +145,7 @@ templ invoiceHeaderLeft(vm InvoiceEditorVM) {
 				name="bill_to"
 				x-model="billTo"
 				@input="syncEmailFromBillTo()"
+				@blur="onBillToBlur()"
 				rows="5"
 				placeholder="email@example.com&#10;Street Address&#10;City, Province, Postal Code&#10;Country"
 				disabled?={ vm.TaskGeneratedReadOnly }
@@ -174,6 +176,7 @@ templ invoiceHeaderLeft(vm InvoiceEditorVM) {
 			<textarea
 				name="ship_to"
 				x-model="shipTo"
+				@blur="onShipToBlur()"
 				rows="5"
 				placeholder="Street Address&#10;City, Province, Postal Code&#10;Country"
 				disabled?={ vm.TaskGeneratedReadOnly }
@@ -596,6 +599,63 @@ templ invoiceContactUpdateDialog() {
 				</button>
 				<button type="button" @click="confirmContactUpdate(true)" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
 					Update customer
+				</button>
+			</div>
+		</div>
+	</div>
+}
+
+// invoiceAddressParserDialog confirms the comma-split parse of a Bill-to /
+// Ship-to textarea after blur. Pure client-side — no network round-trip;
+// the operator just verifies + edits the structured fields, then Confirm
+// rewrites the textarea in canonical layout.
+templ invoiceAddressParserDialog() {
+	<div
+		x-show="addressDialog.open"
+		x-cloak
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+		style="display:none"
+		@keydown.escape.window="cancelAddressParse()"
+	>
+		<div class="w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-xl" @click.stop>
+			<h2 class="text-section font-semibold text-text">Confirm address</h2>
+			<p class="mt-2 text-body text-text-muted2">We split your input by commas. Check the parts and edit if needed:</p>
+			<div class="mt-4 space-y-3">
+				<div x-show="addressDialog.hasEmail">
+					<label class={ compactLabelClass() }>Email</label>
+					<input type="email" x-model="addressDialog.email" placeholder="customer@example.com" class={ fieldClass(false) }/>
+				</div>
+				<div>
+					<label class={ compactLabelClass() }>Street Address</label>
+					<input type="text" x-model="addressDialog.street" class={ fieldClass(false) }/>
+				</div>
+				<div class="grid grid-cols-2 gap-3">
+					<div>
+						<label class={ compactLabelClass() }>City</label>
+						<input type="text" x-model="addressDialog.city" class={ fieldClass(false) }/>
+					</div>
+					<div>
+						<label class={ compactLabelClass() }>Province / State</label>
+						<input type="text" x-model="addressDialog.province" class={ fieldClass(false) }/>
+					</div>
+				</div>
+				<div class="grid grid-cols-2 gap-3">
+					<div>
+						<label class={ compactLabelClass() }>Postal Code</label>
+						<input type="text" x-model="addressDialog.postal" class={ fieldClass(false) }/>
+					</div>
+					<div>
+						<label class={ compactLabelClass() }>Country</label>
+						<input type="text" x-model="addressDialog.country" class={ fieldClass(false) }/>
+					</div>
+				</div>
+			</div>
+			<div class="mt-5 flex flex-wrap items-center justify-end gap-3">
+				<button type="button" @click="cancelAddressParse()" class="rounded-md border border-border-input px-4 py-2 text-body text-text-muted3 hover:bg-background">
+					Skip — keep as typed
+				</button>
+				<button type="button" @click="confirmAddressParse()" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">
+					Confirm
 				</button>
 			</div>
 		</div>
