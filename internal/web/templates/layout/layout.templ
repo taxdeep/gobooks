@@ -532,7 +532,7 @@ templ globalSearchDropdown() {
 			// Footer: Advanced search link
 			<div x-show="!loading && (items.length > 0 || query !== '')" class="border-t border-border-subtle bg-background px-3 py-2 text-small">
 				<a href="#" @click.prevent="openAdvanced()" class="text-primary hover:underline">
-					Advanced transactions search<span x-show="query !== ''"> { "for" } <span class="font-mono" x-text="'\u201C' + query + '\u201D'"></span></span> →
+					Advanced transactions search<span x-show="query !== ''">{ " for " }<span class="font-mono" x-text="'\u201C' + query + '\u201D'"></span></span> →
 				</a>
 				<span x-show="mode === 'legacy'" class="ml-2 text-text-muted3">(legacy fallback)</span>
 			</div>
