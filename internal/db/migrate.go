@@ -94,6 +94,7 @@ func Migrate(db *gorm.DB) error {
 		&models.Account{},
 		&models.Customer{},
 		&models.CustomerShippingAddress{},
+		&models.PDFTemplate{},
 		&models.Vendor{},
 		&models.PaymentTerm{},
 		&models.Invoice{},
