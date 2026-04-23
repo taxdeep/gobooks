@@ -194,14 +194,31 @@ func GetPurchaseOrder(db *gorm.DB, companyID, poID uint) (*models.PurchaseOrder,
 	return &po, err
 }
 
-// ListPurchaseOrders returns POs for a company, newest first.
-func ListPurchaseOrders(db *gorm.DB, companyID uint, statusFilter string, vendorID uint) ([]models.PurchaseOrder, error) {
+// PurchaseOrderListFilter bundles the optional list-page filters. Zero
+// values mean "no constraint". Mirrors SalesOrderListFilter so the two
+// list pages stay structurally aligned.
+type PurchaseOrderListFilter struct {
+	Status   string     // empty = all statuses
+	VendorID uint       // 0 = all vendors
+	DateFrom *time.Time // nil = no lower bound on po_date
+	DateTo   *time.Time // nil = no upper bound on po_date
+}
+
+// ListPurchaseOrders returns POs for a company, newest first. All
+// filters are optional — see PurchaseOrderListFilter for the contract.
+func ListPurchaseOrders(db *gorm.DB, companyID uint, f PurchaseOrderListFilter) ([]models.PurchaseOrder, error) {
 	q := db.Preload("Vendor").Where("company_id = ?", companyID)
-	if statusFilter != "" {
-		q = q.Where("status = ?", statusFilter)
+	if f.Status != "" {
+		q = q.Where("status = ?", f.Status)
 	}
-	if vendorID > 0 {
-		q = q.Where("vendor_id = ?", vendorID)
+	if f.VendorID > 0 {
+		q = q.Where("vendor_id = ?", f.VendorID)
+	}
+	if f.DateFrom != nil {
+		q = q.Where("po_date >= ?", *f.DateFrom)
+	}
+	if f.DateTo != nil {
+		q = q.Where("po_date <= ?", *f.DateTo)
 	}
 	var pos []models.PurchaseOrder
 	err := q.Order("id desc").Find(&pos).Error

@@ -8,6 +8,14 @@ import (
 	"gobooks/internal/web/templates/ui"
 )
 
+// purchaseOrderFilterInputClass is the compact dark-mode-safe styling
+// for the Purchase Orders filter bar's <select> + <input type=date>.
+// Mirrors salesOrderFilterInputClass so the two list pages stay
+// visually aligned.
+func purchaseOrderFilterInputClass() string {
+	return "mt-2 block w-full rounded-md border border-border-input bg-surface px-2.5 py-1 text-small text-text outline-none focus:ring-2 focus:ring-primary-focus"
+}
+
 func poStatusBadgeClass(s models.POStatus) string {
 	const base = "inline-block rounded px-2 py-0.5 text-small font-medium "
 	switch s {
@@ -57,32 +65,44 @@ templ bodyPurchaseOrders(vm PurchaseOrdersVM) {
 			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Purchase order created.</div>
 		}
 
-		<!-- Filters -->
-		<form method="GET" action="/purchase-orders" class="mt-4 flex flex-wrap gap-3">
-			<select
-				name="status"
-				class="rounded-md border border-border bg-surface px-3 py-1.5 text-body text-text"
-				onchange="this.form.submit()"
-			>
-				<option value="">All Statuses</option>
-				for _, s := range models.AllPOStatuses() {
-					<option value={ string(s) } selected?={ vm.FilterStatus == string(s) }>
-						{ models.POStatusLabel(s) }
-					</option>
-				}
-			</select>
-			<select
-				name="vendor_id"
-				class="rounded-md border border-border bg-surface px-3 py-1.5 text-body text-text"
-				onchange="this.form.submit()"
-			>
-				<option value="">All Vendors</option>
-				for _, v := range vm.Vendors {
-					<option value={ fmt.Sprintf("%d", v.ID) } selected?={ vm.FilterVendor == fmt.Sprintf("%d", v.ID) }>
-						{ v.Name }
-					</option>
-				}
-			</select>
+		<!-- Filter bar — single row: Vendor (SmartPicker) | Status | From | To | Apply | Reset.
+		     Mirrors the Sales Orders layout for visual consistency. -->
+		<form method="GET" action="/purchase-orders" class="mt-6 rounded-lg border border-border bg-surface p-4">
+			<div class="flex flex-wrap items-end gap-3">
+				<div class="min-w-[220px] flex-1">
+					<label class={ compactLabelClass() }>Vendor</label>
+					@ui.SmartPicker(ui.SmartPickerVM{
+						FieldName:     "vendor_id",
+						Entity:        "vendor",
+						Context:       "purchase_orders_filter",
+						Value:         vm.FilterVendor,
+						SelectedLabel: vm.FilterVendorLabel,
+						Placeholder:   "All vendors",
+						Limit:         20,
+					})
+				</div>
+				<div class="min-w-[160px]">
+					<label for="po-filter-status" class={ compactLabelClass() }>Status</label>
+					<select id="po-filter-status" name="status" class={ purchaseOrderFilterInputClass() }>
+						<option value="" selected?={ vm.FilterStatus == "" }>-- All --</option>
+						for _, s := range models.AllPOStatuses() {
+							<option value={ string(s) } selected?={ string(s) == vm.FilterStatus }>{ models.POStatusLabel(s) }</option>
+						}
+					</select>
+				</div>
+				<div>
+					<label for="po-filter-from" class={ compactLabelClass() }>From</label>
+					<input id="po-filter-from" type="date" name="from" value={ vm.FilterDateFrom } class={ purchaseOrderFilterInputClass() }/>
+				</div>
+				<div>
+					<label for="po-filter-to" class={ compactLabelClass() }>To</label>
+					<input id="po-filter-to" type="date" name="to" value={ vm.FilterDateTo } class={ purchaseOrderFilterInputClass() }/>
+				</div>
+				<div class="flex items-end gap-2">
+					<button type="submit" class="rounded-md bg-primary px-3 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover">Apply Filter</button>
+					<a href="/purchase-orders" class="rounded-md border border-border-input px-3 py-1.5 text-small text-text-muted3 hover:bg-background hover:text-text">Reset</a>
+				</div>
+			</div>
 		</form>
 
 		<!-- Table -->

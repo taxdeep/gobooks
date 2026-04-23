@@ -12,10 +12,16 @@ import (
 type PurchaseOrdersVM struct {
 	HasCompany     bool
 	PurchaseOrders []models.PurchaseOrder
-	Vendors        []models.Vendor
-	FilterStatus   string
-	FilterVendor   string
-	Created        bool
+
+	// Echoed filter values — feed back into the form inputs so the URL
+	// fully describes the result set and is shareable.
+	FilterStatus      string
+	FilterVendor      string // raw vendor_id query param
+	FilterVendorLabel string // resolved vendor name for SmartPicker echo display
+	FilterDateFrom    string // YYYY-MM-DD
+	FilterDateTo      string // YYYY-MM-DD
+
+	Created bool
 }
 
 // PurchaseOrderDetailVM is the view model for a single PurchaseOrder detail / edit page.
