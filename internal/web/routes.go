@@ -216,6 +216,9 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Get("/invoices/:id/preview", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoicePreview)
 	app.Get("/invoices/:id/print", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoicePrint)
 	app.Get("/invoices/:id/pdf", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoicePDF)
+	// Phase 3 G4: side-by-side new PDF pipeline (block-template + chromedp).
+	// Legacy /pdf endpoint stays until G4-cleanup confirms parity.
+	app.Get("/invoices/:id/pdf-v2", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleInvoicePDFV2)
 
 	// Invoice lifecycle management (issue → send → mark paid / void)
 	app.Post("/invoices/:id/save-task-draft", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionInvoiceUpdate), s.handleInvoiceSaveTaskDraft)

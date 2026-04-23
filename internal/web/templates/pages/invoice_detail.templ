@@ -115,7 +115,17 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 					>
 						Download PDF
 					</a>
-				} else {
+				}
+				// Phase 3 G4: side-by-side new PDF pipeline (block-template + chromedp).
+				// Always shown — once we confirm parity in G4-cleanup the legacy button
+				// above gets retired.
+				<a
+					href={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/pdf-v2" }
+					class="inline-block rounded-md border border-primary-soft bg-primary-soft px-3 py-2 text-small font-medium text-primary hover:bg-primary/10"
+				>
+					Download PDF (Beta)
+				</a>
+				if !vm.PDFAvailable {
 					<a
 						href={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/print" }
 						target="_blank"

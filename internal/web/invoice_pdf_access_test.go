@@ -293,13 +293,15 @@ func TestInvoiceDetail_PDFLinkHiddenWhenNoPDFEngine(t *testing.T) {
 	body, _ := io.ReadAll(resp.Body)
 	s := string(body)
 
-	// When wkhtmltopdf is absent, the Download PDF link must not appear.
+	// When wkhtmltopdf is absent, the legacy /pdf link must not appear.
+	// The Phase 3 chromedp /pdf-v2 (Beta) link is always shown — it doesn't
+	// depend on wkhtmltopdf — so this test only checks the legacy path.
 	if strings.Contains(s, `href="/invoices/`) && strings.Contains(s, `/pdf"`) {
-		t.Error("Download PDF link should not appear when wkhtmltopdf is absent")
+		t.Error("legacy Download PDF link should not appear when wkhtmltopdf is absent")
 	}
-	// The download PDF text must not appear as a clickable link.
-	if strings.Contains(s, "Download PDF") {
-		t.Error("'Download PDF' text should not appear when wkhtmltopdf is absent")
+	// The legacy "Download PDF" label (without "(Beta)") must not appear.
+	if strings.Contains(s, ">Download PDF\n") || strings.Contains(s, ">Download PDF<") {
+		t.Error("legacy 'Download PDF' label should not appear when wkhtmltopdf is absent")
 	}
 }
 

@@ -47,6 +47,30 @@ func (s *Server) handleInvoicePreview(c *fiber.Ctx) error {
 	return c.SendString(html)
 }
 
+// handleInvoicePDFV2 renders an invoice via the Phase 3 block-template +
+// chromedp pipeline (G2 + G3). Side-by-side with handleInvoicePDF (legacy
+// wkhtmltopdf path) so the new system can be validated against real data
+// before the legacy path is retired.
+//
+// GET /invoices/:id/pdf-v2
+func (s *Server) handleInvoicePDFV2(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).SendString("company context required")
+	}
+	invoiceID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString("invalid invoice ID")
+	}
+	pdfBytes, filename, err := services.RenderInvoicePDFV2(c.Context(), s.DB, companyID, uint(invoiceID))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("PDF (v2) generation failed: " + err.Error())
+	}
+	c.Set("Content-Type", "application/pdf")
+	c.Set("Content-Disposition", `attachment; filename="`+filename+`"`)
+	return c.Send(pdfBytes)
+}
+
 // handleInvoicePDF generates and downloads invoice as PDF.
 // GET /invoices/:id/pdf
 func (s *Server) handleInvoicePDF(c *fiber.Ctx) error {
