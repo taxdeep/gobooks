@@ -23,9 +23,10 @@ func (s *Server) handleReturnList(c *fiber.Ctx) error {
 		return c.Redirect("/select-company", fiber.StatusSeeOther)
 	}
 
-	customers, _ := s.customersForCompany(companyID)
 	filterStatus := strings.TrimSpace(c.Query("status"))
 	filterCustomer := strings.TrimSpace(c.Query("customer_id"))
+	filterFromStr := strings.TrimSpace(c.Query("from"))
+	filterToStr := strings.TrimSpace(c.Query("to"))
 
 	var customerID uint
 	if filterCustomer != "" {
@@ -34,18 +35,27 @@ func (s *Server) handleReturnList(c *fiber.Ctx) error {
 		}
 	}
 
-	returns, err := services.ListARReturns(s.DB, companyID, filterStatus, customerID)
+	dateFrom, dateTo := parseListDateRange(filterFromStr, filterToStr)
+
+	returns, err := services.ListARReturns(s.DB, companyID, services.ARReturnListFilter{
+		Status:     filterStatus,
+		CustomerID: customerID,
+		DateFrom:   dateFrom,
+		DateTo:     dateTo,
+	})
 	if err != nil {
 		returns = nil
 	}
 
 	return pages.Returns(pages.ReturnsVM{
-		HasCompany:     true,
-		Returns:        returns,
-		Customers:      customers,
-		FilterStatus:   filterStatus,
-		FilterCustomer: filterCustomer,
-		Created:        c.Query("created") == "1",
+		HasCompany:          true,
+		Returns:             returns,
+		FilterStatus:        filterStatus,
+		FilterCustomer:      filterCustomer,
+		FilterCustomerLabel: lookupCustomerName(s.DB, companyID, customerID),
+		FilterDateFrom:      filterFromStr,
+		FilterDateTo:        filterToStr,
+		Created:             c.Query("created") == "1",
 	}).Render(c.Context(), c)
 }
 

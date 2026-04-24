@@ -115,14 +115,28 @@ func GetVendorPrepayment(db *gorm.DB, companyID, ppID uint) (*models.VendorPrepa
 	return &pp, err
 }
 
+// VendorPrepaymentListFilter bundles the optional list-page filters.
+type VendorPrepaymentListFilter struct {
+	Status   string     // empty = all statuses
+	VendorID uint       // 0 = all vendors
+	DateFrom *time.Time // nil = no lower bound on prepayment_date
+	DateTo   *time.Time // nil = no upper bound on prepayment_date
+}
+
 // ListVendorPrepayments returns prepayments for a company, newest first.
-func ListVendorPrepayments(db *gorm.DB, companyID uint, statusFilter string, vendorID uint) ([]models.VendorPrepayment, error) {
+func ListVendorPrepayments(db *gorm.DB, companyID uint, f VendorPrepaymentListFilter) ([]models.VendorPrepayment, error) {
 	q := db.Preload("Vendor").Where("company_id = ?", companyID)
-	if statusFilter != "" {
-		q = q.Where("status = ?", statusFilter)
+	if f.Status != "" {
+		q = q.Where("status = ?", f.Status)
 	}
-	if vendorID > 0 {
-		q = q.Where("vendor_id = ?", vendorID)
+	if f.VendorID > 0 {
+		q = q.Where("vendor_id = ?", f.VendorID)
+	}
+	if f.DateFrom != nil {
+		q = q.Where("prepayment_date >= ?", *f.DateFrom)
+	}
+	if f.DateTo != nil {
+		q = q.Where("prepayment_date <= ?", *f.DateTo)
 	}
 	var pps []models.VendorPrepayment
 	err := q.Order("id desc").Find(&pps).Error

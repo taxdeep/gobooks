@@ -52,12 +52,16 @@ type PurchaseOrderDetailVM struct {
 
 // VendorPrepaymentsVM is the view model for the Vendor Prepayments list page.
 type VendorPrepaymentsVM struct {
-	HasCompany   bool
-	Prepayments  []models.VendorPrepayment
-	Vendors      []models.Vendor
-	FilterStatus string
-	FilterVendor string
-	Created      bool
+	HasCompany  bool
+	Prepayments []models.VendorPrepayment
+
+	FilterStatus      string
+	FilterVendor      string // raw vendor_id query param
+	FilterVendorLabel string // resolved vendor name for SmartPicker echo display
+	FilterDateFrom    string // YYYY-MM-DD
+	FilterDateTo      string // YYYY-MM-DD
+
+	Created bool
 }
 
 // VendorPrepaymentDetailVM is the view model for a single VendorPrepayment detail / edit page.
@@ -76,12 +80,16 @@ type VendorPrepaymentDetailVM struct {
 
 // VendorReturnsVM is the view model for the Vendor Returns list page.
 type VendorReturnsVM struct {
-	HasCompany     bool
-	Returns        []models.VendorReturn
-	Vendors        []models.Vendor
-	FilterStatus   string
-	FilterVendor   string
-	Created        bool
+	HasCompany bool
+	Returns    []models.VendorReturn
+
+	FilterStatus      string
+	FilterVendor      string
+	FilterVendorLabel string
+	FilterDateFrom    string
+	FilterDateTo      string
+
+	Created bool
 }
 
 // VendorReturnDetailVM is the view model for a single VendorReturn detail / edit page.
@@ -102,12 +110,16 @@ type VendorReturnDetailVM struct {
 
 // VendorCreditNotesVM is the view model for the Vendor Credit Notes list page.
 type VendorCreditNotesVM struct {
-	HasCompany   bool
-	CreditNotes  []models.VendorCreditNote
-	Vendors      []models.Vendor
-	FilterStatus string
-	FilterVendor string
-	Created      bool
+	HasCompany  bool
+	CreditNotes []models.VendorCreditNote
+
+	FilterStatus      string
+	FilterVendor      string
+	FilterVendorLabel string
+	FilterDateFrom    string
+	FilterDateTo      string
+
+	Created bool
 }
 
 // VendorCreditNoteDetailVM is the view model for a single VendorCreditNote detail / edit page.
@@ -142,12 +154,16 @@ type VendorCreditNoteDetailVM struct {
 
 // VendorRefundsVM is the view model for the Vendor Refunds list page.
 type VendorRefundsVM struct {
-	HasCompany   bool
-	Refunds      []models.VendorRefund
-	Vendors      []models.Vendor
-	FilterStatus string
-	FilterVendor string
-	Created      bool
+	HasCompany bool
+	Refunds    []models.VendorRefund
+
+	FilterStatus      string
+	FilterVendor      string
+	FilterVendorLabel string
+	FilterDateFrom    string
+	FilterDateTo      string
+
+	Created bool
 }
 
 // VendorRefundDetailVM is the view model for a single VendorRefund detail / edit page.

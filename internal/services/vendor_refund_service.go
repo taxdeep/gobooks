@@ -126,14 +126,28 @@ func GetVendorRefund(db *gorm.DB, companyID, vrfID uint) (*models.VendorRefund, 
 	return &vrf, err
 }
 
+// VendorRefundListFilter bundles the optional list-page filters.
+type VendorRefundListFilter struct {
+	Status   string     // empty = all statuses
+	VendorID uint       // 0 = all vendors
+	DateFrom *time.Time // nil = no lower bound on refund_date
+	DateTo   *time.Time // nil = no upper bound on refund_date
+}
+
 // ListVendorRefunds returns refunds for a company, newest first.
-func ListVendorRefunds(db *gorm.DB, companyID uint, statusFilter string, vendorID uint) ([]models.VendorRefund, error) {
+func ListVendorRefunds(db *gorm.DB, companyID uint, f VendorRefundListFilter) ([]models.VendorRefund, error) {
 	q := db.Preload("Vendor").Where("company_id = ?", companyID)
-	if statusFilter != "" {
-		q = q.Where("status = ?", statusFilter)
+	if f.Status != "" {
+		q = q.Where("status = ?", f.Status)
 	}
-	if vendorID > 0 {
-		q = q.Where("vendor_id = ?", vendorID)
+	if f.VendorID > 0 {
+		q = q.Where("vendor_id = ?", f.VendorID)
+	}
+	if f.DateFrom != nil {
+		q = q.Where("refund_date >= ?", *f.DateFrom)
+	}
+	if f.DateTo != nil {
+		q = q.Where("refund_date <= ?", *f.DateTo)
 	}
 	var vrfs []models.VendorRefund
 	err := q.Order("id desc").Find(&vrfs).Error

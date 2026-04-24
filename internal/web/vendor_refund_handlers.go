@@ -23,9 +23,10 @@ func (s *Server) handleVendorRefundList(c *fiber.Ctx) error {
 		return c.Redirect("/select-company", fiber.StatusSeeOther)
 	}
 
-	vendors, _ := s.vendorsForCompany(companyID)
 	filterStatus := strings.TrimSpace(c.Query("status"))
 	filterVendor := strings.TrimSpace(c.Query("vendor_id"))
+	filterFromStr := strings.TrimSpace(c.Query("from"))
+	filterToStr := strings.TrimSpace(c.Query("to"))
 
 	var vendorID uint
 	if filterVendor != "" {
@@ -34,18 +35,27 @@ func (s *Server) handleVendorRefundList(c *fiber.Ctx) error {
 		}
 	}
 
-	vrfs, err := services.ListVendorRefunds(s.DB, companyID, filterStatus, vendorID)
+	dateFrom, dateTo := parseListDateRange(filterFromStr, filterToStr)
+
+	vrfs, err := services.ListVendorRefunds(s.DB, companyID, services.VendorRefundListFilter{
+		Status:   filterStatus,
+		VendorID: vendorID,
+		DateFrom: dateFrom,
+		DateTo:   dateTo,
+	})
 	if err != nil {
 		vrfs = nil
 	}
 
 	return pages.VendorRefunds(pages.VendorRefundsVM{
-		HasCompany:   true,
-		Refunds:      vrfs,
-		Vendors:      vendors,
-		FilterStatus: filterStatus,
-		FilterVendor: filterVendor,
-		Created:      c.Query("created") == "1",
+		HasCompany:        true,
+		Refunds:           vrfs,
+		FilterStatus:      filterStatus,
+		FilterVendor:      filterVendor,
+		FilterVendorLabel: lookupVendorName(s.DB, companyID, vendorID),
+		FilterDateFrom:    filterFromStr,
+		FilterDateTo:      filterToStr,
+		Created:           c.Query("created") == "1",
 	}).Render(c.Context(), c)
 }
 

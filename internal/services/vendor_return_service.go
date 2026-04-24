@@ -89,14 +89,28 @@ func GetVendorReturn(db *gorm.DB, companyID, vrID uint) (*models.VendorReturn, e
 	return &vr, err
 }
 
+// VendorReturnListFilter bundles the optional list-page filters.
+type VendorReturnListFilter struct {
+	Status   string     // empty = all statuses
+	VendorID uint       // 0 = all vendors
+	DateFrom *time.Time // nil = no lower bound on return_date
+	DateTo   *time.Time // nil = no upper bound on return_date
+}
+
 // ListVendorReturns returns vendor returns for a company, newest first.
-func ListVendorReturns(db *gorm.DB, companyID uint, statusFilter string, vendorID uint) ([]models.VendorReturn, error) {
+func ListVendorReturns(db *gorm.DB, companyID uint, f VendorReturnListFilter) ([]models.VendorReturn, error) {
 	q := db.Preload("Vendor").Where("company_id = ?", companyID)
-	if statusFilter != "" {
-		q = q.Where("status = ?", statusFilter)
+	if f.Status != "" {
+		q = q.Where("status = ?", f.Status)
 	}
-	if vendorID > 0 {
-		q = q.Where("vendor_id = ?", vendorID)
+	if f.VendorID > 0 {
+		q = q.Where("vendor_id = ?", f.VendorID)
+	}
+	if f.DateFrom != nil {
+		q = q.Where("return_date >= ?", *f.DateFrom)
+	}
+	if f.DateTo != nil {
+		q = q.Where("return_date <= ?", *f.DateTo)
 	}
 	var vrs []models.VendorReturn
 	err := q.Order("id desc").Find(&vrs).Error

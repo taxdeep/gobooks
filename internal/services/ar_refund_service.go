@@ -138,14 +138,28 @@ func GetARRefund(db *gorm.DB, companyID, refundID uint) (*models.ARRefund, error
 	return &ref, err
 }
 
+// ARRefundListFilter bundles the optional list-page filters.
+type ARRefundListFilter struct {
+	Status     string     // empty = all statuses
+	CustomerID uint       // 0 = all customers
+	DateFrom   *time.Time // nil = no lower bound on refund_date
+	DateTo     *time.Time // nil = no upper bound on refund_date
+}
+
 // ListARRefunds returns refunds for a company, newest first.
-func ListARRefunds(db *gorm.DB, companyID uint, statusFilter string, customerID uint) ([]models.ARRefund, error) {
+func ListARRefunds(db *gorm.DB, companyID uint, f ARRefundListFilter) ([]models.ARRefund, error) {
 	q := db.Preload("Customer").Where("company_id = ?", companyID)
-	if statusFilter != "" {
-		q = q.Where("status = ?", statusFilter)
+	if f.Status != "" {
+		q = q.Where("status = ?", f.Status)
 	}
-	if customerID > 0 {
-		q = q.Where("customer_id = ?", customerID)
+	if f.CustomerID > 0 {
+		q = q.Where("customer_id = ?", f.CustomerID)
+	}
+	if f.DateFrom != nil {
+		q = q.Where("refund_date >= ?", *f.DateFrom)
+	}
+	if f.DateTo != nil {
+		q = q.Where("refund_date <= ?", *f.DateTo)
 	}
 	var refunds []models.ARRefund
 	err := q.Order("id desc").Find(&refunds).Error

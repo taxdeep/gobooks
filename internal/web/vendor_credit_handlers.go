@@ -39,9 +39,9 @@ func (s *Server) handleVendorCredits(c *fiber.Ctx) error {
 		return redirectErr(c, "/vendors", "vendor not found")
 	}
 
-	creditNotes, _ := services.ListVendorCreditNotes(s.DB, companyID, "", vendorID)
+	creditNotes, _ := services.ListVendorCreditNotes(s.DB, companyID, services.VendorCreditNoteListFilter{VendorID: vendorID})
 	openBills, _ := services.ListOpenBillsForVendor(s.DB, companyID, vendorID)
-	refunds, _ := services.ListVendorRefunds(s.DB, companyID, "", vendorID)
+	refunds, _ := services.ListVendorRefunds(s.DB, companyID, services.VendorRefundListFilter{VendorID: vendorID})
 
 	// Sum remaining across usable VCNs only (posted + partially_applied);
 	// drafts haven't been booked yet and voided/fully_applied have zero left.

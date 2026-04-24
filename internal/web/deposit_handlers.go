@@ -24,9 +24,10 @@ func (s *Server) handleDeposits(c *fiber.Ctx) error {
 		return c.Redirect("/select-company", fiber.StatusSeeOther)
 	}
 
-	customers, _ := s.customersForCompany(companyID)
 	filterStatus := strings.TrimSpace(c.Query("status"))
 	filterCustomer := strings.TrimSpace(c.Query("customer_id"))
+	filterFromStr := strings.TrimSpace(c.Query("from"))
+	filterToStr := strings.TrimSpace(c.Query("to"))
 
 	var customerID uint
 	if filterCustomer != "" {
@@ -35,19 +36,30 @@ func (s *Server) handleDeposits(c *fiber.Ctx) error {
 		}
 	}
 
-	deposits, err := services.ListCustomerDeposits(s.DB, companyID, filterStatus, customerID)
+	dateFrom, dateTo := parseListDateRange(filterFromStr, filterToStr)
+
+	deposits, err := services.ListCustomerDeposits(s.DB, companyID, services.CustomerDepositListFilter{
+		Status:     filterStatus,
+		CustomerID: customerID,
+		DateFrom:   dateFrom,
+		DateTo:     dateTo,
+	})
 	if err != nil {
 		deposits = nil
 	}
 
+	customerLabel := lookupCustomerName(s.DB, companyID, customerID)
+
 	return pages.Deposits(pages.DepositsVM{
-		HasCompany:     true,
-		Deposits:       deposits,
-		Customers:      customers,
-		FilterStatus:   filterStatus,
-		FilterCustomer: filterCustomer,
-		Created:        c.Query("created") == "1",
-		Saved:          c.Query("saved") == "1",
+		HasCompany:          true,
+		Deposits:            deposits,
+		FilterStatus:        filterStatus,
+		FilterCustomer:      filterCustomer,
+		FilterCustomerLabel: customerLabel,
+		FilterDateFrom:      filterFromStr,
+		FilterDateTo:        filterToStr,
+		Created:             c.Query("created") == "1",
+		Saved:               c.Query("saved") == "1",
 	}).Render(c.Context(), c)
 }
 

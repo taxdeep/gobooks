@@ -206,14 +206,28 @@ func GetVendorCreditNote(db *gorm.DB, companyID, vcnID uint) (*models.VendorCred
 	return &vcn, err
 }
 
+// VendorCreditNoteListFilter bundles the optional list-page filters.
+type VendorCreditNoteListFilter struct {
+	Status   string     // empty = all statuses
+	VendorID uint       // 0 = all vendors
+	DateFrom *time.Time // nil = no lower bound on credit_note_date
+	DateTo   *time.Time // nil = no upper bound on credit_note_date
+}
+
 // ListVendorCreditNotes returns credit notes for a company, newest first.
-func ListVendorCreditNotes(db *gorm.DB, companyID uint, statusFilter string, vendorID uint) ([]models.VendorCreditNote, error) {
+func ListVendorCreditNotes(db *gorm.DB, companyID uint, f VendorCreditNoteListFilter) ([]models.VendorCreditNote, error) {
 	q := db.Preload("Vendor").Where("company_id = ?", companyID)
-	if statusFilter != "" {
-		q = q.Where("status = ?", statusFilter)
+	if f.Status != "" {
+		q = q.Where("status = ?", f.Status)
 	}
-	if vendorID > 0 {
-		q = q.Where("vendor_id = ?", vendorID)
+	if f.VendorID > 0 {
+		q = q.Where("vendor_id = ?", f.VendorID)
+	}
+	if f.DateFrom != nil {
+		q = q.Where("credit_note_date >= ?", *f.DateFrom)
+	}
+	if f.DateTo != nil {
+		q = q.Where("credit_note_date <= ?", *f.DateTo)
 	}
 	var vcns []models.VendorCreditNote
 	err := q.Order("id desc").Find(&vcns).Error

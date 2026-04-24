@@ -90,7 +90,7 @@ func (s *Server) handleVendorDetail(c *fiber.Ctx) error {
 		Count(&overdueCount)
 
 	// Vendor credit remaining — identical logic to /vendors/:id/credits page.
-	creditNotes, _ := services.ListVendorCreditNotes(s.DB, companyID, "", vendorID)
+	creditNotes, _ := services.ListVendorCreditNotes(s.DB, companyID, services.VendorCreditNoteListFilter{VendorID: vendorID})
 	creditRemaining := decimal.Zero
 	creditCount := 0
 	for _, cn := range creditNotes {

@@ -107,14 +107,29 @@ func GetARReturn(db *gorm.DB, companyID, returnID uint) (*models.ARReturn, error
 	return &ret, err
 }
 
+// ARReturnListFilter bundles the optional list-page filters. Mirrors
+// the SalesOrderListFilter shape so the AR list pages stay aligned.
+type ARReturnListFilter struct {
+	Status     string     // empty = all statuses
+	CustomerID uint       // 0 = all customers
+	DateFrom   *time.Time // nil = no lower bound on return_date
+	DateTo     *time.Time // nil = no upper bound on return_date
+}
+
 // ListARReturns returns returns for a company, newest first.
-func ListARReturns(db *gorm.DB, companyID uint, statusFilter string, customerID uint) ([]models.ARReturn, error) {
+func ListARReturns(db *gorm.DB, companyID uint, f ARReturnListFilter) ([]models.ARReturn, error) {
 	q := db.Preload("Customer").Where("company_id = ?", companyID)
-	if statusFilter != "" {
-		q = q.Where("status = ?", statusFilter)
+	if f.Status != "" {
+		q = q.Where("status = ?", f.Status)
 	}
-	if customerID > 0 {
-		q = q.Where("customer_id = ?", customerID)
+	if f.CustomerID > 0 {
+		q = q.Where("customer_id = ?", f.CustomerID)
+	}
+	if f.DateFrom != nil {
+		q = q.Where("return_date >= ?", *f.DateFrom)
+	}
+	if f.DateTo != nil {
+		q = q.Where("return_date <= ?", *f.DateTo)
 	}
 	var returns []models.ARReturn
 	err := q.Order("id desc").Find(&returns).Error

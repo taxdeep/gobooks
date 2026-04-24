@@ -55,32 +55,43 @@ templ bodyVendorCreditNotes(vm VendorCreditNotesVM) {
 			<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Vendor credit note created.</div>
 		}
 
-		<!-- Filters -->
-		<form method="GET" action="/vendor-credit-notes" class="mt-4 flex flex-wrap gap-3">
-			<select
-				name="status"
-				class="rounded-md border border-border bg-surface px-3 py-1.5 text-body text-text"
-				onchange="this.form.submit()"
-			>
-				<option value="">All Statuses</option>
-				for _, s := range models.AllVendorCreditNoteStatuses() {
-					<option value={ string(s) } selected?={ vm.FilterStatus == string(s) }>
-						{ models.VendorCreditNoteStatusLabel(s) }
-					</option>
-				}
-			</select>
-			<select
-				name="vendor_id"
-				class="rounded-md border border-border bg-surface px-3 py-1.5 text-body text-text"
-				onchange="this.form.submit()"
-			>
-				<option value="">All Vendors</option>
-				for _, v := range vm.Vendors {
-					<option value={ fmt.Sprintf("%d", v.ID) } selected?={ vm.FilterVendor == fmt.Sprintf("%d", v.ID) }>
-						{ v.Name }
-					</option>
-				}
-			</select>
+		<!-- Filter bar — single row: Vendor (SmartPicker) | Status | From | To | Apply | Reset. -->
+		<form method="get" action="/vendor-credit-notes" class="mt-6 rounded-lg border border-border bg-surface p-4">
+			<div class="flex flex-wrap items-end gap-3">
+				<div class="min-w-[220px] flex-1">
+					<label class={ compactLabelClass() }>Vendor</label>
+					@ui.SmartPicker(ui.SmartPickerVM{
+						FieldName:     "vendor_id",
+						Entity:        "vendor",
+						Context:       "vendor_credit_notes_filter",
+						Value:         vm.FilterVendor,
+						SelectedLabel: vm.FilterVendorLabel,
+						Placeholder:   "All vendors",
+						Limit:         20,
+					})
+				</div>
+				<div class="min-w-[160px]">
+					<label for="vcn-filter-status" class={ compactLabelClass() }>Status</label>
+					<select id="vcn-filter-status" name="status" class={ listFilterInputClass() }>
+						<option value="" selected?={ vm.FilterStatus == "" }>-- All --</option>
+						for _, s := range models.AllVendorCreditNoteStatuses() {
+							<option value={ string(s) } selected?={ string(s) == vm.FilterStatus }>{ models.VendorCreditNoteStatusLabel(s) }</option>
+						}
+					</select>
+				</div>
+				<div>
+					<label for="vcn-filter-from" class={ compactLabelClass() }>From</label>
+					<input id="vcn-filter-from" type="date" name="from" value={ vm.FilterDateFrom } class={ listFilterInputClass() }/>
+				</div>
+				<div>
+					<label for="vcn-filter-to" class={ compactLabelClass() }>To</label>
+					<input id="vcn-filter-to" type="date" name="to" value={ vm.FilterDateTo } class={ listFilterInputClass() }/>
+				</div>
+				<div class="flex items-end gap-2">
+					<button type="submit" class="rounded-md bg-primary px-3 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover">Apply Filter</button>
+					<a href="/vendor-credit-notes" class="rounded-md border border-border-input px-3 py-1.5 text-small text-text-muted3 hover:bg-background hover:text-text">Reset</a>
+				</div>
+			</div>
 		</form>
 
 		<!-- Table -->

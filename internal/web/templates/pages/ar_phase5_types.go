@@ -7,12 +7,16 @@ import "gobooks/internal/models"
 
 // ReturnsVM is the view model for the AR Returns list page.
 type ReturnsVM struct {
-	HasCompany     bool
-	Returns        []models.ARReturn
-	Customers      []models.Customer
-	FilterStatus   string
-	FilterCustomer string
-	Created        bool
+	HasCompany bool
+	Returns    []models.ARReturn
+
+	FilterStatus        string
+	FilterCustomer      string // raw customer_id query param
+	FilterCustomerLabel string // resolved customer name for SmartPicker echo display
+	FilterDateFrom      string // YYYY-MM-DD
+	FilterDateTo        string // YYYY-MM-DD
+
+	Created bool
 }
 
 // ReturnDetailVM is the view model for a single ARReturn detail / edit page.
@@ -34,12 +38,16 @@ type ReturnDetailVM struct {
 
 // RefundsVM is the view model for the AR Refunds list page.
 type RefundsVM struct {
-	HasCompany     bool
-	Refunds        []models.ARRefund
-	Customers      []models.Customer
-	FilterStatus   string
-	FilterCustomer string
-	Created        bool
+	HasCompany bool
+	Refunds    []models.ARRefund
+
+	FilterStatus        string
+	FilterCustomer      string // raw customer_id query param
+	FilterCustomerLabel string // resolved customer name for SmartPicker echo display
+	FilterDateFrom      string // YYYY-MM-DD
+	FilterDateTo        string // YYYY-MM-DD
+
+	Created bool
 }
 
 // RefundDetailVM is the view model for a single ARRefund detail / edit page.

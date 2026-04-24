@@ -137,15 +137,28 @@ func GetCustomerDeposit(db *gorm.DB, companyID, depositID uint) (*models.Custome
 	return &dep, err
 }
 
+// CustomerDepositListFilter bundles the optional list-page filters.
+type CustomerDepositListFilter struct {
+	Status     string     // empty = all statuses
+	CustomerID uint       // 0 = all customers
+	DateFrom   *time.Time // nil = no lower bound on deposit_date
+	DateTo     *time.Time // nil = no upper bound on deposit_date
+}
+
 // ListCustomerDeposits returns deposits for a company, newest first.
-// statusFilter: empty = all; customerID: 0 = all.
-func ListCustomerDeposits(db *gorm.DB, companyID uint, statusFilter string, customerID uint) ([]models.CustomerDeposit, error) {
+func ListCustomerDeposits(db *gorm.DB, companyID uint, f CustomerDepositListFilter) ([]models.CustomerDeposit, error) {
 	q := db.Preload("Customer").Where("company_id = ?", companyID)
-	if statusFilter != "" {
-		q = q.Where("status = ?", statusFilter)
+	if f.Status != "" {
+		q = q.Where("status = ?", f.Status)
 	}
-	if customerID > 0 {
-		q = q.Where("customer_id = ?", customerID)
+	if f.CustomerID > 0 {
+		q = q.Where("customer_id = ?", f.CustomerID)
+	}
+	if f.DateFrom != nil {
+		q = q.Where("deposit_date >= ?", *f.DateFrom)
+	}
+	if f.DateTo != nil {
+		q = q.Where("deposit_date <= ?", *f.DateTo)
 	}
 	var deps []models.CustomerDeposit
 	err := q.Order("id desc").Find(&deps).Error

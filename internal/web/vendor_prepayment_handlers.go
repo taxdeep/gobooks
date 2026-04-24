@@ -23,9 +23,10 @@ func (s *Server) handleVendorPrepaymentList(c *fiber.Ctx) error {
 		return c.Redirect("/select-company", fiber.StatusSeeOther)
 	}
 
-	vendors, _ := s.vendorsForCompany(companyID)
 	filterStatus := strings.TrimSpace(c.Query("status"))
 	filterVendor := strings.TrimSpace(c.Query("vendor_id"))
+	filterFromStr := strings.TrimSpace(c.Query("from"))
+	filterToStr := strings.TrimSpace(c.Query("to"))
 
 	var vendorID uint
 	if filterVendor != "" {
@@ -34,18 +35,27 @@ func (s *Server) handleVendorPrepaymentList(c *fiber.Ctx) error {
 		}
 	}
 
-	pps, err := services.ListVendorPrepayments(s.DB, companyID, filterStatus, vendorID)
+	dateFrom, dateTo := parseListDateRange(filterFromStr, filterToStr)
+
+	pps, err := services.ListVendorPrepayments(s.DB, companyID, services.VendorPrepaymentListFilter{
+		Status:   filterStatus,
+		VendorID: vendorID,
+		DateFrom: dateFrom,
+		DateTo:   dateTo,
+	})
 	if err != nil {
 		pps = nil
 	}
 
 	return pages.VendorPrepayments(pages.VendorPrepaymentsVM{
-		HasCompany:   true,
-		Prepayments:  pps,
-		Vendors:      vendors,
-		FilterStatus: filterStatus,
-		FilterVendor: filterVendor,
-		Created:      c.Query("created") == "1",
+		HasCompany:        true,
+		Prepayments:       pps,
+		FilterStatus:      filterStatus,
+		FilterVendor:      filterVendor,
+		FilterVendorLabel: lookupVendorName(s.DB, companyID, vendorID),
+		FilterDateFrom:    filterFromStr,
+		FilterDateTo:      filterToStr,
+		Created:           c.Query("created") == "1",
 	}).Render(c.Context(), c)
 }
 
