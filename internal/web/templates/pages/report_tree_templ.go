@@ -35,19 +35,19 @@ import (
 //   Level 0 — section total                                          → pl-2
 
 // detailGroup is one detail-type bucket inside a section. Lines are
-// already sorted by account code (the service returns sorted rows);
-// the grouper preserves that ordering.
+// already sorted by account code (callers return sorted rows); the
+// grouper preserves that ordering.
 type detailGroup struct {
 	Detail   string          // raw detail_account_type string; "" = ungrouped (rare)
 	Label    string          // human label — falls back to the raw string if unknown
 	Lines    []reportLine    // account rows
-	Subtotal decimal.Decimal // sum of Lines.Amount
+	Subtotal decimal.Decimal // sum of Lines.Amount (single-column reports only)
 }
 
-// reportLine is the polymorphic account-row shape shared between BS /
-// IS. Wraps the AccountID + Code + Name + Amount fields common to
-// BalanceSheetLine and IncomeStatementLine without tying the renderer
-// to either type directly.
+// reportLine is the single-amount row shape shared by BS / IS sections.
+// Multi-amount reports (TB with Debit + Credit columns, Aging with age
+// buckets) use their own row types and call the section/header
+// primitives directly.
 type reportLine struct {
 	AccountID uint
 	Code      string
@@ -55,48 +55,30 @@ type reportLine struct {
 	Amount    decimal.Decimal
 }
 
-// groupBSLines collapses a flat BS section into detail-type buckets.
-// Preserves the service's account-code ordering; detail groups appear
-// in the canonical order from models.DetailsForRoot() so the report
-// looks the same across runs.
-func groupBSLines(root models.RootAccountType, lines []services.BalanceSheetLine) []detailGroup {
-	return groupByDetail(root, func() []reportLine {
-		out := make([]reportLine, len(lines))
-		for i, l := range lines {
-			out[i] = reportLine{AccountID: l.AccountID, Code: l.Code, Name: l.Name, Amount: l.Amount}
-		}
-		// tag each line's detail on the way out — need parallel slice
-		// because reportLine is detail-type-agnostic
-		return out
-	}(), detailsOf(lines))
+// ── Conversion helpers: service types → reportLine slices ──────────────────
+//
+// BS + IS have different line types but the same fields. Rather than
+// generics we keep a tiny adapter per type — two explicit converters
+// beats one clever reflect.
+
+func bsLinesToReportLines(lines []services.BalanceSheetLine) ([]reportLine, []string) {
+	rows := make([]reportLine, len(lines))
+	details := make([]string, len(lines))
+	for i, l := range lines {
+		rows[i] = reportLine{AccountID: l.AccountID, Code: l.Code, Name: l.Name, Amount: l.Amount}
+		details[i] = l.Detail
+	}
+	return rows, details
 }
 
-// groupISLines is the IncomeStatementLine variant. Same shape as
-// groupBSLines; separate helper because Go lacks generic conversion
-// between the two slice types without duplicating the body.
-func groupISLines(root models.RootAccountType, lines []services.IncomeStatementLine) []detailGroup {
-	return groupByDetail(root, func() []reportLine {
-		out := make([]reportLine, len(lines))
-		for i, l := range lines {
-			out[i] = reportLine{AccountID: l.AccountID, Code: l.Code, Name: l.Name, Amount: l.Amount}
-		}
-		return out
-	}(), detailsOfIS(lines))
-}
-
-func detailsOf(lines []services.BalanceSheetLine) []string {
-	out := make([]string, len(lines))
+func isLinesToReportLines(lines []services.IncomeStatementLine) ([]reportLine, []string) {
+	rows := make([]reportLine, len(lines))
+	details := make([]string, len(lines))
 	for i, l := range lines {
-		out[i] = l.Detail
+		rows[i] = reportLine{AccountID: l.AccountID, Code: l.Code, Name: l.Name, Amount: l.Amount}
+		details[i] = l.Detail
 	}
-	return out
-}
-func detailsOfIS(lines []services.IncomeStatementLine) []string {
-	out := make([]string, len(lines))
-	for i, l := range lines {
-		out[i] = l.Detail
-	}
-	return out
+	return rows, details
 }
 
 // groupByDetail is the shared bucketing core. `lines` and `details`
@@ -104,7 +86,6 @@ func detailsOfIS(lines []services.IncomeStatementLine) []string {
 // groups in models.DetailsForRoot order, with any unknown-detail
 // lines collapsed into a single "" group at the end.
 func groupByDetail(root models.RootAccountType, lines []reportLine, details []string) []detailGroup {
-	// Bucket lines by detail string.
 	buckets := map[string][]reportLine{}
 	for i, l := range lines {
 		d := ""
@@ -113,7 +94,6 @@ func groupByDetail(root models.RootAccountType, lines []reportLine, details []st
 		}
 		buckets[d] = append(buckets[d], l)
 	}
-	// Emit in canonical detail order, then any leftover buckets.
 	out := []detailGroup{}
 	seen := map[string]bool{}
 	for _, d := range models.DetailsForRoot(root) {
@@ -154,7 +134,11 @@ func reportDetailLabel(detail string) string {
 	return models.DetailSnakeToLabel(detail)
 }
 
-// ── Render helpers ──────────────────────────────────────────────────────────
+// ── Single-column row primitives (BS / IS) ──────────────────────────────────
+//
+// These rows all span 3 table columns: [Code | Name | Amount]. Reports
+// with more columns (Trial Balance with Debit + Credit, AR/AP Aging
+// with age buckets) use the multi-column primitives further down.
 
 // reportSectionHeaderRow is the tr at the top of each section
 // (Assets / Liabilities / Equity / Revenue / COGS / Expenses).
@@ -186,7 +170,7 @@ func reportSectionHeaderRow(title string) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 154, Col: 90}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 138, Col: 90}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -201,7 +185,6 @@ func reportSectionHeaderRow(title string) templ.Component {
 }
 
 // reportGroupHeaderRow is the tr that labels a detail-type sub-group.
-// Blank trailing column keeps the layout aligned.
 func reportGroupHeaderRow(label string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -230,7 +213,7 @@ func reportGroupHeaderRow(label string) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 162, Col: 89}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 145, Col: 89}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -245,8 +228,7 @@ func reportGroupHeaderRow(label string) templ.Component {
 }
 
 // reportAccountRow is one indented account line with a right-aligned
-// drill-to-ledger money cell. Common to BS + IS — they diverge only in
-// how the drill URL is built, which the caller hands in.
+// drill-to-ledger money cell.
 func reportAccountRow(code, name, drillURL string, amount decimal.Decimal) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -275,7 +257,7 @@ func reportAccountRow(code, name, drillURL string, amount decimal.Decimal) templ
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(code)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 171, Col: 78}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 153, Col: 78}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
@@ -288,7 +270,7 @@ func reportAccountRow(code, name, drillURL string, amount decimal.Decimal) templ
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 172, Col: 30}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 154, Col: 30}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -310,9 +292,6 @@ func reportAccountRow(code, name, drillURL string, amount decimal.Decimal) templ
 	})
 }
 
-// reportGroupSubtotalRow is the subtotal row at the bottom of a detail
-// group. Shown only when the group has more than one line; a single-
-// line group's subtotal equals the line amount and is redundant.
 func reportGroupSubtotalRow(label string, subtotal decimal.Decimal) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -341,7 +320,7 @@ func reportGroupSubtotalRow(label string, subtotal decimal.Decimal) templ.Compon
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 184, Col: 89}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 163, Col: 89}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
@@ -354,7 +333,7 @@ func reportGroupSubtotalRow(label string, subtotal decimal.Decimal) templ.Compon
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(Money(subtotal))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 185, Col: 79}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 164, Col: 79}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
@@ -368,9 +347,6 @@ func reportGroupSubtotalRow(label string, subtotal decimal.Decimal) templ.Compon
 	})
 }
 
-// reportSectionTotalRow sits at the bottom of each top-level section.
-// Border above + background tint so it reads as the section's roll-up
-// without needing its own card wrapper.
 func reportSectionTotalRow(title string, total decimal.Decimal) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -399,7 +375,7 @@ func reportSectionTotalRow(title string, total decimal.Decimal) templ.Component 
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 194, Col: 88}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 170, Col: 88}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
@@ -412,7 +388,7 @@ func reportSectionTotalRow(title string, total decimal.Decimal) templ.Component 
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(Money(total))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 195, Col: 86}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 171, Col: 86}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -426,9 +402,6 @@ func reportSectionTotalRow(title string, total decimal.Decimal) templ.Component 
 	})
 }
 
-// reportSummaryRow is a standalone bold row with a running subtotal
-// that isn't wrapped in a section (Gross Profit, Net Income, Total
-// Liabilities + Equity). Keeps the hierarchy visible in one table.
 func reportSummaryRow(label string, amount decimal.Decimal) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -457,7 +430,7 @@ func reportSummaryRow(label string, amount decimal.Decimal) templ.Component {
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 204, Col: 82}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 177, Col: 82}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
@@ -470,7 +443,7 @@ func reportSummaryRow(label string, amount decimal.Decimal) templ.Component {
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(Money(amount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 205, Col: 87}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 178, Col: 87}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
@@ -484,9 +457,6 @@ func reportSummaryRow(label string, amount decimal.Decimal) templ.Component {
 	})
 }
 
-// reportSpacerRow is a half-height empty row between sections so the
-// continuous table still has breathing room. Fully transparent; does
-// not affect the borders of surrounding rows.
 func reportSpacerRow() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -516,11 +486,22 @@ func reportSpacerRow() templ.Component {
 	})
 }
 
-// ── Section renderers ───────────────────────────────────────────────────────
-
-// renderBSSection emits the rows for one Balance Sheet section.
-// `drillDates` is the (from, to) pair used to build per-row drill URLs.
-func renderBSSection(title string, root models.RootAccountType, lines []services.BalanceSheetLine, total decimal.Decimal, asOf time.Time) templ.Component {
+// renderAccountLinesSection is the canonical section renderer for any
+// "section → detail groups → account rows → subtotals → section total"
+// report with a single amount column. Subsumes the old
+// renderBSSection / renderISSection — BS + IS feed it their lines +
+// parallel detail slice via bsLinesToReportLines / isLinesToReportLines.
+//
+// Future reports with the same shape (Budget vs Actual, any "per-CoA
+// total" view) plug in with one adapter — no new templ code needed.
+func renderAccountLinesSection(
+	title string,
+	root models.RootAccountType,
+	lines []reportLine,
+	details []string,
+	total decimal.Decimal,
+	drillFrom, drillTo time.Time,
+) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -545,7 +526,7 @@ func renderBSSection(title string, root models.RootAccountType, lines []services
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		for _, g := range groupBSLines(root, lines) {
+		for _, g := range groupByDetail(root, lines, details) {
 			if len(g.Lines) > 1 {
 				templ_7745c5c3_Err = reportGroupHeaderRow(g.Label).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
@@ -553,7 +534,7 @@ func renderBSSection(title string, root models.RootAccountType, lines []services
 				}
 			}
 			for _, line := range g.Lines {
-				templ_7745c5c3_Err = reportAccountRow(line.Code, line.Name, services.AccountDrillURL(line.AccountID, time.Time{}, asOf), line.Amount).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = reportAccountRow(line.Code, line.Name, services.AccountDrillURL(line.AccountID, drillFrom, drillTo), line.Amount).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -581,8 +562,15 @@ func renderBSSection(title string, root models.RootAccountType, lines []services
 	})
 }
 
-// renderISSection emits the rows for one Income Statement section.
-func renderISSection(title string, root models.RootAccountType, lines []services.IncomeStatementLine, total decimal.Decimal, fromDate, toDate time.Time) templ.Component {
+// ── Multi-column row primitives (Trial Balance) ─────────────────────────────
+//
+// Trial Balance has Debit + Credit columns on every row. The section
+// header + group header span all 5 columns; the account row emits two
+// money cells; the section total emits two subtotal amounts.
+
+// tbAccountRow is the TB variant of reportAccountRow. Emits separate
+// Debit + Credit cells per the 5-column TB layout.
+func tbAccountRow(code, name, classification, drillURL string, debit, credit decimal.Decimal) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -603,44 +591,288 @@ func renderISSection(title string, root models.RootAccountType, lines []services
 			templ_7745c5c3_Var19 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = reportSectionHeaderRow(title).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<tr class=\"hover:bg-background\"><td class=\"py-1 pl-8 pr-4 font-mono text-small text-text-muted2 w-24\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		for _, g := range groupISLines(root, lines) {
-			if len(g.Lines) > 1 {
-				templ_7745c5c3_Err = reportGroupHeaderRow(g.Label).Render(ctx, templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			for _, line := range g.Lines {
-				templ_7745c5c3_Err = reportAccountRow(line.Code, line.Name, services.AccountDrillURL(line.AccountID, fromDate, toDate), line.Amount).Render(ctx, templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, " ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			if len(g.Lines) > 1 {
-				templ_7745c5c3_Err = reportGroupSubtotalRow(g.Label, g.Subtotal).Render(ctx, templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
+		var templ_7745c5c3_Var20 string
+		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(code)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 228, Col: 78}
 		}
-		templ_7745c5c3_Err = reportSectionTotalRow(title, total).Render(ctx, templ_7745c5c3_Buffer)
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = reportSpacerRow().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</td><td class=\"py-1 pr-4\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var21 string
+		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(name)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 229, Col: 30}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</td><td class=\"py-1 pr-4 text-text-muted2 text-small\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var22 string
+		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(classification)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 230, Col: 68}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</td><td class=\"py-1 pr-4 text-right tabular-nums w-36\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = RenderMoneyCellBlank(NewMoneyCell(debit, drillURL)).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</td><td class=\"py-1 pr-4 text-right tabular-nums w-36\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = RenderMoneyCellBlank(NewMoneyCell(credit, drillURL)).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</td></tr>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		return nil
 	})
+}
+
+// tbSectionHeaderRow spans the full 5-column TB layout.
+func tbSectionHeaderRow(title string) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var23 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var23 == nil {
+			templ_7745c5c3_Var23 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<tr class=\"bg-surface-tableHeader\"><td class=\"py-1.5 pl-2 pr-4 text-body font-semibold text-text\" colspan=\"5\"><span>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var24 string
+		templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(title)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 243, Col: 90}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</span></td></tr>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// tbSectionTotalRow has two money columns. Spans cols 1-3, then debit
+// total, then credit total.
+func tbSectionTotalRow(title string, debitTotal, creditTotal decimal.Decimal) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var25 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var25 == nil {
+			templ_7745c5c3_Var25 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<tr class=\"border-t border-border bg-surface-tableHeader/60\"><td class=\"py-1.5 pl-2 pr-4 text-body font-semibold text-text\" colspan=\"3\">Total ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var26 string
+		templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(title)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 251, Col: 90}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</td><td class=\"py-1.5 pr-4 text-right tabular-nums font-semibold text-text\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var27 string
+		templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(Money(debitTotal))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 252, Col: 93}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</td><td class=\"py-1.5 pr-4 text-right tabular-nums font-semibold text-text\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var28 string
+		templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(Money(creditTotal))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/report_tree.templ`, Line: 253, Col: 94}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</td></tr>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// tbSpacerRow: 5-column variant.
+func tbSpacerRow() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var29 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var29 == nil {
+			templ_7745c5c3_Var29 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<tr><td colspan=\"5\" class=\"py-1\"></td></tr>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// renderTBSection emits one root-type section of the Trial Balance.
+// Groups rows by detail type within the root, optional per-group
+// subtotal is skipped (TB convention is flat within a root — the
+// section total is what matters).
+func renderTBSection(
+	title string,
+	root models.RootAccountType,
+	rows []services.TrialBalanceRow,
+	drillFrom, drillTo time.Time,
+) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var30 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var30 == nil {
+			templ_7745c5c3_Var30 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = tbSectionHeaderRow(title).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		debitTotal, creditTotal := tbSectionTotals(rows, root)
+		for _, r := range rows {
+			if r.Root == string(root) {
+				templ_7745c5c3_Err = tbAccountRow(
+					r.Code,
+					r.Name,
+					r.Classification,
+					services.AccountDrillURL(r.AccountID, drillFrom, drillTo),
+					r.Debit,
+					r.Credit,
+				).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+		}
+		templ_7745c5c3_Err = tbSectionTotalRow(title, debitTotal, creditTotal).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = tbSpacerRow().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// tbSectionTotals sums Debit + Credit across a single root type.
+// Done at render time so the service layer doesn't need to re-shape
+// its return value; TB rows are already sorted by account code within
+// root, so this is a single pass.
+func tbSectionTotals(rows []services.TrialBalanceRow, root models.RootAccountType) (decimal.Decimal, decimal.Decimal) {
+	debit := decimal.Zero
+	credit := decimal.Zero
+	for _, r := range rows {
+		if r.Root == string(root) {
+			debit = debit.Add(r.Debit)
+			credit = credit.Add(r.Credit)
+		}
+	}
+	return debit, credit
 }
 
 var _ = templruntime.GeneratedTemplate

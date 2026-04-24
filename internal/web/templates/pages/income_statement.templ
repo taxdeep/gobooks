@@ -30,14 +30,19 @@ templ bodyIncomeStatement(vm IncomeStatementVM) {
 		// One unified table. Revenue + COGS sections build up to a
 		// Gross Profit summary row; Expenses section builds down to
 		// Net Income. Mirrors the QB Profit & Loss visual layout.
+		// Section renderer is shared with Balance Sheet via
+		// renderAccountLinesSection.
+		{{ revLines, revDetails := isLinesToReportLines(vm.Report.Revenue) }}
+		{{ cogsLines, cogsDetails := isLinesToReportLines(vm.Report.CostOfSales) }}
+		{{ expLines, expDetails := isLinesToReportLines(vm.Report.Expenses) }}
 		<div class="mt-4 rounded-lg border border-border bg-surface overflow-x-auto">
 			<table class="w-full text-left text-body">
 				<tbody class="text-text">
-					@renderISSection("Revenue", models.RootRevenue, vm.Report.Revenue, vm.Report.TotalRevenue, vm.Report.FromDate, vm.Report.ToDate)
-					@renderISSection("Cost of Sales", models.RootCostOfSales, vm.Report.CostOfSales, vm.Report.TotalCostOfSales, vm.Report.FromDate, vm.Report.ToDate)
+					@renderAccountLinesSection("Revenue", models.RootRevenue, revLines, revDetails, vm.Report.TotalRevenue, vm.Report.FromDate, vm.Report.ToDate)
+					@renderAccountLinesSection("Cost of Sales", models.RootCostOfSales, cogsLines, cogsDetails, vm.Report.TotalCostOfSales, vm.Report.FromDate, vm.Report.ToDate)
 					@reportSummaryRow("Gross Profit", vm.Report.GrossProfit)
 					@reportSpacerRow()
-					@renderISSection("Expenses", models.RootExpense, vm.Report.Expenses, vm.Report.TotalExpenses, vm.Report.FromDate, vm.Report.ToDate)
+					@renderAccountLinesSection("Expenses", models.RootExpense, expLines, expDetails, vm.Report.TotalExpenses, vm.Report.FromDate, vm.Report.ToDate)
 					@reportSummaryRow("Net Income", vm.Report.NetIncome)
 				</tbody>
 			</table>

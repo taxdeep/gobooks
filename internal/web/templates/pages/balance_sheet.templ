@@ -2,6 +2,8 @@
 package pages
 
 import (
+	"time"
+
 	"gobooks/internal/models"
 	"gobooks/internal/web/templates/layout"
 	"gobooks/internal/web/templates/ui"
@@ -28,16 +30,19 @@ templ bodyBalanceSheet(vm BalanceSheetVM) {
 		@ReportToolbar(vm.Toolbar)
 
 		// One unified table holds the whole Balance Sheet. Each section
-		// (Assets / Liabilities / Equity) is a group of rows —
-		// reportSectionHeaderRow + per-detail-type sub-groups +
-		// reportSectionTotalRow — instead of a separate card. Keeps the
-		// account columns aligned across sections (the QB-style feel).
+		// is a group of rows — section header + per-detail-type sub-groups
+		// + section total — instead of a separate card. Keeps columns
+		// aligned across sections (the QB-style feel). Section renderer
+		// is shared with Income Statement via renderAccountLinesSection.
+		{{ assetLines, assetDetails := bsLinesToReportLines(vm.Report.Assets) }}
+		{{ liabLines, liabDetails := bsLinesToReportLines(vm.Report.Liabilities) }}
+		{{ equityLines, equityDetails := bsLinesToReportLines(vm.Report.Equity) }}
 		<div class="mt-4 rounded-lg border border-border bg-surface overflow-x-auto">
 			<table class="w-full text-left text-body">
 				<tbody class="text-text">
-					@renderBSSection("Assets", models.RootAsset, vm.Report.Assets, vm.Report.TotalAssets, vm.AsOfTime)
-					@renderBSSection("Liabilities", models.RootLiability, vm.Report.Liabilities, vm.Report.TotalLiabilities, vm.AsOfTime)
-					@renderBSSection("Equity", models.RootEquity, vm.Report.Equity, vm.Report.TotalEquity, vm.AsOfTime)
+					@renderAccountLinesSection("Assets", models.RootAsset, assetLines, assetDetails, vm.Report.TotalAssets, time.Time{}, vm.AsOfTime)
+					@renderAccountLinesSection("Liabilities", models.RootLiability, liabLines, liabDetails, vm.Report.TotalLiabilities, time.Time{}, vm.AsOfTime)
+					@renderAccountLinesSection("Equity", models.RootEquity, equityLines, equityDetails, vm.Report.TotalEquity, time.Time{}, vm.AsOfTime)
 					@reportSummaryRow("Total Liabilities + Equity", vm.Report.TotalLiabilities.Add(vm.Report.TotalEquity))
 				</tbody>
 			</table>

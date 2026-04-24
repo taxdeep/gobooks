@@ -101,15 +101,18 @@ func bodyIncomeStatement(vm IncomeStatementVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
+		revLines, revDetails := isLinesToReportLines(vm.Report.Revenue)
+		cogsLines, cogsDetails := isLinesToReportLines(vm.Report.CostOfSales)
+		expLines, expDetails := isLinesToReportLines(vm.Report.Expenses)
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"mt-4 rounded-lg border border-border bg-surface overflow-x-auto\"><table class=\"w-full text-left text-body\"><tbody class=\"text-text\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = renderISSection("Revenue", models.RootRevenue, vm.Report.Revenue, vm.Report.TotalRevenue, vm.Report.FromDate, vm.Report.ToDate).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = renderAccountLinesSection("Revenue", models.RootRevenue, revLines, revDetails, vm.Report.TotalRevenue, vm.Report.FromDate, vm.Report.ToDate).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = renderISSection("Cost of Sales", models.RootCostOfSales, vm.Report.CostOfSales, vm.Report.TotalCostOfSales, vm.Report.FromDate, vm.Report.ToDate).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = renderAccountLinesSection("Cost of Sales", models.RootCostOfSales, cogsLines, cogsDetails, vm.Report.TotalCostOfSales, vm.Report.FromDate, vm.Report.ToDate).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -121,7 +124,7 @@ func bodyIncomeStatement(vm IncomeStatementVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = renderISSection("Expenses", models.RootExpense, vm.Report.Expenses, vm.Report.TotalExpenses, vm.Report.FromDate, vm.Report.ToDate).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = renderAccountLinesSection("Expenses", models.RootExpense, expLines, expDetails, vm.Report.TotalExpenses, vm.Report.FromDate, vm.Report.ToDate).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

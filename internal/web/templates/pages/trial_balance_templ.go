@@ -11,7 +11,7 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"gobooks/internal/services"
+	"gobooks/internal/models"
 	"gobooks/internal/web/templates/layout"
 	"gobooks/internal/web/templates/ui"
 )
@@ -101,99 +101,61 @@ func bodyTrialBalance(vm TrialBalanceVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"mt-4 rounded-lg border border-border bg-surface p-4\"><div class=\"overflow-x-auto\"><table class=\"w-full text-left text-body\"><thead class=\"text-small uppercase tracking-wider text-text-muted\"><tr class=\"border-b border-border-subtle\"><th class=\"py-1.5 pr-4\">Code</th><th class=\"py-1.5 pr-4\">Name</th><th class=\"py-1.5 pr-4\">Classification</th><th class=\"py-1.5 pr-4 text-right\">Debit</th><th class=\"py-1.5 pr-0 text-right\">Credit</th></tr></thead> <tbody class=\"text-text\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"mt-4 rounded-lg border border-border bg-surface overflow-x-auto\"><table class=\"w-full text-left text-body\"><thead class=\"text-small uppercase tracking-wider text-text-muted\"><tr class=\"border-b border-border-subtle\"><th class=\"py-1.5 pl-4 pr-4 w-24\">Code</th><th class=\"py-1.5 pr-4\">Name</th><th class=\"py-1.5 pr-4\">Classification</th><th class=\"py-1.5 pr-4 text-right w-36\">Debit</th><th class=\"py-1.5 pr-4 text-right w-36\">Credit</th></tr></thead> <tbody class=\"text-text\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		for _, r := range vm.Rows {
-			drillURL := services.AccountDrillURL(r.AccountID, vm.FromTime, vm.ToTime)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<tr class=\"border-b border-border-subtle/60 hover:bg-background\"><td class=\"py-1.5 pr-4 font-mono text-small\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var4 string
-			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(r.Code)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/trial_balance.templ`, Line: 46, Col: 61}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</td><td class=\"py-1.5 pr-4\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var5 string
-			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(r.Name)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/trial_balance.templ`, Line: 47, Col: 40}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</td><td class=\"py-1.5 pr-4 text-text-muted2\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var6 string
-			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(r.Classification)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/trial_balance.templ`, Line: 48, Col: 67}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</td><td class=\"py-1.5 pr-4 text-right tabular-nums\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = RenderMoneyCellBlank(NewMoneyCell(r.Debit, drillURL)).Render(ctx, templ_7745c5c3_Buffer)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</td><td class=\"py-1.5 pr-0 text-right tabular-nums\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = RenderMoneyCellBlank(NewMoneyCell(r.Credit, drillURL)).Render(ctx, templ_7745c5c3_Buffer)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</td></tr>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</tbody><tfoot class=\"text-text\"><tr class=\"border-t border-border\"><td class=\"py-2 pr-4 font-semibold\" colspan=\"3\">Totals</td><td class=\"py-2 pr-4 text-right font-semibold tabular-nums\">")
+		templ_7745c5c3_Err = renderTBSection("Assets", models.RootAsset, vm.Rows, vm.FromTime, vm.ToTime).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var7 string
-		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(vm.TotalDebits)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/trial_balance.templ`, Line: 61, Col: 83}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+		templ_7745c5c3_Err = renderTBSection("Liabilities", models.RootLiability, vm.Rows, vm.FromTime, vm.ToTime).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</td><td class=\"py-2 pr-0 text-right font-semibold tabular-nums\">")
+		templ_7745c5c3_Err = renderTBSection("Equity", models.RootEquity, vm.Rows, vm.FromTime, vm.ToTime).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var8 string
-		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(vm.TotalCredits)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/trial_balance.templ`, Line: 62, Col: 84}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
+		templ_7745c5c3_Err = renderTBSection("Revenue", models.RootRevenue, vm.Rows, vm.FromTime, vm.ToTime).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</td></tr></tfoot></table></div></div></div>")
+		templ_7745c5c3_Err = renderTBSection("Cost of Sales", models.RootCostOfSales, vm.Rows, vm.FromTime, vm.ToTime).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = renderTBSection("Expenses", models.RootExpense, vm.Rows, vm.FromTime, vm.ToTime).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</tbody><tfoot class=\"text-text\"><tr class=\"border-t border-border bg-surface-tableHeader\"><td class=\"py-2 pl-4 pr-4 font-semibold\" colspan=\"3\">Grand Totals</td><td class=\"py-2 pr-4 text-right font-semibold tabular-nums\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var4 string
+		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(vm.TotalDebits)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/trial_balance.templ`, Line: 57, Col: 82}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</td><td class=\"py-2 pr-4 text-right font-semibold tabular-nums\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var5 string
+		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(vm.TotalCredits)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/trial_balance.templ`, Line: 58, Col: 83}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</td></tr></tfoot></table></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

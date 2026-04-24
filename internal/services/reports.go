@@ -156,8 +156,14 @@ type TrialBalanceRow struct {
 	Code           string
 	Name           string
 	Classification string
-	Debit          decimal.Decimal
-	Credit         decimal.Decimal
+	// Root + Detail are the raw classification strings (not the
+	// human-readable Classification composed label). Surfaced so the
+	// templ layer can group rows into root-type sections without
+	// re-parsing the display label.
+	Root   string
+	Detail string
+	Debit  decimal.Decimal
+	Credit decimal.Decimal
 }
 
 // TrialBalance returns balances per account for a date range (inclusive).
@@ -188,6 +194,8 @@ func TrialBalance(db *gorm.DB, companyID uint, fromDate, toDate time.Time) ([]Tr
 			Code:           r.Code,
 			Name:           r.Name,
 			Classification: label,
+			Root:           string(r.Root),
+			Detail:         string(r.Detail),
 			Debit:          decimal.Zero,
 			Credit:         decimal.Zero,
 		}

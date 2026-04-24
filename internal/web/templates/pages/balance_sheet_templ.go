@@ -11,6 +11,8 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"time"
+
 	"gobooks/internal/models"
 	"gobooks/internal/web/templates/layout"
 	"gobooks/internal/web/templates/ui"
@@ -86,7 +88,7 @@ func bodyBalanceSheet(vm BalanceSheetVM) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(vm.FormError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/balance_sheet.templ`, Line: 24, Col: 18}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/balance_sheet.templ`, Line: 26, Col: 18}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -101,19 +103,22 @@ func bodyBalanceSheet(vm BalanceSheetVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
+		assetLines, assetDetails := bsLinesToReportLines(vm.Report.Assets)
+		liabLines, liabDetails := bsLinesToReportLines(vm.Report.Liabilities)
+		equityLines, equityDetails := bsLinesToReportLines(vm.Report.Equity)
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"mt-4 rounded-lg border border-border bg-surface overflow-x-auto\"><table class=\"w-full text-left text-body\"><tbody class=\"text-text\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = renderBSSection("Assets", models.RootAsset, vm.Report.Assets, vm.Report.TotalAssets, vm.AsOfTime).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = renderAccountLinesSection("Assets", models.RootAsset, assetLines, assetDetails, vm.Report.TotalAssets, time.Time{}, vm.AsOfTime).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = renderBSSection("Liabilities", models.RootLiability, vm.Report.Liabilities, vm.Report.TotalLiabilities, vm.AsOfTime).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = renderAccountLinesSection("Liabilities", models.RootLiability, liabLines, liabDetails, vm.Report.TotalLiabilities, time.Time{}, vm.AsOfTime).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = renderBSSection("Equity", models.RootEquity, vm.Report.Equity, vm.Report.TotalEquity, vm.AsOfTime).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = renderAccountLinesSection("Equity", models.RootEquity, equityLines, equityDetails, vm.Report.TotalEquity, time.Time{}, vm.AsOfTime).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
