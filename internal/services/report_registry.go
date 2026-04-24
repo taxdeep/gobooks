@@ -7,11 +7,13 @@ package services
 type ReportCategory string
 
 const (
-	ReportCategoryFinancials       ReportCategory = "financials"
-	ReportCategoryWhoOwesYou       ReportCategory = "who_owes_you"
-	ReportCategoryWhatYouOwe       ReportCategory = "what_you_owe"
-	ReportCategorySalesTax         ReportCategory = "sales_tax"
-	ReportCategoryAccountantTools  ReportCategory = "accountant_tools"
+	ReportCategoryFinancials      ReportCategory = "financials"
+	ReportCategorySales           ReportCategory = "sales"
+	ReportCategoryExpenses        ReportCategory = "expenses"
+	ReportCategoryWhoOwesYou      ReportCategory = "who_owes_you"
+	ReportCategoryWhatYouOwe      ReportCategory = "what_you_owe"
+	ReportCategorySalesTax        ReportCategory = "sales_tax"
+	ReportCategoryAccountantTools ReportCategory = "accountant_tools"
 )
 
 // ReportCategoryLabel + ReportCategoryDescription drive the section
@@ -21,6 +23,10 @@ func ReportCategoryLabel(c ReportCategory) string {
 	switch c {
 	case ReportCategoryFinancials:
 		return "Financial Statements"
+	case ReportCategorySales:
+		return "Sales"
+	case ReportCategoryExpenses:
+		return "Expenses"
 	case ReportCategoryWhoOwesYou:
 		return "Who owes you"
 	case ReportCategoryWhatYouOwe:
@@ -37,6 +43,10 @@ func ReportCategoryDescription(c ReportCategory) string {
 	switch c {
 	case ReportCategoryFinancials:
 		return "The core statements that summarise your financial position and performance."
+	case ReportCategorySales:
+		return "Where your revenue comes from — sales activity broken down by customer."
+	case ReportCategoryExpenses:
+		return "Where your money goes — expense activity broken down by vendor."
 	case ReportCategoryWhoOwesYou:
 		return "Money your customers owe you — outstanding receivables and aging."
 	case ReportCategoryWhatYouOwe:
@@ -99,6 +109,24 @@ func AllReports() []ReportEntry {
 			Desc:     "Where your cash actually moved this period — opening, inflows, outflows, closing — grouped by source.",
 			Href:     "/reports/cash-flow",
 			Category: ReportCategoryFinancials,
+		},
+
+		// ── Sales ────────────────────────────────────────────────────
+		{
+			Key:      "sales-by-customer",
+			Title:    "Sales by Customer",
+			Desc:     "Posted invoices grouped by customer, sorted by total revenue. Click a customer to drill into their full activity.",
+			Href:     "/reports/sales-by-customer",
+			Category: ReportCategorySales,
+		},
+
+		// ── Expenses ─────────────────────────────────────────────────
+		{
+			Key:      "expense-by-vendor",
+			Title:    "Expense by Vendor",
+			Desc:     "Posted bills + expenses grouped by vendor, sorted by total spend. Click a vendor to drill into their full activity.",
+			Href:     "/reports/expense-by-vendor",
+			Category: ReportCategoryExpenses,
 		},
 
 		// ── Who owes you ─────────────────────────────────────────────

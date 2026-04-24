@@ -1,0 +1,113 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"gobooks/internal/services"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+// CounterpartySummaryVM powers both Sales by Customer + Expense by
+// Vendor. The shape is identical (counterparty + count + total +
+// average); only the URL prefix and column header text differ. The
+// templ takes those as VM fields so one component covers both
+// reports without code duplication.
+type CounterpartySummaryVM struct {
+	HasCompany bool
+	From       string
+	To         string
+	ActiveTab  string
+	Report     *services.CounterpartySummaryReport
+	FormError  string
+	Toolbar    ReportToolbarVM
+
+	// PageTitle + ColumnLabel + DrillURLPrefix differ per concrete
+	// report. Sales by Customer uses ("Customer", "/customers/");
+	// Expense by Vendor uses ("Vendor", "/vendors/").
+	PageTitle      string
+	ColumnLabel    string
+	DrillURLPrefix string
+	// EmptyHint is shown when there are zero rows. Per-report so the
+	// hint can suggest concrete next actions ("Send your first
+	// invoice…" vs "Record your first bill…").
+	EmptyHint string
+}
+
+templ CounterpartySummary(vm CounterpartySummaryVM) {
+	@layout.Layout(
+		"GoBooks - "+vm.PageTitle,
+		ui.SidebarVM{Active: "Reports", HasCompany: vm.HasCompany},
+		bodyCounterpartySummary(vm),
+	)
+}
+
+templ bodyCounterpartySummary(vm CounterpartySummaryVM) {
+	<div class="max-w-[95%]">
+		<div class="report-nav-area">
+			<h1 class="text-title font-semibold">Reports</h1>
+			<p class="mt-2 text-text-muted2">{ vm.PageTitle }</p>
+			@ReportsNav(vm.ActiveTab)
+		</div>
+
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">
+				{ vm.FormError }
+			</div>
+		}
+
+		@ReportToolbar(vm.Toolbar)
+
+		if vm.Report != nil {
+			<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+				if len(vm.Report.Rows) == 0 {
+					<p class="text-body text-text-muted2">{ vm.EmptyHint }</p>
+				} else {
+					<div class="flex flex-wrap items-center justify-between gap-3">
+						<h2 class="text-section font-semibold text-text">By { vm.ColumnLabel }</h2>
+						<div class="text-small text-text-muted2">
+							{ Itoa(vm.Report.GrandCount) } documents · grand total <span class="font-semibold text-text" data-numfmt>{ Money(vm.Report.GrandTotal) }</span>
+						</div>
+					</div>
+
+					<div class="mt-4 overflow-x-auto">
+						<table class="w-full text-left text-body">
+							<thead class="text-small uppercase tracking-wider text-text-muted">
+								<tr class="border-b border-border">
+									<th class="py-3 pr-4">{ vm.ColumnLabel }</th>
+									<th class="py-3 pr-4 text-right"># Documents</th>
+									<th class="py-3 pr-4 text-right">Average</th>
+									<th class="py-3 pr-0 text-right">Total</th>
+								</tr>
+							</thead>
+							<tbody class="text-text">
+								for _, row := range vm.Report.Rows {
+									{{ drillURL := vm.DrillURLPrefix + Uitoa(row.CounterpartyID) }}
+									<tr class="border-b border-border-subtle">
+										<td class="py-3 pr-4 font-medium">
+											if row.CounterpartyID != 0 {
+												<a href={ templ.SafeURL(drillURL) } class="text-primary hover:underline">{ row.CounterpartyName }</a>
+											} else {
+												<span class="text-text-muted3">(unspecified)</span>
+											}
+										</td>
+										<td class="py-3 pr-4 text-right tabular-nums">{ Itoa(row.DocumentCount) }</td>
+										<td class="py-3 pr-4 text-right tabular-nums" data-numfmt>{ Money(row.AverageAmount) }</td>
+										<td class="py-3 pr-0 text-right tabular-nums font-semibold" data-numfmt>{ Money(row.TotalAmount) }</td>
+									</tr>
+								}
+							</tbody>
+							<tfoot class="text-text">
+								<tr class="border-t border-border">
+									<td class="py-3 pr-4 font-semibold">Totals</td>
+									<td class="py-3 pr-4 text-right font-semibold tabular-nums">{ Itoa(vm.Report.GrandCount) }</td>
+									<td class="py-3 pr-4"></td>
+									<td class="py-3 pr-0 text-right font-semibold tabular-nums" data-numfmt>{ Money(vm.Report.GrandTotal) }</td>
+								</tr>
+							</tfoot>
+						</table>
+					</div>
+				}
+			</div>
+		}
+	</div>
+}

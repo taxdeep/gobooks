@@ -517,6 +517,8 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Get("/reports/journal-entries", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleJournalEntryReport)
 	app.Get("/reports/general-ledger", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleGeneralLedger)
 	app.Get("/reports/cash-flow", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleCashFlow)
+	app.Get("/reports/sales-by-customer", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleSalesByCustomer)
+	app.Get("/reports/expense-by-vendor", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleExpenseByVendor)
 	app.Get("/reports/sales-tax", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleSalesTaxReport)
 	app.Get("/reports/account-transactions", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleAccountTransactions)
 	app.Get("/reports/clearing", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleClearingReport)

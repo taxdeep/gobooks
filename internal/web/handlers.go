@@ -191,6 +191,95 @@ func collectFavouriteEntries(favs map[string]bool) []pages.ReportsHubItemVM {
 	return out
 }
 
+// handleSalesByCustomer renders the Sales-by-Customer summary —
+// posted invoices grouped by customer with count + total + average.
+// Click a customer name to drill into /customers/:id workspace.
+func (s *Server) handleSalesByCustomer(c *fiber.Ctx) error {
+	return s.handleCounterpartySummary(c, counterpartySummaryConfig{
+		ReportTitle:    "Sales by Customer",
+		FormAction:     "/reports/sales-by-customer",
+		ActiveTab:      "sales_by_customer",
+		ColumnLabel:    "Customer",
+		DrillURLPrefix: "/customers/",
+		EmptyHint:      "No invoices in this period.",
+		Build:          services.BuildSalesByCustomerReport,
+	})
+}
+
+// handleExpenseByVendor renders the Expense-by-Vendor summary —
+// posted bills + expenses grouped by vendor with count + total +
+// average. Click a vendor name to drill into /vendors/:id workspace.
+func (s *Server) handleExpenseByVendor(c *fiber.Ctx) error {
+	return s.handleCounterpartySummary(c, counterpartySummaryConfig{
+		ReportTitle:    "Expense by Vendor",
+		FormAction:     "/reports/expense-by-vendor",
+		ActiveTab:      "expense_by_vendor",
+		ColumnLabel:    "Vendor",
+		DrillURLPrefix: "/vendors/",
+		EmptyHint:      "No bills or expenses in this period.",
+		Build:          services.BuildExpenseByVendorReport,
+	})
+}
+
+// counterpartySummaryConfig parameterises handleCounterpartySummary
+// so Sales-by-Customer + Expense-by-Vendor share the boilerplate
+// (toolbar wiring, date parsing, error rendering, VM construction).
+type counterpartySummaryConfig struct {
+	ReportTitle    string
+	FormAction     string
+	ActiveTab      string
+	ColumnLabel    string
+	DrillURLPrefix string
+	EmptyHint      string
+	Build          func(db *gorm.DB, companyID uint, fromDate, toDate time.Time) (*services.CounterpartySummaryReport, error)
+}
+
+func (s *Server) handleCounterpartySummary(c *fiber.Ctx, cfg counterpartySummaryConfig) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/select-company", fiber.StatusSeeOther)
+	}
+
+	co := s.loadReportCompanyInfo(companyID)
+	preset, fromStr, toStr := resolvePeriodDates(
+		c.Query("period"), c.Query("from"), c.Query("to"), co.FiscalYearEnd)
+	fromDate, toDate, fromStr, toStr, errMsg := parseReportRange(fromStr, toStr)
+
+	toolbar := pages.ReportToolbarVM{
+		Preset: preset, From: fromStr, To: toStr,
+		FiscalYearEnd: co.FiscalYearEnd,
+		CompanyName:   co.Name,
+		ReportTitle:   cfg.ReportTitle,
+		FormAction:    cfg.FormAction,
+		Mode:          "period",
+	}
+
+	baseVM := pages.CounterpartySummaryVM{
+		HasCompany:     true,
+		From:           fromStr,
+		To:             toStr,
+		ActiveTab:      cfg.ActiveTab,
+		Toolbar:        toolbar,
+		PageTitle:      cfg.ReportTitle,
+		ColumnLabel:    cfg.ColumnLabel,
+		DrillURLPrefix: cfg.DrillURLPrefix,
+		EmptyHint:      cfg.EmptyHint,
+	}
+
+	if errMsg != "" {
+		baseVM.FormError = errMsg
+		return pages.CounterpartySummary(baseVM).Render(c.Context(), c)
+	}
+
+	report, err := cfg.Build(s.DB, companyID, fromDate, toDate)
+	if err != nil {
+		baseVM.FormError = "Could not build " + cfg.ReportTitle + "."
+		return pages.CounterpartySummary(baseVM).Render(c.Context(), c)
+	}
+	baseVM.Report = report
+	return pages.CounterpartySummary(baseVM).Render(c.Context(), c)
+}
+
 // handleCashFlow renders the Cash Flow Summary report — actual cash
 // account movements grouped by source. Not a GAAP indirect-method
 // statement of cash flows; the operator-friendly "where did my cash
