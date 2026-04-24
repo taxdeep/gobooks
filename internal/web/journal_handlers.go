@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -480,6 +481,19 @@ func (s *Server) handleJournalEntryList(c *fiber.Ctx) error {
 		formError = "Could not reverse this journal entry."
 	}
 
+	filterQ := strings.TrimSpace(c.Query("q"))
+	filterAccountRaw := strings.TrimSpace(c.Query("account_id"))
+	filterFromStr := strings.TrimSpace(c.Query("from"))
+	filterToStr := strings.TrimSpace(c.Query("to"))
+
+	var filterAccountID uint
+	if filterAccountRaw != "" {
+		if id, err := strconv.ParseUint(filterAccountRaw, 10, 64); err == nil {
+			filterAccountID = uint(id)
+		}
+	}
+	dateFrom, dateTo := parseListDateRange(filterFromStr, filterToStr)
+
 	var company models.Company
 	if err := s.DB.Select("id", "base_currency_code").First(&company, companyID).Error; err != nil {
 		return pages.JournalEntryListPage(pages.JournalEntryListVM{
@@ -490,8 +504,39 @@ func (s *Server) handleJournalEntryList(c *fiber.Ctx) error {
 		}).Render(c.Context(), c)
 	}
 
+	// Build query with optional filters. Account + memo filters use IN-
+	// subqueries instead of JOIN+DISTINCT — Postgres planner turns them
+	// into semi-joins and we keep one row per JE without DISTINCT noise.
+	listQuery := s.DB.Preload("Lines").Where("company_id = ?", companyID)
+	if dateFrom != nil {
+		listQuery = listQuery.Where("entry_date >= ?", *dateFrom)
+	}
+	if dateTo != nil {
+		listQuery = listQuery.Where("entry_date <= ?", *dateTo)
+	}
+	if filterAccountID != 0 {
+		listQuery = listQuery.Where(
+			"id IN (?)",
+			s.DB.Model(&models.JournalLine{}).
+				Select("journal_entry_id").
+				Where("company_id = ? AND account_id = ?", companyID, filterAccountID),
+		)
+	}
+	if filterQ != "" {
+		like := "%" + strings.ToLower(filterQ) + "%"
+		// Match journal_no OR any line memo. The line subquery is the same
+		// shape as the account filter so the predicate stays index-friendly.
+		listQuery = listQuery.Where(
+			"LOWER(journal_no) LIKE ? OR id IN (?)",
+			like,
+			s.DB.Model(&models.JournalLine{}).
+				Select("journal_entry_id").
+				Where("company_id = ? AND LOWER(memo) LIKE ?", companyID, like),
+		)
+	}
+
 	var entries []models.JournalEntry
-	if err := s.DB.Preload("Lines").Where("company_id = ?", companyID).Order("entry_date desc, id desc").Limit(200).Find(&entries).Error; err != nil {
+	if err := listQuery.Order("entry_date desc, id desc").Limit(200).Find(&entries).Error; err != nil {
 		return pages.JournalEntryListPage(pages.JournalEntryListVM{
 			HasCompany: true,
 			Active:     "Journal Entry",
@@ -550,12 +595,31 @@ func (s *Server) handleJournalEntryList(c *fiber.Ctx) error {
 		})
 	}
 
+	// Resolve the filtered account's display label for SmartPicker echo.
+	// Format mirrors the JE editor's account picker: "Name (Code)".
+	accountLabel := ""
+	if filterAccountID != 0 {
+		var acct models.Account
+		if err := s.DB.Select("name", "code").Where("id = ? AND company_id = ?", filterAccountID, companyID).First(&acct).Error; err == nil {
+			if acct.Code != "" {
+				accountLabel = acct.Name + " (" + acct.Code + ")"
+			} else {
+				accountLabel = acct.Name
+			}
+		}
+	}
+
 	return pages.JournalEntryListPage(pages.JournalEntryListVM{
-		HasCompany: true,
-		Active:     "Journal Entry",
-		Items:      items,
-		FormError:  formError,
-		Reversed:   c.Query("reversed") == "1",
+		HasCompany:         true,
+		Active:             "Journal Entry",
+		Items:              items,
+		FormError:          formError,
+		Reversed:           c.Query("reversed") == "1",
+		FilterQ:            filterQ,
+		FilterAccount:      filterAccountRaw,
+		FilterAccountLabel: accountLabel,
+		FilterDateFrom:     filterFromStr,
+		FilterDateTo:       filterToStr,
 	}).Render(c.Context(), c)
 }
 

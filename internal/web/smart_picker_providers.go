@@ -122,23 +122,48 @@ func applySmartPickerTextSearch(db *gorm.DB, dialect string, query string, field
 
 // ── ExpenseAccountProvider ───────────────────────────────────────────────────
 
-// ExpenseAccountProvider handles entity="account", context="expense_form_category".
-// It returns active expense-type accounts scoped to the authenticated company.
+// ExpenseAccountProvider handles entity="account". It used to be a single-
+// context provider (expense_form_category, returning only RootExpense
+// accounts), but contexts now select between scope policies:
+//
+//   - "" / "expense_form_category" → expense-root only (legacy default; the
+//     empty-context fallback preserves backward compat with callers that
+//     forgot to set Context)
+//   - "journal_entry_account" → ALL active accounts in the company, ordered
+//     by code. Used by the JE list page's "filter by account" picker so
+//     accountants can answer "which JEs touched account X?"
+//
+// The type name still says "Expense" for source-history compat — adding a
+// new Provider type would require touching the registry (one entity →
+// one provider) and every downstream test. Renaming on its own is a
+// trivial follow-up if the broader account-picker use case grows.
 type ExpenseAccountProvider struct{}
 
 func (p *ExpenseAccountProvider) EntityType() string { return "account" }
 
+// scopedQuery returns a base GORM query narrowed to the right account
+// subset for the calling context. Keeping the scope policy in one place
+// means Search + GetByID can never disagree about what "an account in
+// this context" means.
+func (p *ExpenseAccountProvider) scopedQuery(db *gorm.DB, ctx SmartPickerContext) *gorm.DB {
+	switch ctx.Context {
+	case "journal_entry_account":
+		return db.Where("company_id = ? AND is_active = true", ctx.CompanyID)
+	default: // "" or "expense_form_category" → legacy expense-only behaviour
+		return db.Where("company_id = ? AND root_account_type = ? AND is_active = true",
+			ctx.CompanyID, models.RootExpense)
+	}
+}
+
 func (p *ExpenseAccountProvider) Search(db *gorm.DB, ctx SmartPickerContext, query string) (*SmartPickerResult, error) {
 	var accounts []models.Account
-	q := db.
-		Where("company_id = ? AND root_account_type = ? AND is_active = true",
-			ctx.CompanyID, models.RootExpense).
+	q := p.scopedQuery(db, ctx).
 		Order("code ASC").
 		Limit(smartPickerLimit(ctx))
 	q = applySmartPickerTextSearch(q, db.Dialector.Name(), query, "name", "code")
 
 	if err := q.Find(&accounts).Error; err != nil {
-		return nil, fmt.Errorf("expense account search: %w", err)
+		return nil, fmt.Errorf("account search: %w", err)
 	}
 
 	items := make([]SmartPickerItem, 0, len(accounts))
@@ -157,15 +182,14 @@ func (p *ExpenseAccountProvider) Search(db *gorm.DB, ctx SmartPickerContext, que
 
 func (p *ExpenseAccountProvider) GetByID(db *gorm.DB, ctx SmartPickerContext, id string) (*SmartPickerItem, error) {
 	var account models.Account
-	err := db.
-		Where("id = ? AND company_id = ? AND root_account_type = ? AND is_active = true",
-			id, ctx.CompanyID, models.RootExpense).
+	err := p.scopedQuery(db, ctx).
+		Where("id = ?", id).
 		First(&account).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("expense account get by id: %w", err)
+		return nil, fmt.Errorf("account get by id: %w", err)
 	}
 	return &SmartPickerItem{
 		ID:        fmt.Sprintf("%d", account.ID),

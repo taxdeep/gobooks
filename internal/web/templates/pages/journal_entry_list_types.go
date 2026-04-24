@@ -20,4 +20,12 @@ type JournalEntryListVM struct {
 	Items      []JournalEntryListItem
 	FormError  string
 	Reversed   bool
+
+	// Filter state — echoed back into the filter bar so the URL fully
+	// describes the result set.
+	FilterQ            string // substring match against journal_no + line memos
+	FilterAccount      string // raw account_id query param ("" = no filter)
+	FilterAccountLabel string // resolved account "Name (Code)" for SmartPicker echo display
+	FilterDateFrom     string // YYYY-MM-DD
+	FilterDateTo       string // YYYY-MM-DD
 }
