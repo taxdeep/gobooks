@@ -62,8 +62,11 @@ templ bodyAPAging(vm APAgingVM) {
 							</tr>
 						}
 						for _, line := range vm.Report.Lines {
+							{{ vendURL := "/vendors/" + Uitoa(line.Vendor.ID) }}
 							<tr class="hover:bg-background">
-								<td class="px-4 py-3 font-medium text-text">{ line.Vendor.Name }</td>
+								<td class="px-4 py-3 font-medium text-text">
+									<a href={ templ.SafeURL(vendURL) } class="text-primary hover:underline">{ line.Vendor.Name }</a>
+								</td>
 								<td class="px-4 py-3 text-right tabular-nums text-text">
 									if line.Current.IsPositive() {
 										<span data-numfmt>{ line.Current.StringFixed(2) }</span>
@@ -90,7 +93,7 @@ templ bodyAPAging(vm APAgingVM) {
 									}
 								</td>
 								<td class="px-4 py-3 text-right tabular-nums font-semibold text-text">
-									<span data-numfmt>{ line.Total.StringFixed(2) }</span>
+									<a href={ templ.SafeURL(vendURL) } class="text-primary hover:underline" data-numfmt>{ line.Total.StringFixed(2) }</a>
 								</td>
 							</tr>
 						}

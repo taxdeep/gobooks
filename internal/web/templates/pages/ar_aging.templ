@@ -59,14 +59,19 @@ templ bodyARAging(vm ARAgingVM) {
 						</thead>
 						<tbody class="text-text">
 							for _, row := range vm.Report.Rows {
+								{{ custURL := "/customers/" + Uitoa(row.CustomerID) }}
 								<tr class="border-b border-border-subtle">
-									<td class="py-3 pr-4 font-medium">{ row.CustomerName }</td>
+									<td class="py-3 pr-4 font-medium">
+										<a href={ templ.SafeURL(custURL) } class="text-primary hover:underline">{ row.CustomerName }</a>
+									</td>
 									<td class="py-3 pr-4 text-right tabular-nums">{ Money(row.Current) }</td>
 									<td class="py-3 pr-4 text-right tabular-nums">{ Money(row.Days1To30) }</td>
 									<td class="py-3 pr-4 text-right tabular-nums">{ Money(row.Days31To60) }</td>
 									<td class="py-3 pr-4 text-right tabular-nums">{ Money(row.Days61To90) }</td>
 									<td class="py-3 pr-4 text-right tabular-nums">{ Money(row.Days91Plus) }</td>
-									<td class="py-3 pr-4 text-right tabular-nums font-semibold">{ Money(row.Total) }</td>
+									<td class="py-3 pr-4 text-right tabular-nums font-semibold">
+										<a href={ templ.SafeURL(custURL) } class="text-primary hover:underline" data-numfmt>{ Money(row.Total) }</a>
+									</td>
 									<td class="py-3 pr-0"></td>
 								</tr>
 								for _, d := range row.DetailRows {
