@@ -191,6 +191,64 @@ func collectFavouriteEntries(favs map[string]bool) []pages.ReportsHubItemVM {
 	return out
 }
 
+// handleCashFlow renders the Cash Flow Summary report — actual cash
+// account movements grouped by source. Not a GAAP indirect-method
+// statement of cash flows; the operator-friendly "where did my cash
+// move" view that's more useful for small business decisions.
+func (s *Server) handleCashFlow(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/select-company", fiber.StatusSeeOther)
+	}
+
+	co := s.loadReportCompanyInfo(companyID)
+	preset, fromStr, toStr := resolvePeriodDates(
+		c.Query("period"), c.Query("from"), c.Query("to"), co.FiscalYearEnd)
+
+	fromDate, toDate, fromStr, toStr, errMsg := parseReportRange(fromStr, toStr)
+
+	toolbar := pages.ReportToolbarVM{
+		Preset: preset, From: fromStr, To: toStr,
+		FiscalYearEnd: co.FiscalYearEnd,
+		CompanyName:   co.Name,
+		ReportTitle:   "Cash Flow Summary",
+		FormAction:    "/reports/cash-flow",
+		Mode:          "period",
+	}
+
+	if errMsg != "" {
+		return pages.CashFlow(pages.CashFlowVM{
+			HasCompany: true,
+			From:       fromStr,
+			To:         toStr,
+			ActiveTab:  "cash_flow",
+			FormError:  errMsg,
+			Toolbar:    toolbar,
+		}).Render(c.Context(), c)
+	}
+
+	report, err := services.BuildCashFlowReport(s.DB, companyID, fromDate, toDate)
+	if err != nil {
+		return pages.CashFlow(pages.CashFlowVM{
+			HasCompany: true,
+			From:       fromStr,
+			To:         toStr,
+			ActiveTab:  "cash_flow",
+			FormError:  "Could not build Cash Flow Summary.",
+			Toolbar:    toolbar,
+		}).Render(c.Context(), c)
+	}
+
+	return pages.CashFlow(pages.CashFlowVM{
+		HasCompany: true,
+		From:       fromStr,
+		To:         toStr,
+		ActiveTab:  "cash_flow",
+		Report:     report,
+		Toolbar:    toolbar,
+	}).Render(c.Context(), c)
+}
+
 // handleGeneralLedger renders the General Ledger report — every
 // account's posting trail in one continuous document. Reuses the
 // Account Transactions row shape so the drill-through (Type / # link

@@ -93,6 +93,13 @@ func AllReports() []ReportEntry {
 			Href:     "/reports/trial-balance",
 			Category: ReportCategoryFinancials,
 		},
+		{
+			Key:      "cash-flow",
+			Title:    "Cash Flow Summary",
+			Desc:     "Where your cash actually moved this period — opening, inflows, outflows, closing — grouped by source.",
+			Href:     "/reports/cash-flow",
+			Category: ReportCategoryFinancials,
+		},
 
 		// ── Who owes you ─────────────────────────────────────────────
 		{
