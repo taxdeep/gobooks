@@ -191,6 +191,64 @@ func collectFavouriteEntries(favs map[string]bool) []pages.ReportsHubItemVM {
 	return out
 }
 
+// handleGeneralLedger renders the General Ledger report — every
+// account's posting trail in one continuous document. Reuses the
+// Account Transactions row shape so the drill-through (Type / # link
+// / Name) behaves identically between the two surfaces.
+func (s *Server) handleGeneralLedger(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/select-company", fiber.StatusSeeOther)
+	}
+
+	co := s.loadReportCompanyInfo(companyID)
+	preset, fromStr, toStr := resolvePeriodDates(
+		c.Query("period"), c.Query("from"), c.Query("to"), co.FiscalYearEnd)
+
+	fromDate, toDate, fromStr, toStr, errMsg := parseReportRange(fromStr, toStr)
+
+	toolbar := pages.ReportToolbarVM{
+		Preset: preset, From: fromStr, To: toStr,
+		FiscalYearEnd: co.FiscalYearEnd,
+		CompanyName:   co.Name,
+		ReportTitle:   "General Ledger",
+		FormAction:    "/reports/general-ledger",
+		Mode:          "period",
+	}
+
+	if errMsg != "" {
+		return pages.GeneralLedger(pages.GeneralLedgerVM{
+			HasCompany: true,
+			From:       fromStr,
+			To:         toStr,
+			ActiveTab:  "general_ledger",
+			FormError:  errMsg,
+			Toolbar:    toolbar,
+		}).Render(c.Context(), c)
+	}
+
+	report, err := services.BuildGeneralLedgerReport(s.DB, companyID, fromDate, toDate)
+	if err != nil {
+		return pages.GeneralLedger(pages.GeneralLedgerVM{
+			HasCompany: true,
+			From:       fromStr,
+			To:         toStr,
+			ActiveTab:  "general_ledger",
+			FormError:  "Could not build General Ledger.",
+			Toolbar:    toolbar,
+		}).Render(c.Context(), c)
+	}
+
+	return pages.GeneralLedger(pages.GeneralLedgerVM{
+		HasCompany: true,
+		From:       fromStr,
+		To:         toStr,
+		ActiveTab:  "general_ledger",
+		Report:     report,
+		Toolbar:    toolbar,
+	}).Render(c.Context(), c)
+}
+
 // handleReportFavouriteToggle handles the star/unstar POST from the
 // Reports hub. Idempotent — clicking on an already-starred report
 // removes the favourite, clicking on a non-starred report adds it.

@@ -123,6 +123,13 @@ func AllReports() []ReportEntry {
 
 		// ── For my accountant ───────────────────────────────────────
 		{
+			Key:      "general-ledger",
+			Title:    "General Ledger",
+			Desc:     "Every account's posting trail in one document — opening balance, period activity, ending balance.",
+			Href:     "/reports/general-ledger",
+			Category: ReportCategoryAccountantTools,
+		},
+		{
 			Key:      "journal-entries",
 			Title:    "Journal Entries",
 			Desc:     "Every posted journal entry with reverse + drill-through to source documents.",

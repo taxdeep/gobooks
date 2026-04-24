@@ -1,0 +1,142 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"gobooks/internal/services"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
+
+// GeneralLedgerVM is the view model for the GL report. Sections are
+// already filtered (empty accounts dropped) by the service, so the
+// templ just iterates and renders.
+type GeneralLedgerVM struct {
+	HasCompany bool
+	From       string
+	To         string
+	ActiveTab  string
+	Report     *services.GeneralLedgerReport
+	FormError  string
+	Toolbar    ReportToolbarVM
+}
+
+templ GeneralLedger(vm GeneralLedgerVM) {
+	@layout.Layout(
+		"GoBooks - General Ledger",
+		ui.SidebarVM{Active: "Reports", HasCompany: vm.HasCompany},
+		bodyGeneralLedger(vm),
+	)
+}
+
+templ bodyGeneralLedger(vm GeneralLedgerVM) {
+	<div class="max-w-[95%]">
+		<div class="report-nav-area">
+			<h1 class="text-title font-semibold">Reports</h1>
+			<p class="mt-2 text-text-muted2">General Ledger</p>
+			@ReportsNav(vm.ActiveTab)
+		</div>
+
+		if vm.FormError != "" {
+			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">
+				{ vm.FormError }
+			</div>
+		}
+
+		@ReportToolbar(vm.Toolbar)
+
+		if vm.Report != nil {
+			if len(vm.Report.Sections) == 0 {
+				<div class="mt-6 rounded-lg border border-border bg-surface p-6 text-text-muted2">
+					No accounts had activity or an opening balance in this period.
+				</div>
+			} else {
+				<div class="mt-6 space-y-6">
+					for _, section := range vm.Report.Sections {
+						@glSection(section)
+					}
+				</div>
+			}
+		}
+	</div>
+}
+
+// glSection renders one account's ledger inside the GL document.
+// Mirrors the Account Transactions table shape — same Type / # /
+// Name / Description / Debit / Credit / Balance columns + the same
+// drill-through link on the # column. Reusing the Account
+// Transactions row shape means the click-through experience is
+// identical between the two reports.
+templ glSection(section services.AccountTransactionsReport) {
+	<div class="rounded-lg border border-border bg-surface overflow-x-auto">
+		<div class="px-6 py-4 border-b border-border bg-surface-tableHeader">
+			<div class="font-semibold text-text">{ section.AccountCode } — { section.AccountName }</div>
+			<div class="text-small text-text-muted2 mt-0.5">{ accountDetailLabel(section.AccountRootType, section.DetailType) }</div>
+		</div>
+		<table class="w-full text-left text-body">
+			<thead class="text-small uppercase tracking-wider text-text-muted border-b border-border">
+				<tr>
+					<th class="px-6 py-3 font-medium">Date</th>
+					<th class="px-4 py-3 font-medium">Type</th>
+					<th class="px-4 py-3 font-medium">No.</th>
+					<th class="px-4 py-3 font-medium">Name</th>
+					<th class="px-4 py-3 font-medium">Description</th>
+					<th class="px-4 py-3 font-medium text-right">Debit</th>
+					<th class="px-4 py-3 font-medium text-right">Credit</th>
+					<th class="px-6 py-3 font-medium text-right">Balance</th>
+				</tr>
+			</thead>
+			<tbody class="text-text">
+				<tr class="border-b border-border bg-surface-tableHeader">
+					<td class="px-6 py-3 font-semibold" colspan="7">Starting Balance</td>
+					<td class="px-6 py-3 text-right tabular-nums font-semibold">{ Money(section.StartingBalance) }</td>
+				</tr>
+				if len(section.Rows) == 0 {
+					<tr class="border-b border-border-subtle">
+						<td colspan="8" class="px-6 py-4 text-center text-small text-text-muted3">
+							No movement in this period (opening balance carried forward).
+						</td>
+					</tr>
+				} else {
+					for _, row := range section.Rows {
+						<tr class="border-b border-border-subtle hover:bg-background">
+							<td class="px-6 py-2.5 text-text-muted2 whitespace-nowrap">{ row.Date }</td>
+							<td class="px-4 py-2.5 whitespace-nowrap">{ row.TransactionTypeLabel }</td>
+							<td class="px-4 py-2.5 font-mono text-small whitespace-nowrap">
+								if row.DocumentURL != "" {
+									<a href={ templ.SafeURL(row.DocumentURL) } class="text-primary hover:underline">{ row.DocumentNumber }</a>
+								} else {
+									{ row.DocumentNumber }
+								}
+							</td>
+							<td class="px-4 py-2.5 whitespace-nowrap">
+								if row.CounterpartyName == "" {
+									<span class="text-text-muted3">—</span>
+								} else {
+									{ row.CounterpartyName }
+								}
+							</td>
+							<td class="px-4 py-2.5 text-text-muted2">{ row.Description }</td>
+							<td class="px-4 py-2.5 text-right tabular-nums">
+								if row.Debit.IsPositive() {
+									{ Money(row.Debit) }
+								}
+							</td>
+							<td class="px-4 py-2.5 text-right tabular-nums">
+								if row.Credit.IsPositive() {
+									{ Money(row.Credit) }
+								}
+							</td>
+							<td class="px-6 py-2.5 text-right tabular-nums">{ Money(row.Balance) }</td>
+						</tr>
+					}
+				}
+				<tr class="border-t border-border bg-surface-tableHeader font-semibold">
+					<td class="px-6 py-3" colspan="5">Totals and Ending Balance</td>
+					<td class="px-4 py-3 text-right tabular-nums">{ Money(section.TotalDebits) }</td>
+					<td class="px-4 py-3 text-right tabular-nums">{ Money(section.TotalCredits) }</td>
+					<td class="px-6 py-3 text-right tabular-nums">{ Money(section.EndingBalance) }</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+}
