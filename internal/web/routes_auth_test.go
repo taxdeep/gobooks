@@ -55,6 +55,21 @@ func testRouteDB(t *testing.T) *gorm.DB {
 		&models.UserPreference{},
 		&models.AccountingBook{},
 		&models.UserPlan{},
+		// Customer detail page reads from these for its Transactions
+		// tab (ListSalesTransactions touches every AR document family)
+		// and sidebar summaries (credits / refunds / shipping / allowed
+		// currencies). Missing tables caused the query-layer fail-fast
+		// to nil-out the whole Transactions feed when running against
+		// the sqlite test DB.
+		&models.Quote{},
+		&models.SalesOrder{},
+		&models.CustomerReceipt{},
+		&models.CreditNote{},
+		&models.ARReturn{},
+		&models.ARRefund{},
+		&models.CustomerCredit{},
+		&models.CustomerAllowedCurrency{},
+		&models.CustomerShippingAddress{},
 	); err != nil {
 		t.Fatal(err)
 	}

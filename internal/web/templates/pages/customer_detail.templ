@@ -3,400 +3,474 @@ package pages
 
 import (
 	"fmt"
+
 	"gobooks/internal/models"
+	"gobooks/internal/services"
 	"gobooks/internal/web/templates/layout"
 	"gobooks/internal/web/templates/ui"
 )
 
 templ CustomerDetail(vm CustomerDetailVM) {
 	@layout.Layout(
-		"GoBooks - Customer",
+		"GoBooks - "+vm.Customer.Name,
 		ui.SidebarVM{Active: "Customers", HasCompany: vm.HasCompany},
 		bodyCustomerDetail(vm),
 	)
 }
 
+// bodyCustomerDetail is the top-level two-row layout:
+//   1. Compact header card — avatar + contact grid + financial summary
+//   2. Tab strip + active tab body
+//
+// All heavy tables (Transactions, Quotes & Orders, Addresses) live in
+// tabs. The header stays pinned at the top regardless of which tab is
+// active so the customer's key numbers are always visible.
 templ bodyCustomerDetail(vm CustomerDetailVM) {
 	<div class="max-w-[95%]">
-		<div class="flex flex-wrap items-start justify-between gap-4">
-			<div class="min-w-0 flex-1">
-				<div class="flex flex-wrap items-center gap-3">
-					<h1 class="text-title font-semibold">{ vm.Customer.Name }</h1>
-					<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-primary-soft text-primary">Customer Workspace</span>
-					if !vm.Customer.IsActive {
-						<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-background border border-border text-text-muted">Inactive</span>
-					}
-				</div>
-				<p class="mt-2 text-text-muted2">Operational visibility only. This page summarizes current billable work, outstanding balances, and recent customer invoice activity.</p>
-			</div>
-			<div class="flex shrink-0 flex-wrap items-center gap-2">
-				if !vm.Editing {
-					<a href={ templ.SafeURL(fmt.Sprintf("/customers/%d?edit=1", vm.Customer.ID)) } class="rounded-md border border-border-input px-4 py-2 text-body font-medium text-text hover:bg-background">
-						Edit
-					</a>
-					@customerLifecycleActions(vm)
-				}
-				<a href="/customers" class="text-body text-text-muted3 hover:text-text">Back to Customers</a>
-			</div>
-		</div>
-
-		if vm.Saved {
-			<div class="mt-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success-hover">
-				Customer saved.
-			</div>
-		}
-		if vm.Deactivated {
-			<div class="mt-4 rounded-md border border-border bg-background px-4 py-3 text-body text-text-muted2">
-				Customer deactivated. They will be hidden from pickers but remain here for reference.
-			</div>
-		}
-		if vm.Reactivated {
-			<div class="mt-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success-hover">
-				Customer reactivated.
-			</div>
-		}
-		@formErrorBanner(vm.FormError)
-		if vm.LifecycleErr != "" {
-			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover">{ vm.LifecycleErr }</div>
-		}
-
-		<div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-			if vm.Editing {
-				@customerEditCard(vm)
-			} else {
-				@customerDisplayCard(vm)
-			}
-
-			<div class="rounded-lg border border-border bg-surface p-6">
-				<h2 class="text-section font-semibold text-text">Recent Activity</h2>
-				<div class="mt-4 space-y-4">
-					<div class="rounded-md border border-border bg-background p-4">
-						<p class="text-small font-medium uppercase tracking-wider text-text-muted">Most Recent Invoice</p>
-						if vm.MostRecentInvoice != nil {
-							<p class="mt-2 text-body font-semibold text-text">
-								<a href={ "/invoices/" + Uitoa(vm.MostRecentInvoice.ID) } class="text-primary hover:text-primary-hover hover:underline">{ vm.MostRecentInvoice.InvoiceNumber }</a>
-							</p>
-							<p class="mt-1 text-small text-text-muted2">
-								{ vm.MostRecentInvoice.InvoiceDate.Format("2006-01-02") }
-								<span> · { models.InvoiceStatusLabel(invoiceDisplayStatus(*vm.MostRecentInvoice)) }</span>
-							</p>
-							<p class="mt-2">
-								<span class={ invoicePaymentBadgeClass(invoicePaymentVisibility(*vm.MostRecentInvoice)) }>{ invoicePaymentVisibility(*vm.MostRecentInvoice).Label }</span>
-							</p>
-							<p class="mt-2 text-small text-text-muted2">
-								Paid { taskMoney(invoicePaymentVisibility(*vm.MostRecentInvoice).PaidAmount, invoicePaymentVisibility(*vm.MostRecentInvoice).Currency) }
-								<span> · Due { taskMoney(invoicePaymentVisibility(*vm.MostRecentInvoice).BalanceDue, invoicePaymentVisibility(*vm.MostRecentInvoice).Currency) }</span>
-							</p>
-						} else {
-							<p class="mt-2 text-body text-text-muted2">No invoices for this customer yet.</p>
-						}
-					</div>
-					<div class="rounded-md border border-border bg-background p-4">
-						<p class="text-small font-medium uppercase tracking-wider text-text-muted">Last Billable Work</p>
-						if vm.BillableSummary.LastBillableWorkDate != nil {
-							<p class="mt-2 text-body font-semibold text-text">{ vm.BillableSummary.LastBillableWorkDate.Format("2006-01-02") }</p>
-						} else {
-							<p class="mt-2 text-body text-text-muted2">No current billable work waiting.</p>
-						}
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-			<div class="rounded-lg border border-border bg-surface p-6">
-				<p class="text-small uppercase tracking-wider text-text-muted">Unbilled Labor</p>
-				<p class="mt-3 text-section font-semibold text-text">{ currencyTotalsLabel(vm.BillableSummary.UnbilledTaskLabor) }</p>
-			</div>
-			<div class="rounded-lg border border-border bg-surface p-6">
-				<p class="text-small uppercase tracking-wider text-text-muted">Unbilled Expenses</p>
-				<p class="mt-3 text-section font-semibold text-text">{ currencyTotalsLabel(vm.BillableSummary.UnbilledBillableExpense) }</p>
-			</div>
-			<div class="rounded-lg border border-border bg-surface p-6">
-				<p class="text-small uppercase tracking-wider text-text-muted">Total Unbilled</p>
-				<p class="mt-3 text-section font-semibold text-text">{ currencyTotalsLabel(vm.BillableSummary.TotalUnbilled) }</p>
-			</div>
-		</div>
-
-		<div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-			<div class="rounded-lg border border-border bg-surface p-6">
-				<p class="text-small uppercase tracking-wider text-text-muted">Outstanding AR</p>
-				<p class="mt-3 text-section font-semibold text-text">{ currencyTotalsLabel(vm.ARSummary.OutstandingTotals) }</p>
-				<p class="mt-1 text-small text-text-muted2">Current customer balance due on non-draft, non-voided invoices.</p>
-			</div>
-			<div class="rounded-lg border border-border bg-surface p-6">
-				<p class="text-small uppercase tracking-wider text-text-muted">Outstanding Invoices</p>
-				<p class="mt-3 text-section font-semibold text-text">{ Itoa(vm.ARSummary.OutstandingInvoiceCount) }</p>
-				<p class="mt-1 text-small text-text-muted2">Invoices still carrying a balance due.</p>
-			</div>
-			<div class="rounded-lg border border-border bg-surface p-6">
-				<p class="text-small uppercase tracking-wider text-text-muted">Overdue Invoices</p>
-				<p class="mt-3 text-section font-semibold text-text">{ Itoa(vm.ARSummary.OverdueInvoiceCount) }</p>
-				<p class="mt-1 text-small text-text-muted2">Workspace helper only, based on the current overdue status helper rather than a full AR aging schedule.</p>
-			</div>
-		</div>
-
-		@customerShippingAddressesCard(vm)
-
-		<div class="mt-6 rounded-lg border border-border bg-surface p-6">
-			<h2 class="text-section font-semibold text-text">Quick Links</h2>
-			<p class="mt-2 text-small text-text-muted2">Use the existing operational pages to drill into this customer's work and invoices.</p>
-			<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-				<a href={ "/tasks/billable-work/report?customer_id=" + Uitoa(vm.Customer.ID) } class="rounded-md border border-border bg-background p-4 hover:border-primary-soft hover:bg-primary-soft/30">
-					<p class="text-body font-semibold text-text">View Billable Work Report</p>
-					<p class="mt-1 text-small text-text-muted2">See current unbilled tasks, expenses, and bill lines for this customer.</p>
-				</a>
-				<a href={ "/tasks?customer_id=" + Uitoa(vm.Customer.ID) } class="rounded-md border border-border bg-background p-4 hover:border-primary-soft hover:bg-primary-soft/30">
-					<p class="text-body font-semibold text-text">View Tasks</p>
-					<p class="mt-1 text-small text-text-muted2">Open the task list filtered to this customer.</p>
-				</a>
-				<a href={ "/sales-transactions?customer_id=" + Uitoa(vm.Customer.ID) } class="rounded-md border border-border bg-background p-4 hover:border-primary-soft hover:bg-primary-soft/30">
-					<p class="text-body font-semibold text-text">Sales Transactions</p>
-					<p class="mt-1 text-small text-text-muted2">Full feed: quotes, sales orders, invoices, receipts, credits.</p>
-				</a>
-				<a href={ "/invoices?customer_id=" + Uitoa(vm.Customer.ID) } class="rounded-md border border-border bg-background p-4 hover:border-primary-soft hover:bg-primary-soft/30">
-					<p class="text-body font-semibold text-text">View Invoices</p>
-					<p class="mt-1 text-small text-text-muted2">Open the invoice list filtered to this customer.</p>
-				</a>
-				<a href={ "/receipts?customer_id=" + Uitoa(vm.Customer.ID) } class="rounded-md border border-border bg-background p-4 hover:border-primary-soft hover:bg-primary-soft/30">
-					<p class="text-body font-semibold text-text">Customer Receipts</p>
-					<p class="mt-1 text-small text-text-muted2">Payments received from this customer.</p>
-				</a>
-			</div>
-		</div>
-
-		<div class="mt-6 rounded-lg border border-border bg-surface p-6">
-			<h2 class="text-section font-semibold text-text">Outstanding Invoices</h2>
-			if len(vm.OutstandingInvoices) == 0 {
-				<p class="mt-3 text-body text-text-muted2">No outstanding invoices for this customer.</p>
-			} else {
-				<div class="mt-4 overflow-x-auto">
-					<table class="w-full text-left text-body">
-						<thead class="text-small uppercase tracking-wider text-text-muted">
-							<tr class="border-b border-border">
-								<th class="py-3 pr-4">Invoice #</th>
-								<th class="py-3 pr-4">Date</th>
-								<th class="py-3 pr-4">Invoice Status</th>
-								<th class="py-3 pr-4">Payment</th>
-								<th class="py-3 pr-4 text-right">Paid</th>
-								<th class="py-3 pr-0 text-right">Balance Due</th>
-							</tr>
-						</thead>
-						<tbody class="text-text">
-							for _, inv := range vm.OutstandingInvoices {
-								<tr class="border-b border-border-subtle">
-									<td class="py-3 pr-4 font-medium">
-										<a href={ "/invoices/" + Uitoa(inv.ID) } class="text-primary hover:text-primary-hover hover:underline">{ inv.InvoiceNumber }</a>
-									</td>
-									<td class="py-3 pr-4">{ inv.InvoiceDate.Format("2006-01-02") }</td>
-									<td class="py-3 pr-4">
-										<span class={ invoiceStatusBadgeClass(invoiceDisplayStatus(inv)) }>{ models.InvoiceStatusLabel(invoiceDisplayStatus(inv)) }</span>
-									</td>
-									<td class="py-3 pr-4">
-										<span class={ invoicePaymentBadgeClass(invoicePaymentVisibility(inv)) }>{ invoicePaymentVisibility(inv).Label }</span>
-									</td>
-									<td class="py-3 pr-4 text-right tabular-nums">{ taskMoney(invoicePaymentVisibility(inv).PaidAmount, invoicePaymentVisibility(inv).Currency) }</td>
-									<td class="py-3 pr-0 text-right tabular-nums font-medium">{ taskMoney(invoicePaymentVisibility(inv).BalanceDue, invoicePaymentVisibility(inv).Currency) }</td>
-								</tr>
-							}
-						</tbody>
-					</table>
-				</div>
-			}
-		</div>
-
-		<div class="mt-6 rounded-lg border border-border bg-surface p-6">
-			<h2 class="text-section font-semibold text-text">Recent Invoices</h2>
-			if len(vm.RecentInvoices) == 0 {
-				<p class="mt-3 text-body text-text-muted2">No invoices for this customer yet.</p>
-			} else {
-				<div class="mt-4 overflow-x-auto">
-					<table class="w-full text-left text-body">
-						<thead class="text-small uppercase tracking-wider text-text-muted">
-							<tr class="border-b border-border">
-								<th class="py-3 pr-4">Invoice #</th>
-								<th class="py-3 pr-4">Date</th>
-								<th class="py-3 pr-4">Invoice Status</th>
-								<th class="py-3 pr-4">Payment</th>
-								<th class="py-3 pr-4 text-right">Paid</th>
-								<th class="py-3 pr-0 text-right">Balance Due</th>
-							</tr>
-						</thead>
-						<tbody class="text-text">
-							for _, inv := range vm.RecentInvoices {
-								<tr class="border-b border-border-subtle">
-									<td class="py-3 pr-4 font-medium">
-										<a href={ "/invoices/" + Uitoa(inv.ID) } class="text-primary hover:text-primary-hover hover:underline">{ inv.InvoiceNumber }</a>
-									</td>
-									<td class="py-3 pr-4">{ inv.InvoiceDate.Format("2006-01-02") }</td>
-									<td class="py-3 pr-4">
-										<span class={ invoiceStatusBadgeClass(invoiceDisplayStatus(inv)) }>{ models.InvoiceStatusLabel(invoiceDisplayStatus(inv)) }</span>
-									</td>
-									<td class="py-3 pr-4">
-										<span class={ invoicePaymentBadgeClass(invoicePaymentVisibility(inv)) }>{ invoicePaymentVisibility(inv).Label }</span>
-									</td>
-									<td class="py-3 pr-4 text-right tabular-nums">{ taskMoney(invoicePaymentVisibility(inv).PaidAmount, invoicePaymentVisibility(inv).Currency) }</td>
-									<td class="py-3 pr-0 text-right tabular-nums font-medium">{ taskMoney(invoicePaymentVisibility(inv).BalanceDue, invoicePaymentVisibility(inv).Currency) }</td>
-								</tr>
-							}
-						</tbody>
-					</table>
-				</div>
-			}
-		</div>
-
-		<!-- Recent Quotes — earliest stage of the AR pipeline (Customer →
-		     Quote → SalesOrder → Invoice). Only rendered when the customer
-		     has at least one quote on file. -->
-		if len(vm.RecentQuotes) > 0 {
-			<div class="mt-6 rounded-lg border border-border bg-surface p-6">
-				<div class="flex items-baseline justify-between">
-					<h2 class="text-section font-semibold text-text">Recent Quotes</h2>
-					<a href={ templ.SafeURL("/quotes?customer_id=" + Uitoa(vm.Customer.ID)) } class="text-small text-primary hover:underline">View all →</a>
-				</div>
-				<div class="mt-4 overflow-hidden rounded-lg border border-border">
-					<table class="w-full text-body">
-						<thead class="bg-surface-tableHeader text-small uppercase tracking-wider text-text-muted">
-							<tr>
-								<th class="px-4 py-3 text-left">Quote #</th>
-								<th class="px-4 py-3 text-left">Date</th>
-								<th class="px-4 py-3 text-left">Expiry</th>
-								<th class="px-4 py-3 text-left">Status</th>
-								<th class="px-4 py-3 text-right">Total</th>
-							</tr>
-						</thead>
-						<tbody class="divide-y divide-border">
-							for _, q := range vm.RecentQuotes {
-								<tr>
-									<td class="px-4 py-3">
-										<a href={ templ.SafeURL("/quotes/" + Uitoa(q.ID)) } class="text-primary hover:underline">
-											if q.QuoteNumber != "" {
-												{ q.QuoteNumber }
-											} else {
-												{ "#" + Uitoa(q.ID) }
-											}
-										</a>
-									</td>
-									<td class="px-4 py-3 text-text-muted2">{ q.QuoteDate.Format("2006-01-02") }</td>
-									<td class="px-4 py-3 text-text-muted2">
-										if q.ExpiryDate != nil {
-											{ q.ExpiryDate.Format("2006-01-02") }
-										} else {
-											<span class="text-text-muted3">-</span>
-										}
-									</td>
-									<td class="px-4 py-3">{ models.QuoteStatusLabel(q.Status) }</td>
-									<td class="px-4 py-3 text-right tabular-nums">
-										<span data-numfmt>{ q.Total.StringFixed(2) }</span>
-									</td>
-								</tr>
-							}
-						</tbody>
-					</table>
-				</div>
-			</div>
-		}
-
-		<!-- Recent Sales Orders — middle stage of the AR pipeline. Each SO may
-		     link back to a Quote and forward to one or more Invoices. -->
-		if len(vm.RecentSalesOrders) > 0 {
-			<div class="mt-6 rounded-lg border border-border bg-surface p-6">
-				<div class="flex items-baseline justify-between">
-					<h2 class="text-section font-semibold text-text">Recent Sales Orders</h2>
-					<a href={ templ.SafeURL("/sales-orders?customer_id=" + Uitoa(vm.Customer.ID)) } class="text-small text-primary hover:underline">View all →</a>
-				</div>
-				<div class="mt-4 overflow-hidden rounded-lg border border-border">
-					<table class="w-full text-body">
-						<thead class="bg-surface-tableHeader text-small uppercase tracking-wider text-text-muted">
-							<tr>
-								<th class="px-4 py-3 text-left">Order #</th>
-								<th class="px-4 py-3 text-left">Date</th>
-								<th class="px-4 py-3 text-left">Required By</th>
-								<th class="px-4 py-3 text-left">Status</th>
-								<th class="px-4 py-3 text-right">Invoiced</th>
-								<th class="px-4 py-3 text-right">Total</th>
-							</tr>
-						</thead>
-						<tbody class="divide-y divide-border">
-							for _, so := range vm.RecentSalesOrders {
-								<tr>
-									<td class="px-4 py-3">
-										<a href={ templ.SafeURL("/sales-orders/" + Uitoa(so.ID)) } class="text-primary hover:underline">
-											if so.OrderNumber != "" {
-												{ so.OrderNumber }
-											} else {
-												{ "#" + Uitoa(so.ID) }
-											}
-										</a>
-									</td>
-									<td class="px-4 py-3 text-text-muted2">{ so.OrderDate.Format("2006-01-02") }</td>
-									<td class="px-4 py-3 text-text-muted2">
-										if so.RequiredBy != nil {
-											{ so.RequiredBy.Format("2006-01-02") }
-										} else {
-											<span class="text-text-muted3">-</span>
-										}
-									</td>
-									<td class="px-4 py-3">{ models.SalesOrderStatusLabel(so.Status) }</td>
-									<td class="px-4 py-3 text-right tabular-nums text-text-muted2">
-										<span data-numfmt>{ so.InvoicedAmount.StringFixed(2) }</span>
-									</td>
-									<td class="px-4 py-3 text-right tabular-nums">
-										<span data-numfmt>{ so.Total.StringFixed(2) }</span>
-									</td>
-								</tr>
-							}
-						</tbody>
-					</table>
-				</div>
-			</div>
-		}
-
-		<!-- Credits & Refunds quick-view — show whenever either side has data.
-		     Links through to /customers/:id/credits, which hosts the full
-		     credit-note list + refund history table. -->
-		if vm.CreditCount > 0 || vm.RefundCount > 0 {
-			<div class="mt-8">
-				<div class="flex items-center justify-between mb-3">
-					<h2 class="text-section font-semibold text-text">Credits & Refunds</h2>
-					<a
-						href={ templ.SafeURL("/customers/" + Uitoa(vm.Customer.ID) + "/credits") }
-						class="text-small text-primary hover:text-primary-hover hover:underline"
-					>
-						View all →
-					</a>
-				</div>
-				<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-					<div class="rounded-lg border border-border bg-background px-5 py-4">
-						<p class="text-small uppercase tracking-wider text-text-muted">Active Credits</p>
-						<p class="mt-2 text-section font-semibold text-text">{ Itoa(vm.CreditCount) }</p>
-						<p class="mt-1 text-small text-text-muted2">Credit notes with a positive balance remaining.</p>
-					</div>
-					<div class="rounded-lg border border-border bg-background px-5 py-4">
-						<p class="text-small uppercase tracking-wider text-text-muted">Available Balance</p>
-						<p class="mt-2 text-section font-semibold text-text"><span data-numfmt>{ vm.CreditRemaining.StringFixed(2) }</span></p>
-						<p class="mt-1 text-small text-text-muted2">Sum of unapplied credit across all open credit notes.</p>
-					</div>
-					<div class="rounded-lg border border-border bg-background px-5 py-4">
-						<p class="text-small uppercase tracking-wider text-text-muted">Refunds Issued</p>
-						<p class="mt-2 text-section font-semibold text-text">{ Itoa(vm.RefundCount) }</p>
-						if vm.RefundCount > 0 {
-							<p class="mt-1 text-small text-text-muted2">Total: <span data-numfmt>{ vm.RefundTotal.StringFixed(2) }</span> (posted only).</p>
-						} else {
-							<p class="mt-1 text-small text-text-muted2">No refunds posted for this customer yet.</p>
-						}
-					</div>
-				</div>
-			</div>
-		}
-
-		<!-- Phase 12: currency policy -->
-		@customerCurrencyPolicySection(vm)
+		@customerDetailFlashes(vm)
+		@customerDetailHeader(vm)
+		@customerDetailTabs(vm)
+		@customerDetailTabBody(vm)
 	</div>
 }
 
+// ── Flash banners ───────────────────────────────────────────────────────────
+
+templ customerDetailFlashes(vm CustomerDetailVM) {
+	if vm.Saved {
+		<div class="mb-3 rounded-md border border-success-border bg-success-soft px-4 py-2 text-body text-success-hover">
+			Customer saved.
+		</div>
+	}
+	if vm.Deactivated {
+		<div class="mb-3 rounded-md border border-border bg-background px-4 py-2 text-body text-text-muted2">
+			Customer deactivated. They will be hidden from pickers but remain here for reference.
+		</div>
+	}
+	if vm.Reactivated {
+		<div class="mb-3 rounded-md border border-success-border bg-success-soft px-4 py-2 text-body text-success-hover">
+			Customer reactivated.
+		</div>
+	}
+	@formErrorBanner(vm.FormError)
+	if vm.LifecycleErr != "" {
+		<div class="mb-3 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover">{ vm.LifecycleErr }</div>
+	}
+}
+
+// ── Header (avatar + contact grid + financial summary) ──────────────────────
+
+templ customerDetailHeader(vm CustomerDetailVM) {
+	<div class="rounded-lg border border-border bg-surface p-5">
+		<div class="flex flex-wrap items-start gap-5">
+			<!-- Left column: avatar + name + contact grid (takes remaining width) -->
+			<div class="min-w-0 flex-1">
+				<div class="flex items-start gap-4">
+					<!-- Avatar: deterministic initials + colour derived from name -->
+					<div class={ "flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-body font-semibold", contactAvatarClass(vm.Customer.Name) }>
+						{ contactInitials(vm.Customer.Name) }
+					</div>
+					<div class="min-w-0 flex-1">
+						<div class="flex flex-wrap items-center gap-2">
+							<h1 class="text-title font-semibold text-text">{ vm.Customer.Name }</h1>
+							if !vm.Customer.IsActive {
+								<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-background border border-border text-text-muted">Inactive</span>
+							} else {
+								<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-primary-soft text-primary">Customer</span>
+							}
+						</div>
+						<div class="mt-1 text-small text-text-muted2">
+							<a href="/customers" class="hover:text-text">← Back to Customers</a>
+							if vm.DefaultPaymentTermLabel != "" {
+								<span class="mx-2">·</span>
+								<span>Default terms: <span class="text-text">{ vm.DefaultPaymentTermLabel }</span></span>
+							}
+						</div>
+
+						<!-- Contact grid: 2 columns, each field is either the value
+						     or a muted "Add X" link to the Details tab. -->
+						<dl class="mt-4 grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
+							@headerField("Email", vm.Customer.Email, customerDetailsHref(vm.Customer.ID, "email"))
+							@headerField("Billing address", customerBillingLine(vm.Customer), customerDetailsHref(vm.Customer.ID, "billing"))
+							@headerFieldStatic("Currency", customerCurrencyDisplay(vm))
+							@headerFieldStatic("Shipping addresses", customerShippingSummary(vm))
+						</dl>
+					</div>
+				</div>
+			</div>
+
+			<!-- Right: financial summary card (sticky-looking) + action buttons -->
+			<div class="flex w-full shrink-0 flex-col gap-3 sm:w-72">
+				@customerFinancialSummary(vm)
+				<div class="flex flex-wrap items-center gap-2">
+					<a href={ templ.SafeURL(fmt.Sprintf("/invoices/new?customer_id=%d", vm.Customer.ID)) } class="rounded-md bg-primary px-3 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover">New Invoice</a>
+					<a href={ customerDetailsHref(vm.Customer.ID, "") } class="rounded-md border border-border-input px-3 py-1.5 text-small font-medium text-text hover:bg-background">Edit</a>
+					@customerLifecycleActions(vm)
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+templ headerField(label, value, addHref string) {
+	<div>
+		<dt class="text-[11px] font-semibold uppercase tracking-wider text-text-muted">{ label }</dt>
+		if value != "" {
+			<dd class="mt-0.5 text-body text-text">{ value }</dd>
+		} else {
+			<dd class="mt-0.5">
+				<a href={ templ.SafeURL(addHref) } class="text-small text-primary hover:underline">Add { label }</a>
+			</dd>
+		}
+	</div>
+}
+
+templ headerFieldStatic(label, value string) {
+	<div>
+		<dt class="text-[11px] font-semibold uppercase tracking-wider text-text-muted">{ label }</dt>
+		<dd class="mt-0.5 text-body text-text">{ value }</dd>
+	</div>
+}
+
+templ customerFinancialSummary(vm CustomerDetailVM) {
+	<div class="rounded-lg border border-primary-soft/40 bg-primary-soft/10 p-4">
+		<div class="flex items-center gap-2 text-small font-semibold text-text">
+			<span>💰</span>
+			<span>Financial summary</span>
+		</div>
+		<dl class="mt-3 space-y-2 text-body">
+			<div class="flex items-center justify-between">
+				<dt class="text-small text-text-muted2">Open balance</dt>
+				<dd class="font-semibold tabular-nums text-text">{ currencyTotalsLabel(vm.ARSummary.OutstandingTotals) }</dd>
+			</div>
+			<div class="flex items-center justify-between">
+				<dt class="text-small text-text-muted2">Overdue</dt>
+				<dd class="font-semibold tabular-nums text-warning-hover">{ Itoa(vm.ARSummary.OverdueInvoiceCount) } invoice(s)</dd>
+			</div>
+			<div class="flex items-center justify-between">
+				<dt class="text-small text-text-muted2">Unbilled work</dt>
+				<dd class="font-semibold tabular-nums text-text">{ currencyTotalsLabel(vm.BillableSummary.TotalUnbilled) }</dd>
+			</div>
+			if !vm.CreditRemaining.IsZero() {
+				<div class="flex items-center justify-between">
+					<dt class="text-small text-text-muted2">Credit on file</dt>
+					<dd class="font-semibold tabular-nums text-success-hover">{ Money(vm.CreditRemaining) }</dd>
+				</div>
+			}
+		</dl>
+	</div>
+}
+
+// ── Tabs ────────────────────────────────────────────────────────────────────
+
+templ customerDetailTabs(vm CustomerDetailVM) {
+	<div class="mt-4 border-b border-border">
+		<nav class="flex flex-wrap gap-1" aria-label="Customer sections">
+			@customerTabLink(vm, "transactions", "Transactions")
+			@customerTabLink(vm, "quotes-orders", "Quotes & Orders")
+			@customerTabLink(vm, "billable-work", "Billable Work")
+			@customerTabLink(vm, "addresses", "Addresses")
+			@customerTabLink(vm, "details", "Details")
+			@customerTabLink(vm, "notes", "Notes")
+		</nav>
+	</div>
+}
+
+templ customerTabLink(vm CustomerDetailVM, key, label string) {
+	if vm.Tab == key {
+		<a
+			href={ templ.SafeURL(fmt.Sprintf("/customers/%d?tab=%s", vm.Customer.ID, key)) }
+			class="rounded-t-md border-b-2 border-primary bg-primary-soft/30 px-3 py-2 text-small font-semibold text-primary"
+		>{ label }</a>
+	} else {
+		<a
+			href={ templ.SafeURL(fmt.Sprintf("/customers/%d?tab=%s", vm.Customer.ID, key)) }
+			class="rounded-t-md border-b-2 border-transparent px-3 py-2 text-small font-medium text-text-muted3 hover:bg-background hover:text-text"
+		>{ label }</a>
+	}
+}
+
+// ── Tab body dispatcher ─────────────────────────────────────────────────────
+
+templ customerDetailTabBody(vm CustomerDetailVM) {
+	<div class="mt-4">
+		switch vm.Tab {
+			case "transactions":
+				@tabTransactions(vm)
+			case "quotes-orders":
+				@tabQuotesOrders(vm)
+			case "billable-work":
+				@tabBillableWork(vm)
+			case "addresses":
+				@customerShippingAddressesCard(vm)
+			case "details":
+				@customerEditCard(vm)
+				@customerCurrencyPolicySection(vm)
+			case "notes":
+				@tabNotesPlaceholder(vm)
+		}
+	</div>
+}
+
+// ── Transactions tab ────────────────────────────────────────────────────────
+
+templ tabTransactions(vm CustomerDetailVM) {
+	<!-- Filter bar — mirrors the Sales Transactions filter layout.
+	     GET form preserves the active tab via a hidden input. -->
+	<form method="get" action={ templ.SafeURL(fmt.Sprintf("/customers/%d", vm.Customer.ID)) } class="rounded-lg border border-border bg-surface p-3">
+		<input type="hidden" name="tab" value="transactions"/>
+		<div class="flex flex-wrap items-end gap-3">
+			<div class="min-w-[160px]">
+				<label for="cust-tx-type" class={ compactLabelClass() }>Type</label>
+				<select id="cust-tx-type" name="tx_type" class={ listFilterInputClass() }>
+					<option value="" selected?={ vm.TxFilterType == "" }>All types</option>
+					<option value={ services.SalesTxTypeInvoice } selected?={ vm.TxFilterType == services.SalesTxTypeInvoice }>Invoices</option>
+					<option value={ services.SalesTxTypeQuote } selected?={ vm.TxFilterType == services.SalesTxTypeQuote }>Quotes</option>
+					<option value={ services.SalesTxTypeSalesOrder } selected?={ vm.TxFilterType == services.SalesTxTypeSalesOrder }>Sales Orders</option>
+					<option value={ services.SalesTxTypePayment } selected?={ vm.TxFilterType == services.SalesTxTypePayment }>Payments</option>
+					<option value={ services.SalesTxTypeCreditNote } selected?={ vm.TxFilterType == services.SalesTxTypeCreditNote }>Credit Memos</option>
+					<option value={ services.SalesTxTypeReturn } selected?={ vm.TxFilterType == services.SalesTxTypeReturn }>Returns</option>
+				</select>
+			</div>
+			<div class="min-w-[140px]">
+				<label for="cust-tx-status" class={ compactLabelClass() }>Status</label>
+				<input id="cust-tx-status" type="text" name="tx_status" value={ vm.TxFilterStatus } placeholder="paid, draft…" class={ listFilterInputClass() }/>
+			</div>
+			<div>
+				<label for="cust-tx-from" class={ compactLabelClass() }>From</label>
+				<input id="cust-tx-from" type="date" name="tx_from" value={ vm.TxFilterFrom } class={ listFilterInputClass() }/>
+			</div>
+			<div>
+				<label for="cust-tx-to" class={ compactLabelClass() }>To</label>
+				<input id="cust-tx-to" type="date" name="tx_to" value={ vm.TxFilterTo } class={ listFilterInputClass() }/>
+			</div>
+			<div class="flex items-end gap-2">
+				<button type="submit" class="rounded-md bg-primary px-3 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover">Apply Filter</button>
+				<a href={ templ.SafeURL(fmt.Sprintf("/customers/%d?tab=transactions", vm.Customer.ID)) } class="rounded-md border border-border-input px-3 py-1.5 text-small text-text-muted3 hover:bg-background hover:text-text">Reset</a>
+			</div>
+		</div>
+	</form>
+
+	<!-- Unified AR document table. Reuses the Sales Transactions type
+	     label + status badge helpers so the two surfaces render rows
+	     identically. -->
+	<div class="mt-3 rounded-lg border border-border bg-surface shadow-sm">
+		<div class="overflow-x-auto">
+			<table class="w-full text-left text-body">
+				<thead class="border-b border-border-subtle text-[11px] uppercase tracking-wider text-text-muted">
+					<tr>
+						<th class="px-3 py-2">Date</th>
+						<th class="px-3 py-2">Type</th>
+						<th class="px-3 py-2">No.</th>
+						<th class="px-3 py-2">Memo</th>
+						<th class="px-3 py-2 text-right">Amount</th>
+						<th class="px-3 py-2">Status</th>
+						<th class="w-24 px-3 py-2 text-right">Action</th>
+					</tr>
+				</thead>
+				<tbody class="text-text">
+					if len(vm.Transactions) == 0 {
+						<tr>
+							<td colspan="7" class="px-3 py-10 text-center text-small text-text-muted2">
+								No transactions match your filters.
+							</td>
+						</tr>
+					} else {
+						for _, r := range vm.Transactions {
+							<tr class="border-b border-border-subtle/60 hover:bg-background">
+								<td class="px-3 py-1.5 whitespace-nowrap text-small text-text-muted2">{ r.Date.Format("2006-01-02") }</td>
+								<td class="px-3 py-1.5 whitespace-nowrap text-small">{ salesTxTypeLabel(r.Type) }</td>
+								<td class="px-3 py-1.5 font-mono text-small">
+									if r.DetailURL != "" {
+										<a href={ templ.SafeURL(r.DetailURL) } class="text-primary hover:underline">{ r.Number }</a>
+									} else {
+										{ r.Number }
+									}
+								</td>
+								<td class="max-w-[280px] px-3 py-1.5 text-small text-text-muted2">
+									<span class="block truncate" title={ r.Memo }>
+										if r.Memo == "" {
+											—
+										} else {
+											{ r.Memo }
+										}
+									</span>
+								</td>
+								<td class="px-3 py-1.5 text-right font-mono tabular-nums">
+									<span data-numfmt>{ r.Amount.StringFixed(2) }</span>
+								</td>
+								<td class="px-3 py-1.5 text-small">
+									@salesTxStatusBadge(r)
+								</td>
+								<td class="px-3 py-1.5 text-right text-small whitespace-nowrap">
+									if r.DetailURL != "" {
+										<a href={ templ.SafeURL(r.DetailURL) } class="text-primary hover:underline">View</a>
+									}
+								</td>
+							</tr>
+						}
+					}
+				</tbody>
+				if len(vm.Transactions) > 0 {
+					<tfoot class="border-t border-border bg-background">
+						<tr>
+							<td colspan="4" class="px-3 py-2 text-small font-semibold text-text-muted2">Total</td>
+							<td class="px-3 py-2 text-right text-small font-semibold tabular-nums text-text" data-numfmt>{ salesTxRowsTotal(vm.Transactions) }</td>
+							<td colspan="2"></td>
+						</tr>
+					</tfoot>
+				}
+			</table>
+		</div>
+	</div>
+}
+
+// ── Quotes & Orders tab ─────────────────────────────────────────────────────
+
+templ tabQuotesOrders(vm CustomerDetailVM) {
+	<div class="space-y-4">
+		<!-- Recent Quotes -->
+		<div class="rounded-lg border border-border bg-surface p-4">
+			<div class="flex items-baseline justify-between">
+				<h2 class="text-section font-semibold text-text">Recent Quotes</h2>
+				<a href={ templ.SafeURL("/quotes?customer_id=" + Uitoa(vm.Customer.ID)) } class="text-small text-primary hover:underline">View all →</a>
+			</div>
+			if len(vm.RecentQuotes) == 0 {
+				<p class="mt-3 text-body text-text-muted2">No quotes for this customer yet.</p>
+			} else {
+				<div class="mt-3 overflow-x-auto">
+					<table class="w-full text-left text-body">
+						<thead class="text-small uppercase tracking-wider text-text-muted">
+							<tr class="border-b border-border-subtle">
+								<th class="py-1.5 pr-4">Quote #</th>
+								<th class="py-1.5 pr-4">Date</th>
+								<th class="py-1.5 pr-4">Status</th>
+								<th class="py-1.5 pr-0 text-right">Total</th>
+							</tr>
+						</thead>
+						<tbody class="text-text">
+							for _, q := range vm.RecentQuotes {
+								<tr class="border-b border-border-subtle/60 hover:bg-background">
+									<td class="py-1.5 pr-4 font-medium">
+										<a href={ "/quotes/" + Uitoa(q.ID) } class="text-primary hover:underline">{ q.QuoteNumber }</a>
+									</td>
+									<td class="py-1.5 pr-4">{ q.QuoteDate.Format("2006-01-02") }</td>
+									<td class="py-1.5 pr-4 text-small text-text-muted2">{ models.QuoteStatusLabel(q.Status) }</td>
+									<td class="py-1.5 pr-0 text-right tabular-nums" data-numfmt>{ Money(q.Total) }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			}
+		</div>
+
+		<!-- Recent Sales Orders -->
+		<div class="rounded-lg border border-border bg-surface p-4">
+			<div class="flex items-baseline justify-between">
+				<h2 class="text-section font-semibold text-text">Recent Sales Orders</h2>
+				<a href={ templ.SafeURL("/sales-orders?customer_id=" + Uitoa(vm.Customer.ID)) } class="text-small text-primary hover:underline">View all →</a>
+			</div>
+			if len(vm.RecentSalesOrders) == 0 {
+				<p class="mt-3 text-body text-text-muted2">No sales orders for this customer yet.</p>
+			} else {
+				<div class="mt-3 overflow-x-auto">
+					<table class="w-full text-left text-body">
+						<thead class="text-small uppercase tracking-wider text-text-muted">
+							<tr class="border-b border-border-subtle">
+								<th class="py-1.5 pr-4">Order #</th>
+								<th class="py-1.5 pr-4">Date</th>
+								<th class="py-1.5 pr-4">Status</th>
+								<th class="py-1.5 pr-0 text-right">Total</th>
+							</tr>
+						</thead>
+						<tbody class="text-text">
+							for _, so := range vm.RecentSalesOrders {
+								<tr class="border-b border-border-subtle/60 hover:bg-background">
+									<td class="py-1.5 pr-4 font-medium">
+										<a href={ "/sales-orders/" + Uitoa(so.ID) } class="text-primary hover:underline">{ so.OrderNumber }</a>
+									</td>
+									<td class="py-1.5 pr-4">{ so.OrderDate.Format("2006-01-02") }</td>
+									<td class="py-1.5 pr-4 text-small text-text-muted2">{ models.SalesOrderStatusLabel(so.Status) }</td>
+									<td class="py-1.5 pr-0 text-right tabular-nums" data-numfmt>{ Money(so.Total) }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			}
+		</div>
+	</div>
+}
+
+// ── Billable Work tab ───────────────────────────────────────────────────────
+
+templ tabBillableWork(vm CustomerDetailVM) {
+	<div class="space-y-4">
+		<!-- Three-up KPI strip: labor / expense / total unbilled -->
+		<div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+			<div class="rounded-lg border border-border bg-surface p-4">
+				<p class="text-[11px] uppercase tracking-wider text-text-muted">Unbilled labor</p>
+				<p class="mt-2 text-section font-semibold tabular-nums text-text">{ currencyTotalsLabel(vm.BillableSummary.UnbilledTaskLabor) }</p>
+			</div>
+			<div class="rounded-lg border border-border bg-surface p-4">
+				<p class="text-[11px] uppercase tracking-wider text-text-muted">Unbilled expenses</p>
+				<p class="mt-2 text-section font-semibold tabular-nums text-text">{ currencyTotalsLabel(vm.BillableSummary.UnbilledBillableExpense) }</p>
+			</div>
+			<div class="rounded-lg border border-border bg-surface p-4">
+				<p class="text-[11px] uppercase tracking-wider text-text-muted">Total unbilled</p>
+				<p class="mt-2 text-section font-semibold tabular-nums text-text">{ currencyTotalsLabel(vm.BillableSummary.TotalUnbilled) }</p>
+			</div>
+		</div>
+
+		<!-- Deep links into the operational pages. Billable Work Report
+		     is the drill-in; the other two are for when the operator
+		     wants to create new work for this customer. -->
+		<div class="rounded-lg border border-border bg-surface p-4">
+			<h2 class="text-section font-semibold text-text">Related work views</h2>
+			<div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+				<a href={ "/tasks/billable-work/report?customer_id=" + Uitoa(vm.Customer.ID) } class="rounded-md border border-border bg-background p-3 hover:border-primary-soft hover:bg-primary-soft/30">
+					<p class="text-body font-semibold text-text">Billable Work Report</p>
+					<p class="mt-1 text-small text-text-muted2">Unbilled tasks, expenses, and bill lines for this customer.</p>
+				</a>
+				<a href={ "/tasks?customer_id=" + Uitoa(vm.Customer.ID) } class="rounded-md border border-border bg-background p-3 hover:border-primary-soft hover:bg-primary-soft/30">
+					<p class="text-body font-semibold text-text">Tasks</p>
+					<p class="mt-1 text-small text-text-muted2">Open task list filtered to this customer.</p>
+				</a>
+				<a href={ "/invoices/new?customer_id=" + Uitoa(vm.Customer.ID) } class="rounded-md border border-border bg-background p-3 hover:border-primary-soft hover:bg-primary-soft/30">
+					<p class="text-body font-semibold text-text">Invoice unbilled work</p>
+					<p class="mt-1 text-small text-text-muted2">Open the invoice editor pre-filled with this customer.</p>
+				</a>
+			</div>
+			if vm.BillableSummary.LastBillableWorkDate != nil {
+				<p class="mt-3 text-small text-text-muted2">Last billable work recorded: <span class="font-medium text-text">{ vm.BillableSummary.LastBillableWorkDate.Format("2006-01-02") }</span>.</p>
+			} else {
+				<p class="mt-3 text-small text-text-muted2">No current billable work waiting.</p>
+			}
+		</div>
+	</div>
+}
+
+// ── Notes tab (placeholder) ─────────────────────────────────────────────────
+
+templ tabNotesPlaceholder(_ CustomerDetailVM) {
+	<div class="rounded-lg border border-dashed border-border bg-surface p-8 text-center">
+		<p class="text-body font-semibold text-text">Notes coming soon</p>
+		<p class="mt-2 text-small text-text-muted2">
+			Planned: per-customer follow-up notes with author + timestamp.
+		</p>
+	</div>
+}
+
+// ── Reused: edit form / currency policy / shipping catalogue / lifecycle ───
+//
+// These sections were already well-factored in the old single-page
+// layout. The new tab shell re-uses them unchanged — Details tab
+// renders customerEditCard + customerCurrencyPolicySection; Addresses
+// tab renders customerShippingAddressesCard. Definitions below.
+
 templ customerCurrencyPolicySection(vm CustomerDetailVM) {
-	<div class="mt-8 rounded-lg border border-border bg-surface p-5">
+	<div class="mt-4 rounded-lg border border-border bg-surface p-5">
 		<div class="flex items-center justify-between mb-4">
 			<div>
 				<h2 class="text-section font-semibold text-text">Currency Policy</h2>
@@ -477,53 +551,9 @@ templ customerCurrencyPolicyBadge(p models.CustomerCurrencyPolicy) {
 	}
 }
 
-// customerDisplayCard — read-only rendering of the customer profile fields.
-// Used when the detail page is not in edit mode.
-templ customerDisplayCard(vm CustomerDetailVM) {
-	<div class="rounded-lg border border-border bg-surface p-6">
-		<h2 class="text-section font-semibold text-text">Customer Details</h2>
-		<div class="mt-4 grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
-			<div>
-				<p class="text-small font-medium uppercase tracking-wider text-text-muted">Name</p>
-				<p class="mt-1 text-body font-medium text-text">{ vm.Customer.Name }</p>
-			</div>
-			<div>
-				<p class="text-small font-medium uppercase tracking-wider text-text-muted">Email</p>
-				if vm.Customer.Email != "" {
-					<p class="mt-1 text-body text-text">{ vm.Customer.Email }</p>
-				} else {
-					<p class="mt-1 text-body text-text-muted2">-</p>
-				}
-			</div>
-			<div>
-				<p class="text-small font-medium uppercase tracking-wider text-text-muted">Billing Address</p>
-				if addr := vm.Customer.FormattedAddress(); addr != "" {
-					<p class="mt-1 whitespace-pre-wrap text-body text-text">{ addr }</p>
-				} else {
-					<p class="mt-1 text-body text-text-muted2">-</p>
-				}
-			</div>
-			<div>
-				<p class="text-small font-medium uppercase tracking-wider text-text-muted">Default Payment Term</p>
-				if vm.DefaultPaymentTermLabel != "" {
-					<p class="mt-1 text-body text-text">{ vm.DefaultPaymentTermLabel }</p>
-				} else {
-					<p class="mt-1 text-body text-text-muted2">Use company default</p>
-				}
-			</div>
-		</div>
-	</div>
-}
-
-// customerEditCard — inline form replacement for customerDisplayCard when
-// vm.Editing is true. POSTs to /customers/:id/update; on validation failure
-// the handler re-renders this card with field errors + preserved values.
-// Currency policy is intentionally NOT in this form — it has its own
-// dedicated section further down the page with single/multi toggle + allowed
-// currency management.
 templ customerEditCard(vm CustomerDetailVM) {
-	<div class="rounded-lg border border-border bg-surface p-6">
-		<h2 class="text-section font-semibold text-text">Edit Customer</h2>
+	<div class="rounded-lg border border-border bg-surface p-5">
+		<h2 class="text-section font-semibold text-text">Customer Details</h2>
 		<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/customers/%d/update", vm.Customer.ID)) } class="mt-4 space-y-4">
 			<div class="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
 				<div class="md:col-span-2">
@@ -601,7 +631,7 @@ templ customerEditCard(vm CustomerDetailVM) {
 					Save
 				</button>
 				<a
-					href={ templ.SafeURL(fmt.Sprintf("/customers/%d", vm.Customer.ID)) }
+					href={ templ.SafeURL(fmt.Sprintf("/customers/%d?tab=transactions", vm.Customer.ID)) }
 					class="rounded-md border border-border-input px-4 py-2 text-body font-medium text-text hover:bg-background"
 				>
 					Cancel
@@ -611,14 +641,10 @@ templ customerEditCard(vm CustomerDetailVM) {
 	</div>
 }
 
-// customerShippingAddressesCard — list + inline add form for the customer's
-// shipping-address catalogue (migration 088). Invoice / SO / Shipment editors
-// read from this list for the ship-to dropdown; the billing address stays on
-// the Customer row itself and is edited via customerEditCard above.
 templ customerShippingAddressesCard(vm CustomerDetailVM) {
-	<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+	<div class="rounded-lg border border-border bg-surface p-5">
 		<h2 class="text-section font-semibold text-text">Shipping Addresses</h2>
-		<p class="mt-1 text-small text-text-muted2">Named ship-to locations. Pickable from the ship-to dropdown on invoices, sales orders, and shipments. The customer's billing address lives on the main record above.</p>
+		<p class="mt-1 text-small text-text-muted2">Named ship-to locations. Pickable from the ship-to dropdown on invoices, sales orders, and shipments. The customer's billing address lives on the Details tab.</p>
 
 		if len(vm.ShippingAddresses) == 0 {
 			<p class="mt-4 text-body text-text-muted2">No shipping addresses yet. Add one below.</p>
@@ -626,32 +652,32 @@ templ customerShippingAddressesCard(vm CustomerDetailVM) {
 			<div class="mt-4 overflow-x-auto">
 				<table class="w-full text-left text-body">
 					<thead class="text-small uppercase tracking-wider text-text-muted">
-						<tr class="border-b border-border">
-							<th class="py-2 pr-4 w-40">Label</th>
-							<th class="py-2 pr-4">Address</th>
-							<th class="py-2 pr-4 w-28">Default</th>
-							<th class="py-2 w-40"></th>
+						<tr class="border-b border-border-subtle">
+							<th class="py-1.5 pr-4 w-40">Label</th>
+							<th class="py-1.5 pr-4">Address</th>
+							<th class="py-1.5 pr-4 w-28">Default</th>
+							<th class="py-1.5 w-40"></th>
 						</tr>
 					</thead>
 					<tbody class="text-text">
 						for _, addr := range vm.ShippingAddresses {
-							<tr class="border-b border-border-subtle align-top">
-								<td class="py-3 pr-4 font-medium">
+							<tr class="border-b border-border-subtle/60 align-top">
+								<td class="py-2 pr-4 font-medium">
 									if addr.Label != "" {
 										{ addr.Label }
 									} else {
 										<span class="text-text-muted2">—</span>
 									}
 								</td>
-								<td class="py-3 pr-4 whitespace-pre-line text-small">{ addr.FormattedAddress() }</td>
-								<td class="py-3 pr-4">
+								<td class="py-2 pr-4 whitespace-pre-line text-small">{ addr.FormattedAddress() }</td>
+								<td class="py-2 pr-4">
 									if addr.IsDefault {
 										<span class="inline-block rounded bg-primary-soft px-2 py-0.5 text-small font-medium text-primary">Default</span>
 									} else {
 										<span class="text-text-muted2">—</span>
 									}
 								</td>
-								<td class="py-3 text-right">
+								<td class="py-2 text-right">
 									<div class="flex items-center justify-end gap-2">
 										if !addr.IsDefault {
 											<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/customers/%d/shipping-addresses/%d/set-default", vm.Customer.ID, addr.ID)) } class="inline">
@@ -670,7 +696,7 @@ templ customerShippingAddressesCard(vm CustomerDetailVM) {
 			</div>
 		}
 
-		<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/customers/%d/shipping-addresses", vm.Customer.ID)) } class="mt-6 rounded-md border border-border bg-background p-4">
+		<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/customers/%d/shipping-addresses", vm.Customer.ID)) } class="mt-5 rounded-md border border-border bg-background p-4">
 			<h3 class="text-body font-semibold text-text">Add shipping address</h3>
 			<div class="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
 				<div>
@@ -717,24 +743,22 @@ templ customerShippingAddressesCard(vm CustomerDetailVM) {
 	</div>
 }
 
-// customerLifecycleActions — AR mirror of vendorLifecycleActions. Shows
-// exactly one of Delete / Deactivate / Reactivate based on customer state.
 templ customerLifecycleActions(vm CustomerDetailVM) {
 	if !vm.Customer.IsActive {
 		<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/customers/%d/reactivate", vm.Customer.ID)) } class="inline">
-			<button type="submit" class="rounded-md border border-border-input bg-surface px-4 py-2 text-body font-medium text-text hover:bg-background">
+			<button type="submit" class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-small font-medium text-text hover:bg-background">
 				Reactivate
 			</button>
 		</form>
 	} else if vm.HasRecords {
 		<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/customers/%d/deactivate", vm.Customer.ID)) } class="inline" onsubmit="return confirm('Deactivate this customer? They will be hidden from pickers but historical records remain. You can reactivate later.');">
-			<button type="submit" class="rounded-md border border-border-input bg-surface px-4 py-2 text-body font-medium text-text hover:bg-background">
+			<button type="submit" class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-small font-medium text-text hover:bg-background">
 				Deactivate
 			</button>
 		</form>
 	} else {
 		<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/customers/%d/delete", vm.Customer.ID)) } class="inline" onsubmit="return confirm('Permanently delete this customer? This cannot be undone. (Only available because no invoices, quotes or other records reference this customer.)');">
-			<button type="submit" class="rounded-md border border-border-danger bg-danger-soft px-4 py-2 text-body font-medium text-danger hover:bg-danger-soft">
+			<button type="submit" class="rounded-md border border-border-danger bg-danger-soft px-3 py-1.5 text-small font-medium text-danger hover:bg-danger-soft">
 				Delete
 			</button>
 		</form>

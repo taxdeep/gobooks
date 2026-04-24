@@ -83,6 +83,15 @@ type CustomerNewVM struct {
 type CustomerDetailVM struct {
 	HasCompany bool
 
+	// Tab drives the active content pane. One of:
+	//   "transactions" (default) — unified AR document list
+	//   "quotes-orders"          — Quote + SalesOrder pipeline
+	//   "billable-work"          — unbilled tasks/expenses summary
+	//   "addresses"              — shipping address catalogue
+	//   "details"                — editable profile + currency policy
+	//   "notes"                  — future; placeholder for now
+	Tab string
+
 	Customer                models.Customer
 	DefaultPaymentTermLabel string
 	BillableSummary         services.CustomerBillableSummary
@@ -90,6 +99,17 @@ type CustomerDetailVM struct {
 	OutstandingInvoices     []models.Invoice
 	RecentInvoices          []models.Invoice
 	MostRecentInvoice       *models.Invoice
+
+	// Transactions is the unified AR-document feed rendered in the
+	// Transactions tab. Populated by services.ListSalesTransactions with
+	// a customer_id filter; empty when Tab != "transactions" (lazy load).
+	Transactions []services.SalesTxRow
+	// TxFilter* echo the query-string filters into the tab's filter bar
+	// so the URL fully describes the current view.
+	TxFilterType   string // "" or "all" / "invoices" / "payments" / ...
+	TxFilterStatus string
+	TxFilterFrom   string // YYYY-MM-DD
+	TxFilterTo     string // YYYY-MM-DD
 
 	// Commercial-commitment tables — mirror of vendor detail's Recent POs
 	// section. Quotes precede sales orders in the AR chain

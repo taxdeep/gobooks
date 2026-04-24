@@ -165,8 +165,20 @@ func (s *Server) handleCustomerDetail(c *fiber.Ctx) error {
 	// Best-effort: errors leave the list empty (card shows "no addresses").
 	shippingAddrs, _ := services.ListCustomerShippingAddresses(s.DB, companyID, uint(customerID64))
 
+	// Legacy ?edit=1 URL → redirect to details tab with edit intent so
+	// bookmarks + external links keep working.
+	editFlag := c.Query("edit") == "1"
+	tab := normaliseCustomerDetailTab(c.Query("tab"))
+	if editFlag && tab == "" {
+		tab = "details"
+	}
+	if tab == "" {
+		tab = "transactions"
+	}
+
 	vm := pages.CustomerDetailVM{
 		HasCompany:              true,
+		Tab:                     tab,
 		Customer:                workspace.Customer,
 		DefaultPaymentTermLabel: workspace.DefaultPaymentTermLabel,
 		BillableSummary:         workspace.BillableSummary,
@@ -183,18 +195,19 @@ func (s *Server) handleCustomerDetail(c *fiber.Ctx) error {
 		AllowedCurrencies:       allowedCurrencies,
 		BaseCurrencyCode:        baseCurrencyCode,
 		CurrencyPolicySaved:     c.Query("policy_saved") == "1",
-		Editing:                 c.Query("edit") == "1",
-		Saved:                   c.Query("saved") == "1",
-		HasRecords:              hasRecords,
-		Deactivated:             c.Query("deactivated") == "1",
-		Reactivated:             c.Query("reactivated") == "1",
-		LifecycleErr:            strings.TrimSpace(c.Query("error")),
-		ShippingAddresses:       shippingAddrs,
+		// Details tab is always-editable now (no display/edit toggle).
+		// Keep the Editing flag true whenever the tab is Details so the
+		// existing customerEditCard / POST-rerender logic still works.
+		Editing:           tab == "details",
+		Saved:             c.Query("saved") == "1",
+		HasRecords:        hasRecords,
+		Deactivated:       c.Query("deactivated") == "1",
+		Reactivated:       c.Query("reactivated") == "1",
+		LifecycleErr:      strings.TrimSpace(c.Query("error")),
+		ShippingAddresses: shippingAddrs,
 	}
 
-	// Seed the edit form from the current customer record when entering edit
-	// mode. On validation failure handleCustomerDetailUpdate re-renders with
-	// these fields overwritten by the POSTed values.
+	// Seed the Details-tab form from the current customer record.
 	if vm.Editing {
 		s.loadCustomerEditFormData(companyID, &vm)
 		vm.FormName = workspace.Customer.Name
@@ -209,7 +222,43 @@ func (s *Server) handleCustomerDetail(c *fiber.Ctx) error {
 		vm.FormAddrCountry = workspace.Customer.AddrCountry
 	}
 
+	// Lazy-load the Transactions tab's unified list only when the tab
+	// is active. Other tabs reuse the already-loaded workspace data.
+	if tab == "transactions" {
+		typeFilter := strings.TrimSpace(c.Query("tx_type"))
+		statusFilter := strings.TrimSpace(c.Query("tx_status"))
+		fromStr := strings.TrimSpace(c.Query("tx_from"))
+		toStr := strings.TrimSpace(c.Query("tx_to"))
+		dateFrom, dateTo := parseListDateRange(fromStr, toStr)
+		rows, _, err := services.ListSalesTransactions(s.DB, companyID, services.SalesTxFilter{
+			Type:       typeFilter,
+			Status:     statusFilter,
+			DateFrom:   dateFrom,
+			DateTo:     dateTo,
+			CustomerID: uint(customerID64),
+		}, 1, 100)
+		if err == nil {
+			vm.Transactions = rows
+		}
+		vm.TxFilterType = typeFilter
+		vm.TxFilterStatus = statusFilter
+		vm.TxFilterFrom = fromStr
+		vm.TxFilterTo = toStr
+	}
+
 	return pages.CustomerDetail(vm).Render(c.Context(), c)
+}
+
+// normaliseCustomerDetailTab collapses the `tab=X` query param to the
+// canonical set. Empty / unknown values fall through to transactions
+// (default) via the caller.
+func normaliseCustomerDetailTab(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "transactions", "quotes-orders", "billable-work", "addresses", "details", "notes":
+		return strings.ToLower(strings.TrimSpace(raw))
+	default:
+		return ""
+	}
 }
 
 // loadCustomerEditFormData populates dropdown data for the inline edit form.

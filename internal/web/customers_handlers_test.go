@@ -166,47 +166,64 @@ func TestCustomerDetailPageHappyPath(t *testing.T) {
 	}
 
 	app := testRouteApp(t, db)
+
+	// Default tab is Transactions. Assert header contact info +
+	// financial summary + tab strip + transactions table rows for this
+	// customer's invoices. Cross-tenant isolation is verified at the
+	// end — INV-OTHER-001 must never appear here.
 	resp := performRequest(t, app, fmt.Sprintf("/customers/%d", customerID), rawToken)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected %d, got %d", http.StatusOK, resp.StatusCode)
 	}
 	body := readResponseBody(t, resp)
 	for _, want := range []string{
-		"Customer Workspace",
+		// Header: name + contact
 		"Workspace Customer",
 		"workspace@example.com",
 		"N30 — Net 30",
-		"Unbilled Labor",
-		"Unbilled Expenses",
-		"Total Unbilled",
-		"Outstanding AR",
-		"Outstanding Invoices",
-		"Overdue Invoices",
-		"125.00 CAD",
-		"40.00 CAD",
-		"165.00 CAD",
-		"280.00 CAD",
-		">2<",
-		">1<",
-		fmt.Sprintf("/tasks/billable-work/report?customer_id=%d", customerID),
-		fmt.Sprintf("/tasks?customer_id=%d", customerID),
-		fmt.Sprintf("/invoices?customer_id=%d", customerID),
+		// Financial summary labels
+		"Financial summary",
+		"Open balance",
+		"Unbilled work",
+		// Tab strip
+		"tab=transactions",
+		"tab=billable-work",
+		"tab=details",
+		// Transactions table — customer's own invoices only
+		"INV-CUST-001",
 		"INV-CUST-002",
 		"INV-CUST-003",
-		"Paid",
-		"Partially Paid",
-		"Unpaid",
-		"50.00 CAD",
-		"30.00 CAD",
-		"250.00 CAD",
-		"2026-04-06",
+		// New Invoice CTA in header
+		fmt.Sprintf("/invoices/new?customer_id=%d", customerID),
 	} {
 		if !strings.Contains(body, want) {
-			t.Fatalf("expected customer detail to contain %q, got %q", want, body)
+			t.Fatalf("expected default customer detail tab to contain %q, got %q", want, body)
 		}
 	}
 	if strings.Contains(body, "INV-OTHER-001") {
-		t.Fatalf("expected other customer invoice to stay hidden, got %q", body)
+		t.Fatalf("expected other customer invoice to stay hidden on transactions tab, got %q", body)
+	}
+
+	// Billable Work tab still carries the unbilled labor/expense KPI
+	// trio + the deep links into the ops pages.
+	respBW := performRequest(t, app, fmt.Sprintf("/customers/%d?tab=billable-work", customerID), rawToken)
+	if respBW.StatusCode != http.StatusOK {
+		t.Fatalf("billable-work tab: expected %d, got %d", http.StatusOK, respBW.StatusCode)
+	}
+	bwBody := readResponseBody(t, respBW)
+	for _, want := range []string{
+		"Unbilled labor",
+		"Unbilled expenses",
+		"Total unbilled",
+		"125.00 CAD",
+		"40.00 CAD",
+		"165.00 CAD",
+		fmt.Sprintf("/tasks/billable-work/report?customer_id=%d", customerID),
+		fmt.Sprintf("/tasks?customer_id=%d", customerID),
+	} {
+		if !strings.Contains(bwBody, want) {
+			t.Fatalf("expected billable-work tab to contain %q, got %q", want, bwBody)
+		}
 	}
 }
 
