@@ -198,7 +198,6 @@ func (s *Server) handleSalesByCustomer(c *fiber.Ctx) error {
 	return s.handleCounterpartySummary(c, counterpartySummaryConfig{
 		ReportTitle:    "Sales by Customer",
 		FormAction:     "/reports/sales-by-customer",
-		ActiveTab:      "sales_by_customer",
 		ColumnLabel:    "Customer",
 		DrillURLPrefix: "/customers/",
 		EmptyHint:      "No invoices in this period.",
@@ -213,7 +212,6 @@ func (s *Server) handleExpenseByVendor(c *fiber.Ctx) error {
 	return s.handleCounterpartySummary(c, counterpartySummaryConfig{
 		ReportTitle:    "Expense by Vendor",
 		FormAction:     "/reports/expense-by-vendor",
-		ActiveTab:      "expense_by_vendor",
 		ColumnLabel:    "Vendor",
 		DrillURLPrefix: "/vendors/",
 		EmptyHint:      "No bills or expenses in this period.",
@@ -227,7 +225,6 @@ func (s *Server) handleExpenseByVendor(c *fiber.Ctx) error {
 type counterpartySummaryConfig struct {
 	ReportTitle    string
 	FormAction     string
-	ActiveTab      string
 	ColumnLabel    string
 	DrillURLPrefix string
 	EmptyHint      string
@@ -258,7 +255,6 @@ func (s *Server) handleCounterpartySummary(c *fiber.Ctx, cfg counterpartySummary
 		HasCompany:     true,
 		From:           fromStr,
 		To:             toStr,
-		ActiveTab:      cfg.ActiveTab,
 		Toolbar:        toolbar,
 		PageTitle:      cfg.ReportTitle,
 		ColumnLabel:    cfg.ColumnLabel,
@@ -310,7 +306,6 @@ func (s *Server) handleCashFlow(c *fiber.Ctx) error {
 			HasCompany: true,
 			From:       fromStr,
 			To:         toStr,
-			ActiveTab:  "cash_flow",
 			FormError:  errMsg,
 			Toolbar:    toolbar,
 		}).Render(c.Context(), c)
@@ -322,7 +317,6 @@ func (s *Server) handleCashFlow(c *fiber.Ctx) error {
 			HasCompany: true,
 			From:       fromStr,
 			To:         toStr,
-			ActiveTab:  "cash_flow",
 			FormError:  "Could not build Cash Flow Summary.",
 			Toolbar:    toolbar,
 		}).Render(c.Context(), c)
@@ -332,7 +326,6 @@ func (s *Server) handleCashFlow(c *fiber.Ctx) error {
 		HasCompany: true,
 		From:       fromStr,
 		To:         toStr,
-		ActiveTab:  "cash_flow",
 		Report:     report,
 		Toolbar:    toolbar,
 	}).Render(c.Context(), c)
@@ -368,7 +361,6 @@ func (s *Server) handleGeneralLedger(c *fiber.Ctx) error {
 			HasCompany: true,
 			From:       fromStr,
 			To:         toStr,
-			ActiveTab:  "general_ledger",
 			FormError:  errMsg,
 			Toolbar:    toolbar,
 		}).Render(c.Context(), c)
@@ -380,7 +372,6 @@ func (s *Server) handleGeneralLedger(c *fiber.Ctx) error {
 			HasCompany: true,
 			From:       fromStr,
 			To:         toStr,
-			ActiveTab:  "general_ledger",
 			FormError:  "Could not build General Ledger.",
 			Toolbar:    toolbar,
 		}).Render(c.Context(), c)
@@ -390,7 +381,6 @@ func (s *Server) handleGeneralLedger(c *fiber.Ctx) error {
 		HasCompany: true,
 		From:       fromStr,
 		To:         toStr,
-		ActiveTab:  "general_ledger",
 		Report:     report,
 		Toolbar:    toolbar,
 	}).Render(c.Context(), c)
@@ -525,7 +515,6 @@ func (s *Server) handleTrialBalance(c *fiber.Ctx) error {
 			HasCompany:   true,
 			From:         fromStr,
 			To:           toStr,
-			ActiveTab:    "trial",
 			Rows:         []services.TrialBalanceRow{},
 			TotalDebits:  "0.00",
 			TotalCredits: "0.00",
@@ -540,7 +529,6 @@ func (s *Server) handleTrialBalance(c *fiber.Ctx) error {
 			HasCompany:   true,
 			From:         fromStr,
 			To:           toStr,
-			ActiveTab:    "trial",
 			Rows:         []services.TrialBalanceRow{},
 			TotalDebits:  "0.00",
 			TotalCredits: "0.00",
@@ -555,7 +543,6 @@ func (s *Server) handleTrialBalance(c *fiber.Ctx) error {
 		To:           toStr,
 		FromTime:     fromDate,
 		ToTime:       toDate,
-		ActiveTab:    "trial",
 		Rows:         rows,
 		TotalDebits:  pages.Money(totalDebits),
 		TotalCredits: pages.Money(totalCredits),
@@ -590,7 +577,6 @@ func (s *Server) handleIncomeStatement(c *fiber.Ctx) error {
 			HasCompany: true,
 			From:       fromStr,
 			To:         toStr,
-			ActiveTab:  "income",
 			Report:     services.IncomeStatement{FromDate: fromDate, ToDate: toDate},
 			FormError:  errMsg,
 			Toolbar:    toolbar,
@@ -605,7 +591,6 @@ func (s *Server) handleIncomeStatement(c *fiber.Ctx) error {
 			HasCompany: true,
 			From:       fromStr,
 			To:         toStr,
-			ActiveTab:  "income",
 			Report:     services.IncomeStatement{FromDate: fromDate, ToDate: toDate},
 			FormError:  "Could not run report.",
 			Toolbar:    toolbar,
@@ -625,7 +610,6 @@ func (s *Server) handleIncomeStatement(c *fiber.Ctx) error {
 		HasCompany: true,
 		From:       fromStr,
 		To:         toStr,
-		ActiveTab:  "income",
 		Report:     report,
 		Toolbar:    toolbar,
 	}).Render(c.Context(), c)
@@ -656,7 +640,6 @@ func (s *Server) handleBalanceSheet(c *fiber.Ctx) error {
 		return pages.BalanceSheet(pages.BalanceSheetVM{
 			HasCompany: true,
 			AsOf:       asOfStr,
-			ActiveTab:  "balance",
 			Report:     services.BalanceSheet{AsOf: time.Now()},
 			FormError:  "As of date must be a valid date.",
 			AsOfTime:   time.Now(),
@@ -669,7 +652,6 @@ func (s *Server) handleBalanceSheet(c *fiber.Ctx) error {
 		return pages.BalanceSheet(pages.BalanceSheetVM{
 			HasCompany: true,
 			AsOf:       asOfStr,
-			ActiveTab:  "balance",
 			Report:     services.BalanceSheet{AsOf: asOf},
 			FormError:  "Could not run report.",
 			AsOfTime:   asOf,
@@ -680,7 +662,6 @@ func (s *Server) handleBalanceSheet(c *fiber.Ctx) error {
 	return pages.BalanceSheet(pages.BalanceSheetVM{
 		HasCompany: true,
 		AsOf:       asOfStr,
-		ActiveTab:  "balance",
 		Report:     report,
 		AsOfTime:   asOf,
 		Toolbar:    toolbar,
@@ -712,7 +693,6 @@ func (s *Server) handleARAgingReport(c *fiber.Ctx) error {
 		return pages.ARAging(pages.ARAgingVM{
 			HasCompany: true,
 			AsOf:       asOfStr,
-			ActiveTab:  "ar",
 			Report:     services.ARAgingReport{AsOf: time.Now()},
 			FormError:  "As of date must be a valid date.",
 			Toolbar:    toolbar,
@@ -726,7 +706,6 @@ func (s *Server) handleARAgingReport(c *fiber.Ctx) error {
 		return pages.ARAging(pages.ARAgingVM{
 			HasCompany: true,
 			AsOf:       asOfStr,
-			ActiveTab:  "ar",
 			Report:     services.ARAgingReport{AsOf: asOf},
 			FormError:  "Could not run report.",
 			Toolbar:    toolbar,
@@ -744,7 +723,6 @@ func (s *Server) handleARAgingReport(c *fiber.Ctx) error {
 	return pages.ARAging(pages.ARAgingVM{
 		HasCompany: true,
 		AsOf:       asOfStr,
-		ActiveTab:  "ar",
 		Report:     report,
 		Toolbar:    toolbar,
 	}).Render(c.Context(), c)
@@ -788,7 +766,6 @@ func (s *Server) handleJournalEntryReport(c *fiber.Ctx) error {
 			HasCompany: true,
 			From:       fromStr,
 			To:         toStr,
-			ActiveTab:  "journal",
 			Entries:    nil,
 			FormError:  errMsg,
 			Toolbar:    toolbar,
@@ -801,7 +778,6 @@ func (s *Server) handleJournalEntryReport(c *fiber.Ctx) error {
 			HasCompany: true,
 			From:       fromStr,
 			To:         toStr,
-			ActiveTab:  "journal",
 			Entries:    nil,
 			FormError:  "Could not run report.",
 			Toolbar:    toolbar,
@@ -812,7 +788,6 @@ func (s *Server) handleJournalEntryReport(c *fiber.Ctx) error {
 		HasCompany: true,
 		From:       fromStr,
 		To:         toStr,
-		ActiveTab:  "journal",
 		Entries:    entries,
 		Toolbar:    toolbar,
 	}).Render(c.Context(), c)

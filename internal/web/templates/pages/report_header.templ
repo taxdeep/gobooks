@@ -1,0 +1,20 @@
+// 遵循project_guide.md
+package pages
+
+// ReportPageHeader is the compact header used on every individual
+// report page (P&L, Balance Sheet, Trial Balance, …). Replaces the old
+// big "Reports" h1 + subtitle + nav-tabs block with:
+//
+//   - A small "← Back to Reports" link back to the hub.
+//   - The actual report title as the real <h1>.
+//
+// Shared so adding a new report is a one-liner and the header visual
+// stays consistent across every page. Pages that render their own back
+// link (e.g. Account Transactions drills from Sales Tax Report) do not
+// use this helper.
+templ ReportPageHeader(title string) {
+	<div class="mb-4">
+		<a href="/reports" class="text-text-muted2 hover:text-text text-small">← Back to Reports</a>
+		<h1 class="mt-1 text-title font-semibold">{ title }</h1>
+	</div>
+}

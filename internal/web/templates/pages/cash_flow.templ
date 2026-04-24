@@ -12,7 +12,6 @@ type CashFlowVM struct {
 	HasCompany bool
 	From       string
 	To         string
-	ActiveTab  string
 	Report     *services.CashFlowReport
 	FormError  string
 	Toolbar    ReportToolbarVM
@@ -28,18 +27,14 @@ templ CashFlow(vm CashFlowVM) {
 
 templ bodyCashFlow(vm CashFlowVM) {
 	<div class="max-w-[95%]">
-		<div class="report-nav-area">
-			<h1 class="text-title font-semibold">Reports</h1>
-			<p class="mt-2 text-text-muted2">Cash Flow Summary</p>
-			@ReportsNav(vm.ActiveTab)
-		</div>
+		@ReportPageHeader("Cash Flow Summary")
 
 		// Honest scope disclaimer — this isn't a GAAP indirect-method
 		// statement of cash flows. It's the more useful "where did my
 		// cash actually move" view that small-business operators reach
 		// for. The disclaimer matters because anyone expecting the
 		// formal version would miss the working-capital adjustments.
-		<div class="mt-4 rounded-md border border-border bg-background p-3 text-small text-text-muted2">
+		<div class="mt-2 rounded-md border border-border bg-background p-2.5 text-small text-text-muted2">
 			This report shows the actual cash movements in your bank-type accounts, grouped by source.
 			It is not a GAAP indirect-method statement of cash flows — it does not separate operating /
 			investing / financing activities or apply non-cash adjustments.
@@ -55,11 +50,11 @@ templ bodyCashFlow(vm CashFlowVM) {
 
 		if vm.Report != nil {
 			if len(vm.Report.Accounts) == 0 {
-				<div class="mt-6 rounded-lg border border-border bg-surface p-6 text-text-muted2">
+				<div class="mt-4 rounded-lg border border-border bg-surface p-4 text-text-muted2">
 					No bank-type accounts found. Mark at least one account as "Bank" in the chart of accounts to see cash flow data here.
 				</div>
 			} else {
-				<div class="mt-6 space-y-6">
+				<div class="mt-4 space-y-3">
 					@cashFlowSummaryHeader(vm.Report)
 					@cashFlowAccountsTable(vm.Report)
 					@cashFlowSourceTables(vm.Report)
@@ -70,9 +65,9 @@ templ bodyCashFlow(vm CashFlowVM) {
 }
 
 templ cashFlowSummaryHeader(report *services.CashFlowReport) {
-	<div class="rounded-lg border border-border bg-surface p-6">
+	<div class="rounded-lg border border-border bg-surface p-4">
 		<h2 class="text-section font-semibold text-text">Net Cash Movement</h2>
-		<div class="mt-4 grid grid-cols-2 gap-4 text-body sm:grid-cols-4">
+		<div class="mt-3 grid grid-cols-2 gap-4 text-body sm:grid-cols-4">
 			<div>
 				<div class="text-small text-text-muted2">Opening Cash</div>
 				<div class="mt-1 text-section font-semibold text-text" data-numfmt>{ Money(report.OpeningCash) }</div>
@@ -98,35 +93,35 @@ templ cashFlowSummaryHeader(report *services.CashFlowReport) {
 
 templ cashFlowAccountsTable(report *services.CashFlowReport) {
 	<div class="rounded-lg border border-border bg-surface overflow-x-auto">
-		<div class="px-6 py-4 border-b border-border bg-surface-tableHeader">
+		<div class="px-4 py-2.5 border-b border-border-subtle bg-surface-tableHeader">
 			<div class="font-semibold text-text">Per-Account Cash Activity</div>
 			<div class="text-small text-text-muted2 mt-0.5">All bank-type accounts. Click an account to drill into its full transaction list.</div>
 		</div>
 		<table class="w-full text-left text-body">
-			<thead class="text-small uppercase tracking-wider text-text-muted border-b border-border">
+			<thead class="text-small uppercase tracking-wider text-text-muted border-b border-border-subtle">
 				<tr>
-					<th class="px-6 py-3 font-medium">Account</th>
-					<th class="px-4 py-3 font-medium text-right">Opening</th>
-					<th class="px-4 py-3 font-medium text-right">Inflows</th>
-					<th class="px-4 py-3 font-medium text-right">Outflows</th>
-					<th class="px-6 py-3 font-medium text-right">Closing</th>
+					<th class="px-4 py-1.5 font-medium">Account</th>
+					<th class="px-4 py-1.5 font-medium text-right">Opening</th>
+					<th class="px-4 py-1.5 font-medium text-right">Inflows</th>
+					<th class="px-4 py-1.5 font-medium text-right">Outflows</th>
+					<th class="px-4 py-1.5 font-medium text-right">Closing</th>
 				</tr>
 			</thead>
 			<tbody class="text-text">
 				for _, a := range report.Accounts {
 					{{ drillURL := services.AccountDrillURL(a.AccountID, report.FromDate, report.ToDate) }}
-					<tr class="border-b border-border-subtle hover:bg-background">
-						<td class="px-6 py-2.5">
+					<tr class="border-b border-border-subtle/60 hover:bg-background">
+						<td class="px-4 py-1.5">
 							if drillURL != "" {
 								<a href={ templ.SafeURL(drillURL) } class="text-primary hover:underline">{ a.AccountCode } — { a.AccountName }</a>
 							} else {
 								{ a.AccountCode } — { a.AccountName }
 							}
 						</td>
-						<td class="px-4 py-2.5 text-right tabular-nums" data-numfmt>{ Money(a.OpeningBalance) }</td>
-						<td class="px-4 py-2.5 text-right tabular-nums text-success-hover" data-numfmt>{ Money(a.TotalInflow) }</td>
-						<td class="px-4 py-2.5 text-right tabular-nums text-danger-hover" data-numfmt>{ Money(a.TotalOutflow) }</td>
-						<td class="px-6 py-2.5 text-right tabular-nums font-semibold" data-numfmt>{ Money(a.ClosingBalance) }</td>
+						<td class="px-4 py-1.5 text-right tabular-nums" data-numfmt>{ Money(a.OpeningBalance) }</td>
+						<td class="px-4 py-1.5 text-right tabular-nums text-success-hover" data-numfmt>{ Money(a.TotalInflow) }</td>
+						<td class="px-4 py-1.5 text-right tabular-nums text-danger-hover" data-numfmt>{ Money(a.TotalOutflow) }</td>
+						<td class="px-4 py-1.5 text-right tabular-nums font-semibold" data-numfmt>{ Money(a.ClosingBalance) }</td>
 					</tr>
 				}
 			</tbody>
@@ -135,7 +130,7 @@ templ cashFlowAccountsTable(report *services.CashFlowReport) {
 }
 
 templ cashFlowSourceTables(report *services.CashFlowReport) {
-	<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+	<div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
 		@cashFlowSourceSection("Where Cash Came From", report.InflowBySource, true)
 		@cashFlowSourceSection("Where Cash Went", report.OutflowBySource, false)
 	</div>
@@ -143,27 +138,27 @@ templ cashFlowSourceTables(report *services.CashFlowReport) {
 
 templ cashFlowSourceSection(title string, rows []services.CashFlowSourceRow, isInflow bool) {
 	<div class="rounded-lg border border-border bg-surface overflow-x-auto">
-		<div class="px-6 py-4 border-b border-border bg-surface-tableHeader">
+		<div class="px-4 py-2.5 border-b border-border-subtle bg-surface-tableHeader">
 			<div class="font-semibold text-text">{ title }</div>
 		</div>
 		if len(rows) == 0 {
-			<div class="px-6 py-6 text-center text-small text-text-muted2">No activity in this category for the period.</div>
+			<div class="px-4 py-4 text-center text-small text-text-muted2">No activity in this category for the period.</div>
 		} else {
 			<table class="w-full text-left text-body">
-				<thead class="text-small uppercase tracking-wider text-text-muted border-b border-border">
+				<thead class="text-small uppercase tracking-wider text-text-muted border-b border-border-subtle">
 					<tr>
-						<th class="px-6 py-3 font-medium">Source</th>
-						<th class="px-6 py-3 font-medium text-right">Net Amount</th>
+						<th class="px-4 py-1.5 font-medium">Source</th>
+						<th class="px-4 py-1.5 font-medium text-right">Net Amount</th>
 					</tr>
 				</thead>
 				<tbody class="text-text">
 					for _, r := range rows {
-						<tr class="border-b border-border-subtle">
-							<td class="px-6 py-2.5">{ r.SourceLabel }</td>
+						<tr class="border-b border-border-subtle/60 hover:bg-background">
+							<td class="px-4 py-1.5">{ r.SourceLabel }</td>
 							if isInflow {
-								<td class="px-6 py-2.5 text-right tabular-nums text-success-hover" data-numfmt>{ Money(r.Net) }</td>
+								<td class="px-4 py-1.5 text-right tabular-nums text-success-hover" data-numfmt>{ Money(r.Net) }</td>
 							} else {
-								<td class="px-6 py-2.5 text-right tabular-nums text-danger-hover" data-numfmt>{ Money(r.Net.Abs()) }</td>
+								<td class="px-4 py-1.5 text-right tabular-nums text-danger-hover" data-numfmt>{ Money(r.Net.Abs()) }</td>
 							}
 						</tr>
 					}

@@ -66,8 +66,6 @@ type TrialBalanceVM struct {
 	FromTime time.Time
 	ToTime   time.Time
 
-	ActiveTab string
-
 	Rows []services.TrialBalanceRow
 
 	TotalDebits  string
@@ -84,8 +82,6 @@ type IncomeStatementVM struct {
 	From string
 	To   string
 
-	ActiveTab string
-
 	Report services.IncomeStatement
 
 	FormError string
@@ -97,8 +93,6 @@ type BalanceSheetVM struct {
 	HasCompany bool
 
 	AsOf string
-
-	ActiveTab string
 
 	Report services.BalanceSheet
 
@@ -114,8 +108,6 @@ type ARAgingVM struct {
 	HasCompany bool
 
 	AsOf string
-
-	ActiveTab string
 
 	Report services.ARAgingReport
 

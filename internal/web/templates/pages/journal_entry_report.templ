@@ -14,11 +14,7 @@ templ JournalEntryReport(vm JournalEntryReportVM) {
 
 templ bodyJournalEntryReport(vm JournalEntryReportVM) {
 	<div class="max-w-[95%]">
-		<div class="report-nav-area">
-			<h1 class="text-title font-semibold">Reports</h1>
-			<p class="mt-2 text-text-muted2">Journal Entries</p>
-			@ReportsNav(vm.ActiveTab)
-		</div>
+		@ReportPageHeader("Journal Entries")
 
 		if vm.FormError != "" {
 			<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">
@@ -28,17 +24,17 @@ templ bodyJournalEntryReport(vm JournalEntryReportVM) {
 
 		@ReportToolbar(vm.Toolbar)
 
-		<div class="mt-6 space-y-8">
+		<div class="mt-4 space-y-3">
 			if len(vm.Entries) == 0 {
-				<div class="rounded-lg border border-border bg-surface p-6 text-body text-text-muted2">
+				<div class="rounded-lg border border-border bg-surface p-4 text-body text-text-muted2">
 					No journal entries in this date range.
 				</div>
 			} else {
 				for _, e := range vm.Entries {
-					<div class="rounded-lg border border-border bg-surface p-6">
-						<div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-border pb-4">
+					<div class="rounded-lg border border-border bg-surface p-4">
+						<div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-border-subtle pb-2">
 							<div>
-								<span class="text-section font-semibold text-text">{ e.EntryDate }</span>
+								<span class="text-body font-semibold text-text">{ e.EntryDate }</span>
 								if e.JournalNo != "" {
 									<span class="ml-3 font-mono text-body text-text-muted">{ e.JournalNo }</span>
 								}
@@ -48,27 +44,27 @@ templ bodyJournalEntryReport(vm JournalEntryReportVM) {
 								<span class="text-small font-medium text-text-muted2">{ e.ReversalNote }</span>
 							}
 						</div>
-						<div class="mt-4 overflow-x-auto">
+						<div class="mt-2 overflow-x-auto">
 							<table class="w-full text-left text-body">
 								<thead class="text-small uppercase tracking-wider text-text-muted">
-									<tr class="border-b border-border">
-										<th class="py-3 pr-4">Account</th>
-										<th class="py-3 pr-4">Memo</th>
-										<th class="py-3 pr-4 text-right">Debit</th>
-										<th class="py-3 pr-0 text-right">Credit</th>
+									<tr class="border-b border-border-subtle">
+										<th class="py-1.5 pr-4">Account</th>
+										<th class="py-1.5 pr-4">Memo</th>
+										<th class="py-1.5 pr-4 text-right">Debit</th>
+										<th class="py-1.5 pr-0 text-right">Credit</th>
 									</tr>
 								</thead>
 								<tbody class="text-text">
 									for _, line := range e.Lines {
-										<tr class="border-b border-border-subtle">
-											<td class="py-3 pr-4">
-												<span class="font-mono font-medium">{ line.AccountCode }</span>
+										<tr class="border-b border-border-subtle/60 hover:bg-background">
+											<td class="py-1.5 pr-4">
+												<span class="font-mono text-small font-medium">{ line.AccountCode }</span>
 												<span class="text-text-muted2"> — </span>
 												{ line.AccountName }
 											</td>
-											<td class="py-3 pr-4 text-text-muted2">{ line.Memo }</td>
-											<td class="py-3 pr-4 text-right">{ Money(line.Debit) }</td>
-											<td class="py-3 pr-0 text-right">{ Money(line.Credit) }</td>
+											<td class="py-1.5 pr-4 text-text-muted2">{ line.Memo }</td>
+											<td class="py-1.5 pr-4 text-right tabular-nums">{ Money(line.Debit) }</td>
+											<td class="py-1.5 pr-0 text-right tabular-nums">{ Money(line.Credit) }</td>
 										</tr>
 									}
 								</tbody>

@@ -10,8 +10,6 @@ type JournalEntryReportVM struct {
 	From string
 	To   string
 
-	ActiveTab string
-
 	Entries []services.JournalEntryReportEntry
 
 	FormError string
