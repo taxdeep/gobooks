@@ -507,10 +507,14 @@ templ rpDocumentTable(vm ReceivePaymentVM) {
 										/>
 									</div>
 									<input type="hidden" name="allocation_invoice_id" :value="String(inv.id)"/>
+									<!-- Row-level overage rolls into a new
+									     Customer Deposit at submit time —
+									     no rejection, just a friendly hint
+									     so the operator sees the side effect. -->
 									<span
 										x-show="invoiceOverage(inv) > 0"
-										class="text-[11px] text-warning-hover"
-										x-text="'Exceeds balance by $' + invoiceOverage(inv).toFixed(2)"
+										class="text-[11px] text-primary"
+										x-text="'+ $' + invoiceOverage(inv).toFixed(2) + ' → new deposit'"
 									></span>
 								</div>
 							</template>

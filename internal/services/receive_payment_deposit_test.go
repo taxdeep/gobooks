@@ -562,28 +562,159 @@ func TestReceivePayment_CaseF_Mixed(t *testing.T) {
 	}
 }
 
-// ── Validation: row-level overpayment rejected ───────────────────────────────
-
-func TestReceivePayment_RejectsRowLevelOverpayment(t *testing.T) {
+// ── Case G: row-level overage auto-rolls into a new Customer Deposit ─────────
+//
+// Mirror of the user's 2026-04-25 bug report: typing $5000 in an invoice
+// row whose balance is $3600 should silently retire the invoice ($3600)
+// and park the $1400 excess as a new Customer Deposit. No rejection — the
+// user shouldn't have to round-trip to a separate "Extra" field for the
+// common case.
+func TestReceivePayment_CaseG_RowOverageAutoFoldsIntoDeposit(t *testing.T) {
 	db := testRPDepositDB(t)
 	cid := seedRPDepositCompany(t, db)
 	bankID := seedRPDepositAccount(t, db, cid, "1000", models.RootAsset, models.DetailBank)
 	arID := seedRPDepositAccount(t, db, cid, "1100", models.RootAsset, models.DetailAccountsReceivable)
-	cust := models.Customer{CompanyID: cid, Name: "Cust V"}
+	cust := models.Customer{CompanyID: cid, Name: "Cust G"}
 	if err := db.Create(&cust).Error; err != nil {
 		t.Fatal(err)
 	}
-	inv := seedRPInvoice(t, db, cid, cust.ID, "INV-V-001", "100.00")
+	inv := seedRPInvoice(t, db, cid, cust.ID, "INV-G-001", "3600.00")
 
 	in := baseInput(cid, cust.ID, bankID, arID)
-	in.Allocations = []InvoiceAllocation{{InvoiceID: inv.ID, Amount: decimal.RequireFromString("150.00")}}
+	in.Allocations = []InvoiceAllocation{{
+		InvoiceID: inv.ID,
+		Amount:    decimal.RequireFromString("5000.00"),
+	}}
+
+	jeID, err := RecordReceivePayment(db, in)
+	if err != nil {
+		t.Fatalf("RecordReceivePayment: %v", err)
+	}
+
+	// Bank DR = full 5000 (what the customer actually paid).
+	bankDR, _ := sumJEByAccount(t, db, cid, jeID, bankID)
+	if !bankDR.Equal(decimal.RequireFromString("5000.00")) {
+		t.Errorf("bank DR = %s, want 5000", bankDR)
+	}
+	// AR CR = 3600 (capped at invoice balance).
+	_, arCR := sumJEByAccount(t, db, cid, jeID, arID)
+	if !arCR.Equal(decimal.RequireFromString("3600.00")) {
+		t.Errorf("AR CR = %s, want 3600", arCR)
+	}
+	// Customer Deposits CR = 1400 (auto-overage).
+	var custDepAcc models.Account
+	db.Where("company_id = ? AND system_key = ?", cid, "customer_deposits").First(&custDepAcc)
+	_, custDepCR := sumJEByAccount(t, db, cid, jeID, custDepAcc.ID)
+	if !custDepCR.Equal(decimal.RequireFromString("1400.00")) {
+		t.Errorf("Customer Deposits CR = %s, want 1400", custDepCR)
+	}
+	// JE balanced.
+	totalDR, totalCR := sumJEByAccount(t, db, cid, jeID, 0)
+	if !totalDR.Equal(totalCR) {
+		t.Errorf("JE unbalanced: DR=%s CR=%s", totalDR, totalCR)
+	}
+
+	// Invoice fully paid (capped, not overpaid).
+	var rInv models.Invoice
+	db.First(&rInv, inv.ID)
+	if rInv.Status != models.InvoiceStatusPaid || !rInv.BalanceDue.IsZero() {
+		t.Errorf("invoice %q balance=%s, want paid/0", rInv.Status, rInv.BalanceDue)
+	}
+
+	// CustomerDeposit row created with Source=overpayment, amount=1400.
+	var deps []models.CustomerDeposit
+	db.Where("customer_id = ?", cust.ID).Find(&deps)
+	if len(deps) != 1 {
+		t.Fatalf("expected 1 deposit, got %d", len(deps))
+	}
+	d := deps[0]
+	if !d.Amount.Equal(decimal.RequireFromString("1400.00")) {
+		t.Errorf("deposit.Amount = %s, want 1400", d.Amount)
+	}
+	if d.Source != models.DepositSourceOverpayment {
+		t.Errorf("deposit.Source = %q, want overpayment", d.Source)
+	}
+}
+
+// TestReceivePayment_CaseG_AutoOverage_PlusExplicitExtra confirms row
+// overage and the explicit Extra → New Deposit field stack into one
+// deposit row (operator types 5000 in invoice $3600 row + 200 in Extra
+// → one $1600 deposit).
+func TestReceivePayment_CaseG_AutoOverage_PlusExplicitExtra(t *testing.T) {
+	db := testRPDepositDB(t)
+	cid := seedRPDepositCompany(t, db)
+	bankID := seedRPDepositAccount(t, db, cid, "1000", models.RootAsset, models.DetailBank)
+	arID := seedRPDepositAccount(t, db, cid, "1100", models.RootAsset, models.DetailAccountsReceivable)
+	cust := models.Customer{CompanyID: cid, Name: "Cust G2"}
+	if err := db.Create(&cust).Error; err != nil {
+		t.Fatal(err)
+	}
+	inv := seedRPInvoice(t, db, cid, cust.ID, "INV-G2-001", "3600.00")
+
+	in := baseInput(cid, cust.ID, bankID, arID)
+	in.Allocations = []InvoiceAllocation{{InvoiceID: inv.ID, Amount: decimal.RequireFromString("5000.00")}}
+	in.NewDepositAmount = decimal.RequireFromString("200.00")
+
+	jeID, err := RecordReceivePayment(db, in)
+	if err != nil {
+		t.Fatalf("RecordReceivePayment: %v", err)
+	}
+
+	// Bank DR = 5000 (raw invoice payment) + 200 (extra) = 5200.
+	bankDR, _ := sumJEByAccount(t, db, cid, jeID, bankID)
+	if !bankDR.Equal(decimal.RequireFromString("5200.00")) {
+		t.Errorf("bank DR = %s, want 5200", bankDR)
+	}
+	// Single deposit row aggregates 1400 (auto) + 200 (explicit) = 1600.
+	var deps []models.CustomerDeposit
+	db.Where("customer_id = ?", cust.ID).Find(&deps)
+	if len(deps) != 1 {
+		t.Fatalf("expected 1 deposit, got %d", len(deps))
+	}
+	if !deps[0].Amount.Equal(decimal.RequireFromString("1600.00")) {
+		t.Errorf("deposit.Amount = %s, want 1600 (auto 1400 + explicit 200)", deps[0].Amount)
+	}
+}
+
+// TestReceivePayment_RejectsForeignRowOverpayment locks the v1 limitation:
+// FX overpayment is still rejected (rate semantics on the over-portion are
+// out of scope for this slice).
+func TestReceivePayment_RejectsForeignRowOverpayment(t *testing.T) {
+	db := testRPDepositDB(t)
+	cid := seedRPDepositCompany(t, db)
+	bankID := seedRPDepositAccount(t, db, cid, "1000", models.RootAsset, models.DetailBank)
+	arID := seedRPDepositAccount(t, db, cid, "1100", models.RootAsset, models.DetailAccountsReceivable)
+	cust := models.Customer{CompanyID: cid, Name: "Cust FX"}
+	if err := db.Create(&cust).Error; err != nil {
+		t.Fatal(err)
+	}
+	// Foreign-currency invoice — base is CAD, this is USD.
+	usdInv := models.Invoice{
+		CompanyID:      cid,
+		InvoiceNumber:  "INV-FX-001",
+		CustomerID:     cust.ID,
+		InvoiceDate:    time.Date(2026, 4, 10, 0, 0, 0, 0, time.UTC),
+		Status:         models.InvoiceStatusIssued,
+		Amount:         decimal.RequireFromString("100.00"),
+		AmountBase:     decimal.RequireFromString("130.00"),
+		Subtotal:       decimal.RequireFromString("100.00"),
+		BalanceDue:     decimal.RequireFromString("100.00"),
+		BalanceDueBase: decimal.RequireFromString("130.00"),
+		CurrencyCode:   "USD",
+	}
+	if err := db.Create(&usdInv).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	in := baseInput(cid, cust.ID, bankID, arID)
+	in.Allocations = []InvoiceAllocation{{InvoiceID: usdInv.ID, Amount: decimal.RequireFromString("150.00")}}
 
 	_, err := RecordReceivePayment(db, in)
 	if err == nil {
-		t.Fatal("expected error for row-level overpayment, got nil")
+		t.Fatal("expected error for FX overpayment, got nil")
 	}
-	if !strings.Contains(err.Error(), "exceeds balance") {
-		t.Errorf("error = %v, want ‘exceeds balance’ guidance", err)
+	if !strings.Contains(err.Error(), "overpayment on foreign-currency") {
+		t.Errorf("error = %v, want FX-overpayment guidance", err)
 	}
 }
 

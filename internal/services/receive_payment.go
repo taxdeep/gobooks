@@ -183,14 +183,17 @@ func invoiceProRata(invoiceAmounts []decimal.Decimal, totalInvoiceDoc, total dec
 
 // ── Phase-5 allocation path (unified invoice + deposit + credit-note + new-deposit) ──
 //
-// JE recipe (see design note 2026-04-24):
+// JE recipe (see design note 2026-04-24, updated 2026-04-25 for auto-overage):
 //
 //	Let:
-//	  I = Σ invoice applications (document currency; per alloc)
-//	  C = Σ credit-note consumption (document currency)
-//	  D = Σ deposit consumption (document currency)
-//	  N = new deposit amount (document currency)
-//	  B = I − C − D + N  (bank received; must be ≥ 0)
+//	  I_raw = Σ raw invoice Payment values entered by the operator
+//	  I     = Σ capped invoice settlement (each row capped at its balance)
+//	  O     = Σ row overage = I_raw − I (excess auto-rolled into new deposit)
+//	  C     = Σ credit-note consumption
+//	  D     = Σ deposit consumption
+//	  N_in  = explicit Extra → New Deposit field
+//	  N     = N_in + O                            (total new deposit liability)
+//	  B     = I + O − C − D + N_in = I_raw − C − D + N_in   (bank received)
 //
 //	Lines:
 //	  DR Bank                  B                          (B > 0)
@@ -230,19 +233,24 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 
 	// ── Validate invoice allocations ──────────────────────────────────────────
 	//
-	// Row-level overpayment (alloc.Amount > effBalance) is rejected here —
-	// the caller must express overpayment via NewDepositAmount instead. This
-	// keeps the JE recipe deterministic (no implicit "auto-split into
-	// deposit" behaviour) and matches the UI design (separate "Extra to
-	// Deposit" field, not silent split per invoice row).
+	// Row-level overpayment (alloc.Amount > effBalance) is auto-split: the
+	// invoice is settled at its balance and the excess is routed into the
+	// session's new-deposit total. The operator can also use the explicit
+	// NewDepositAmount field — both feed the same Customer Deposits row.
+	// Foreign-currency invoices still reject overpayment (FX semantics on
+	// the over-portion are out of scope for v1).
 	type invoiceRecord struct {
 		inv     models.Invoice
 		arAccID uint
 		result  fxSettleResult
+		// rowOverageDoc is the (alloc.Amount − effBalance) excess that gets
+		// routed into the session's new Customer Deposit. Document currency.
+		rowOverageDoc decimal.Decimal
 	}
 	records := make([]invoiceRecord, 0, len(in.Allocations))
-	totalInvoiceDoc := decimal.Zero // sum of invoice document-currency amounts
-	totalInvoiceBase := decimal.Zero
+	totalInvoiceDoc := decimal.Zero    // capped — used for invoice retirement math
+	totalInvoiceBase := decimal.Zero   // capped — used for AR-credit math
+	totalRowOverageDoc := decimal.Zero // sum of auto-overage across rows; rolls into new deposit
 	hasFX := false
 
 	for i, alloc := range in.Allocations {
@@ -267,9 +275,19 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 		effBalance, effBalanceBase := effectiveBalances(
 			inv.BalanceDue, inv.BalanceDueBase, inv.Amount, inv.AmountBase, isForeign,
 		)
+
+		// Row-level overpayment: cap invoice settlement at balance, route the
+		// excess into the session's new-deposit total. FX overpayment is out
+		// of scope for v1.
+		appliedDoc := alloc.Amount
+		rowOverageDoc := decimal.Zero
 		if alloc.Amount.GreaterThan(effBalance) {
-			return 0, fmt.Errorf("allocation %d: payment %s exceeds balance %s for invoice %s — record overage via NewDepositAmount instead",
-				i+1, alloc.Amount.StringFixed(2), effBalance.StringFixed(2), inv.InvoiceNumber)
+			if isForeign {
+				return 0, fmt.Errorf("allocation %d: overpayment on foreign-currency invoice %s is not supported — cap payment at balance %s",
+					i+1, inv.InvoiceNumber, effBalance.StringFixed(2))
+			}
+			appliedDoc = effBalance
+			rowOverageDoc = alloc.Amount.Sub(effBalance)
 		}
 
 		settlementRate := decimal.NewFromInt(1)
@@ -283,16 +301,25 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 			hasFX = true
 		}
 
-		result := computeAllocationAmounts(alloc.Amount, effBalance, effBalanceBase, settlementRate)
+		// Drive computeAllocationAmounts with the *capped* amount so the
+		// invoice settles cleanly. The row overage is tracked separately
+		// below and rolled into the new-deposit total.
+		result := computeAllocationAmounts(appliedDoc, effBalance, effBalanceBase, settlementRate)
 
 		arAccID := alloc.ARAccountID
 		if arAccID == 0 {
 			arAccID = in.ARAccountID
 		}
 
-		records = append(records, invoiceRecord{inv: inv, arAccID: arAccID, result: result})
+		records = append(records, invoiceRecord{
+			inv:           inv,
+			arAccID:       arAccID,
+			result:        result,
+			rowOverageDoc: rowOverageDoc,
+		})
 		totalInvoiceDoc = totalInvoiceDoc.Add(result.amountApplied)
 		totalInvoiceBase = totalInvoiceBase.Add(result.arapBaseReleased)
+		totalRowOverageDoc = totalRowOverageDoc.Add(rowOverageDoc)
 	}
 
 	// ── Validate deposit applications ─────────────────────────────────────────
@@ -393,10 +420,14 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 	}
 
 	// ── Validate new-deposit amount ───────────────────────────────────────────
-	newDepositDoc := in.NewDepositAmount
-	if newDepositDoc.IsNegative() {
+	if in.NewDepositAmount.IsNegative() {
 		return 0, fmt.Errorf("new deposit amount must be ≥ 0")
 	}
+	// effectiveNewDepositDoc combines the operator's explicit Extra → New
+	// Deposit field with any auto-overage from invoice rows (when the user
+	// types Payment > balance, the excess folds into the same deposit).
+	effectiveNewDepositDoc := in.NewDepositAmount.Add(totalRowOverageDoc)
+
 	// New deposit currency follows the customer — check consistency with
 	// any invoices in the session (base-only is fine since Customer.CurrencyCode
 	// governs downstream).
@@ -408,16 +439,16 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 	}
 	// For FX consistency: v1 forces N to be base currency only — see
 	// design note. Mixed FX + overpayment is too many knobs at once.
-	if newDepositDoc.IsPositive() && newDepositCurrency != "" && newDepositCurrency != baseCurrency {
+	if effectiveNewDepositDoc.IsPositive() && newDepositCurrency != "" && newDepositCurrency != baseCurrency {
 		return 0, fmt.Errorf("creating a new deposit on a foreign-currency receive payment is not supported in v1")
 	}
 
 	// ── Compute bank amount (base currency) ───────────────────────────────────
 	//
-	// bankBase = Σ invoice.bankBaseAmount − totalDepositBase + newDepositBase
-	//
-	// For base-currency invoices bankBaseAmount == amountApplied. For FX
-	// invoices it was already computed with the settlement rate above.
+	// Bank receives the customer's full cash hand-over:
+	//   = Σ invoice.bankBaseAmount (capped) + Σ row-overage − CN − Deposit + explicit-N
+	// which equals raw Σ alloc.Amount − CN − Deposit + explicit-N. Adding the
+	// auto-overage back recovers the user's original Payment-column intent.
 	sumInvoiceBankBase := decimal.Zero
 	totalFXGainLoss := decimal.Zero
 	for _, rec := range records {
@@ -425,14 +456,18 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 		totalFXGainLoss = totalFXGainLoss.Add(rec.result.realizedFXGainLoss)
 	}
 	// Deposits + CN + new deposit are base currency in v1 (guarded above).
-	bankBase := sumInvoiceBankBase.Sub(totalCNDoc).Sub(totalDepositDoc).Add(newDepositDoc)
+	bankBase := sumInvoiceBankBase.
+		Add(totalRowOverageDoc).
+		Sub(totalCNDoc).
+		Sub(totalDepositDoc).
+		Add(in.NewDepositAmount)
 	if bankBase.IsNegative() {
 		return 0, fmt.Errorf("bank amount is negative (%s) — credit-note + deposit consumption cannot exceed invoice allocations", bankBase.StringFixed(2))
 	}
 
 	// Sanity: at least one document side must have value. Pure-zero all
 	// around means the caller sent an empty form.
-	if totalInvoiceDoc.IsZero() && newDepositDoc.IsZero() {
+	if totalInvoiceDoc.IsZero() && effectiveNewDepositDoc.IsZero() {
 		return 0, fmt.Errorf("receive payment must include at least one invoice allocation or a new deposit amount")
 	}
 
@@ -446,7 +481,7 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 		fxAccountID = id
 	}
 	var customerDepositsAccID uint
-	if len(depositRecords) > 0 || newDepositDoc.IsPositive() {
+	if len(depositRecords) > 0 || effectiveNewDepositDoc.IsPositive() {
 		id, err := EnsureCustomerDepositsAccount(tx, in.CompanyID)
 		if err != nil {
 			return 0, err
@@ -503,11 +538,13 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 	}
 
 	// New deposit CR — liability for the newly-held customer money.
-	if newDepositDoc.IsPositive() {
+	// Combines the explicit Extra → New Deposit field with any auto-overage
+	// rolled in from rows where Payment > balance.
+	if effectiveNewDepositDoc.IsPositive() {
 		frags = append(frags, PostingFragment{
 			AccountID: customerDepositsAccID,
 			Debit:     decimal.Zero,
-			Credit:    newDepositDoc,
+			Credit:    effectiveNewDepositDoc,
 			Memo:      "Customer deposit (overpayment)",
 		})
 	}
@@ -719,7 +756,7 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 	}
 
 	// ── New deposit creation (overpayment) ───────────────────────────────────
-	if newDepositDoc.IsPositive() {
+	if effectiveNewDepositDoc.IsPositive() {
 		depNumber, err := SuggestNextCustomerDepositNumber(tx, in.CompanyID)
 		if err != nil {
 			return 0, fmt.Errorf("suggest deposit number: %w", err)
@@ -736,9 +773,9 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 			DepositDate:               in.EntryDate,
 			CurrencyCode:              "", // base currency v1
 			ExchangeRate:              decimal.NewFromInt(1),
-			Amount:                    newDepositDoc,
-			AmountBase:                newDepositDoc,
-			BalanceRemaining:          newDepositDoc,
+			Amount:                    effectiveNewDepositDoc,
+			AmountBase:                effectiveNewDepositDoc,
+			BalanceRemaining:          effectiveNewDepositDoc,
 			PaymentMethod:             in.PaymentMethod,
 			Memo:                      in.Memo,
 		}
