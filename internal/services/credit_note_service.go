@@ -88,6 +88,9 @@ func CreateCreditNoteDraft(db *gorm.DB, in CreateCreditNoteDraftInput) (*models.
 		if l.RevenueAccountID == 0 {
 			return nil, fmt.Errorf("line %d (%q): revenue account is required", i+1, l.Description)
 		}
+		if err := validateStockItemQty(db, in.CompanyID, l.ProductServiceID, l.Qty, i+1); err != nil {
+			return nil, err
+		}
 		lineNet := l.Qty.Mul(l.UnitPrice).Round(2)
 		subtotal = subtotal.Add(lineNet)
 

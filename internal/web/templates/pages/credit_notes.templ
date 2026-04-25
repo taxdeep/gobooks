@@ -196,7 +196,7 @@ templ bodyCreditNoteDetail(vm CreditNoteDetailVM) {
 					for _, l := range vm.CreditNote.Lines {
 						<tr>
 							<td class="px-4 py-3">{ l.Description }</td>
-							<td class="px-4 py-3 text-right" data-numfmt>{ l.Qty.StringFixed(2) }</td>
+							<td class="px-4 py-3 text-right" data-numfmt>{ QtyDisplayForLineProduct(l.Qty, l.ProductService) }</td>
 							<td class="px-4 py-3 text-right" data-numfmt>{ l.UnitPrice.StringFixed(2) }</td>
 							<td class="px-4 py-3 text-right" data-numfmt>{ l.LineNet.StringFixed(2) }</td>
 							<td class="px-4 py-3 text-right" data-numfmt>{ l.LineTax.StringFixed(2) }</td>

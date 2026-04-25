@@ -1182,9 +1182,9 @@ func quoteReadOnlyBody(vm QuoteDetailVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var66 string
-			templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(line.Quantity.StringFixed(2))
+			templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(QtyDisplayForLineProduct(line.Quantity, line.ProductService))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/quote_detail.templ`, Line: 386, Col: 93}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/quote_detail.templ`, Line: 386, Col: 125}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
 			if templ_7745c5c3_Err != nil {

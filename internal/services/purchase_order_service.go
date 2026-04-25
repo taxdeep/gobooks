@@ -153,6 +153,9 @@ func CreatePurchaseOrder(db *gorm.DB, companyID uint, in POInput) (*models.Purch
 		if lin.SortOrder == 0 {
 			lin.SortOrder = uint(i + 1)
 		}
+		if err := validateStockItemQty(db, companyID, lin.ProductServiceID, lin.Qty, i+1); err != nil {
+			return nil, err
+		}
 		computed, err := computePOLine(db, companyID, lin)
 		if err != nil {
 			return nil, err
@@ -256,6 +259,9 @@ func UpdatePurchaseOrder(db *gorm.DB, companyID, poID uint, in POInput) (*models
 		for i, lin := range in.Lines {
 			if lin.SortOrder == 0 {
 				lin.SortOrder = uint(i + 1)
+			}
+			if err := validateStockItemQty(tx, companyID, lin.ProductServiceID, lin.Qty, i+1); err != nil {
+				return err
 			}
 			computed, err := computePOLine(tx, companyID, lin)
 			if err != nil {

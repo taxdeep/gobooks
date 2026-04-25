@@ -383,7 +383,7 @@ templ quoteReadOnlyBody(vm QuoteDetailVM) {
 						for _, line := range vm.Quote.Lines {
 							<tr class="border-b border-border-subtle">
 								<td class="py-2 pr-4">{ line.Description }</td>
-								<td class="py-2 pr-4 text-right font-mono" data-numfmt>{ line.Quantity.StringFixed(2) }</td>
+								<td class="py-2 pr-4 text-right font-mono" data-numfmt>{ QtyDisplayForLineProduct(line.Quantity, line.ProductService) }</td>
 								<td class="py-2 pr-4 text-right font-mono" data-numfmt>{ line.UnitPrice.StringFixed(2) }</td>
 								<td class="py-2 pr-4 text-right font-mono" data-numfmt>{ line.LineNet.StringFixed(2) }</td>
 								<td class="py-2 pr-4 text-right font-mono" data-numfmt>{ line.TaxAmount.StringFixed(2) }</td>

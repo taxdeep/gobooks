@@ -85,35 +85,8 @@ func calcSalesOrderLine(l *models.SalesOrderLine, taxRate decimal.Decimal) {
 	l.LineTotal = l.LineNet.Add(l.TaxAmount).Round(4)
 }
 
-// validateStockItemQty enforces the integer-only rule for stock-tracked
-// inventory line items. Service / non-inventory / other-charge items keep
-// fractional quantities (e.g. 1.5 hours of consulting). Free-text lines
-// (no ProductServiceID) are unrestricted — we don't know the unit semantics.
-//
-// Looks the product up by ID once per call to avoid trusting client-supplied
-// IsStockItem. lineNum is 1-based for the error message.
-func validateStockItemQty(db *gorm.DB, companyID uint, productServiceID *uint, qty decimal.Decimal, lineNum int) error {
-	if productServiceID == nil || *productServiceID == 0 {
-		return nil
-	}
-	var ps models.ProductService
-	if err := db.Select("id", "name", "is_stock_item").
-		Where("id = ? AND company_id = ?", *productServiceID, companyID).
-		First(&ps).Error; err != nil {
-		// Existence check belongs elsewhere; if the product doesn't exist
-		// the calling code's FK / existence checks will fail. Don't double-
-		// surface the error here.
-		return nil
-	}
-	if !ps.IsStockItem {
-		return nil
-	}
-	if !qty.Equal(qty.Truncate(0)) {
-		return fmt.Errorf("line %d (%s): stock items must use whole-unit quantities (got %s)",
-			lineNum, ps.Name, qty.String())
-	}
-	return nil
-}
+// validateStockItemQty moved to product_service_qty_guard.go (S4 —
+// generalised so Quote / PO / CN / VCN line writes can share the rule).
 
 // ── Create ────────────────────────────────────────────────────────────────────
 

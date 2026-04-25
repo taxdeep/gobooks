@@ -131,7 +131,10 @@ func CreateVendorCreditNote(db *gorm.DB, companyID uint, in VendorCreditNoteInpu
 	headerAmount := in.Amount
 	if len(in.Lines) > 0 {
 		sum := decimal.Zero
-		for _, l := range in.Lines {
+		for i, l := range in.Lines {
+			if err := validateStockItemQty(db, companyID, l.ProductServiceID, l.Qty, i+1); err != nil {
+				return nil, err
+			}
 			sum = sum.Add(l.Qty.Mul(l.UnitPrice))
 		}
 		headerAmount = sum.Round(2)
@@ -264,7 +267,10 @@ func UpdateVendorCreditNote(db *gorm.DB, companyID, vcnID uint, in VendorCreditN
 	headerAmount := in.Amount
 	if in.Lines != nil && len(in.Lines) > 0 {
 		sum := decimal.Zero
-		for _, l := range in.Lines {
+		for i, l := range in.Lines {
+			if err := validateStockItemQty(db, companyID, l.ProductServiceID, l.Qty, i+1); err != nil {
+				return nil, err
+			}
 			sum = sum.Add(l.Qty.Mul(l.UnitPrice))
 		}
 		headerAmount = sum.Round(2)

@@ -123,6 +123,9 @@ func CreateQuote(db *gorm.DB, companyID uint, in QuoteInput) (*models.Quote, err
 	var lines []models.QuoteLine
 	var subtotal, taxTotal decimal.Decimal
 	for i, li := range in.Lines {
+		if err := validateStockItemQty(db, companyID, li.ProductServiceID, li.Quantity, i+1); err != nil {
+			return nil, err
+		}
 		rate := loadTaxRate(db, li.TaxCodeID)
 		line := models.QuoteLine{
 			ProductServiceID: li.ProductServiceID,
@@ -229,6 +232,9 @@ func UpdateQuote(db *gorm.DB, companyID, quoteID uint, in QuoteInput) (*models.Q
 	var subtotal, taxTotal decimal.Decimal
 	var newLines []models.QuoteLine
 	for i, li := range in.Lines {
+		if err := validateStockItemQty(db, companyID, li.ProductServiceID, li.Quantity, i+1); err != nil {
+			return nil, err
+		}
 		rate := loadTaxRate(db, li.TaxCodeID)
 		line := models.QuoteLine{
 			QuoteID:          quoteID,

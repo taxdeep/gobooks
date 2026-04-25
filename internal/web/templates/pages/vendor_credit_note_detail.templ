@@ -313,7 +313,7 @@ templ vcnReadOnlyView(vm VendorCreditNoteDetailVM) {
 										<span class="text-text-muted2">—</span>
 									}
 								</td>
-								<td class="py-2 pr-6 text-right tabular-nums">{ l.Qty.String() }</td>
+								<td class="py-2 pr-6 text-right tabular-nums">{ QtyDisplayForLineProduct(l.Qty, l.ProductService) }</td>
 								<td class="py-2 pr-6 text-right tabular-nums">{ l.UnitPrice.StringFixed(2) }</td>
 								<td class="py-2 pr-0 text-right tabular-nums"><span data-numfmt>{ l.Amount.StringFixed(2) }</span></td>
 							</tr>

@@ -432,7 +432,7 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 											—
 										}
 									</td>
-									<td class="py-3 pr-4 text-right tabular-nums">{ l.Qty.String() }</td>
+									<td class="py-3 pr-4 text-right tabular-nums">{ QtyDisplayForLineProduct(l.Qty, l.ProductService) }</td>
 									<td class="py-3 pr-4 text-right tabular-nums">{ Money(l.UnitPrice) }</td>
 									<td class="py-3 pr-4 text-right tabular-nums">{ Money(l.LineNet) }</td>
 									<td class="py-3 pr-4 text-right tabular-nums">{ Money(l.LineTax) }</td>

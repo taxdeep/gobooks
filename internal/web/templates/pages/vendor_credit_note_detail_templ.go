@@ -922,9 +922,9 @@ func vcnReadOnlyView(vm VendorCreditNoteDetailVM) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var44 string
-				templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(l.Qty.String())
+				templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(QtyDisplayForLineProduct(l.Qty, l.ProductService))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_note_detail.templ`, Line: 316, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/vendor_credit_note_detail.templ`, Line: 316, Col: 105}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 				if templ_7745c5c3_Err != nil {
