@@ -149,19 +149,20 @@ templ depositEditForm(vm DepositDetailVM) {
 				</select>
 			</div>
 
-			<!-- Deposit Liability Account -->
+			<!-- Deposit Liability Account is auto-resolved at post time
+			     (system "Customer Deposits" account created on demand).
+			     A hidden input preserves the existing user-selected value
+			     for the rare case where someone wants to override; the
+			     POST handler only honours non-empty values. -->
 			<div>
 				<label class="block text-body font-medium text-text">Deposit Liability Account</label>
-				<select name="deposit_liability_account_id" class="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text">
-					<option value="">Select liability account…</option>
-					for _, acc := range vm.Accounts {
-						if acc.RootAccountType == models.RootLiability {
-							<option value={ fmt.Sprintf("%d", acc.ID) } selected?={ vm.Deposit.DepositLiabilityAccountID != nil && *vm.Deposit.DepositLiabilityAccountID == acc.ID }>
-								{ acc.Code } - { acc.Name }
-							</option>
-						}
+				<input type="hidden" name="deposit_liability_account_id" value={ depositLiabilityAccountIDValue(vm.Deposit.DepositLiabilityAccountID) }/>
+				<p class="mt-1 text-small text-text-muted2">
+					Auto-routed to the system <span class="font-medium text-text">Customer Deposits</span> liability account.
+					if vm.Deposit.DepositLiabilityAccount != nil {
+						<span class="ml-1">(currently { vm.Deposit.DepositLiabilityAccount.Code } – { vm.Deposit.DepositLiabilityAccount.Name })</span>
 					}
-				</select>
+				</p>
 			</div>
 
 			<!-- Payment Method -->

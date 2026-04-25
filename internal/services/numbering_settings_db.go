@@ -56,6 +56,27 @@ func SaveMergedDisplayRules(db *gorm.DB, companyID uint, rules []numbering.Displ
 	return db.Save(&row).Error
 }
 
+// SuggestNextCustomerDepositNumber returns the next display number for the
+// customer_deposit module. Falls back to "DEP0001" when the module's rule is
+// absent (never happens with defaults, but keeps the caller safe).
+func SuggestNextCustomerDepositNumber(db *gorm.DB, companyID uint) (string, error) {
+	n, err := SuggestNextNumberForModule(db, companyID, numbering.ModuleCustomerDeposit)
+	if err != nil {
+		return "", err
+	}
+	if n == "" {
+		return "DEP0001", nil
+	}
+	return n, nil
+}
+
+// BumpCustomerDepositNextNumberAfterCreate advances the persisted counter for
+// the customer_deposit module. Call exactly once per deposit created from the
+// suggestion returned by SuggestNextCustomerDepositNumber.
+func BumpCustomerDepositNextNumberAfterCreate(db *gorm.DB, companyID uint) error {
+	return bumpModuleNextNumber(db, companyID, numbering.ModuleCustomerDeposit)
+}
+
 // SuggestNextInvoiceNumber returns the next display number from DB-backed invoice module settings.
 func SuggestNextInvoiceNumber(db *gorm.DB, companyID uint) (string, error) {
 	rules, err := LoadMergedDisplayRules(db, companyID)

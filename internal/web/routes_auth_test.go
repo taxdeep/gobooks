@@ -73,6 +73,10 @@ func testRouteDB(t *testing.T) *gorm.DB {
 		&models.PurchaseOrder{},
 		&models.VendorCreditNote{},
 		&models.VendorRefund{},
+		// Customer Deposit — AR liability document for overpayments
+		// and manual prepayments. Successor to CustomerCredit.
+		&models.CustomerDeposit{},
+		&models.CustomerDepositApplication{},
 	); err != nil {
 		t.Fatal(err)
 	}

@@ -18,7 +18,7 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 		<div class="flex flex-wrap items-start justify-between gap-3">
 			<div>
 				<h1 class="text-title font-semibold text-text">Receive Payment</h1>
-				<p class="mt-1 text-small text-text-muted2">Record a customer payment. Debit bank, credit Accounts Receivable.</p>
+				<p class="mt-1 text-small text-text-muted2">Apply cash, customer deposits, or both to open invoices. Overpayment creates a new deposit.</p>
 			</div>
 			<a href="/deposits" class="text-small text-primary hover:underline">View deposits →</a>
 		</div>
@@ -36,18 +36,22 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 		<div
 			x-data="receivePaymentForm()"
 			data-invoices={ vm.OpenInvoicesJSON }
+			data-deposits={ vm.OpenDepositsJSON }
+			data-credit-notes={ vm.OpenCreditNotesJSON }
 			data-initial-customer={ vm.CustomerID }
 			data-initial-invoice={ vm.InvoiceID }
 			data-initial-amount={ vm.Amount }
+			data-initial-new-deposit={ vm.NewDepositAmount }
+			data-initial-allocations={ vm.InitialAllocationsJSON }
 		>
 			<form method="post" action="/banking/receive-payment" class="space-y-5">
 
 				// ── Payment Details ──────────────────────────────────────────────
 				@ui.SectionCard("Payment Details", "", rpPaymentDetails(vm))
 
-				// ── Apply to Invoice (shown after customer selected) ─────────────
+				// ── Apply table (shown after customer selected) ──────────────────
 				<div x-show="customerId !== ''" x-cloak>
-					@ui.SectionCard("Apply to Invoice", "Select an open invoice to apply this payment against.", rpInvoiceTable(vm))
+					@ui.SectionCard("Apply to Invoices", "Invoices are positive; Customer Deposits are negative. Tick rows and edit the Payment column. Net can be zero (pure offset) or positive (cash received).", rpDocumentTable(vm))
 				</div>
 
 				// ── Actions ─────────────────────────────────────────────────────
@@ -72,39 +76,228 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 			<script>
 				function receivePaymentForm() {
 					return {
+						// ── Data loaded from the server ────────────────────────
 						allInvoices: [],
-						customerId: '',
-						invoiceId: '',
-						amount: '',
+						allDeposits: [],
+						allCreditNotes: [],
 
+						// ── Form state ────────────────────────────────────────
+						customerId: '',
+						// Selection + Payment amount maps keyed by doc id,
+						// one pair per document type so POST emits parallel
+						// arrays (allocation_*, deposit_*, credit_note_*).
+						selectedInv: {},
+						allocInv: {}, // invoice_id -> "amount typed" (positive doc currency)
+						selectedDep: {},
+						allocDep: {}, // deposit_id -> "amount consumed" (positive doc currency)
+						selectedCN: {},
+						allocCN: {}, // cn_id -> "amount consumed" (positive doc currency)
+
+						// Manual amount for unlinked payment-on-account (when no
+						// documents ticked and no new deposit).
+						manualAmount: '',
+						// Explicit overpayment field — creates a new deposit row.
+						newDepositAmount: '',
+						// Legacy single-invoice id preserved for deep-link arrivals.
+						invoiceId: '',
+
+						// ── Derived ───────────────────────────────────────────
 						get filteredInvoices() {
 							if (!this.customerId) return [];
 							return this.allInvoices.filter(function(inv) {
 								return String(inv.customer_id) === String(this.customerId);
 							}.bind(this));
 						},
+						get filteredDeposits() {
+							if (!this.customerId) return [];
+							return this.allDeposits.filter(function(d) {
+								return String(d.customer_id) === String(this.customerId);
+							}.bind(this));
+						},
+						get filteredCreditNotes() {
+							if (!this.customerId) return [];
+							return this.allCreditNotes.filter(function(c) {
+								return String(c.customer_id) === String(this.customerId);
+							}.bind(this));
+						},
+						get hasInvoiceSelection() {
+							for (var k in this.selectedInv) { if (this.selectedInv[k]) return true; }
+							return false;
+						},
+						get hasDepositSelection() {
+							for (var k in this.selectedDep) { if (this.selectedDep[k]) return true; }
+							return false;
+						},
+						get hasCNSelection() {
+							for (var k in this.selectedCN) { if (this.selectedCN[k]) return true; }
+							return false;
+						},
+						get hasAnySelection() { return this.hasInvoiceSelection || this.hasDepositSelection || this.hasCNSelection; },
+
+						get totalInvoiceApplied() {
+							var sum = 0;
+							for (var k in this.selectedInv) {
+								if (!this.selectedInv[k]) continue;
+								var v = parseFloat(this.allocInv[k] || '0');
+								if (!isNaN(v)) sum += v;
+							}
+							return sum;
+						},
+						get totalDepositApplied() {
+							var sum = 0;
+							for (var k in this.selectedDep) {
+								if (!this.selectedDep[k]) continue;
+								var v = parseFloat(this.allocDep[k] || '0');
+								if (!isNaN(v)) sum += v;
+							}
+							return sum;
+						},
+						get totalCNApplied() {
+							var sum = 0;
+							for (var k in this.selectedCN) {
+								if (!this.selectedCN[k]) continue;
+								var v = parseFloat(this.allocCN[k] || '0');
+								if (!isNaN(v)) sum += v;
+							}
+							return sum;
+						},
+						get newDepositValue() {
+							var v = parseFloat(this.newDepositAmount || '0');
+							return isNaN(v) ? 0 : v;
+						},
+
+						// Net Bank receipt = invoice − CN − deposit + new deposit.
+						// This is what DR Bank on the JE will be. Must be ≥ 0.
+						get bankTotal() {
+							return this.totalInvoiceApplied - this.totalCNApplied - this.totalDepositApplied + this.newDepositValue;
+						},
+						get bankTotalDisplay() { return this.bankTotal.toFixed(2); },
+
+						// Amount mirrored into the hidden "amount" input. Kept
+						// for the legacy manual-amount path when no rows are
+						// ticked and no new deposit is entered.
+						get amount() {
+							if (this.hasAnySelection || this.newDepositValue > 0) {
+								return this.bankTotalDisplay;
+							}
+							return this.manualAmount;
+						},
+
+						// Guard: combined CN + deposit consumption cannot exceed
+						// invoice total (service rejects too — surface early).
+						get negativeDocsExceedInvoices() {
+							return (this.totalCNApplied + this.totalDepositApplied) > this.totalInvoiceApplied + 0.001;
+						},
 
 						init() {
 							var el = this.$el;
 							try { this.allInvoices = JSON.parse(el.getAttribute('data-invoices') || '[]'); } catch(e) { this.allInvoices = []; }
-							this.customerId = el.getAttribute('data-initial-customer') || '';
-							this.invoiceId  = el.getAttribute('data-initial-invoice') || '';
-							this.amount     = el.getAttribute('data-initial-amount') || '';
+							try { this.allDeposits = JSON.parse(el.getAttribute('data-deposits') || '[]'); } catch(e) { this.allDeposits = []; }
+							try { this.allCreditNotes = JSON.parse(el.getAttribute('data-credit-notes') || '[]'); } catch(e) { this.allCreditNotes = []; }
+							this.customerId       = el.getAttribute('data-initial-customer') || '';
+							this.invoiceId        = el.getAttribute('data-initial-invoice') || '';
+							this.manualAmount     = el.getAttribute('data-initial-amount') || '';
+							this.newDepositAmount = el.getAttribute('data-initial-new-deposit') || '';
+
+							// Pre-seed selections from two sources:
+							//   1) data-initial-allocations = JSON { "42": "100.00" }
+							//   2) data-initial-invoice = "42" (legacy deep link)
+							var pre = {};
+							try { pre = JSON.parse(el.getAttribute('data-initial-allocations') || '{}'); } catch(e) { pre = {}; }
+							for (var id in pre) {
+								this.selectedInv[id] = true;
+								this.allocInv[id] = String(pre[id]);
+							}
+							if (this.invoiceId && !this.selectedInv[this.invoiceId]) {
+								this.selectedInv[this.invoiceId] = true;
+								var inv = this.findInvoice(this.invoiceId);
+								this.allocInv[this.invoiceId] = inv ? inv.amount : (this.manualAmount || '');
+							}
+						},
+
+						findInvoice(id) {
+							for (var i = 0; i < this.allInvoices.length; i++) {
+								if (String(this.allInvoices[i].id) === String(id)) return this.allInvoices[i];
+							}
+							return null;
 						},
 
 						onCustomerChange() {
+							// Switching customer invalidates any prior selection —
+							// open docs belong to one customer at a time.
+							this.selectedInv = {};
+							this.allocInv = {};
+							this.selectedDep = {};
+							this.allocDep = {};
+							this.selectedCN = {};
+							this.allocCN = {};
 							this.invoiceId = '';
-							this.amount = '';
+							this.manualAmount = '';
+							this.newDepositAmount = '';
 						},
 
-						selectInvoice(inv) {
-							this.invoiceId = String(inv.id);
-							this.amount = inv.amount;
+						toggleInvoice(inv) {
+							var id = String(inv.id);
+							if (this.selectedInv[id]) {
+								delete this.selectedInv[id];
+								delete this.allocInv[id];
+							} else {
+								this.selectedInv[id] = true;
+								// Default payment = full balance due.
+								this.allocInv[id] = inv.amount;
+							}
 						},
+						toggleDeposit(dep) {
+							var id = String(dep.id);
+							if (this.selectedDep[id]) {
+								delete this.selectedDep[id];
+								delete this.allocDep[id];
+							} else {
+								this.selectedDep[id] = true;
+								// Default consumption = full remaining balance.
+								this.allocDep[id] = dep.amount;
+							}
+						},
+						toggleCreditNote(cn) {
+							var id = String(cn.id);
+							if (this.selectedCN[id]) {
+								delete this.selectedCN[id];
+								delete this.allocCN[id];
+							} else {
+								this.selectedCN[id] = true;
+								this.allocCN[id] = cn.amount;
+							}
+						},
+						isInvoiceSelected(inv) { return !!this.selectedInv[String(inv.id)]; },
+						isDepositSelected(dep) { return !!this.selectedDep[String(dep.id)]; },
+						isCNSelected(cn) { return !!this.selectedCN[String(cn.id)]; },
 
-						clearInvoice() {
-							this.invoiceId = '';
-							this.amount = '';
+						// Per-row overpayment guard — invoice payment shouldn't
+						// exceed its balance due (the service rejects this;
+						// operator should raise new_deposit_amount instead).
+						invoiceOverage(inv) {
+							var id = String(inv.id);
+							if (!this.selectedInv[id]) return 0;
+							var paid = parseFloat(this.allocInv[id] || '0');
+							var bal  = parseFloat(inv.amount || '0');
+							if (isNaN(paid) || isNaN(bal)) return 0;
+							return Math.max(0, paid - bal);
+						},
+						depositOverage(dep) {
+							var id = String(dep.id);
+							if (!this.selectedDep[id]) return 0;
+							var used = parseFloat(this.allocDep[id] || '0');
+							var bal  = parseFloat(dep.amount || '0');
+							if (isNaN(used) || isNaN(bal)) return 0;
+							return Math.max(0, used - bal);
+						},
+						cnOverage(cn) {
+							var id = String(cn.id);
+							if (!this.selectedCN[id]) return 0;
+							var used = parseFloat(this.allocCN[id] || '0');
+							var bal  = parseFloat(cn.amount || '0');
+							if (isNaN(used) || isNaN(bal)) return 0;
+							return Math.max(0, used - bal);
 						},
 					};
 				}
@@ -113,9 +306,9 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 	</div>
 }
 
-// rpPaymentDetails renders the 4-column Payment Details section.
-// Alpine-bound controls (customer, amount) keep their bindings inline;
-// fieldClass() handles the conditional error-state class.
+// rpPaymentDetails renders the Payment Details section.
+// Alpine-bound controls (customer, amount, new_deposit_amount) keep their
+// bindings inline; fieldClass() handles the conditional error-state class.
 templ rpPaymentDetails(vm ReceivePaymentVM) {
 	<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
 
@@ -186,27 +379,54 @@ templ rpPaymentDetails(vm ReceivePaymentVM) {
 			}
 		</div>
 
-		// Amount — Alpine x-model + conditional readonly when invoice selected
+		// Bank Amount — mirrored from the Apply table. Read-only once any
+		// document is ticked or a new-deposit amount is entered. The
+		// underlying input still POSTs as `amount` for server-side
+		// validation and the legacy unlinked-payment fallback.
 		<div>
-			<label class="block text-body font-medium text-text">Amount *</label>
+			<label class="block text-body font-medium text-text">Total to Bank *</label>
 			<input
 				type="text"
 				inputmode="decimal"
 				name="amount"
-				x-model="amount"
-				:readonly="invoiceId !== ''"
-				:class="invoiceId !== '' ? 'bg-background cursor-not-allowed' : ''"
+				x-model="manualAmount"
+				:readonly="hasAnySelection || newDepositValue > 0"
+				:value="amount"
+				:class="(hasAnySelection || newDepositValue > 0) ? 'bg-background cursor-not-allowed' : ''"
 				placeholder="0.00"
 				class={ fieldClass(vm.AmountError != "") }
 			/>
 			if vm.AmountError != "" {
 				<div class="mt-1 text-small text-danger">{ vm.AmountError }</div>
 			}
-			<p x-show="invoiceId !== ''" class="mt-1 text-small text-text-muted2">Set by the selected invoice.</p>
+			<p x-show="hasAnySelection || newDepositValue > 0" class="mt-1 text-small text-text-muted2">
+				Auto-calculated: invoice total − deposit used + new deposit.
+			</p>
+			<p x-show="!hasAnySelection && newDepositValue === 0" class="mt-1 text-small text-text-muted2">
+				Leave the table empty to record an unlinked payment on account.
+			</p>
+		</div>
+
+		// New Deposit amount — explicit overpayment field. Positive value
+		// creates a fresh CustomerDeposit; bank debit absorbs the amount.
+		<div>
+			<label class="block text-body font-medium text-text">Extra → New Deposit</label>
+			<input
+				type="text"
+				inputmode="decimal"
+				name="new_deposit_amount"
+				x-model="newDepositAmount"
+				placeholder="0.00"
+				class={ fieldClass(vm.NewDepositAmountError != "") }
+			/>
+			if vm.NewDepositAmountError != "" {
+				<div class="mt-1 text-small text-danger">{ vm.NewDepositAmountError }</div>
+			}
+			<p class="mt-1 text-small text-text-muted2">Overpayment parked as a future credit for this customer.</p>
 		</div>
 
 		// Memo
-		<div>
+		<div class="sm:col-span-2 lg:col-span-3">
 			<label class="block text-body font-medium text-text">Memo</label>
 			<input
 				type="text"
@@ -221,60 +441,217 @@ templ rpPaymentDetails(vm ReceivePaymentVM) {
 	</div>
 }
 
-// rpInvoiceTable renders the invoice selection table inside the Apply to Invoice card.
-templ rpInvoiceTable(vm ReceivePaymentVM) {
-	// hidden field — populated by Alpine on row click
-	<input type="hidden" name="invoice_id" x-model="invoiceId"/>
+// rpDocumentTable renders the unified multi-select Apply table.
+// Invoices (positive) and Customer Deposits (negative) share one table
+// with a Type column. Each ticked row POSTs two parallel array entries:
+//
+//	invoices → allocation_invoice_id[] + allocation_amount[]
+//	deposits → deposit_id[]            + deposit_amount[]
+//
+// The legacy single-invoice_id hidden input stays for deep-link compat.
+templ rpDocumentTable(vm ReceivePaymentVM) {
+	<input type="hidden" name="invoice_id" :value="invoiceId"/>
 
-	<div x-show="filteredInvoices.length === 0" class="text-body text-text-muted2">
-		No open invoices for this customer.
+	<div x-show="filteredInvoices.length === 0 && filteredDeposits.length === 0 && filteredCreditNotes.length === 0" class="text-body text-text-muted2">
+		No open invoices, deposits, or credit notes for this customer.
 	</div>
 
-	<div x-show="filteredInvoices.length > 0" class="overflow-x-auto">
+	<div x-show="filteredInvoices.length > 0 || filteredDeposits.length > 0 || filteredCreditNotes.length > 0" class="overflow-x-auto">
 		<table class="w-full text-left text-body">
 			<thead>
 				<tr class="border-b border-border bg-surface-tableHeader">
 					<th class="py-2.5 pr-3 w-8"></th>
-					<th class="py-2.5 pr-4 text-small font-semibold text-text-muted2">Invoice No.</th>
-					<th class="py-2.5 pr-4 text-small font-semibold text-text-muted2">Invoice Date</th>
+					<th class="py-2.5 pr-4 text-small font-semibold text-text-muted2">Document No.</th>
+					<th class="py-2.5 pr-4 text-small font-semibold text-text-muted2">Type</th>
+					<th class="py-2.5 pr-4 text-small font-semibold text-text-muted2">Date</th>
 					<th class="py-2.5 pr-4 text-small font-semibold text-text-muted2">Due Date</th>
-					<th class="py-2.5 pr-4 text-right text-small font-semibold text-text-muted2">Original Amount</th>
-					<th class="py-2.5 text-right text-small font-semibold text-text-muted2">Balance Due</th>
+					<th class="py-2.5 pr-4 text-right text-small font-semibold text-text-muted2">Original</th>
+					<th class="py-2.5 pr-4 text-right text-small font-semibold text-text-muted2">Balance</th>
+					<th class="py-2.5 text-right text-small font-semibold text-text-muted2 w-40">Payment</th>
 				</tr>
 			</thead>
 			<tbody>
-				<template x-for="inv in filteredInvoices" :key="inv.id">
+				// Invoice rows (positive direction)
+				<template x-for="inv in filteredInvoices" :key="'inv-' + inv.id">
 					<tr
-						class="cursor-pointer border-b border-border-subtle hover:bg-surface-rowHover transition-colors duration-75"
-						:class="String(inv.id) === invoiceId ? 'bg-primary-soft/20' : ''"
-						@click="selectInvoice(inv)"
+						class="border-b border-border-subtle hover:bg-surface-rowHover transition-colors duration-75"
+						:class="isInvoiceSelected(inv) ? 'bg-primary-soft/20' : ''"
 					>
-						<td class="py-2.5 pr-3">
-							<span
-								class="inline-flex h-4 w-4 items-center justify-center rounded-full border-2"
-								:class="String(inv.id) === invoiceId ? 'border-primary bg-primary' : 'border-border'"
-							>
-								<span x-show="String(inv.id) === invoiceId" class="h-2 w-2 rounded-full bg-onPrimary"></span>
-							</span>
+						<td class="py-2 pr-3">
+							<input
+								type="checkbox"
+								class="h-4 w-4 rounded border-border-input text-primary focus:ring-primary-focus"
+								:checked="isInvoiceSelected(inv)"
+								@change="toggleInvoice(inv)"
+							/>
 						</td>
-						<td class="py-2.5 pr-4 font-medium font-mono text-text" x-text="inv.invoice_number"></td>
-						<td class="py-2.5 pr-4 text-text-muted2" x-text="inv.invoice_date"></td>
-						<td class="py-2.5 pr-4 text-text-muted2" x-text="inv.due_date || '—'"></td>
-						<td class="py-2.5 pr-4 text-right tabular-nums text-text-muted2" x-text="'$' + inv.original_amount"></td>
-						<td class="py-2.5 text-right tabular-nums font-semibold text-text" x-text="'$' + inv.amount"></td>
+						<td class="py-2 pr-4 font-medium font-mono text-text" x-text="inv.invoice_number"></td>
+						<td class="py-2 pr-4">
+							<span class="inline-flex items-center rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-medium text-primary-hover">Invoice</span>
+						</td>
+						<td class="py-2 pr-4 text-text-muted2" x-text="inv.invoice_date"></td>
+						<td class="py-2 pr-4 text-text-muted2" x-text="inv.due_date || '—'"></td>
+						<td class="py-2 pr-4 text-right tabular-nums text-text-muted2" x-text="'$' + inv.original_amount"></td>
+						<td class="py-2 pr-4 text-right tabular-nums font-semibold text-text" x-text="'$' + inv.amount"></td>
+						<td class="py-2 text-right">
+							<template x-if="isInvoiceSelected(inv)">
+								<div class="flex flex-col items-end gap-0.5">
+									<div class="flex items-center gap-1">
+										<span class="text-text-muted2 text-small">$</span>
+										<input
+											type="text"
+											inputmode="decimal"
+											name="allocation_amount"
+											class="w-28 rounded-md border border-border-input bg-surface px-2 py-1 text-right text-small font-mono text-text focus:outline-none focus:ring-2 focus:ring-primary-focus"
+											x-model="allocInv[String(inv.id)]"
+										/>
+									</div>
+									<input type="hidden" name="allocation_invoice_id" :value="String(inv.id)"/>
+									<span
+										x-show="invoiceOverage(inv) > 0"
+										class="text-[11px] text-warning-hover"
+										x-text="'Exceeds balance by $' + invoiceOverage(inv).toFixed(2)"
+									></span>
+								</div>
+							</template>
+						</td>
+					</tr>
+				</template>
+
+				// Deposit rows (negative direction — balance shown with leading minus)
+				<template x-for="dep in filteredDeposits" :key="'dep-' + dep.id">
+					<tr
+						class="border-b border-border-subtle hover:bg-surface-rowHover transition-colors duration-75"
+						:class="isDepositSelected(dep) ? 'bg-info-soft/20' : ''"
+					>
+						<td class="py-2 pr-3">
+							<input
+								type="checkbox"
+								class="h-4 w-4 rounded border-border-input text-primary focus:ring-primary-focus"
+								:checked="isDepositSelected(dep)"
+								@change="toggleDeposit(dep)"
+							/>
+						</td>
+						<td class="py-2 pr-4 font-medium font-mono text-text" x-text="dep.document_number"></td>
+						<td class="py-2 pr-4">
+							<span class="inline-flex items-center rounded-full bg-info-soft px-2 py-0.5 text-[11px] font-medium text-info-hover">Deposit</span>
+						</td>
+						<td class="py-2 pr-4 text-text-muted2" x-text="dep.document_date"></td>
+						<td class="py-2 pr-4 text-text-muted3">—</td>
+						<td class="py-2 pr-4 text-right tabular-nums text-text-muted2" x-text="'-$' + dep.original_amount"></td>
+						<td class="py-2 pr-4 text-right tabular-nums font-semibold text-text" x-text="'-$' + dep.amount"></td>
+						<td class="py-2 text-right">
+							<template x-if="isDepositSelected(dep)">
+								<div class="flex flex-col items-end gap-0.5">
+									<div class="flex items-center gap-1">
+										<span class="text-text-muted2 text-small">-$</span>
+										<input
+											type="text"
+											inputmode="decimal"
+											name="deposit_amount"
+											class="w-28 rounded-md border border-border-input bg-surface px-2 py-1 text-right text-small font-mono text-text focus:outline-none focus:ring-2 focus:ring-primary-focus"
+											x-model="allocDep[String(dep.id)]"
+										/>
+									</div>
+									<input type="hidden" name="deposit_id" :value="String(dep.id)"/>
+									<span
+										x-show="depositOverage(dep) > 0"
+										class="text-[11px] text-warning-hover"
+										x-text="'Exceeds deposit by $' + depositOverage(dep).toFixed(2)"
+									></span>
+								</div>
+							</template>
+						</td>
+					</tr>
+				</template>
+
+				// Credit Note rows (negative direction — also shown as -$X)
+				<template x-for="cn in filteredCreditNotes" :key="'cn-' + cn.id">
+					<tr
+						class="border-b border-border-subtle hover:bg-surface-rowHover transition-colors duration-75"
+						:class="isCNSelected(cn) ? 'bg-info-soft/20' : ''"
+					>
+						<td class="py-2 pr-3">
+							<input
+								type="checkbox"
+								class="h-4 w-4 rounded border-border-input text-primary focus:ring-primary-focus"
+								:checked="isCNSelected(cn)"
+								@change="toggleCreditNote(cn)"
+							/>
+						</td>
+						<td class="py-2 pr-4 font-medium font-mono text-text" x-text="cn.document_number"></td>
+						<td class="py-2 pr-4">
+							<span class="inline-flex items-center rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-medium text-success-hover">Credit Note</span>
+						</td>
+						<td class="py-2 pr-4 text-text-muted2" x-text="cn.document_date"></td>
+						<td class="py-2 pr-4 text-text-muted3">—</td>
+						<td class="py-2 pr-4 text-right tabular-nums text-text-muted2" x-text="'-$' + cn.original_amount"></td>
+						<td class="py-2 pr-4 text-right tabular-nums font-semibold text-text" x-text="'-$' + cn.amount"></td>
+						<td class="py-2 text-right">
+							<template x-if="isCNSelected(cn)">
+								<div class="flex flex-col items-end gap-0.5">
+									<div class="flex items-center gap-1">
+										<span class="text-text-muted2 text-small">-$</span>
+										<input
+											type="text"
+											inputmode="decimal"
+											name="credit_note_amount"
+											class="w-28 rounded-md border border-border-input bg-surface px-2 py-1 text-right text-small font-mono text-text focus:outline-none focus:ring-2 focus:ring-primary-focus"
+											x-model="allocCN[String(cn.id)]"
+										/>
+									</div>
+									<input type="hidden" name="credit_note_id" :value="String(cn.id)"/>
+									<span
+										x-show="cnOverage(cn) > 0"
+										class="text-[11px] text-warning-hover"
+										x-text="'Exceeds CN by $' + cnOverage(cn).toFixed(2)"
+									></span>
+								</div>
+							</template>
+						</td>
 					</tr>
 				</template>
 			</tbody>
+			<tfoot>
+				<tr class="border-t border-border">
+					<td colspan="5" class="py-2 pr-4 text-right text-small font-semibold text-text-muted2">
+						Invoice
+						<span class="text-text-muted3 font-normal"> − </span>
+						credit note
+						<span class="text-text-muted3 font-normal"> − </span>
+						deposit
+						<span class="text-text-muted3 font-normal"> + </span>
+						new deposit
+					</td>
+					<td colspan="3" class="py-2 text-right tabular-nums font-semibold text-text">
+						<span x-text="'$' + totalInvoiceApplied.toFixed(2)"></span>
+						<span class="text-text-muted3 font-normal"> − </span>
+						<span x-text="'$' + totalCNApplied.toFixed(2)"></span>
+						<span class="text-text-muted3 font-normal"> − </span>
+						<span x-text="'$' + totalDepositApplied.toFixed(2)"></span>
+						<span class="text-text-muted3 font-normal"> + </span>
+						<span x-text="'$' + newDepositValue.toFixed(2)"></span>
+						<span class="text-text-muted3"> = </span>
+						<span class="text-primary" x-text="'$' + bankTotalDisplay"></span>
+					</td>
+				</tr>
+			</tfoot>
 		</table>
 	</div>
 
-	<div x-show="invoiceId !== ''" class="mt-3 flex justify-end">
+	// Soft warning when CN + deposit consumption exceeds invoice applications —
+	// the service would reject this, surface early.
+	<div x-show="negativeDocsExceedInvoices" x-cloak class="mt-3 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover">
+		Credit note + deposit consumption exceeds invoice total. Reduce a row or uncheck it — refunds run through a separate flow.
+	</div>
+
+	<div x-show="hasAnySelection" class="mt-3 flex justify-end">
 		<button
 			type="button"
-			@click="clearInvoice()"
+			@click="selectedInv = {}; allocInv = {}; selectedDep = {}; allocDep = {}; selectedCN = {}; allocCN = {}; invoiceId = ''"
 			class="text-small text-text-muted3 hover:text-text"
 		>
-			← Clear selection (enter amount manually)
+			← Clear all selections
 		</button>
 	</div>
 }

@@ -68,7 +68,7 @@ func bodyReceivePayment(vm ReceivePaymentVM) templ.Component {
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"max-w-[95%] space-y-5\"><div class=\"flex flex-wrap items-start justify-between gap-3\"><div><h1 class=\"text-title font-semibold text-text\">Receive Payment</h1><p class=\"mt-1 text-small text-text-muted2\">Record a customer payment. Debit bank, credit Accounts Receivable.</p></div><a href=\"/deposits\" class=\"text-small text-primary hover:underline\">View deposits →</a></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"max-w-[95%] space-y-5\"><div class=\"flex flex-wrap items-start justify-between gap-3\"><div><h1 class=\"text-title font-semibold text-text\">Receive Payment</h1><p class=\"mt-1 text-small text-text-muted2\">Apply cash, customer deposits, or both to open invoices. Overpayment creates a new deposit.</p></div><a href=\"/deposits\" class=\"text-small text-primary hover:underline\">View deposits →</a></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -103,46 +103,98 @@ func bodyReceivePayment(vm ReceivePaymentVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\" data-initial-customer=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\" data-deposits=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var4 string
-		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(vm.CustomerID)
+		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(vm.OpenDepositsJSON)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 39, Col: 40}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 39, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" data-initial-invoice=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" data-credit-notes=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var5 string
-		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(vm.InvoiceID)
+		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(vm.OpenCreditNotesJSON)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 40, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 40, Col: 45}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\" data-initial-amount=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\" data-initial-customer=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var6 string
-		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(vm.Amount)
+		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(vm.CustomerID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 41, Col: 34}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 41, Col: 40}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\"><form method=\"post\" action=\"/banking/receive-payment\" class=\"space-y-5\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\" data-initial-invoice=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var7 string
+		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(vm.InvoiceID)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 42, Col: 38}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" data-initial-amount=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var8 string
+		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(vm.Amount)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 43, Col: 34}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" data-initial-new-deposit=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var9 string
+		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(vm.NewDepositAmount)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 44, Col: 49}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" data-initial-allocations=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var10 string
+		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(vm.InitialAllocationsJSON)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 45, Col: 55}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\"><form method=\"post\" action=\"/banking/receive-payment\" class=\"space-y-5\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -150,15 +202,15 @@ func bodyReceivePayment(vm ReceivePaymentVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<div x-show=\"customerId !== ''\" x-cloak>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div x-show=\"customerId !== ''\" x-cloak>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = ui.SectionCard("Apply to Invoice", "Select an open invoice to apply this payment against.", rpInvoiceTable(vm)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ui.SectionCard("Apply to Invoices", "Invoices are positive; Customer Deposits are negative. Tick rows and edit the Payment column. Net can be zero (pure offset) or positive (cash received).", rpDocumentTable(vm)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div><div class=\"flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</div><div class=\"flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -166,7 +218,7 @@ func bodyReceivePayment(vm ReceivePaymentVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div class=\"flex items-center gap-3\"><a href=\"/deposits/new\" class=\"rounded-md border border-border-input bg-surface px-4 py-2 text-body font-medium text-text hover:bg-background\">Record Deposit</a>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<div class=\"flex items-center gap-3\"><a href=\"/deposits/new\" class=\"rounded-md border border-border-input bg-surface px-4 py-2 text-body font-medium text-text hover:bg-background\">Record Deposit</a>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -174,7 +226,7 @@ func bodyReceivePayment(vm ReceivePaymentVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div></div></form><script>\r\n\t\t\t\tfunction receivePaymentForm() {\r\n\t\t\t\t\treturn {\r\n\t\t\t\t\t\tallInvoices: [],\r\n\t\t\t\t\t\tcustomerId: '',\r\n\t\t\t\t\t\tinvoiceId: '',\r\n\t\t\t\t\t\tamount: '',\r\n\r\n\t\t\t\t\t\tget filteredInvoices() {\r\n\t\t\t\t\t\t\tif (!this.customerId) return [];\r\n\t\t\t\t\t\t\treturn this.allInvoices.filter(function(inv) {\r\n\t\t\t\t\t\t\t\treturn String(inv.customer_id) === String(this.customerId);\r\n\t\t\t\t\t\t\t}.bind(this));\r\n\t\t\t\t\t\t},\r\n\r\n\t\t\t\t\t\tinit() {\r\n\t\t\t\t\t\t\tvar el = this.$el;\r\n\t\t\t\t\t\t\ttry { this.allInvoices = JSON.parse(el.getAttribute('data-invoices') || '[]'); } catch(e) { this.allInvoices = []; }\r\n\t\t\t\t\t\t\tthis.customerId = el.getAttribute('data-initial-customer') || '';\r\n\t\t\t\t\t\t\tthis.invoiceId  = el.getAttribute('data-initial-invoice') || '';\r\n\t\t\t\t\t\t\tthis.amount     = el.getAttribute('data-initial-amount') || '';\r\n\t\t\t\t\t\t},\r\n\r\n\t\t\t\t\t\tonCustomerChange() {\r\n\t\t\t\t\t\t\tthis.invoiceId = '';\r\n\t\t\t\t\t\t\tthis.amount = '';\r\n\t\t\t\t\t\t},\r\n\r\n\t\t\t\t\t\tselectInvoice(inv) {\r\n\t\t\t\t\t\t\tthis.invoiceId = String(inv.id);\r\n\t\t\t\t\t\t\tthis.amount = inv.amount;\r\n\t\t\t\t\t\t},\r\n\r\n\t\t\t\t\t\tclearInvoice() {\r\n\t\t\t\t\t\t\tthis.invoiceId = '';\r\n\t\t\t\t\t\t\tthis.amount = '';\r\n\t\t\t\t\t\t},\r\n\t\t\t\t\t};\r\n\t\t\t\t}\r\n\t\t\t</script></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</div></div></form><script>\n\t\t\t\tfunction receivePaymentForm() {\n\t\t\t\t\treturn {\n\t\t\t\t\t\t// ── Data loaded from the server ────────────────────────\n\t\t\t\t\t\tallInvoices: [],\n\t\t\t\t\t\tallDeposits: [],\n\t\t\t\t\t\tallCreditNotes: [],\n\n\t\t\t\t\t\t// ── Form state ────────────────────────────────────────\n\t\t\t\t\t\tcustomerId: '',\n\t\t\t\t\t\t// Selection + Payment amount maps keyed by doc id,\n\t\t\t\t\t\t// one pair per document type so POST emits parallel\n\t\t\t\t\t\t// arrays (allocation_*, deposit_*, credit_note_*).\n\t\t\t\t\t\tselectedInv: {},\n\t\t\t\t\t\tallocInv: {}, // invoice_id -> \"amount typed\" (positive doc currency)\n\t\t\t\t\t\tselectedDep: {},\n\t\t\t\t\t\tallocDep: {}, // deposit_id -> \"amount consumed\" (positive doc currency)\n\t\t\t\t\t\tselectedCN: {},\n\t\t\t\t\t\tallocCN: {}, // cn_id -> \"amount consumed\" (positive doc currency)\n\n\t\t\t\t\t\t// Manual amount for unlinked payment-on-account (when no\n\t\t\t\t\t\t// documents ticked and no new deposit).\n\t\t\t\t\t\tmanualAmount: '',\n\t\t\t\t\t\t// Explicit overpayment field — creates a new deposit row.\n\t\t\t\t\t\tnewDepositAmount: '',\n\t\t\t\t\t\t// Legacy single-invoice id preserved for deep-link arrivals.\n\t\t\t\t\t\tinvoiceId: '',\n\n\t\t\t\t\t\t// ── Derived ───────────────────────────────────────────\n\t\t\t\t\t\tget filteredInvoices() {\n\t\t\t\t\t\t\tif (!this.customerId) return [];\n\t\t\t\t\t\t\treturn this.allInvoices.filter(function(inv) {\n\t\t\t\t\t\t\t\treturn String(inv.customer_id) === String(this.customerId);\n\t\t\t\t\t\t\t}.bind(this));\n\t\t\t\t\t\t},\n\t\t\t\t\t\tget filteredDeposits() {\n\t\t\t\t\t\t\tif (!this.customerId) return [];\n\t\t\t\t\t\t\treturn this.allDeposits.filter(function(d) {\n\t\t\t\t\t\t\t\treturn String(d.customer_id) === String(this.customerId);\n\t\t\t\t\t\t\t}.bind(this));\n\t\t\t\t\t\t},\n\t\t\t\t\t\tget filteredCreditNotes() {\n\t\t\t\t\t\t\tif (!this.customerId) return [];\n\t\t\t\t\t\t\treturn this.allCreditNotes.filter(function(c) {\n\t\t\t\t\t\t\t\treturn String(c.customer_id) === String(this.customerId);\n\t\t\t\t\t\t\t}.bind(this));\n\t\t\t\t\t\t},\n\t\t\t\t\t\tget hasInvoiceSelection() {\n\t\t\t\t\t\t\tfor (var k in this.selectedInv) { if (this.selectedInv[k]) return true; }\n\t\t\t\t\t\t\treturn false;\n\t\t\t\t\t\t},\n\t\t\t\t\t\tget hasDepositSelection() {\n\t\t\t\t\t\t\tfor (var k in this.selectedDep) { if (this.selectedDep[k]) return true; }\n\t\t\t\t\t\t\treturn false;\n\t\t\t\t\t\t},\n\t\t\t\t\t\tget hasCNSelection() {\n\t\t\t\t\t\t\tfor (var k in this.selectedCN) { if (this.selectedCN[k]) return true; }\n\t\t\t\t\t\t\treturn false;\n\t\t\t\t\t\t},\n\t\t\t\t\t\tget hasAnySelection() { return this.hasInvoiceSelection || this.hasDepositSelection || this.hasCNSelection; },\n\n\t\t\t\t\t\tget totalInvoiceApplied() {\n\t\t\t\t\t\t\tvar sum = 0;\n\t\t\t\t\t\t\tfor (var k in this.selectedInv) {\n\t\t\t\t\t\t\t\tif (!this.selectedInv[k]) continue;\n\t\t\t\t\t\t\t\tvar v = parseFloat(this.allocInv[k] || '0');\n\t\t\t\t\t\t\t\tif (!isNaN(v)) sum += v;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\treturn sum;\n\t\t\t\t\t\t},\n\t\t\t\t\t\tget totalDepositApplied() {\n\t\t\t\t\t\t\tvar sum = 0;\n\t\t\t\t\t\t\tfor (var k in this.selectedDep) {\n\t\t\t\t\t\t\t\tif (!this.selectedDep[k]) continue;\n\t\t\t\t\t\t\t\tvar v = parseFloat(this.allocDep[k] || '0');\n\t\t\t\t\t\t\t\tif (!isNaN(v)) sum += v;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\treturn sum;\n\t\t\t\t\t\t},\n\t\t\t\t\t\tget totalCNApplied() {\n\t\t\t\t\t\t\tvar sum = 0;\n\t\t\t\t\t\t\tfor (var k in this.selectedCN) {\n\t\t\t\t\t\t\t\tif (!this.selectedCN[k]) continue;\n\t\t\t\t\t\t\t\tvar v = parseFloat(this.allocCN[k] || '0');\n\t\t\t\t\t\t\t\tif (!isNaN(v)) sum += v;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\treturn sum;\n\t\t\t\t\t\t},\n\t\t\t\t\t\tget newDepositValue() {\n\t\t\t\t\t\t\tvar v = parseFloat(this.newDepositAmount || '0');\n\t\t\t\t\t\t\treturn isNaN(v) ? 0 : v;\n\t\t\t\t\t\t},\n\n\t\t\t\t\t\t// Net Bank receipt = invoice − CN − deposit + new deposit.\n\t\t\t\t\t\t// This is what DR Bank on the JE will be. Must be ≥ 0.\n\t\t\t\t\t\tget bankTotal() {\n\t\t\t\t\t\t\treturn this.totalInvoiceApplied - this.totalCNApplied - this.totalDepositApplied + this.newDepositValue;\n\t\t\t\t\t\t},\n\t\t\t\t\t\tget bankTotalDisplay() { return this.bankTotal.toFixed(2); },\n\n\t\t\t\t\t\t// Amount mirrored into the hidden \"amount\" input. Kept\n\t\t\t\t\t\t// for the legacy manual-amount path when no rows are\n\t\t\t\t\t\t// ticked and no new deposit is entered.\n\t\t\t\t\t\tget amount() {\n\t\t\t\t\t\t\tif (this.hasAnySelection || this.newDepositValue > 0) {\n\t\t\t\t\t\t\t\treturn this.bankTotalDisplay;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\treturn this.manualAmount;\n\t\t\t\t\t\t},\n\n\t\t\t\t\t\t// Guard: combined CN + deposit consumption cannot exceed\n\t\t\t\t\t\t// invoice total (service rejects too — surface early).\n\t\t\t\t\t\tget negativeDocsExceedInvoices() {\n\t\t\t\t\t\t\treturn (this.totalCNApplied + this.totalDepositApplied) > this.totalInvoiceApplied + 0.001;\n\t\t\t\t\t\t},\n\n\t\t\t\t\t\tinit() {\n\t\t\t\t\t\t\tvar el = this.$el;\n\t\t\t\t\t\t\ttry { this.allInvoices = JSON.parse(el.getAttribute('data-invoices') || '[]'); } catch(e) { this.allInvoices = []; }\n\t\t\t\t\t\t\ttry { this.allDeposits = JSON.parse(el.getAttribute('data-deposits') || '[]'); } catch(e) { this.allDeposits = []; }\n\t\t\t\t\t\t\ttry { this.allCreditNotes = JSON.parse(el.getAttribute('data-credit-notes') || '[]'); } catch(e) { this.allCreditNotes = []; }\n\t\t\t\t\t\t\tthis.customerId       = el.getAttribute('data-initial-customer') || '';\n\t\t\t\t\t\t\tthis.invoiceId        = el.getAttribute('data-initial-invoice') || '';\n\t\t\t\t\t\t\tthis.manualAmount     = el.getAttribute('data-initial-amount') || '';\n\t\t\t\t\t\t\tthis.newDepositAmount = el.getAttribute('data-initial-new-deposit') || '';\n\n\t\t\t\t\t\t\t// Pre-seed selections from two sources:\n\t\t\t\t\t\t\t//   1) data-initial-allocations = JSON { \"42\": \"100.00\" }\n\t\t\t\t\t\t\t//   2) data-initial-invoice = \"42\" (legacy deep link)\n\t\t\t\t\t\t\tvar pre = {};\n\t\t\t\t\t\t\ttry { pre = JSON.parse(el.getAttribute('data-initial-allocations') || '{}'); } catch(e) { pre = {}; }\n\t\t\t\t\t\t\tfor (var id in pre) {\n\t\t\t\t\t\t\t\tthis.selectedInv[id] = true;\n\t\t\t\t\t\t\t\tthis.allocInv[id] = String(pre[id]);\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tif (this.invoiceId && !this.selectedInv[this.invoiceId]) {\n\t\t\t\t\t\t\t\tthis.selectedInv[this.invoiceId] = true;\n\t\t\t\t\t\t\t\tvar inv = this.findInvoice(this.invoiceId);\n\t\t\t\t\t\t\t\tthis.allocInv[this.invoiceId] = inv ? inv.amount : (this.manualAmount || '');\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t},\n\n\t\t\t\t\t\tfindInvoice(id) {\n\t\t\t\t\t\t\tfor (var i = 0; i < this.allInvoices.length; i++) {\n\t\t\t\t\t\t\t\tif (String(this.allInvoices[i].id) === String(id)) return this.allInvoices[i];\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\treturn null;\n\t\t\t\t\t\t},\n\n\t\t\t\t\t\tonCustomerChange() {\n\t\t\t\t\t\t\t// Switching customer invalidates any prior selection —\n\t\t\t\t\t\t\t// open docs belong to one customer at a time.\n\t\t\t\t\t\t\tthis.selectedInv = {};\n\t\t\t\t\t\t\tthis.allocInv = {};\n\t\t\t\t\t\t\tthis.selectedDep = {};\n\t\t\t\t\t\t\tthis.allocDep = {};\n\t\t\t\t\t\t\tthis.selectedCN = {};\n\t\t\t\t\t\t\tthis.allocCN = {};\n\t\t\t\t\t\t\tthis.invoiceId = '';\n\t\t\t\t\t\t\tthis.manualAmount = '';\n\t\t\t\t\t\t\tthis.newDepositAmount = '';\n\t\t\t\t\t\t},\n\n\t\t\t\t\t\ttoggleInvoice(inv) {\n\t\t\t\t\t\t\tvar id = String(inv.id);\n\t\t\t\t\t\t\tif (this.selectedInv[id]) {\n\t\t\t\t\t\t\t\tdelete this.selectedInv[id];\n\t\t\t\t\t\t\t\tdelete this.allocInv[id];\n\t\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t\tthis.selectedInv[id] = true;\n\t\t\t\t\t\t\t\t// Default payment = full balance due.\n\t\t\t\t\t\t\t\tthis.allocInv[id] = inv.amount;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t},\n\t\t\t\t\t\ttoggleDeposit(dep) {\n\t\t\t\t\t\t\tvar id = String(dep.id);\n\t\t\t\t\t\t\tif (this.selectedDep[id]) {\n\t\t\t\t\t\t\t\tdelete this.selectedDep[id];\n\t\t\t\t\t\t\t\tdelete this.allocDep[id];\n\t\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t\tthis.selectedDep[id] = true;\n\t\t\t\t\t\t\t\t// Default consumption = full remaining balance.\n\t\t\t\t\t\t\t\tthis.allocDep[id] = dep.amount;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t},\n\t\t\t\t\t\ttoggleCreditNote(cn) {\n\t\t\t\t\t\t\tvar id = String(cn.id);\n\t\t\t\t\t\t\tif (this.selectedCN[id]) {\n\t\t\t\t\t\t\t\tdelete this.selectedCN[id];\n\t\t\t\t\t\t\t\tdelete this.allocCN[id];\n\t\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t\tthis.selectedCN[id] = true;\n\t\t\t\t\t\t\t\tthis.allocCN[id] = cn.amount;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t},\n\t\t\t\t\t\tisInvoiceSelected(inv) { return !!this.selectedInv[String(inv.id)]; },\n\t\t\t\t\t\tisDepositSelected(dep) { return !!this.selectedDep[String(dep.id)]; },\n\t\t\t\t\t\tisCNSelected(cn) { return !!this.selectedCN[String(cn.id)]; },\n\n\t\t\t\t\t\t// Per-row overpayment guard — invoice payment shouldn't\n\t\t\t\t\t\t// exceed its balance due (the service rejects this;\n\t\t\t\t\t\t// operator should raise new_deposit_amount instead).\n\t\t\t\t\t\tinvoiceOverage(inv) {\n\t\t\t\t\t\t\tvar id = String(inv.id);\n\t\t\t\t\t\t\tif (!this.selectedInv[id]) return 0;\n\t\t\t\t\t\t\tvar paid = parseFloat(this.allocInv[id] || '0');\n\t\t\t\t\t\t\tvar bal  = parseFloat(inv.amount || '0');\n\t\t\t\t\t\t\tif (isNaN(paid) || isNaN(bal)) return 0;\n\t\t\t\t\t\t\treturn Math.max(0, paid - bal);\n\t\t\t\t\t\t},\n\t\t\t\t\t\tdepositOverage(dep) {\n\t\t\t\t\t\t\tvar id = String(dep.id);\n\t\t\t\t\t\t\tif (!this.selectedDep[id]) return 0;\n\t\t\t\t\t\t\tvar used = parseFloat(this.allocDep[id] || '0');\n\t\t\t\t\t\t\tvar bal  = parseFloat(dep.amount || '0');\n\t\t\t\t\t\t\tif (isNaN(used) || isNaN(bal)) return 0;\n\t\t\t\t\t\t\treturn Math.max(0, used - bal);\n\t\t\t\t\t\t},\n\t\t\t\t\t\tcnOverage(cn) {\n\t\t\t\t\t\t\tvar id = String(cn.id);\n\t\t\t\t\t\t\tif (!this.selectedCN[id]) return 0;\n\t\t\t\t\t\t\tvar used = parseFloat(this.allocCN[id] || '0');\n\t\t\t\t\t\t\tvar bal  = parseFloat(cn.amount || '0');\n\t\t\t\t\t\t\tif (isNaN(used) || isNaN(bal)) return 0;\n\t\t\t\t\t\t\treturn Math.max(0, used - bal);\n\t\t\t\t\t\t},\n\t\t\t\t\t};\n\t\t\t\t}\n\t\t\t</script></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -182,9 +234,9 @@ func bodyReceivePayment(vm ReceivePaymentVM) templ.Component {
 	})
 }
 
-// rpPaymentDetails renders the 4-column Payment Details section.
-// Alpine-bound controls (customer, amount) keep their bindings inline;
-// fieldClass() handles the conditional error-state class.
+// rpPaymentDetails renders the Payment Details section.
+// Alpine-bound controls (customer, amount, new_deposit_amount) keep their
+// bindings inline; fieldClass() handles the conditional error-state class.
 func rpPaymentDetails(vm ReceivePaymentVM) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -201,428 +253,370 @@ func rpPaymentDetails(vm ReceivePaymentVM) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var7 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var7 == nil {
-			templ_7745c5c3_Var7 = templ.NopComponent
+		templ_7745c5c3_Var11 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var11 == nil {
+			templ_7745c5c3_Var11 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3\"><div><label class=\"block text-body font-medium text-text\">Customer *</label> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<div class=\"grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3\"><div><label class=\"block text-body font-medium text-text\">Customer *</label> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var8 = []any{fieldClass(vm.CustomerError != "")}
-		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var8...)
+		var templ_7745c5c3_Var12 = []any{fieldClass(vm.CustomerError != "")}
+		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var12...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<select name=\"customer_id\" x-model=\"customerId\" @change=\"onCustomerChange()\" class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<select name=\"customer_id\" x-model=\"customerId\" @change=\"onCustomerChange()\" class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var9 string
-		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var8).String())
+		var templ_7745c5c3_Var13 string
+		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var12).String())
 		if templ_7745c5c3_Err != nil {
 			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 1, Col: 0}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\"><option value=\"\">— Select —</option> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\"><option value=\"\">— Select —</option> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		for _, cust := range vm.Customers {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<option value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<option value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var10 string
-			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(Uitoa(cust.ID))
+			var templ_7745c5c3_Var14 string
+			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(Uitoa(cust.ID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 133, Col: 35}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 326, Col: 35}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if Uitoa(cust.ID) == vm.CustomerID {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, " selected")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, " selected")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, ">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var11 string
-			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(cust.Name)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 133, Col: 95}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</option>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</select> ")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if vm.CustomerError != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<div class=\"mt-1 text-small text-danger\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var12 string
-			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(vm.CustomerError)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 137, Col: 63}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</div>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</div><div><label class=\"block text-body font-medium text-text\">Payment Method *</label> ")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var13 = []any{fieldClass(vm.PaymentMethodError != "")}
-		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var13...)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<select name=\"payment_method\" class=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var14 string
-		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var13).String())
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 1, Col: 0}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\"><option value=\"\">— Select —</option> ")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		for _, method := range models.ManualPaymentMethods() {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<option value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, ">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var15 string
-			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(string(method))
+			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(cust.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 150, Col: 35}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 326, Col: 95}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</option>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if string(method) == vm.PaymentMethod {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, " selected")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, ">")
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</select> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if vm.CustomerError != "" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<div class=\"mt-1 text-small text-danger\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var16 string
-			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(models.PaymentMethodLabel(method))
+			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(vm.CustomerError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 150, Col: 122}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 330, Col: 63}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</option>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</select> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</div><div><label class=\"block text-body font-medium text-text\">Payment Method *</label> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var17 = []any{fieldClass(vm.PaymentMethodError != "")}
+		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var17...)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<select name=\"payment_method\" class=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var18 string
+		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var17).String())
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 1, Col: 0}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\"><option value=\"\">— Select —</option> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		for _, method := range models.ManualPaymentMethods() {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<option value=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var19 string
+			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(string(method))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 343, Col: 35}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if string(method) == vm.PaymentMethod {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, " selected")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, ">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var20 string
+			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(models.PaymentMethodLabel(method))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 343, Col: 122}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</option>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "</select> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if vm.PaymentMethodError != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<div class=\"mt-1 text-small text-danger\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var17 string
-			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(vm.PaymentMethodError)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 154, Col: 68}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</div>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</div><div><label class=\"block text-body font-medium text-text\">Date *</label> ")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var18 = []any{fieldClass(vm.DateError != "") + " [color-scheme:dark]"}
-		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var18...)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<input type=\"date\" name=\"entry_date\" value=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var19 string
-		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(vm.EntryDate)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 164, Col: 24}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "\" class=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var20 string
-		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var18).String())
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 1, Col: 0}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\"> ")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if vm.DateError != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "<div class=\"mt-1 text-small text-danger\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<div class=\"mt-1 text-small text-danger\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var21 string
-			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(vm.DateError)
+			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(vm.PaymentMethodError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 168, Col: 59}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 347, Col: 68}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</div><div><label class=\"block text-body font-medium text-text\">Deposit to (Bank) *</label> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "</div><div><label class=\"block text-body font-medium text-text\">Date *</label> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var22 = []any{fieldClass(vm.BankError != "")}
+		var templ_7745c5c3_Var22 = []any{fieldClass(vm.DateError != "") + " [color-scheme:dark]"}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var22...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<select name=\"bank_account_id\" class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<input type=\"date\" name=\"entry_date\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var23 string
-		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var22).String())
+		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(vm.EntryDate)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 1, Col: 0}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 357, Col: 24}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "\"><option value=\"\">— Select —</option> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "\" class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		for _, a := range vm.BankAccounts {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<option value=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var24 string
-			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(Uitoa(a.ID))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 181, Col: 32}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			if Uitoa(a.ID) == vm.BankAccountID {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, " selected")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, ">")
+		var templ_7745c5c3_Var24 string
+		templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var22).String())
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 1, Col: 0}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "\"> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if vm.DateError != "" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<div class=\"mt-1 text-small text-danger\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var25 string
-			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(a.Code)
+			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(vm.DateError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 181, Col: 89}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 361, Col: 59}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, " - ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var26 string
-			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(a.Name)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 181, Col: 102}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "</option>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "</select> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "</div><div><label class=\"block text-body font-medium text-text\">Deposit to (Bank) *</label> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if vm.BankError != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "<div class=\"mt-1 text-small text-danger\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var27 string
-			templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(vm.BankError)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 185, Col: 59}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "</div>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "</div><div><label class=\"block text-body font-medium text-text\">Amount *</label> ")
+		var templ_7745c5c3_Var26 = []any{fieldClass(vm.BankError != "")}
+		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var26...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var28 = []any{fieldClass(vm.AmountError != "")}
-		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var28...)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "<select name=\"bank_account_id\" class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "<input type=\"text\" inputmode=\"decimal\" name=\"amount\" x-model=\"amount\" :readonly=\"invoiceId !== ''\" :class=\"invoiceId !== '' ? 'bg-background cursor-not-allowed' : ''\" placeholder=\"0.00\" class=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var29 string
-		templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var28).String())
+		var templ_7745c5c3_Var27 string
+		templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var26).String())
 		if templ_7745c5c3_Err != nil {
 			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 1, Col: 0}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "\"> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "\"><option value=\"\">— Select —</option> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if vm.AmountError != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "<div class=\"mt-1 text-small text-danger\">")
+		for _, a := range vm.BankAccounts {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<option value=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var28 string
+			templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(Uitoa(a.ID))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 374, Col: 32}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if Uitoa(a.ID) == vm.BankAccountID {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, " selected")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, ">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var29 string
+			templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(a.Code)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 374, Col: 89}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, " - ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var30 string
-			templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(vm.AmountError)
+			templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(a.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 203, Col: 61}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 374, Col: 102}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "</option>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<p x-show=\"invoiceId !== ''\" class=\"mt-1 text-small text-text-muted2\">Set by the selected invoice.</p></div><div><label class=\"block text-body font-medium text-text\">Memo</label> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "</select> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var31 = []any{fieldClass(false)}
-		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var31...)
+		if vm.BankError != "" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "<div class=\"mt-1 text-small text-danger\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var31 string
+			templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(vm.BankError)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 378, Col: 59}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "</div><div><label class=\"block text-body font-medium text-text\">Total to Bank *</label> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "<input type=\"text\" name=\"memo\" value=\"")
+		var templ_7745c5c3_Var32 = []any{fieldClass(vm.AmountError != "")}
+		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var32...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var32 string
-		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(vm.Memo)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 214, Col: 19}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "\" autocomplete=\"off\" placeholder=\"Optional reference note\" class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<input type=\"text\" inputmode=\"decimal\" name=\"amount\" x-model=\"manualAmount\" :readonly=\"hasAnySelection || newDepositValue > 0\" :value=\"amount\" :class=\"(hasAnySelection || newDepositValue > 0) ? 'bg-background cursor-not-allowed' : ''\" placeholder=\"0.00\" class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var33 string
-		templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var31).String())
+		templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var32).String())
 		if templ_7745c5c3_Err != nil {
 			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 1, Col: 0}
 		}
@@ -630,7 +624,110 @@ func rpPaymentDetails(vm ReceivePaymentVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "\"></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "\"> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if vm.AmountError != "" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "<div class=\"mt-1 text-small text-danger\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var34 string
+			templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(vm.AmountError)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 400, Col: 61}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "<p x-show=\"hasAnySelection || newDepositValue > 0\" class=\"mt-1 text-small text-text-muted2\">Auto-calculated: invoice total − deposit used + new deposit.</p><p x-show=\"!hasAnySelection && newDepositValue === 0\" class=\"mt-1 text-small text-text-muted2\">Leave the table empty to record an unlinked payment on account.</p></div><div><label class=\"block text-body font-medium text-text\">Extra → New Deposit</label> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var35 = []any{fieldClass(vm.NewDepositAmountError != "")}
+		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var35...)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "<input type=\"text\" inputmode=\"decimal\" name=\"new_deposit_amount\" x-model=\"newDepositAmount\" placeholder=\"0.00\" class=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var36 string
+		templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var35).String())
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 1, Col: 0}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "\"> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if vm.NewDepositAmountError != "" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "<div class=\"mt-1 text-small text-danger\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var37 string
+			templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(vm.NewDepositAmountError)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 423, Col: 71}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "<p class=\"mt-1 text-small text-text-muted2\">Overpayment parked as a future credit for this customer.</p></div><div class=\"sm:col-span-2 lg:col-span-3\"><label class=\"block text-body font-medium text-text\">Memo</label> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var38 = []any{fieldClass(false)}
+		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var38...)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "<input type=\"text\" name=\"memo\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var39 string
+		templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(vm.Memo)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 434, Col: 19}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "\" autocomplete=\"off\" placeholder=\"Optional reference note\" class=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var40 string
+		templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var38).String())
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/receive_payment.templ`, Line: 1, Col: 0}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "\"></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -638,8 +735,15 @@ func rpPaymentDetails(vm ReceivePaymentVM) templ.Component {
 	})
 }
 
-// rpInvoiceTable renders the invoice selection table inside the Apply to Invoice card.
-func rpInvoiceTable(vm ReceivePaymentVM) templ.Component {
+// rpDocumentTable renders the unified multi-select Apply table.
+// Invoices (positive) and Customer Deposits (negative) share one table
+// with a Type column. Each ticked row POSTs two parallel array entries:
+//
+//	invoices → allocation_invoice_id[] + allocation_amount[]
+//	deposits → deposit_id[]            + deposit_amount[]
+//
+// The legacy single-invoice_id hidden input stays for deep-link compat.
+func rpDocumentTable(vm ReceivePaymentVM) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -655,12 +759,12 @@ func rpInvoiceTable(vm ReceivePaymentVM) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var34 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var34 == nil {
-			templ_7745c5c3_Var34 = templ.NopComponent
+		templ_7745c5c3_Var41 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var41 == nil {
+			templ_7745c5c3_Var41 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "<input type=\"hidden\" name=\"invoice_id\" x-model=\"invoiceId\"><div x-show=\"filteredInvoices.length === 0\" class=\"text-body text-text-muted2\">No open invoices for this customer.</div><div x-show=\"filteredInvoices.length > 0\" class=\"overflow-x-auto\"><table class=\"w-full text-left text-body\"><thead><tr class=\"border-b border-border bg-surface-tableHeader\"><th class=\"py-2.5 pr-3 w-8\"></th><th class=\"py-2.5 pr-4 text-small font-semibold text-text-muted2\">Invoice No.</th><th class=\"py-2.5 pr-4 text-small font-semibold text-text-muted2\">Invoice Date</th><th class=\"py-2.5 pr-4 text-small font-semibold text-text-muted2\">Due Date</th><th class=\"py-2.5 pr-4 text-right text-small font-semibold text-text-muted2\">Original Amount</th><th class=\"py-2.5 text-right text-small font-semibold text-text-muted2\">Balance Due</th></tr></thead> <tbody><template x-for=\"inv in filteredInvoices\" :key=\"inv.id\"><tr class=\"cursor-pointer border-b border-border-subtle hover:bg-surface-rowHover transition-colors duration-75\" :class=\"String(inv.id) === invoiceId ? 'bg-primary-soft/20' : ''\" @click=\"selectInvoice(inv)\"><td class=\"py-2.5 pr-3\"><span class=\"inline-flex h-4 w-4 items-center justify-center rounded-full border-2\" :class=\"String(inv.id) === invoiceId ? 'border-primary bg-primary' : 'border-border'\"><span x-show=\"String(inv.id) === invoiceId\" class=\"h-2 w-2 rounded-full bg-onPrimary\"></span></span></td><td class=\"py-2.5 pr-4 font-medium font-mono text-text\" x-text=\"inv.invoice_number\"></td><td class=\"py-2.5 pr-4 text-text-muted2\" x-text=\"inv.invoice_date\"></td><td class=\"py-2.5 pr-4 text-text-muted2\" x-text=\"inv.due_date || '—'\"></td><td class=\"py-2.5 pr-4 text-right tabular-nums text-text-muted2\" x-text=\"'$' + inv.original_amount\"></td><td class=\"py-2.5 text-right tabular-nums font-semibold text-text\" x-text=\"'$' + inv.amount\"></td></tr></template></tbody></table></div><div x-show=\"invoiceId !== ''\" class=\"mt-3 flex justify-end\"><button type=\"button\" @click=\"clearInvoice()\" class=\"text-small text-text-muted3 hover:text-text\">← Clear selection (enter amount manually)</button></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "<input type=\"hidden\" name=\"invoice_id\" :value=\"invoiceId\"><div x-show=\"filteredInvoices.length === 0 && filteredDeposits.length === 0 && filteredCreditNotes.length === 0\" class=\"text-body text-text-muted2\">No open invoices, deposits, or credit notes for this customer.</div><div x-show=\"filteredInvoices.length > 0 || filteredDeposits.length > 0 || filteredCreditNotes.length > 0\" class=\"overflow-x-auto\"><table class=\"w-full text-left text-body\"><thead><tr class=\"border-b border-border bg-surface-tableHeader\"><th class=\"py-2.5 pr-3 w-8\"></th><th class=\"py-2.5 pr-4 text-small font-semibold text-text-muted2\">Document No.</th><th class=\"py-2.5 pr-4 text-small font-semibold text-text-muted2\">Type</th><th class=\"py-2.5 pr-4 text-small font-semibold text-text-muted2\">Date</th><th class=\"py-2.5 pr-4 text-small font-semibold text-text-muted2\">Due Date</th><th class=\"py-2.5 pr-4 text-right text-small font-semibold text-text-muted2\">Original</th><th class=\"py-2.5 pr-4 text-right text-small font-semibold text-text-muted2\">Balance</th><th class=\"py-2.5 text-right text-small font-semibold text-text-muted2 w-40\">Payment</th></tr></thead> <tbody><template x-for=\"inv in filteredInvoices\" :key=\"'inv-' + inv.id\"><tr class=\"border-b border-border-subtle hover:bg-surface-rowHover transition-colors duration-75\" :class=\"isInvoiceSelected(inv) ? 'bg-primary-soft/20' : ''\"><td class=\"py-2 pr-3\"><input type=\"checkbox\" class=\"h-4 w-4 rounded border-border-input text-primary focus:ring-primary-focus\" :checked=\"isInvoiceSelected(inv)\" @change=\"toggleInvoice(inv)\"></td><td class=\"py-2 pr-4 font-medium font-mono text-text\" x-text=\"inv.invoice_number\"></td><td class=\"py-2 pr-4\"><span class=\"inline-flex items-center rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-medium text-primary-hover\">Invoice</span></td><td class=\"py-2 pr-4 text-text-muted2\" x-text=\"inv.invoice_date\"></td><td class=\"py-2 pr-4 text-text-muted2\" x-text=\"inv.due_date || '—'\"></td><td class=\"py-2 pr-4 text-right tabular-nums text-text-muted2\" x-text=\"'$' + inv.original_amount\"></td><td class=\"py-2 pr-4 text-right tabular-nums font-semibold text-text\" x-text=\"'$' + inv.amount\"></td><td class=\"py-2 text-right\"><template x-if=\"isInvoiceSelected(inv)\"><div class=\"flex flex-col items-end gap-0.5\"><div class=\"flex items-center gap-1\"><span class=\"text-text-muted2 text-small\">$</span> <input type=\"text\" inputmode=\"decimal\" name=\"allocation_amount\" class=\"w-28 rounded-md border border-border-input bg-surface px-2 py-1 text-right text-small font-mono text-text focus:outline-none focus:ring-2 focus:ring-primary-focus\" x-model=\"allocInv[String(inv.id)]\"></div><input type=\"hidden\" name=\"allocation_invoice_id\" :value=\"String(inv.id)\"> <span x-show=\"invoiceOverage(inv) > 0\" class=\"text-[11px] text-warning-hover\" x-text=\"'Exceeds balance by $' + invoiceOverage(inv).toFixed(2)\"></span></div></template></td></tr></template><template x-for=\"dep in filteredDeposits\" :key=\"'dep-' + dep.id\"><tr class=\"border-b border-border-subtle hover:bg-surface-rowHover transition-colors duration-75\" :class=\"isDepositSelected(dep) ? 'bg-info-soft/20' : ''\"><td class=\"py-2 pr-3\"><input type=\"checkbox\" class=\"h-4 w-4 rounded border-border-input text-primary focus:ring-primary-focus\" :checked=\"isDepositSelected(dep)\" @change=\"toggleDeposit(dep)\"></td><td class=\"py-2 pr-4 font-medium font-mono text-text\" x-text=\"dep.document_number\"></td><td class=\"py-2 pr-4\"><span class=\"inline-flex items-center rounded-full bg-info-soft px-2 py-0.5 text-[11px] font-medium text-info-hover\">Deposit</span></td><td class=\"py-2 pr-4 text-text-muted2\" x-text=\"dep.document_date\"></td><td class=\"py-2 pr-4 text-text-muted3\">—</td><td class=\"py-2 pr-4 text-right tabular-nums text-text-muted2\" x-text=\"'-$' + dep.original_amount\"></td><td class=\"py-2 pr-4 text-right tabular-nums font-semibold text-text\" x-text=\"'-$' + dep.amount\"></td><td class=\"py-2 text-right\"><template x-if=\"isDepositSelected(dep)\"><div class=\"flex flex-col items-end gap-0.5\"><div class=\"flex items-center gap-1\"><span class=\"text-text-muted2 text-small\">-$</span> <input type=\"text\" inputmode=\"decimal\" name=\"deposit_amount\" class=\"w-28 rounded-md border border-border-input bg-surface px-2 py-1 text-right text-small font-mono text-text focus:outline-none focus:ring-2 focus:ring-primary-focus\" x-model=\"allocDep[String(dep.id)]\"></div><input type=\"hidden\" name=\"deposit_id\" :value=\"String(dep.id)\"> <span x-show=\"depositOverage(dep) > 0\" class=\"text-[11px] text-warning-hover\" x-text=\"'Exceeds deposit by $' + depositOverage(dep).toFixed(2)\"></span></div></template></td></tr></template><template x-for=\"cn in filteredCreditNotes\" :key=\"'cn-' + cn.id\"><tr class=\"border-b border-border-subtle hover:bg-surface-rowHover transition-colors duration-75\" :class=\"isCNSelected(cn) ? 'bg-info-soft/20' : ''\"><td class=\"py-2 pr-3\"><input type=\"checkbox\" class=\"h-4 w-4 rounded border-border-input text-primary focus:ring-primary-focus\" :checked=\"isCNSelected(cn)\" @change=\"toggleCreditNote(cn)\"></td><td class=\"py-2 pr-4 font-medium font-mono text-text\" x-text=\"cn.document_number\"></td><td class=\"py-2 pr-4\"><span class=\"inline-flex items-center rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-medium text-success-hover\">Credit Note</span></td><td class=\"py-2 pr-4 text-text-muted2\" x-text=\"cn.document_date\"></td><td class=\"py-2 pr-4 text-text-muted3\">—</td><td class=\"py-2 pr-4 text-right tabular-nums text-text-muted2\" x-text=\"'-$' + cn.original_amount\"></td><td class=\"py-2 pr-4 text-right tabular-nums font-semibold text-text\" x-text=\"'-$' + cn.amount\"></td><td class=\"py-2 text-right\"><template x-if=\"isCNSelected(cn)\"><div class=\"flex flex-col items-end gap-0.5\"><div class=\"flex items-center gap-1\"><span class=\"text-text-muted2 text-small\">-$</span> <input type=\"text\" inputmode=\"decimal\" name=\"credit_note_amount\" class=\"w-28 rounded-md border border-border-input bg-surface px-2 py-1 text-right text-small font-mono text-text focus:outline-none focus:ring-2 focus:ring-primary-focus\" x-model=\"allocCN[String(cn.id)]\"></div><input type=\"hidden\" name=\"credit_note_id\" :value=\"String(cn.id)\"> <span x-show=\"cnOverage(cn) > 0\" class=\"text-[11px] text-warning-hover\" x-text=\"'Exceeds CN by $' + cnOverage(cn).toFixed(2)\"></span></div></template></td></tr></template></tbody><tfoot><tr class=\"border-t border-border\"><td colspan=\"5\" class=\"py-2 pr-4 text-right text-small font-semibold text-text-muted2\">Invoice <span class=\"text-text-muted3 font-normal\">− </span> credit note <span class=\"text-text-muted3 font-normal\">− </span> deposit <span class=\"text-text-muted3 font-normal\">+ </span> new deposit</td><td colspan=\"3\" class=\"py-2 text-right tabular-nums font-semibold text-text\"><span x-text=\"'$' + totalInvoiceApplied.toFixed(2)\"></span> <span class=\"text-text-muted3 font-normal\">− </span> <span x-text=\"'$' + totalCNApplied.toFixed(2)\"></span> <span class=\"text-text-muted3 font-normal\">− </span> <span x-text=\"'$' + totalDepositApplied.toFixed(2)\"></span> <span class=\"text-text-muted3 font-normal\">+ </span> <span x-text=\"'$' + newDepositValue.toFixed(2)\"></span> <span class=\"text-text-muted3\">= </span> <span class=\"text-primary\" x-text=\"'$' + bankTotalDisplay\"></span></td></tr></tfoot></table></div><div x-show=\"negativeDocsExceedInvoices\" x-cloak class=\"mt-3 rounded-md border border-border-danger bg-danger-soft px-4 py-3 text-body text-danger-hover\">Credit note + deposit consumption exceeds invoice total. Reduce a row or uncheck it — refunds run through a separate flow.</div><div x-show=\"hasAnySelection\" class=\"mt-3 flex justify-end\"><button type=\"button\" @click=\"selectedInv = {}; allocInv = {}; selectedDep = {}; allocDep = {}; selectedCN = {}; allocCN = {}; invoiceId = ''\" class=\"text-small text-text-muted3 hover:text-text\">← Clear all selections</button></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

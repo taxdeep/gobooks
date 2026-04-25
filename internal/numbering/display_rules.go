@@ -18,6 +18,10 @@ const (
 	ModuleSalesOrder    = "sales_order"
 	ModuleQuote         = "quote"
 	ModuleExpense       = "expense"
+	// ModuleCustomerDeposit drives the human-readable number for
+	// customer deposits (money held on behalf of a customer — see
+	// models.CustomerDeposit). Default format: DEP0001, DEP0002, …
+	ModuleCustomerDeposit = "customer_deposit"
 )
 
 // DisplayRule describes how user-visible document/reference numbers are formatted for one module.
@@ -49,6 +53,10 @@ func DefaultDisplayRules() []DisplayRule {
 		{ModuleKey: ModuleSalesOrder, ModuleName: "Sales Order", Prefix: "SO-", NextNumber: 1, PaddingLength: 4, Enabled: true},
 		{ModuleKey: ModuleQuote, ModuleName: "Quote", Prefix: "QUO-", NextNumber: 1, PaddingLength: 4, Enabled: true},
 		{ModuleKey: ModuleExpense, ModuleName: "Expense", Prefix: "EXP-", NextNumber: 1, PaddingLength: 4, Enabled: true},
+		// Customer Deposit default: prefix "DEP" (no hyphen per
+		// 2026-04-24 design), padding 4 → DEP0001 first. Bookkeepers
+		// can customise prefix/padding per company under Settings.
+		{ModuleKey: ModuleCustomerDeposit, ModuleName: "Customer Deposit", Prefix: "DEP", NextNumber: 1, PaddingLength: 4, Enabled: true},
 	}
 }
 

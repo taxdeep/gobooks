@@ -55,6 +55,25 @@ const (
 	CustomerDepositStatusVoided CustomerDepositStatus = "voided"
 )
 
+// CustomerDepositSource describes the business event that created the deposit.
+// Added 2026-04-24 so the Receive Payment overpayment path can tell itself
+// apart from the manual prepayment path at apply / reporting time.
+type CustomerDepositSource string
+
+const (
+	// DepositSourceManual — bookkeeper recorded a prepayment directly
+	// (no invoice yet). Default for backward compatibility.
+	DepositSourceManual CustomerDepositSource = "manual"
+
+	// DepositSourceOverpayment — auto-created by Receive Payment when the
+	// operator applied more than the invoice(s) balance.
+	DepositSourceOverpayment CustomerDepositSource = "overpayment"
+
+	// DepositSourceSalesOrder — tied to a SalesOrder at creation time
+	// (existing Phase-3 flow; see SalesOrderID link below).
+	DepositSourceSalesOrder CustomerDepositSource = "sales_order"
+)
+
 // AllCustomerDepositStatuses returns statuses in display order.
 func AllCustomerDepositStatuses() []CustomerDepositStatus {
 	return []CustomerDepositStatus{
@@ -119,7 +138,11 @@ type CustomerDeposit struct {
 
 	DepositNumber string                `gorm:"type:varchar(50);not null;default:''"`
 	Status        CustomerDepositStatus `gorm:"type:text;not null;default:'draft'"`
-	DepositDate   time.Time             `gorm:"not null"`
+	// Source tags the origin of the deposit — manual prepayment,
+	// overpayment from Receive Payment, or SalesOrder-linked. Drives
+	// reporting filters and (later) deposit-level analytics.
+	Source      CustomerDepositSource `gorm:"type:text;not null;default:'manual'"`
+	DepositDate time.Time             `gorm:"not null"`
 
 	// CurrencyCode — defaults to customer default currency or company base currency.
 	CurrencyCode string          `gorm:"type:varchar(3);not null;default:''"`
@@ -166,6 +189,12 @@ type CustomerDepositApplication struct {
 	AmountApplied decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
 	// AmountAppliedBase is the base-currency equivalent.
 	AmountAppliedBase decimal.Decimal `gorm:"type:numeric(18,2);not null;default:0"`
+
+	// JournalEntryID points at the JE that posted the deposit-release
+	// line (added 2026-04-24 — Receive Payment path now co-creates apps
+	// and the parent JE in the same transaction). Nil for legacy Phase-3
+	// applications that predate the unified JE recipe.
+	JournalEntryID *uint `gorm:"index"`
 
 	AppliedAt time.Time `gorm:"not null"`
 	AppliedBy string    `gorm:"type:varchar(200);not null;default:''"`

@@ -69,14 +69,17 @@ type ApplyDepositInput struct {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// nextDepositNumber derives the next deposit document number for a company.
-func nextDepositNumber(db *gorm.DB, companyID uint) string {
-	var last models.CustomerDeposit
-	db.Where("company_id = ?", companyID).
-		Order("id desc").
-		Select("deposit_number").
-		First(&last)
-	return NextDocumentNumber(last.DepositNumber, "DEP-0001")
+// allocateDepositNumber draws the next deposit number from the shared
+// NumberingSetting (`customer_deposit` module — default DEP0001). The
+// caller is responsible for committing the surrounding transaction; the
+// counter is advanced via BumpCustomerDepositNextNumberAfterCreate so a
+// failed create-then-rollback also rolls back the counter bump.
+func allocateDepositNumber(db *gorm.DB, companyID uint) (string, error) {
+	n, err := SuggestNextCustomerDepositNumber(db, companyID)
+	if err != nil {
+		return "", fmt.Errorf("suggest deposit number: %w", err)
+	}
+	return n, nil
 }
 
 // ── Create ────────────────────────────────────────────────────────────────────
@@ -95,23 +98,32 @@ func CreateCustomerDeposit(db *gorm.DB, companyID uint, in CustomerDepositInput)
 		rate = decimal.NewFromInt(1)
 	}
 
+	depNumber, err := allocateDepositNumber(db, companyID)
+	if err != nil {
+		return nil, err
+	}
+
 	dep := models.CustomerDeposit{
 		CompanyID:                 companyID,
 		CustomerID:                in.CustomerID,
 		SalesOrderID:              in.SalesOrderID,
 		BankAccountID:             in.BankAccountID,
 		DepositLiabilityAccountID: in.DepositLiabilityAccountID,
-		DepositNumber:             nextDepositNumber(db, companyID),
+		DepositNumber:             depNumber,
 		Status:                    models.CustomerDepositStatusDraft,
-		DepositDate:               in.DepositDate,
-		CurrencyCode:              in.CurrencyCode,
-		ExchangeRate:              rate,
-		Amount:                    in.Amount.Round(2),
-		AmountBase:                decimal.Zero,  // set at posting
-		BalanceRemaining:          decimal.Zero,  // set at posting
-		PaymentMethod:             in.PaymentMethod,
-		Reference:                 in.Reference,
-		Memo:                      in.Memo,
+		// Source defaults to manual — operator-created via /deposits/new.
+		// The Receive Payment overpayment path explicitly sets it to
+		// "overpayment" instead.
+		Source:           models.DepositSourceManual,
+		DepositDate:      in.DepositDate,
+		CurrencyCode:     in.CurrencyCode,
+		ExchangeRate:     rate,
+		Amount:           in.Amount.Round(2),
+		AmountBase:       decimal.Zero, // set at posting
+		BalanceRemaining: decimal.Zero, // set at posting
+		PaymentMethod:    in.PaymentMethod,
+		Reference:        in.Reference,
+		Memo:             in.Memo,
 	}
 	if dep.PaymentMethod == "" {
 		dep.PaymentMethod = models.PaymentMethodOther
@@ -119,6 +131,9 @@ func CreateCustomerDeposit(db *gorm.DB, companyID uint, in CustomerDepositInput)
 
 	if err := db.Create(&dep).Error; err != nil {
 		return nil, fmt.Errorf("create deposit: %w", err)
+	}
+	if err := BumpCustomerDepositNextNumberAfterCreate(db, companyID); err != nil {
+		return nil, fmt.Errorf("bump deposit counter: %w", err)
 	}
 	return &dep, nil
 }
@@ -225,9 +240,6 @@ func PostCustomerDeposit(db *gorm.DB, companyID, depositID uint, actor string, a
 	if dep.BankAccountID == nil || *dep.BankAccountID == 0 {
 		return ErrDepositNoBank
 	}
-	if dep.DepositLiabilityAccountID == nil || *dep.DepositLiabilityAccountID == 0 {
-		return ErrDepositNoLiability
-	}
 
 	// Compute base-currency amount.
 	rate := dep.ExchangeRate
@@ -237,6 +249,21 @@ func PostCustomerDeposit(db *gorm.DB, companyID, depositID uint, actor string, a
 	amountBase := dep.Amount.Mul(rate).Round(2)
 
 	return db.Transaction(func(tx *gorm.DB) error {
+		// Auto-resolve the system Customer Deposits liability account
+		// when the operator didn't pick one (default in the new design).
+		// The id is captured back onto the deposit row so subsequent
+		// apply / void operations don't have to re-resolve.
+		liabAccID := uint(0)
+		if dep.DepositLiabilityAccountID != nil {
+			liabAccID = *dep.DepositLiabilityAccountID
+		}
+		if liabAccID == 0 {
+			id, err := EnsureCustomerDepositsAccount(tx, companyID)
+			if err != nil {
+				return fmt.Errorf("resolve customer deposits account: %w", err)
+			}
+			liabAccID = id
+		}
 		je := models.JournalEntry{
 			CompanyID:  companyID,
 			EntryDate:  dep.DepositDate,
@@ -259,11 +286,11 @@ func PostCustomerDeposit(db *gorm.DB, companyID, depositID uint, actor string, a
 				Credit:         decimal.Zero,
 				Memo:           dep.DepositNumber + " – customer deposit received",
 			},
-			// Cr Deposit Liability
+			// Cr Customer Deposits liability
 			{
 				CompanyID:      companyID,
 				JournalEntryID: je.ID,
-				AccountID:      *dep.DepositLiabilityAccountID,
+				AccountID:      liabAccID,
 				Debit:          decimal.Zero,
 				Credit:         amountBase,
 				Memo:           dep.DepositNumber + " – deposit liability",
@@ -284,12 +311,13 @@ func PostCustomerDeposit(db *gorm.DB, companyID, depositID uint, actor string, a
 
 		now := time.Now()
 		updates := map[string]any{
-			"status":            string(models.CustomerDepositStatusPosted),
-			"journal_entry_id":  je.ID,
-			"amount_base":       amountBase,
-			"balance_remaining": dep.Amount.Round(2), // remaining in doc currency
-			"posted_at":         &now,
-			"posted_by":         actor,
+			"status":                       string(models.CustomerDepositStatusPosted),
+			"journal_entry_id":             je.ID,
+			"deposit_liability_account_id": liabAccID,
+			"amount_base":                  amountBase,
+			"balance_remaining":            dep.Amount.Round(2), // remaining in doc currency
+			"posted_at":                    &now,
+			"posted_by":                    actor,
 		}
 		if actorID != nil {
 			updates["posted_by_user_id"] = actorID
@@ -326,8 +354,19 @@ func ApplyDepositToInvoice(db *gorm.DB, companyID uint, in ApplyDepositInput, ac
 		dep.Status != models.CustomerDepositStatusPartiallyApplied {
 		return fmt.Errorf("%w: deposit must be posted/unapplied or partially applied", ErrDepositInvalidStatus)
 	}
-	if dep.DepositLiabilityAccountID == nil {
-		return ErrDepositNoLiability
+	// Resolve the liability account: explicit pick wins, otherwise fall
+	// back to the system Customer Deposits account (matches the new
+	// auto-resolved create+post flow).
+	liabAccID := uint(0)
+	if dep.DepositLiabilityAccountID != nil {
+		liabAccID = *dep.DepositLiabilityAccountID
+	}
+	if liabAccID == 0 {
+		id, err := EnsureCustomerDepositsAccount(db, companyID)
+		if err != nil {
+			return fmt.Errorf("resolve customer deposits account: %w", err)
+		}
+		liabAccID = id
 	}
 	if in.AmountApplied.GreaterThan(dep.BalanceRemaining) {
 		return ErrDepositInsufficientBalance
@@ -375,11 +414,11 @@ func ApplyDepositToInvoice(db *gorm.DB, companyID uint, in ApplyDepositInput, ac
 		}
 
 		lines := []models.JournalLine{
-			// Dr Deposit Liability (reduces the liability)
+			// Dr Customer Deposits liability (reduces the liability)
 			{
 				CompanyID:      companyID,
 				JournalEntryID: je.ID,
-				AccountID:      *dep.DepositLiabilityAccountID,
+				AccountID:      liabAccID,
 				Debit:          amountAppliedBase,
 				Credit:         decimal.Zero,
 				Memo:           fmt.Sprintf("Apply %s against invoice %s", dep.DepositNumber, inv.InvoiceNumber),

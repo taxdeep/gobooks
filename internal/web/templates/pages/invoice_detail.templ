@@ -212,6 +212,16 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 					>
 						Receive Payment
 					</a>
+					// Deep-link to the unified Receive Payment table with this
+					// invoice pre-selected — operator sees the customer's open
+					// credit notes + deposits ready to tick. No cash needed
+					// when the negative documents fully cover the invoice.
+					<a
+						href={ "/banking/receive-payment?invoice_id=" + Uitoa(vm.Invoice.ID) }
+						class="inline-block rounded-md border border-border-input bg-surface px-3 py-2 text-small font-medium text-text hover:bg-background"
+					>
+						Apply Credits / Deposits
+					</a>
 				}
 
 				// ── Void action (any posted state except voided/paid) ─────────

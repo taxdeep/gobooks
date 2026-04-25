@@ -47,6 +47,9 @@ func phase3DB(t *testing.T) *gorm.DB {
 		&models.CustomerDepositApplication{},
 		// AR boundary objects required for AR/AP control lookup
 		&models.ARAPControlMapping{},
+		// 2026-04-24: deposit numbering moved off the scan-last-and-+1
+		// helper onto the shared NumberingSetting module — needs the table.
+		&models.NumberingSetting{},
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -459,10 +462,13 @@ func TestPhase3_DocumentNumbering(t *testing.T) {
 	if d1.DepositNumber == d2.DepositNumber {
 		t.Errorf("deposit numbers must be unique; got %s and %s", d1.DepositNumber, d2.DepositNumber)
 	}
-	if d1.DepositNumber != "DEP-0001" {
-		t.Errorf("first deposit number should be DEP-0001; got %s", d1.DepositNumber)
+	// Format owned by NumberingSetting `customer_deposit` module
+	// (default: prefix "DEP", no hyphen, 4-digit padding) — see
+	// numbering/display_rules.go and the 2026-04-24 design.
+	if d1.DepositNumber != "DEP0001" {
+		t.Errorf("first deposit number should be DEP0001; got %s", d1.DepositNumber)
 	}
-	if d2.DepositNumber != "DEP-0002" {
-		t.Errorf("second deposit number should be DEP-0002; got %s", d2.DepositNumber)
+	if d2.DepositNumber != "DEP0002" {
+		t.Errorf("second deposit number should be DEP0002; got %s", d2.DepositNumber)
 	}
 }

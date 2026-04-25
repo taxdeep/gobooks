@@ -49,6 +49,10 @@ func testEditorFlowDB(t *testing.T) *gorm.DB {
 		&models.JournalLine{},
 		&models.LedgerEntry{},
 		&models.AuditLog{},
+		// Customer Deposit — AR liability document for overpayments
+		// and manual prepayments. Successor to CustomerCredit.
+		&models.CustomerDeposit{},
+		&models.CustomerDepositApplication{},
 	); err != nil {
 		t.Fatal(err)
 	}

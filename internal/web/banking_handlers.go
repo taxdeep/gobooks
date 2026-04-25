@@ -4,6 +4,7 @@ package web
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -525,12 +526,31 @@ func (s *Server) handleReceivePaymentForm(c *fiber.Ctx) error {
 	bankAccounts, _ := s.bankAccountsForCompany(companyID)
 
 	vm := pages.ReceivePaymentVM{
-		HasCompany:       true,
-		Customers:        customers,
-		BankAccounts:     bankAccounts,
-		Saved:            c.Query("saved") == "1",
-		EntryDate:        time.Now().Format("2006-01-02"),
-		OpenInvoicesJSON: buildOpenInvoicesJSON(s, companyID),
+		HasCompany:          true,
+		Customers:           customers,
+		BankAccounts:        bankAccounts,
+		Saved:               c.Query("saved") == "1",
+		EntryDate:           time.Now().Format("2006-01-02"),
+		OpenInvoicesJSON:    buildOpenInvoicesJSON(s, companyID),
+		OpenDepositsJSON:    buildOpenDepositsJSON(s, companyID),
+		OpenCreditNotesJSON: buildOpenCreditNotesJSON(s, companyID),
+	}
+
+	// Deep-link from invoice detail "Apply Credits / Deposits" button:
+	// `/banking/receive-payment?invoice_id=X` pre-selects the invoice +
+	// its customer so the Apply table renders the customer's open CNs +
+	// Deposits ready to tick. The Alpine init reads `data-initial-invoice`
+	// to also pre-tick the invoice row.
+	if invIDRaw := strings.TrimSpace(c.Query("invoice_id")); invIDRaw != "" {
+		if invID64, err := services.ParseUint(invIDRaw); err == nil && invID64 > 0 {
+			var inv models.Invoice
+			if err := s.DB.Select("id", "customer_id", "company_id").
+				Where("id = ? AND company_id = ?", uint(invID64), companyID).
+				First(&inv).Error; err == nil {
+				vm.InvoiceID = invIDRaw
+				vm.CustomerID = fmt.Sprintf("%d", inv.CustomerID)
+			}
+		}
 	}
 
 	return pages.ReceivePayment(vm).Render(c.Context(), c)
@@ -557,19 +577,41 @@ func (s *Server) handleReceivePaymentSubmit(c *fiber.Ctx) error {
 	invoiceIDRaw := strings.TrimSpace(c.FormValue("invoice_id"))
 	amountRaw := strings.TrimSpace(c.FormValue("amount"))
 	memo := strings.TrimSpace(c.FormValue("memo"))
+	newDepositAmountRaw := strings.TrimSpace(c.FormValue("new_deposit_amount"))
+
+	// Multi-invoice allocation arrays. When the operator ticks N
+	// checkboxes in the Apply-to-Invoice table, the form posts N
+	// entries in allocation_invoice_id[] + allocation_amount[]. The
+	// legacy single-invoice_id / amount path still works — used when
+	// the operator records an unlinked payment on account.
+	allocInvoiceIDs := c.Context().PostArgs().PeekMulti("allocation_invoice_id")
+	allocAmounts := c.Context().PostArgs().PeekMulti("allocation_amount")
+	// Deposit consumption arrays — same parallel-array convention as
+	// invoices. Each ticked CustomerDeposit row posts its ID + the
+	// amount the operator wants to consume from its BalanceRemaining.
+	depositIDs := c.Context().PostArgs().PeekMulti("deposit_id")
+	depositAmounts := c.Context().PostArgs().PeekMulti("deposit_amount")
+	// Credit note consumption arrays — parallel to deposits. Each ticked
+	// CN row posts its ID + the amount the operator consumes from
+	// BalanceRemaining.
+	cnIDs := c.Context().PostArgs().PeekMulti("credit_note_id")
+	cnAmounts := c.Context().PostArgs().PeekMulti("credit_note_amount")
 
 	vm := pages.ReceivePaymentVM{
-		HasCompany:       true,
-		Customers:        customers,
-		BankAccounts:     bankAccounts,
-		OpenInvoicesJSON: buildOpenInvoicesJSON(s, companyID),
-		PaymentMethod:    paymentMethodRaw,
-		CustomerID:       customerIDRaw,
-		EntryDate:        entryDateRaw,
-		BankAccountID:    bankIDRaw,
-		InvoiceID:        invoiceIDRaw,
-		Amount:           amountRaw,
-		Memo:             memo,
+		HasCompany:          true,
+		Customers:           customers,
+		BankAccounts:        bankAccounts,
+		OpenInvoicesJSON:    buildOpenInvoicesJSON(s, companyID),
+		OpenDepositsJSON:    buildOpenDepositsJSON(s, companyID),
+		OpenCreditNotesJSON: buildOpenCreditNotesJSON(s, companyID),
+		PaymentMethod:       paymentMethodRaw,
+		CustomerID:          customerIDRaw,
+		EntryDate:           entryDateRaw,
+		BankAccountID:       bankIDRaw,
+		InvoiceID:           invoiceIDRaw,
+		Amount:              amountRaw,
+		Memo:                memo,
+		NewDepositAmount:    newDepositAmountRaw,
 	}
 
 	custU64, err := services.ParseUint(customerIDRaw)
@@ -591,9 +633,110 @@ func (s *Server) handleReceivePaymentSubmit(c *fiber.Ctx) error {
 		vm.BankError = "Bank account is required."
 	}
 
-	amount, err := services.ParseDecimalMoney(amountRaw)
-	if err != nil || amount.LessThanOrEqual(decimal.Zero) {
-		vm.AmountError = "Amount must be greater than 0."
+	// Build the allocation slice from the parsed arrays. Skip rows
+	// with zero/invalid IDs or non-positive amounts — they represent
+	// unticked rows whose inputs still POST as empty strings.
+	var allocations []services.InvoiceAllocation
+	var allocTotal decimal.Decimal
+	if len(allocInvoiceIDs) > 0 {
+		if len(allocInvoiceIDs) != len(allocAmounts) {
+			vm.FormError = "Allocation arrays out of sync. Please retry."
+		} else {
+			for i := range allocInvoiceIDs {
+				invID, invErr := services.ParseUint(string(allocInvoiceIDs[i]))
+				if invErr != nil || invID == 0 {
+					continue
+				}
+				amt, amtErr := services.ParseDecimalMoney(string(allocAmounts[i]))
+				if amtErr != nil || amt.LessThanOrEqual(decimal.Zero) {
+					continue
+				}
+				allocations = append(allocations, services.InvoiceAllocation{
+					InvoiceID: uint(invID),
+					Amount:    amt,
+				})
+				allocTotal = allocTotal.Add(amt)
+			}
+		}
+	}
+
+	// Build the deposit-application slice. Same skip-invalid-row rules
+	// as invoices — unchecked rows POST empty strings that we drop.
+	var depositApps []services.DepositApplication
+	var depositTotal decimal.Decimal
+	if len(depositIDs) > 0 {
+		if len(depositIDs) != len(depositAmounts) {
+			vm.FormError = "Deposit arrays out of sync. Please retry."
+		} else {
+			for i := range depositIDs {
+				depID, dErr := services.ParseUint(string(depositIDs[i]))
+				if dErr != nil || depID == 0 {
+					continue
+				}
+				amt, aErr := services.ParseDecimalMoney(string(depositAmounts[i]))
+				if aErr != nil || amt.LessThanOrEqual(decimal.Zero) {
+					continue
+				}
+				depositApps = append(depositApps, services.DepositApplication{
+					DepositID: uint(depID),
+					Amount:    amt,
+				})
+				depositTotal = depositTotal.Add(amt)
+			}
+		}
+	}
+
+	// Build the credit-note-consumption slice. Same skip-invalid-row rules.
+	var cnApps []services.CreditNoteConsumption
+	var cnTotal decimal.Decimal
+	if len(cnIDs) > 0 {
+		if len(cnIDs) != len(cnAmounts) {
+			vm.FormError = "Credit note arrays out of sync. Please retry."
+		} else {
+			for i := range cnIDs {
+				cnID, cErr := services.ParseUint(string(cnIDs[i]))
+				if cErr != nil || cnID == 0 {
+					continue
+				}
+				amt, aErr := services.ParseDecimalMoney(string(cnAmounts[i]))
+				if aErr != nil || amt.LessThanOrEqual(decimal.Zero) {
+					continue
+				}
+				cnApps = append(cnApps, services.CreditNoteConsumption{
+					CreditNoteID: uint(cnID),
+					Amount:       amt,
+				})
+				cnTotal = cnTotal.Add(amt)
+			}
+		}
+	}
+
+	// Parse optional new-deposit amount (overpayment → new Customer Deposit).
+	newDepositAmount := decimal.Zero
+	if newDepositAmountRaw != "" {
+		n, err := services.ParseDecimalMoney(newDepositAmountRaw)
+		if err != nil || n.LessThan(decimal.Zero) {
+			vm.NewDepositAmountError = "Extra deposit amount must be a non-negative number."
+		} else {
+			newDepositAmount = n
+		}
+	}
+
+	// Resolve the "amount" figure. In the unified flow this is an
+	// informational display value equal to bank = Σ invoice − Σ CN −
+	// Σ deposit + new deposit. When there are no invoice allocations and
+	// no new deposit, the form falls back to the legacy manual-amount
+	// path (unlinked payment on account).
+	var amount decimal.Decimal
+	if len(allocations) > 0 || newDepositAmount.IsPositive() {
+		amount = allocTotal.Sub(cnTotal).Sub(depositTotal).Add(newDepositAmount)
+	} else {
+		a, aErr := services.ParseDecimalMoney(amountRaw)
+		if aErr != nil || a.LessThanOrEqual(decimal.Zero) {
+			vm.AmountError = "Amount must be greater than 0 (or select invoices above)."
+		} else {
+			amount = a
+		}
 	}
 
 	// Auto-resolve the Accounts Receivable account for this company.
@@ -602,15 +745,19 @@ func (s *Server) handleReceivePaymentSubmit(c *fiber.Ctx) error {
 		vm.ARError = "No Accounts Receivable account found. Please add one to your Chart of Accounts."
 	}
 
-	if vm.CustomerError != "" || vm.PaymentMethodError != "" || vm.DateError != "" || vm.BankError != "" || vm.ARError != "" || vm.AmountError != "" {
+	if vm.CustomerError != "" || vm.PaymentMethodError != "" || vm.DateError != "" || vm.BankError != "" || vm.ARError != "" || vm.AmountError != "" || vm.FormError != "" || vm.NewDepositAmountError != "" {
 		return pages.ReceivePayment(vm).Render(c.Context(), c)
 	}
 
-	var invoiceIDPtr *uint
-	if invoiceIDRaw != "" && invoiceIDRaw != "0" {
+	// Legacy single-invoice fallback — operator didn't tick any rows
+	// but did pick one via the legacy hidden input (e.g. invoice
+	// detail page's "Receive Payment" button that pre-fills one row).
+	if len(allocations) == 0 && invoiceIDRaw != "" && invoiceIDRaw != "0" {
 		if invU64, err := services.ParseUint(invoiceIDRaw); err == nil && invU64 > 0 {
-			id := uint(invU64)
-			invoiceIDPtr = &id
+			allocations = []services.InvoiceAllocation{{
+				InvoiceID: uint(invU64),
+				Amount:    amount,
+			}}
 		}
 	}
 
@@ -618,20 +765,18 @@ func (s *Server) handleReceivePaymentSubmit(c *fiber.Ctx) error {
 	if err := s.DB.Transaction(func(tx *gorm.DB) error {
 		var txErr error
 		input := services.ReceivePaymentInput{
-			CompanyID:     companyID,
-			CustomerID:    uint(custU64),
-			EntryDate:     entryDate,
-			BankAccountID: uint(bankU64),
-			PaymentMethod: paymentMethod,
-			ARAccountID:   arU64,
-			Amount:        amount,
-			Memo:          memo,
-		}
-		if invoiceIDPtr != nil {
-			input.Allocations = []services.InvoiceAllocation{{
-				InvoiceID: *invoiceIDPtr,
-				Amount:    amount,
-			}}
+			CompanyID:        companyID,
+			CustomerID:       uint(custU64),
+			EntryDate:        entryDate,
+			BankAccountID:    uint(bankU64),
+			PaymentMethod:    paymentMethod,
+			ARAccountID:      arU64,
+			Amount:           amount,
+			Memo:             memo,
+			Allocations:      allocations,
+			Deposits:         depositApps,
+			CreditNotes:      cnApps,
+			NewDepositAmount: newDepositAmount,
 		}
 		jeID, txErr = services.RecordReceivePayment(tx, input)
 		return txErr
@@ -705,6 +850,87 @@ func buildOpenInvoicesJSON(s *Server, companyID uint) string {
 			OriginalAmount: inv.Amount.StringFixed(2),
 			Amount:         outstanding.StringFixed(2),
 			DueDate:        dueDate,
+		})
+	}
+	b, _ := json.Marshal(items)
+	return string(b)
+}
+
+// buildOpenCreditNotesJSON returns a JSON array of issued/partially-applied
+// credit notes with BalanceRemaining > 0 — the AR-negative documents that
+// can offset invoices in the Receive Payment table. Shape mirrors
+// buildOpenDepositsJSON so the unified Alpine renderer works on either.
+func buildOpenCreditNotesJSON(s *Server, companyID uint) string {
+	type cnJSON struct {
+		ID             uint   `json:"id"`
+		CustomerID     uint   `json:"customer_id"`
+		DocumentNumber string `json:"document_number"`
+		DocumentDate   string `json:"document_date"`
+		OriginalAmount string `json:"original_amount"`
+		Amount         string `json:"amount"`
+		Type           string `json:"type"`
+	}
+	var cns []models.CreditNote
+	openStatuses := []models.CreditNoteStatus{
+		models.CreditNoteStatusIssued,
+		models.CreditNoteStatusPartiallyApplied,
+	}
+	_ = s.DB.Where("company_id = ? AND status IN ? AND balance_remaining > 0", companyID, openStatuses).
+		Order("credit_note_date asc, id asc").
+		Find(&cns).Error
+
+	items := make([]cnJSON, 0, len(cns))
+	for _, c := range cns {
+		items = append(items, cnJSON{
+			ID:             c.ID,
+			CustomerID:     c.CustomerID,
+			DocumentNumber: c.CreditNoteNumber,
+			DocumentDate:   c.CreditNoteDate.Format("2006-01-02"),
+			OriginalAmount: c.Amount.StringFixed(2),
+			Amount:         c.BalanceRemaining.StringFixed(2),
+			Type:           "credit_note",
+		})
+	}
+	b, _ := json.Marshal(items)
+	return string(b)
+}
+
+// buildOpenDepositsJSON returns a JSON array of unapplied Customer Deposits
+// for the company — the "negative document" rows the Receive Payment Alpine
+// component renders alongside open invoices. Each row mirrors the invoice
+// JSON shape so one template can render both.
+//
+// Only posted / partially_applied deposits with BalanceRemaining > 0 are
+// included; applied-out and voided deposits stay off the picker.
+func buildOpenDepositsJSON(s *Server, companyID uint) string {
+	type depJSON struct {
+		ID             uint   `json:"id"`
+		CustomerID     uint   `json:"customer_id"`
+		DocumentNumber string `json:"document_number"`
+		DocumentDate   string `json:"document_date"`
+		OriginalAmount string `json:"original_amount"`
+		Amount         string `json:"amount"` // = balance_remaining
+		Type           string `json:"type"`   // always "deposit" for this endpoint
+	}
+	var deposits []models.CustomerDeposit
+	openStatuses := []models.CustomerDepositStatus{
+		models.CustomerDepositStatusPosted,
+		models.CustomerDepositStatusPartiallyApplied,
+	}
+	_ = s.DB.Where("company_id = ? AND status IN ? AND balance_remaining > 0", companyID, openStatuses).
+		Order("deposit_date asc, id asc").
+		Find(&deposits).Error
+
+	items := make([]depJSON, 0, len(deposits))
+	for _, d := range deposits {
+		items = append(items, depJSON{
+			ID:             d.ID,
+			CustomerID:     d.CustomerID,
+			DocumentNumber: d.DepositNumber,
+			DocumentDate:   d.DepositDate.Format("2006-01-02"),
+			OriginalAmount: d.Amount.StringFixed(2),
+			Amount:         d.BalanceRemaining.StringFixed(2),
+			Type:           "deposit",
 		})
 	}
 	b, _ := json.Marshal(items)

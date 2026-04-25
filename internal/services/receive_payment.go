@@ -25,17 +25,47 @@ type InvoiceAllocation struct {
 	ARAccountID uint            // 0 = use ReceivePaymentInput.ARAccountID
 }
 
+// DepositApplication consumes part of an existing CustomerDeposit to offset
+// one or more invoices in the same Receive Payment session.
+//
+// Amount is the document-currency amount drawn from the deposit's
+// BalanceRemaining. It is automatically distributed pro-rata across the
+// invoice allocations in the same call so each consumed-deposit leaves a
+// CustomerDepositApplication row per (deposit, invoice) pair for audit.
+type DepositApplication struct {
+	DepositID uint
+	Amount    decimal.Decimal
+}
+
+// CreditNoteConsumption pulls part of an existing CreditNote's
+// BalanceRemaining to offset invoices in the same session.
+//
+// Unlike Deposit, CN apply does not generate any JE line of its own —
+// the original CN posting already credited AR by the full CN amount, so
+// applying CN to an invoice is purely a sub-ledger move. The unified
+// recipe handles this by *reducing* each invoice's CR-AR line by its
+// pro-rated share of CN consumed (see recordReceivePaymentAllocations
+// for the math). One CreditNoteApplication row is written per
+// (cn, invoice) pair for audit.
+type CreditNoteConsumption struct {
+	CreditNoteID uint
+	Amount       decimal.Decimal
+}
+
 // ReceivePaymentInput is the data needed to record a customer receipt.
 //
-// Two settlement modes:
+// Three settlement modes:
 //
-//  1. Allocations (Phase 4): set Allocations with per-invoice amounts.
-//     Supports partial settlement and automatic FX gain/loss posting for
-//     foreign-currency invoices. Amount field is ignored in this mode.
+//  1. Allocations (Phase 5 — multi-document): set any of Allocations / Deposits
+//     / NewDepositAmount. Supports pure cash payment, pure offset (bank=0 when
+//     deposit fully covers the invoices), mixed, or overpayment creating a new
+//     Customer Deposit. See package doc for the unified JE recipe.
 //
-//  2. Legacy (pre-Phase-4): set InvoiceID + Amount for a single full-settlement
-//     link, or leave InvoiceID nil for an unlinked receipt. Only full settlement
-//     is supported in this mode (partial returns an error).
+//  2. Legacy single-invoice: set InvoiceID + Amount; full settlement only.
+//     Used by deep-link payment from /invoices/:id. Preserved unchanged so the
+//     invoice-detail flow keeps working.
+//
+//  3. Unlinked (legacy): InvoiceID nil + Amount > 0. Simple 2-line JE.
 type ReceivePaymentInput struct {
 	CompanyID  uint
 	CustomerID uint
@@ -47,9 +77,26 @@ type ReceivePaymentInput struct {
 	// Can be overridden per-allocation via InvoiceAllocation.ARAccountID.
 	ARAccountID uint
 
-	// Allocations enables Phase-4 partial / FX settlement against one or more
-	// invoices. When non-empty, InvoiceID and Amount are ignored.
+	// Allocations are invoice payments in this session (positive amounts).
+	// Required when any of Deposits / NewDepositAmount are set.
 	Allocations []InvoiceAllocation
+
+	// Deposits consume existing CustomerDeposits (money we already hold on
+	// behalf of the customer). The aggregated consumption must be ≤ total
+	// invoice allocation amount — no Case where deposits exceed invoices
+	// (that would require refunding the customer, which is a separate flow).
+	Deposits []DepositApplication
+
+	// CreditNotes consume existing CreditNote balances. Same constraint
+	// as Deposits — combined CN+Deposit consumption can't exceed total
+	// invoice allocations (the bank line would go negative).
+	CreditNotes []CreditNoteConsumption
+
+	// NewDepositAmount creates a new CustomerDeposit in the same JE — used
+	// when the operator wants to record an overpayment as a future credit.
+	// The bank debit absorbs this amount; Customer Deposits liability is
+	// credited. Document currency must match the customer's currency.
+	NewDepositAmount decimal.Decimal
 
 	// InvoiceID (legacy): single full-settlement link.
 	// Ignored when Allocations is non-empty.
@@ -104,10 +151,68 @@ func RecordReceivePayment(tx *gorm.DB, in ReceivePaymentInput) (uint, error) {
 	return recordReceivePaymentLegacy(tx, in)
 }
 
-// ── Phase-4 allocation path ───────────────────────────────────────────────────
+// invoiceProRata splits a single document-currency total (Σ CN or Σ deposit
+// consumed in this session) across the session's invoices pro-rata by each
+// invoice's amountApplied. Rounding drift lands on the last index so the
+// slice always sums exactly to `total`.
+//
+// Returns a slice the same length as `invoiceAmounts`; all zeros when
+// `total` is zero. Caller passes `[]decimal.Decimal` of the per-invoice
+// `amountApplied` values in the same order as the records slice so the
+// returned shares line up positionally.
+func invoiceProRata(invoiceAmounts []decimal.Decimal, totalInvoiceDoc, total decimal.Decimal) []decimal.Decimal {
+	out := make([]decimal.Decimal, len(invoiceAmounts))
+	if !total.IsPositive() || !totalInvoiceDoc.IsPositive() {
+		return out
+	}
+	remaining := total
+	for i, amt := range invoiceAmounts {
+		if i == len(invoiceAmounts)-1 {
+			out[i] = remaining
+			continue
+		}
+		share := total.Mul(amt).Div(totalInvoiceDoc).Round(2)
+		if share.GreaterThan(remaining) {
+			share = remaining
+		}
+		out[i] = share
+		remaining = remaining.Sub(share)
+	}
+	return out
+}
+
+// ── Phase-5 allocation path (unified invoice + deposit + credit-note + new-deposit) ──
+//
+// JE recipe (see design note 2026-04-24):
+//
+//	Let:
+//	  I = Σ invoice applications (document currency; per alloc)
+//	  C = Σ credit-note consumption (document currency)
+//	  D = Σ deposit consumption (document currency)
+//	  N = new deposit amount (document currency)
+//	  B = I − C − D + N  (bank received; must be ≥ 0)
+//
+//	Lines:
+//	  DR Bank                  B                          (B > 0)
+//	  DR Customer Deposits     D_i                        (one per consumed deposit)
+//	    CR AR                    I_i − cn_share_i         (per invoice, net of CN absorbed)
+//	    CR Customer Deposits     N                        (new deposit from overpayment)
+//
+// CN apply does NOT post a DR line of its own — the original CN posting
+// already CR'd AR by the full CN amount, so applying CN to an invoice is a
+// pure sub-ledger move. We bake that into the JE by *shrinking* each
+// invoice's CR-AR by its pro-rated share of CN consumed in this session.
+//
+// Balance: DR = B + ΣD = (I − C − D + N) + D = I − C + N
+//          CR = Σ(I_i − cn_share_i) + N = (I − C) + N = I − C + N ✓
+//
+// Foreign currency support mirrors the pre-Phase-5 path — FX gain/loss
+// posts to a single aggregated line. CN / Deposit consumption and new
+// deposit must match the customer's currency (cross-currency apply is
+// rejected).
 
 func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint, error) {
-	// Validate bank and AR accounts.
+	// Validate bank account.
 	var bank models.Account
 	if err := tx.Where("id = ? AND company_id = ?", in.BankAccountID, in.CompanyID).First(&bank).Error; err != nil {
 		return 0, fmt.Errorf("bank account not found")
@@ -123,14 +228,21 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 	}
 	baseCurrency := company.BaseCurrencyCode
 
-	// ── Validate each allocation and compute settlement amounts ───────────────
+	// ── Validate invoice allocations ──────────────────────────────────────────
+	//
+	// Row-level overpayment (alloc.Amount > effBalance) is rejected here —
+	// the caller must express overpayment via NewDepositAmount instead. This
+	// keeps the JE recipe deterministic (no implicit "auto-split into
+	// deposit" behaviour) and matches the UI design (separate "Extra to
+	// Deposit" field, not silent split per invoice row).
 	type invoiceRecord struct {
 		inv     models.Invoice
 		arAccID uint
 		result  fxSettleResult
 	}
 	records := make([]invoiceRecord, 0, len(in.Allocations))
-	totalBankBase := decimal.Zero
+	totalInvoiceDoc := decimal.Zero // sum of invoice document-currency amounts
+	totalInvoiceBase := decimal.Zero
 	hasFX := false
 
 	for i, alloc := range in.Allocations {
@@ -156,7 +268,7 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 			inv.BalanceDue, inv.BalanceDueBase, inv.Amount, inv.AmountBase, isForeign,
 		)
 		if alloc.Amount.GreaterThan(effBalance) {
-			return 0, fmt.Errorf("allocation %d: payment %s exceeds balance %s for invoice %s",
+			return 0, fmt.Errorf("allocation %d: payment %s exceeds balance %s for invoice %s — record overage via NewDepositAmount instead",
 				i+1, alloc.Amount.StringFixed(2), effBalance.StringFixed(2), inv.InvoiceNumber)
 		}
 
@@ -172,7 +284,6 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 		}
 
 		result := computeAllocationAmounts(alloc.Amount, effBalance, effBalanceBase, settlementRate)
-		totalBankBase = totalBankBase.Add(result.bankBaseAmount)
 
 		arAccID := alloc.ARAccountID
 		if arAccID == 0 {
@@ -180,13 +291,152 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 		}
 
 		records = append(records, invoiceRecord{inv: inv, arAccID: arAccID, result: result})
+		totalInvoiceDoc = totalInvoiceDoc.Add(result.amountApplied)
+		totalInvoiceBase = totalInvoiceBase.Add(result.arapBaseReleased)
 	}
 
-	if totalBankBase.LessThanOrEqual(decimal.Zero) {
-		return 0, fmt.Errorf("total bank amount must be > 0")
+	// ── Validate deposit applications ─────────────────────────────────────────
+	type depositRecord struct {
+		dep       models.CustomerDeposit
+		appliedAmt decimal.Decimal // document currency; consumed from this deposit
+	}
+	depositRecords := make([]depositRecord, 0, len(in.Deposits))
+	totalDepositDoc := decimal.Zero
+
+	for i, da := range in.Deposits {
+		if da.Amount.LessThanOrEqual(decimal.Zero) {
+			return 0, fmt.Errorf("deposit application %d: amount must be > 0", i+1)
+		}
+		var dep models.CustomerDeposit
+		if err := tx.Where("id = ? AND company_id = ?", da.DepositID, in.CompanyID).First(&dep).Error; err != nil {
+			return 0, fmt.Errorf("deposit application %d: deposit not found", i+1)
+		}
+		if dep.CustomerID != in.CustomerID {
+			return 0, fmt.Errorf("deposit application %d: deposit belongs to a different customer", i+1)
+		}
+		switch dep.Status {
+		case models.CustomerDepositStatusPosted, models.CustomerDepositStatusPartiallyApplied:
+		default:
+			return 0, fmt.Errorf("deposit application %d: deposit %s is not available for apply (status: %s)",
+				i+1, dep.DepositNumber, dep.Status)
+		}
+		if da.Amount.GreaterThan(dep.BalanceRemaining) {
+			return 0, fmt.Errorf("deposit application %d: amount %s exceeds deposit %s remaining balance %s",
+				i+1, da.Amount.StringFixed(2), dep.DepositNumber, dep.BalanceRemaining.StringFixed(2))
+		}
+		// v1 constraint: deposit and invoices must share the customer's currency.
+		// Mixed-currency apply is a separate slice (needs FX rate decision).
+		for _, rec := range records {
+			if rec.inv.CurrencyCode != dep.CurrencyCode {
+				return 0, fmt.Errorf("deposit application %d: deposit %s currency %q does not match invoice %s currency %q — cross-currency apply not supported in v1",
+					i+1, dep.DepositNumber, dep.CurrencyCode, rec.inv.InvoiceNumber, rec.inv.CurrencyCode)
+			}
+		}
+		depositRecords = append(depositRecords, depositRecord{dep: dep, appliedAmt: da.Amount})
+		totalDepositDoc = totalDepositDoc.Add(da.Amount)
 	}
 
-	// Ensure FX gain/loss account exists (only if any allocation has FX).
+	// Deposit consumption cannot exceed invoice applications — that would
+	// mean "I want to refund the customer" which is the Refund flow, not
+	// Receive Payment.
+	if totalDepositDoc.GreaterThan(totalInvoiceDoc) {
+		return 0, fmt.Errorf("deposit consumption %s exceeds invoice allocations %s — excess deposit credit cannot be refunded from this form",
+			totalDepositDoc.StringFixed(2), totalInvoiceDoc.StringFixed(2))
+	}
+
+	// ── Validate credit-note consumption ──────────────────────────────────────
+	type cnRecord struct {
+		cn         models.CreditNote
+		consumed   decimal.Decimal // document currency consumed in this session
+	}
+	cnRecords := make([]cnRecord, 0, len(in.CreditNotes))
+	totalCNDoc := decimal.Zero
+	for i, cnApp := range in.CreditNotes {
+		if cnApp.Amount.LessThanOrEqual(decimal.Zero) {
+			return 0, fmt.Errorf("credit note application %d: amount must be > 0", i+1)
+		}
+		var cn models.CreditNote
+		if err := tx.Where("id = ? AND company_id = ?", cnApp.CreditNoteID, in.CompanyID).First(&cn).Error; err != nil {
+			return 0, fmt.Errorf("credit note application %d: credit note not found", i+1)
+		}
+		if cn.CustomerID != in.CustomerID {
+			return 0, fmt.Errorf("credit note application %d: credit note belongs to a different customer", i+1)
+		}
+		switch cn.Status {
+		case models.CreditNoteStatusIssued, models.CreditNoteStatusPartiallyApplied:
+		default:
+			return 0, fmt.Errorf("credit note application %d: credit note %s is not available for apply (status: %s)",
+				i+1, cn.CreditNoteNumber, cn.Status)
+		}
+		if cnApp.Amount.GreaterThan(cn.BalanceRemaining) {
+			return 0, fmt.Errorf("credit note application %d: amount %s exceeds CN %s remaining balance %s",
+				i+1, cnApp.Amount.StringFixed(2), cn.CreditNoteNumber, cn.BalanceRemaining.StringFixed(2))
+		}
+		// Same currency-match guard as deposit: cross-currency apply is
+		// out of scope for v1 (see existing CN apply behaviour).
+		for _, rec := range records {
+			if rec.inv.CurrencyCode != cn.CurrencyCode {
+				return 0, fmt.Errorf("credit note application %d: CN %s currency %q does not match invoice %s currency %q — cross-currency apply not supported",
+					i+1, cn.CreditNoteNumber, cn.CurrencyCode, rec.inv.InvoiceNumber, rec.inv.CurrencyCode)
+			}
+		}
+		cnRecords = append(cnRecords, cnRecord{cn: cn, consumed: cnApp.Amount})
+		totalCNDoc = totalCNDoc.Add(cnApp.Amount)
+	}
+
+	// CN consumption + deposit consumption can't combined exceed invoices
+	// (would push bank negative — covered by the bank-amount check below
+	// but surface a clearer message here for the common single-input mistake).
+	if totalCNDoc.GreaterThan(totalInvoiceDoc) {
+		return 0, fmt.Errorf("credit note consumption %s exceeds invoice allocations %s — apply only what the invoices can absorb",
+			totalCNDoc.StringFixed(2), totalInvoiceDoc.StringFixed(2))
+	}
+
+	// ── Validate new-deposit amount ───────────────────────────────────────────
+	newDepositDoc := in.NewDepositAmount
+	if newDepositDoc.IsNegative() {
+		return 0, fmt.Errorf("new deposit amount must be ≥ 0")
+	}
+	// New deposit currency follows the customer — check consistency with
+	// any invoices in the session (base-only is fine since Customer.CurrencyCode
+	// governs downstream).
+	newDepositCurrency := ""
+	if len(records) > 0 {
+		newDepositCurrency = records[0].inv.CurrencyCode
+	} else if len(depositRecords) > 0 {
+		newDepositCurrency = depositRecords[0].dep.CurrencyCode
+	}
+	// For FX consistency: v1 forces N to be base currency only — see
+	// design note. Mixed FX + overpayment is too many knobs at once.
+	if newDepositDoc.IsPositive() && newDepositCurrency != "" && newDepositCurrency != baseCurrency {
+		return 0, fmt.Errorf("creating a new deposit on a foreign-currency receive payment is not supported in v1")
+	}
+
+	// ── Compute bank amount (base currency) ───────────────────────────────────
+	//
+	// bankBase = Σ invoice.bankBaseAmount − totalDepositBase + newDepositBase
+	//
+	// For base-currency invoices bankBaseAmount == amountApplied. For FX
+	// invoices it was already computed with the settlement rate above.
+	sumInvoiceBankBase := decimal.Zero
+	totalFXGainLoss := decimal.Zero
+	for _, rec := range records {
+		sumInvoiceBankBase = sumInvoiceBankBase.Add(rec.result.bankBaseAmount)
+		totalFXGainLoss = totalFXGainLoss.Add(rec.result.realizedFXGainLoss)
+	}
+	// Deposits + CN + new deposit are base currency in v1 (guarded above).
+	bankBase := sumInvoiceBankBase.Sub(totalCNDoc).Sub(totalDepositDoc).Add(newDepositDoc)
+	if bankBase.IsNegative() {
+		return 0, fmt.Errorf("bank amount is negative (%s) — credit-note + deposit consumption cannot exceed invoice allocations", bankBase.StringFixed(2))
+	}
+
+	// Sanity: at least one document side must have value. Pure-zero all
+	// around means the caller sent an empty form.
+	if totalInvoiceDoc.IsZero() && newDepositDoc.IsZero() {
+		return 0, fmt.Errorf("receive payment must include at least one invoice allocation or a new deposit amount")
+	}
+
+	// ── Ensure system accounts needed by the JE ───────────────────────────────
 	var fxAccountID uint
 	if hasFX {
 		id, err := EnsureFXGainLossAccount(tx, in.CompanyID)
@@ -195,34 +445,76 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 		}
 		fxAccountID = id
 	}
-
-	// ── Build journal fragments ───────────────────────────────────────────────
-	frags := make([]PostingFragment, 0, 1+len(records)*3)
-
-	// Aggregated bank debit (one line for the whole receipt).
-	frags = append(frags, PostingFragment{
-		AccountID: in.BankAccountID,
-		Debit:     totalBankBase,
-		Credit:    decimal.Zero,
-		Memo:      in.Memo,
-	})
-
-	totalFXGainLoss := decimal.Zero
-	for _, rec := range records {
-		// AR credit at carrying value.
-		frags = append(frags, PostingFragment{
-			AccountID: rec.arAccID,
-			Debit:     decimal.Zero,
-			Credit:    rec.result.arapBaseReleased,
-			Memo:      "Invoice " + rec.inv.InvoiceNumber,
-		})
-		totalFXGainLoss = totalFXGainLoss.Add(rec.result.realizedFXGainLoss)
+	var customerDepositsAccID uint
+	if len(depositRecords) > 0 || newDepositDoc.IsPositive() {
+		id, err := EnsureCustomerDepositsAccount(tx, in.CompanyID)
+		if err != nil {
+			return 0, err
+		}
+		customerDepositsAccID = id
 	}
 
-	// Single aggregated FX line (collapses gains and losses from all allocations).
+	// ── Build journal fragments ───────────────────────────────────────────────
+	frags := make([]PostingFragment, 0, 2+len(records)*2+len(depositRecords))
+
+	// Bank DR (only if there's cash movement; Case B pure offset has B=0).
+	if bankBase.IsPositive() {
+		frags = append(frags, PostingFragment{
+			AccountID: in.BankAccountID,
+			Debit:     bankBase,
+			Credit:    decimal.Zero,
+			Memo:      in.Memo,
+		})
+	}
+
+	// Customer Deposits DR per consumed deposit — releases the liability.
+	for _, dr := range depositRecords {
+		frags = append(frags, PostingFragment{
+			AccountID: customerDepositsAccID,
+			Debit:     dr.appliedAmt,
+			Credit:    decimal.Zero,
+			Memo:      "Deposit " + dr.dep.DepositNumber,
+		})
+	}
+
+	// AR CR per invoice (base currency), shrunk by this invoice's pro-rated
+	// share of CN consumed in the session. The CN's original posting
+	// already CR'd AR for the full CN amount, so the apply is a sub-ledger
+	// reshuffle — we don't post a DR-AR line for the CN release; instead
+	// we just CR less AR for the invoice.
+	invoiceAmts := make([]decimal.Decimal, len(records))
+	for idx, rec := range records {
+		invoiceAmts[idx] = rec.result.amountApplied
+	}
+	cnSharePerInvoice := invoiceProRata(invoiceAmts, totalInvoiceDoc, totalCNDoc)
+	for idx, rec := range records {
+		credit := rec.result.arapBaseReleased.Sub(cnSharePerInvoice[idx])
+		if credit.IsNegative() {
+			credit = decimal.Zero
+		}
+		if credit.IsPositive() {
+			frags = append(frags, PostingFragment{
+				AccountID: rec.arAccID,
+				Debit:     decimal.Zero,
+				Credit:    credit,
+				Memo:      "Invoice " + rec.inv.InvoiceNumber,
+			})
+		}
+	}
+
+	// New deposit CR — liability for the newly-held customer money.
+	if newDepositDoc.IsPositive() {
+		frags = append(frags, PostingFragment{
+			AccountID: customerDepositsAccID,
+			Debit:     decimal.Zero,
+			Credit:    newDepositDoc,
+			Memo:      "Customer deposit (overpayment)",
+		})
+	}
+
+	// Single aggregated FX line.
 	if hasFX && !totalFXGainLoss.IsZero() {
 		if totalFXGainLoss.IsPositive() {
-			// Net gain → credit FX account.
 			frags = append(frags, PostingFragment{
 				AccountID: fxAccountID,
 				Debit:     decimal.Zero,
@@ -230,7 +522,6 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 				Memo:      "Realized FX gain/loss",
 			})
 		} else {
-			// Net loss → debit FX account.
 			frags = append(frags, PostingFragment{
 				AccountID: fxAccountID,
 				Debit:     totalFXGainLoss.Neg(),
@@ -240,7 +531,6 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 		}
 	}
 
-	// Aggregate AR lines across invoices sharing the same AR account.
 	jeLines, err := AggregateJournalLines(frags)
 	if err != nil {
 		return 0, fmt.Errorf("aggregate journal lines: %w", err)
@@ -263,6 +553,12 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 	}
 
 	// ── Insert journal lines ──────────────────────────────────────────────────
+	//
+	// Edge case: pure CN-offset (Case E) results in zero JE lines because
+	// the CN's prior posting already moved AR. The header JE still gets
+	// created so SettlementAllocation / CreditNoteApplication rows have
+	// something to anchor to, but lines + ledger projection are skipped
+	// (the projector rejects empty journal entries).
 	createdLines := make([]models.JournalLine, 0, len(jeLines))
 	for _, frag := range jeLines {
 		line := models.JournalLine{
@@ -280,18 +576,20 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 		}
 		createdLines = append(createdLines, line)
 	}
-	if err := ProjectToLedger(tx, in.CompanyID, LedgerPostInput{
-		JournalEntry: je,
-		Lines:        createdLines,
-		SourceType:   models.LedgerSourcePayment,
-	}); err != nil {
-		return 0, fmt.Errorf("project payment to ledger: %w", err)
+	if len(createdLines) > 0 {
+		if err := ProjectToLedger(tx, in.CompanyID, LedgerPostInput{
+			JournalEntry: je,
+			Lines:        createdLines,
+			SourceType:   models.LedgerSourcePayment,
+		}); err != nil {
+			return 0, fmt.Errorf("project payment to ledger: %w", err)
+		}
 	}
-	if err := createPaymentReceipt(tx, in, je.ID, totalBankBase); err != nil {
+	if err := createPaymentReceipt(tx, in, je.ID, bankBase); err != nil {
 		return 0, fmt.Errorf("create payment receipt: %w", err)
 	}
 
-	// ── Create settlement allocations + update invoices ───────────────────────
+	// ── Settlement allocations + invoice updates ──────────────────────────────
 	for _, rec := range records {
 		alloc := models.SettlementAllocation{
 			CompanyID:          in.CompanyID,
@@ -314,7 +612,6 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 		)
 		newBalance := effBalance.Sub(rec.result.amountApplied)
 		newBalanceBase := effBalanceBase.Sub(rec.result.arapBaseReleased)
-
 		var newStatus models.InvoiceStatus
 		if newBalance.LessThanOrEqual(decimal.Zero) {
 			newStatus = models.InvoiceStatusPaid
@@ -329,6 +626,127 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 			"balance_due_base": newBalanceBase,
 		}).Error; err != nil {
 			return 0, fmt.Errorf("update invoice %s: %w", rec.inv.InvoiceNumber, err)
+		}
+	}
+
+	// ── Consume deposits: pro-rata split across invoices, write apps ──────────
+	//
+	// Each deposit application row ties (deposit, invoice) with the share
+	// of that deposit that went to that invoice. Pro-rata by invoice amount
+	// applied; rounding drift flows into the last row so the sum matches
+	// the deposit consumption exactly.
+	appliedAt := time.Now()
+	for _, dr := range depositRecords {
+		if totalInvoiceDoc.IsZero() {
+			break
+		}
+		shares := invoiceProRata(invoiceAmts, totalInvoiceDoc, dr.appliedAmt)
+		for idx, rec := range records {
+			share := shares[idx]
+			if !share.IsPositive() {
+				continue
+			}
+			app := models.CustomerDepositApplication{
+				CompanyID:         in.CompanyID,
+				CustomerDepositID: dr.dep.ID,
+				InvoiceID:         rec.inv.ID,
+				AmountApplied:     share,
+				AmountAppliedBase: share,
+				JournalEntryID:    &je.ID,
+				AppliedAt:         appliedAt,
+			}
+			if err := tx.Create(&app).Error; err != nil {
+				return 0, fmt.Errorf("create deposit application (deposit %s → invoice %s): %w",
+					dr.dep.DepositNumber, rec.inv.InvoiceNumber, err)
+			}
+		}
+
+		newRemaining := dr.dep.BalanceRemaining.Sub(dr.appliedAmt)
+		var newStatus models.CustomerDepositStatus
+		if newRemaining.LessThanOrEqual(decimal.Zero) {
+			newStatus = models.CustomerDepositStatusFullyApplied
+			newRemaining = decimal.Zero
+		} else {
+			newStatus = models.CustomerDepositStatusPartiallyApplied
+		}
+		if err := tx.Model(&dr.dep).Updates(map[string]any{
+			"balance_remaining": newRemaining,
+			"status":            newStatus,
+		}).Error; err != nil {
+			return 0, fmt.Errorf("update deposit %s: %w", dr.dep.DepositNumber, err)
+		}
+	}
+
+	// ── Consume credit notes: pro-rata + apps + decrement CN balance ──────────
+	for _, cnr := range cnRecords {
+		if totalInvoiceDoc.IsZero() {
+			break
+		}
+		shares := invoiceProRata(invoiceAmts, totalInvoiceDoc, cnr.consumed)
+		for idx, rec := range records {
+			share := shares[idx]
+			if !share.IsPositive() {
+				continue
+			}
+			app := models.CreditNoteApplication{
+				CompanyID:         in.CompanyID,
+				CreditNoteID:      cnr.cn.ID,
+				InvoiceID:         rec.inv.ID,
+				AmountApplied:     share,
+				AmountAppliedBase: share,
+				AppliedAt:         appliedAt,
+			}
+			if err := tx.Create(&app).Error; err != nil {
+				return 0, fmt.Errorf("create credit note application (CN %s → invoice %s): %w",
+					cnr.cn.CreditNoteNumber, rec.inv.InvoiceNumber, err)
+			}
+		}
+
+		newRemaining := cnr.cn.BalanceRemaining.Sub(cnr.consumed)
+		var newStatus models.CreditNoteStatus
+		if newRemaining.LessThanOrEqual(decimal.Zero) {
+			newStatus = models.CreditNoteStatusFullyApplied
+			newRemaining = decimal.Zero
+		} else {
+			newStatus = models.CreditNoteStatusPartiallyApplied
+		}
+		if err := tx.Model(&cnr.cn).Updates(map[string]any{
+			"balance_remaining": newRemaining,
+			"status":            newStatus,
+		}).Error; err != nil {
+			return 0, fmt.Errorf("update credit note %s: %w", cnr.cn.CreditNoteNumber, err)
+		}
+	}
+
+	// ── New deposit creation (overpayment) ───────────────────────────────────
+	if newDepositDoc.IsPositive() {
+		depNumber, err := SuggestNextCustomerDepositNumber(tx, in.CompanyID)
+		if err != nil {
+			return 0, fmt.Errorf("suggest deposit number: %w", err)
+		}
+		dep := models.CustomerDeposit{
+			CompanyID:                 in.CompanyID,
+			CustomerID:                in.CustomerID,
+			JournalEntryID:            &je.ID,
+			BankAccountID:             &in.BankAccountID,
+			DepositLiabilityAccountID: &customerDepositsAccID,
+			DepositNumber:             depNumber,
+			Status:                    models.CustomerDepositStatusPosted,
+			Source:                    models.DepositSourceOverpayment,
+			DepositDate:               in.EntryDate,
+			CurrencyCode:              "", // base currency v1
+			ExchangeRate:              decimal.NewFromInt(1),
+			Amount:                    newDepositDoc,
+			AmountBase:                newDepositDoc,
+			BalanceRemaining:          newDepositDoc,
+			PaymentMethod:             in.PaymentMethod,
+			Memo:                      in.Memo,
+		}
+		if err := tx.Create(&dep).Error; err != nil {
+			return 0, fmt.Errorf("create overpayment deposit: %w", err)
+		}
+		if err := BumpCustomerDepositNextNumberAfterCreate(tx, in.CompanyID); err != nil {
+			return 0, fmt.Errorf("bump deposit counter: %w", err)
 		}
 	}
 
