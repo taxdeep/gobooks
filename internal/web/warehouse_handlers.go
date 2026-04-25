@@ -6,7 +6,9 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/shopspring/decimal"
 
+	"gobooks/internal/models"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
 )
@@ -108,14 +110,21 @@ func (s *Server) handleWarehouseUpdate(c *fiber.Ctx) error {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 func parseWarehouseInput(c *fiber.Ctx) services.WarehouseInput {
+	osValue, _ := decimal.NewFromString(strings.TrimSpace(c.FormValue("over_shipment_value")))
+	if osValue.IsNegative() {
+		osValue = decimal.Zero
+	}
 	return services.WarehouseInput{
-		Code:         strings.TrimSpace(c.FormValue("code")),
-		Name:         strings.TrimSpace(c.FormValue("name")),
-		Description:  strings.TrimSpace(c.FormValue("description")),
-		IsDefault:    c.FormValue("is_default") == "on",
-		IsActive:     c.FormValue("is_active") == "on",
-		AddressLine1: strings.TrimSpace(c.FormValue("address_line1")),
-		City:         strings.TrimSpace(c.FormValue("city")),
-		Country:      strings.TrimSpace(c.FormValue("country")),
+		Code:                strings.TrimSpace(c.FormValue("code")),
+		Name:                strings.TrimSpace(c.FormValue("name")),
+		Description:         strings.TrimSpace(c.FormValue("description")),
+		IsDefault:           c.FormValue("is_default") == "on",
+		IsActive:            c.FormValue("is_active") == "on",
+		AddressLine1:        strings.TrimSpace(c.FormValue("address_line1")),
+		City:                strings.TrimSpace(c.FormValue("city")),
+		Country:             strings.TrimSpace(c.FormValue("country")),
+		OverShipmentEnabled: c.FormValue("over_shipment_enabled") == "on",
+		OverShipmentMode:    models.OverShipmentMode(strings.TrimSpace(c.FormValue("over_shipment_mode"))),
+		OverShipmentValue:   osValue,
 	}
 }

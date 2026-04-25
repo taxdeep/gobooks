@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/shopspring/decimal"
 	"gobooks/internal/models"
 	"gorm.io/gorm"
 )
@@ -28,6 +29,14 @@ type WarehouseInput struct {
 	AddressLine1 string
 	City         string
 	Country      string
+
+	// Over-shipment override (Phase S3 — 2026-04-25). When Enabled is
+	// true, this warehouse uses its own (Mode, Value) instead of the
+	// company default. Operators leave Enabled=false on warehouses that
+	// should follow company policy.
+	OverShipmentEnabled bool
+	OverShipmentMode    models.OverShipmentMode
+	OverShipmentValue   decimal.Decimal
 }
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
@@ -66,15 +75,18 @@ func CreateWarehouse(db *gorm.DB, companyID uint, in WarehouseInput) (*models.Wa
 			}
 		}
 		w = models.Warehouse{
-			CompanyID:    companyID,
-			Code:         in.Code,
-			Name:         in.Name,
-			Description:  in.Description,
-			IsDefault:    in.IsDefault,
-			IsActive:     in.IsActive,
-			AddressLine1: in.AddressLine1,
-			City:         in.City,
-			Country:      in.Country,
+			CompanyID:           companyID,
+			Code:                in.Code,
+			Name:                in.Name,
+			Description:         in.Description,
+			IsDefault:           in.IsDefault,
+			IsActive:            in.IsActive,
+			AddressLine1:        in.AddressLine1,
+			City:                in.City,
+			Country:             in.Country,
+			OverShipmentEnabled: in.OverShipmentEnabled,
+			OverShipmentMode:    NormalizeOverShipmentMode(in.OverShipmentMode),
+			OverShipmentValue:   in.OverShipmentValue,
 		}
 		return tx.Create(&w).Error
 	})
@@ -114,6 +126,9 @@ func UpdateWarehouse(db *gorm.DB, companyID, id uint, in WarehouseInput) (*model
 		w.AddressLine1 = in.AddressLine1
 		w.City = in.City
 		w.Country = in.Country
+		w.OverShipmentEnabled = in.OverShipmentEnabled
+		w.OverShipmentMode = NormalizeOverShipmentMode(in.OverShipmentMode)
+		w.OverShipmentValue = in.OverShipmentValue
 		return tx.Save(w).Error
 	})
 	if err != nil {

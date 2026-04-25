@@ -1,6 +1,8 @@
 // 遵循project_guide.md
 package pages
 
+import "gobooks/internal/models"
+
 // CompanySettingsVM is used by the company profile (Settings > Company > Profile) page.
 type CompanySettingsVM struct {
 	HasCompany bool
@@ -14,5 +16,11 @@ type CompanySettingsVM struct {
 	LogoPath string
 	// LogoError is a human-readable upload validation error (type, size, etc.).
 	LogoError string
+
+	// Over-shipment buffer (S3 — 2026-04-25). Company-wide default; warehouses
+	// may override on their own profile.  See models.OverShipmentPolicy.
+	OverShipmentEnabled bool
+	OverShipmentMode    models.OverShipmentMode
+	OverShipmentValue   string // raw decimal string for input round-trip
 }
 

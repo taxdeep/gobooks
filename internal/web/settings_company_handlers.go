@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/shopspring/decimal"
 
 	"gobooks/internal/models"
 	"gobooks/internal/services"
@@ -58,10 +59,13 @@ func (s *Server) handleCompanyProfileForm(c *fiber.Ctx) error {
 			IncorporatedDate: company.IncorporatedDate,
 			FiscalYearEnd:    company.FiscalYearEnd,
 		},
-		Errors:    pages.SetupFormErrors{},
-		Saved:     c.Query("saved") == "1",
-		LogoPath:  company.LogoPath,
-		LogoError: logoErrorMessage(c.Query("logo_error")),
+		Errors:              pages.SetupFormErrors{},
+		Saved:               c.Query("saved") == "1",
+		LogoPath:            company.LogoPath,
+		LogoError:           logoErrorMessage(c.Query("logo_error")),
+		OverShipmentEnabled: company.OverShipmentEnabled,
+		OverShipmentMode:    company.OverShipmentMode,
+		OverShipmentValue:   company.OverShipmentValue.StringFixed(2),
 	}).Render(c.Context(), c)
 }
 
@@ -111,6 +115,16 @@ func (s *Server) handleCompanyProfileSubmit(c *fiber.Ctx) error {
 		FiscalYearEnd:    fiscalYearEnd,
 	}
 
+	// Over-shipment buffer (S3 — 2026-04-25). Parse once for both the
+	// re-render-on-error path and the save path.
+	overShipEnabled := c.FormValue("over_shipment_enabled") == "on"
+	overShipModeRaw := models.OverShipmentMode(strings.TrimSpace(c.FormValue("over_shipment_mode")))
+	overShipValueRaw := strings.TrimSpace(c.FormValue("over_shipment_value"))
+	overShipValue, _ := decimal.NewFromString(overShipValueRaw)
+	if overShipValue.IsNegative() {
+		overShipValue = decimal.Zero
+	}
+
 	errs := validateSetupCompanyForm(values)
 	businessType, err2 := models.ParseBusinessType(businessTypeRaw)
 	if err2 != nil {
@@ -122,12 +136,15 @@ func (s *Server) handleCompanyProfileSubmit(c *fiber.Ctx) error {
 		var cur models.Company
 		_ = s.DB.Select("logo_path").Where("id = ?", companyID).First(&cur).Error
 		return pages.CompanyProfile(pages.CompanySettingsVM{
-			HasCompany: true,
-			Breadcrumb: breadcrumbSettingsCompanyProfile(),
-			Values:     values,
-			Errors:     errs,
-			Saved:      false,
-			LogoPath:   cur.LogoPath,
+			HasCompany:          true,
+			Breadcrumb:          breadcrumbSettingsCompanyProfile(),
+			Values:              values,
+			Errors:              errs,
+			Saved:               false,
+			LogoPath:            cur.LogoPath,
+			OverShipmentEnabled: overShipEnabled,
+			OverShipmentMode:    overShipModeRaw,
+			OverShipmentValue:   overShipValueRaw,
 		}).Render(c.Context(), c)
 	}
 
@@ -161,6 +178,9 @@ func (s *Server) handleCompanyProfileSubmit(c *fiber.Ctx) error {
 	company.Industry = industryValue
 	company.IncorporatedDate = incorporatedDate
 	company.FiscalYearEnd = fiscalYearEnd
+	company.OverShipmentEnabled = overShipEnabled
+	company.OverShipmentMode = services.NormalizeOverShipmentMode(overShipModeRaw)
+	company.OverShipmentValue = overShipValue
 
 	if err := s.DB.Save(&company).Error; err != nil {
 		return pages.CompanyProfile(pages.CompanySettingsVM{

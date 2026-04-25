@@ -4,6 +4,8 @@ package models
 import (
 	"fmt"
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
 // EntityType is a strict enum for company type.
@@ -238,6 +240,15 @@ type Company struct {
 	// asset/equity are rejected because a PPV posting into a non-P&L
 	// account silently distorts the balance sheet.
 	PurchasePriceVarianceAccountID *uint `gorm:"column:purchase_price_variance_account_id;index"`
+
+	// Over-shipment buffer — company-wide default. Warehouses may override
+	// (see Warehouse.OverShipmentEnabled). Off by default; enable to let
+	// operators raise SO-line Qty above the contracted amount post-confirm
+	// (typical use: ship a few extra to absorb breakage). See
+	// models.OverShipmentPolicy + services.ResolveOverShipmentPolicy.
+	OverShipmentEnabled bool             `gorm:"not null;default:false"`
+	OverShipmentMode    OverShipmentMode `gorm:"type:text;not null;default:'percent'"`
+	OverShipmentValue   decimal.Decimal  `gorm:"type:numeric(10,4);not null;default:0"`
 
 	CreatedAt time.Time
 	UpdatedAt time.Time

@@ -1,8 +1,13 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import (
+	"fmt"
+
+	"gobooks/internal/models"
+	"gobooks/internal/web/templates/layout"
+	"gobooks/internal/web/templates/ui"
+)
 
 templ CompanyProfile(vm CompanySettingsVM) {
 	@layout.Layout(
@@ -138,9 +143,69 @@ templ bodyCompanyProfile(vm CompanySettingsVM) {
 				</div>
 			</div>
 
+			<!-- Over-Shipment Buffer (company default) -->
+			<div
+				class="rounded-lg border border-border bg-surface p-6"
+				x-data={ fmt.Sprintf("{ enabled: %t, mode: %q }", vm.OverShipmentEnabled, companyOverShipmentMode(vm)) }
+			>
+				<h2 class="text-section font-semibold text-text">Over-Shipment Buffer (company default)</h2>
+				<p class="mt-1 text-small text-text-muted2">
+					Lets operators raise SO-line Qty above the contracted amount when ship-and-replace tolerance is acceptable
+					(absorb breakage, process tolerance). Each warehouse may override this default on its own profile.
+				</p>
+
+				<label class="mt-4 flex cursor-pointer items-center gap-2 text-body text-text">
+					<input
+						type="checkbox"
+						name="over_shipment_enabled"
+						class="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+						x-model="enabled"
+						checked?={ vm.OverShipmentEnabled }
+					/>
+					<span>Allow over-shipment by default</span>
+				</label>
+
+				<div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2" x-show="enabled" x-cloak>
+					<div>
+						<label class="block text-body font-medium text-text">Buffer Mode</label>
+						<select
+							name="over_shipment_mode"
+							x-model="mode"
+							class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
+						>
+							for _, m := range models.AllOverShipmentModes() {
+								<option value={ string(m) } selected?={ string(m) == companyOverShipmentMode(vm) }>{ models.OverShipmentModeLabel(m) }</option>
+							}
+						</select>
+					</div>
+					<div>
+						<label class="block text-body font-medium text-text">
+							<span x-text="mode === 'percent' ? 'Percent (e.g. 5 = 5%)' : 'Extra units'"></span>
+						</label>
+						<input
+							type="text"
+							inputmode="decimal"
+							name="over_shipment_value"
+							value={ vm.OverShipmentValue }
+							class="mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
+							placeholder="0"
+						/>
+					</div>
+				</div>
+			</div>
+
 			<div class="flex items-center justify-end">
 				@ui.ButtonPrimary("Save", "submit", false)
 			</div>
 		</form>
 	</div>
+}
+
+// companyOverShipmentMode returns a non-empty mode for the dropdown
+// initial value — defaults to "percent" when the company has never set one.
+func companyOverShipmentMode(vm CompanySettingsVM) string {
+	if vm.OverShipmentMode == "" {
+		return string(models.OverShipmentModePercent)
+	}
+	return string(vm.OverShipmentMode)
 }
