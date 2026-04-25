@@ -2,4 +2,4 @@
 package version
 
 // Version is the semantic version of the GoBooks binary.
-const Version = "0.0.15.26042517"
+const Version = "0.0.15.26042518"
