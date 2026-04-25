@@ -85,6 +85,36 @@ func calcSalesOrderLine(l *models.SalesOrderLine, taxRate decimal.Decimal) {
 	l.LineTotal = l.LineNet.Add(l.TaxAmount).Round(4)
 }
 
+// validateStockItemQty enforces the integer-only rule for stock-tracked
+// inventory line items. Service / non-inventory / other-charge items keep
+// fractional quantities (e.g. 1.5 hours of consulting). Free-text lines
+// (no ProductServiceID) are unrestricted — we don't know the unit semantics.
+//
+// Looks the product up by ID once per call to avoid trusting client-supplied
+// IsStockItem. lineNum is 1-based for the error message.
+func validateStockItemQty(db *gorm.DB, companyID uint, productServiceID *uint, qty decimal.Decimal, lineNum int) error {
+	if productServiceID == nil || *productServiceID == 0 {
+		return nil
+	}
+	var ps models.ProductService
+	if err := db.Select("id", "name", "is_stock_item").
+		Where("id = ? AND company_id = ?", *productServiceID, companyID).
+		First(&ps).Error; err != nil {
+		// Existence check belongs elsewhere; if the product doesn't exist
+		// the calling code's FK / existence checks will fail. Don't double-
+		// surface the error here.
+		return nil
+	}
+	if !ps.IsStockItem {
+		return nil
+	}
+	if !qty.Equal(qty.Truncate(0)) {
+		return fmt.Errorf("line %d (%s): stock items must use whole-unit quantities (got %s)",
+			lineNum, ps.Name, qty.String())
+	}
+	return nil
+}
+
 // ── Create ────────────────────────────────────────────────────────────────────
 
 // CreateSalesOrder creates a new draft sales order with its line items.
@@ -114,6 +144,9 @@ func CreateSalesOrder(db *gorm.DB, companyID uint, in SalesOrderInput) (*models.
 	var lines []models.SalesOrderLine
 	var subtotal, taxTotal decimal.Decimal
 	for i, li := range in.Lines {
+		if err := validateStockItemQty(db, companyID, li.ProductServiceID, li.Quantity, i+1); err != nil {
+			return nil, err
+		}
 		rate := loadTaxRate(db, li.TaxCodeID)
 		line := models.SalesOrderLine{
 			ProductServiceID: li.ProductServiceID,
@@ -221,6 +254,9 @@ func UpdateSalesOrder(db *gorm.DB, companyID, orderID uint, in SalesOrderInput) 
 	var subtotal, taxTotal decimal.Decimal
 	var newLines []models.SalesOrderLine
 	for i, li := range in.Lines {
+		if err := validateStockItemQty(db, companyID, li.ProductServiceID, li.Quantity, i+1); err != nil {
+			return nil, err
+		}
 		rate := loadTaxRate(db, li.TaxCodeID)
 		line := models.SalesOrderLine{
 			SalesOrderID:     orderID,

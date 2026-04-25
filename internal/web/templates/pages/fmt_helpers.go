@@ -22,6 +22,34 @@ func Itoa(i int) string {
 	return strconv.Itoa(i)
 }
 
+// QtyDisplay formats a line-item quantity according to the item's stock
+// nature.  Stock-tracked inventory items are always whole units (you sell
+// 8 watermelons, not 8.00 watermelons — slicing one into pieces is a BOM
+// concern, not a line-item concern).  Service / non-inventory / other-charge
+// keep the existing 2-decimal display so partial-unit pricing still works
+// (e.g. 1.5 hours of consulting).
+//
+// Pass isStockItem from ProductService.IsStockItem; when no product is
+// linked (free-text line), fall back to the 2-decimal form — we don't know
+// the unit semantics, and over-truncating a 1.5 free-text qty would be
+// surprising.
+func QtyDisplay(qty decimal.Decimal, isStockItem bool) string {
+	if isStockItem {
+		return qty.Truncate(0).String()
+	}
+	return qty.StringFixed(2)
+}
+
+// QtyDisplayForLineProduct is the templ-friendly call site that pulls
+// IsStockItem off a *ProductService pointer (nil = free-text line, falls
+// back to the 2-decimal form).
+func QtyDisplayForLineProduct(qty decimal.Decimal, ps *models.ProductService) string {
+	if ps == nil {
+		return qty.StringFixed(2)
+	}
+	return QtyDisplay(qty, ps.IsStockItem)
+}
+
 // AccountRowClass styles inactive chart rows without changing overall table layout.
 func AccountRowClass(a models.Account) string {
 	if !a.IsActive {
