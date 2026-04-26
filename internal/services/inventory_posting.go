@@ -343,7 +343,16 @@ func CreateSaleMovements(tx *gorm.DB, companyID uint, inv models.Invoice,
 		if l.ProductService == nil || !l.ProductService.IsStockItem {
 			continue
 		}
-		result, err := issueSaleLine(tx, companyID, inv, l.ProductService.ID, l.Qty, warehouseID, l.ID, false, version)
+		// UOM-aware (Phase U3 — 2026-04-25). Use the snapshotted
+		// QtyInStockUOM so the inventory module never has to convert.
+		// Legacy invoice lines (pre-U2) carry QtyInStockUOM=0 and we
+		// fall back to the raw Qty (which equals StockUOM 1:1 for
+		// pre-UOM data — every existing line had factor=1 implicitly).
+		stockQty := l.QtyInStockUOM
+		if !stockQty.IsPositive() {
+			stockQty = l.Qty
+		}
+		result, err := issueSaleLine(tx, companyID, inv, l.ProductService.ID, stockQty, warehouseID, l.ID, false, version)
 		if err != nil {
 			return nil, err
 		}
@@ -511,13 +520,28 @@ func CreatePurchaseMovements(tx *gorm.DB, companyID uint, bill models.Bill, ware
 		}
 
 		lineID := l.ID
+		// UOM-aware (Phase U3 — 2026-04-25). Inventory module counts in
+		// ProductService.StockUOM; the line's QtyInStockUOM was computed
+		// at save time (Qty × LineUOMFactor). UnitCost similarly converts
+		// from per-LineUOM to per-StockUOM. Legacy lines (pre-U2) carry
+		// LineUOMFactor=1 so the math degrades to the original Qty/UnitPrice.
+		stockQty := l.QtyInStockUOM
+		if !stockQty.IsPositive() {
+			stockQty = l.Qty // legacy fallback
+		}
+		stockUnitCost := l.UnitPrice
+		if l.LineUOMFactor.IsPositive() && !l.LineUOMFactor.Equal(decimal.NewFromInt(1)) {
+			stockUnitCost = l.UnitPrice.Div(l.LineUOMFactor).Round(4)
+		}
 		in := inventory.ReceiveStockInput{
 			CompanyID:    companyID,
 			ItemID:       l.ProductService.ID,
 			WarehouseID:  warehouseValue,
-			Quantity:     l.Qty,
+			Quantity:     stockQty,
 			MovementDate: bill.BillDate,
-			UnitCost:     l.UnitPrice,
+			UnitCost:     stockUnitCost,
+			UoMCode:      l.LineUOM,
+			UoMFactor:    l.LineUOMFactor,
 			ExchangeRate: decimal.NewFromInt(1),
 			SourceType:   "bill",
 			SourceID:     bill.ID,

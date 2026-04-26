@@ -121,6 +121,7 @@ func CreateSalesOrder(db *gorm.DB, companyID uint, in SalesOrderInput) (*models.
 			return nil, err
 		}
 		rate := loadTaxRate(db, li.TaxCodeID)
+		uom := SnapshotLineUOM(db, companyID, li.ProductServiceID, LineUOMSell, li.Quantity, "", decimal.Zero)
 		line := models.SalesOrderLine{
 			ProductServiceID: li.ProductServiceID,
 			RevenueAccountID: li.RevenueAccountID,
@@ -129,6 +130,9 @@ func CreateSalesOrder(db *gorm.DB, companyID uint, in SalesOrderInput) (*models.
 			Quantity:         li.Quantity,
 			OriginalQuantity: li.Quantity, // anchor for the S3 over-ship buffer cap
 			UnitPrice:        li.UnitPrice,
+			LineUOM:          uom.LineUOM,
+			LineUOMFactor:    uom.LineUOMFactor,
+			QtyInStockUOM:    uom.QtyInStockUOM,
 			SortOrder:        i,
 		}
 		calcSalesOrderLine(&line, rate)
@@ -232,6 +236,7 @@ func UpdateSalesOrder(db *gorm.DB, companyID, orderID uint, in SalesOrderInput) 
 			return nil, err
 		}
 		rate := loadTaxRate(db, li.TaxCodeID)
+		uom := SnapshotLineUOM(db, companyID, li.ProductServiceID, LineUOMSell, li.Quantity, "", decimal.Zero)
 		line := models.SalesOrderLine{
 			SalesOrderID:     orderID,
 			ProductServiceID: li.ProductServiceID,
@@ -241,6 +246,9 @@ func UpdateSalesOrder(db *gorm.DB, companyID, orderID uint, in SalesOrderInput) 
 			Quantity:         li.Quantity,
 			OriginalQuantity: li.Quantity, // re-anchor on draft edit
 			UnitPrice:        li.UnitPrice,
+			LineUOM:          uom.LineUOM,
+			LineUOMFactor:    uom.LineUOMFactor,
+			QtyInStockUOM:    uom.QtyInStockUOM,
 			SortOrder:        i,
 		}
 		calcSalesOrderLine(&line, rate)

@@ -113,6 +113,13 @@ type PurchaseOrderLine struct {
 	Qty       decimal.Decimal `gorm:"type:numeric(10,4);not null;default:1"`
 	UnitPrice decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`
 
+	// UOM snapshot (Phase U2 — 2026-04-25). Defaults to
+	// ProductService.PurchaseUOM at create time so a PO → Bill
+	// conversion carries the same UOM forward.  See UOM_DESIGN.md §3.2.
+	LineUOM       string          `gorm:"type:varchar(16);not null;default:'EA'"`
+	LineUOMFactor decimal.Decimal `gorm:"type:numeric(18,6);not null;default:1"`
+	QtyInStockUOM decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`
+
 	TaxCodeID *uint    `gorm:"index"`
 	TaxCode   *TaxCode `gorm:"foreignKey:TaxCodeID"`
 

@@ -369,7 +369,7 @@ templ poReadOnlyBody(vm PurchaseOrderDetailVM) {
 							for _, line := range vm.PurchaseOrder.Lines {
 								<tr class="border-b border-border-subtle">
 									<td class="py-2 pr-4">{ line.Description }</td>
-									<td class="py-2 pr-4 text-right font-mono" data-numfmt>{ QtyDisplayForLineProduct(line.Qty, line.ProductService) }</td>
+									<td class="py-2 pr-4 text-right font-mono" data-numfmt>{ poLineQtyDisplay(line) }</td>
 									<td class="py-2 pr-4 text-right font-mono" data-numfmt>{ line.UnitPrice.StringFixed(2) }</td>
 									<td class="py-2 text-right font-mono font-medium" data-numfmt>{ line.LineNet.StringFixed(2) }</td>
 								</tr>
@@ -448,4 +448,17 @@ func poLineItemOptionLabel(p models.ProductService) string {
 		name = p.SKU + " — " + p.Name
 	}
 	return name + " · " + kind
+}
+
+// poLineQtyDisplay renders Qty + UOM snapshot for a single PO line on
+// the read-only path. PO is buy-side, so the snapshot UOM defaults to
+// the product's PurchaseUOM at create time.
+func poLineQtyDisplay(line models.PurchaseOrderLine) string {
+	isStock := false
+	stockUOM := ""
+	if line.ProductService != nil {
+		isStock = line.ProductService.IsStockItem
+		stockUOM = line.ProductService.StockUOM
+	}
+	return QtyWithUOM(line.Qty, isStock, line.LineUOM, line.LineUOMFactor, stockUOM)
 }

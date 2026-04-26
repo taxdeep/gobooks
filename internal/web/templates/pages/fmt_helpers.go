@@ -50,6 +50,33 @@ func QtyDisplayForLineProduct(qty decimal.Decimal, ps *models.ProductService) st
 	return QtyDisplay(qty, ps.IsStockItem)
 }
 
+// QtyWithUOM renders "8 CASE" — the user-facing line qty paired with its
+// snapshotted UOM. When the line UOM is the boring default ("EA") the UOM
+// suffix is omitted to keep the columns tight; non-default UOMs surface
+// inline so reviewers see the unit at a glance.
+//
+// stockUOM may be empty / unknown — the function still renders the line
+// UOM. When non-empty AND different from lineUOM, a parenthetical
+// "(192 BOTTLE in stock)" hint is appended so reviewers can follow the
+// conversion without opening the catalog.
+func QtyWithUOM(qty decimal.Decimal, isStockItem bool, lineUOM string, factor decimal.Decimal, stockUOM string) string {
+	display := QtyDisplay(qty, isStockItem)
+	uom := lineUOM
+	if uom == "" {
+		uom = "EA"
+	}
+	if uom == "EA" {
+		// Default UOM — keep the cell terse.
+		return display
+	}
+	out := display + " " + uom
+	if stockUOM != "" && stockUOM != uom && factor.IsPositive() && !factor.Equal(decimal.NewFromInt(1)) {
+		stockQty := qty.Mul(factor).Round(4)
+		out += " (" + QtyDisplay(stockQty, true) + " " + stockUOM + " in stock)"
+	}
+	return out
+}
+
 // AccountRowClass styles inactive chart rows without changing overall table layout.
 func AccountRowClass(a models.Account) string {
 	if !a.IsActive {

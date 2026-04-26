@@ -263,6 +263,17 @@ type InvoiceLine struct {
 	Qty       decimal.Decimal `gorm:"type:numeric(10,4);not null;default:1"`
 	UnitPrice decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`
 
+	// UOM snapshot (Phase U2 — 2026-04-25). LineUOM is the unit the
+	// operator chose at save time (defaults to ProductService.SellUOM).
+	// LineUOMFactor tells us how many ProductService.StockUOM equal one
+	// LineUOM — snapshotted so historical invoices print correctly even
+	// after the catalog changes. QtyInStockUOM = Qty × LineUOMFactor,
+	// computed once and stored so the inventory module + reports can read
+	// it without re-multiplying (no rounding drift across joins).
+	LineUOM        string          `gorm:"type:varchar(16);not null;default:'EA'"`
+	LineUOMFactor  decimal.Decimal `gorm:"type:numeric(18,6);not null;default:1"`
+	QtyInStockUOM  decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`
+
 	// TaxCodeID is optional; nil = no tax on this line.
 	TaxCodeID *uint    `gorm:"index"`
 	TaxCode   *TaxCode `gorm:"foreignKey:TaxCodeID"`
@@ -418,6 +429,14 @@ type BillLine struct {
 
 	Qty       decimal.Decimal `gorm:"type:numeric(10,4);not null;default:1"`
 	UnitPrice decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`
+
+	// UOM snapshot (Phase U2 — 2026-04-25). LineUOM defaults to
+	// ProductService.PurchaseUOM at save time. QtyInStockUOM = Qty ×
+	// LineUOMFactor and is what the inventory module sees on PostBill.
+	// See UOM_DESIGN.md §3.2.
+	LineUOM       string          `gorm:"type:varchar(16);not null;default:'EA'"`
+	LineUOMFactor decimal.Decimal `gorm:"type:numeric(18,6);not null;default:1"`
+	QtyInStockUOM decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`
 
 	// TaxCodeID is optional; nil = no tax on this line.
 	// The TaxCode's Scope must include "purchase" or "both" to affect bills.

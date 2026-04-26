@@ -432,7 +432,7 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 											—
 										}
 									</td>
-									<td class="py-3 pr-4 text-right tabular-nums">{ QtyDisplayForLineProduct(l.Qty, l.ProductService) }</td>
+									<td class="py-3 pr-4 text-right tabular-nums">{ invoiceLineQtyDisplay(l) }</td>
 									<td class="py-3 pr-4 text-right tabular-nums">{ Money(l.UnitPrice) }</td>
 									<td class="py-3 pr-4 text-right tabular-nums">{ Money(l.LineNet) }</td>
 									<td class="py-3 pr-4 text-right tabular-nums">{ Money(l.LineTax) }</td>
@@ -1029,6 +1029,19 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 			<script src="/static/invoice_email_assist.js?v=1"></script>
 		}
 	</div>
+}
+
+// invoiceLineQtyDisplay renders Qty + UOM snapshot ("8 CASE
+// (192 BOTTLE in stock)") with safe fallbacks for legacy lines that
+// pre-date the UOM snapshot fields.
+func invoiceLineQtyDisplay(l models.InvoiceLine) string {
+	isStock := false
+	stockUOM := ""
+	if l.ProductService != nil {
+		isStock = l.ProductService.IsStockItem
+		stockUOM = l.ProductService.StockUOM
+	}
+	return QtyWithUOM(l.Qty, isStock, l.LineUOM, l.LineUOMFactor, stockUOM)
 }
 
 func paymentRequestBadgeClass(status string) string {

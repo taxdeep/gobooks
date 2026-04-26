@@ -100,10 +100,16 @@ func AdjustSalesOrderLineQty(
 		return nil, err
 	}
 
-	// Recompute line totals.
+	// Recompute line totals + the stock-UOM equivalent qty so the
+	// inventory-side cached value stays in sync with the new line qty.
 	beforeQty := line.Quantity
 	rate := loadTaxRate(db, line.TaxCodeID)
 	line.Quantity = newQty
+	if line.LineUOMFactor.IsPositive() {
+		line.QtyInStockUOM = newQty.Mul(line.LineUOMFactor).Round(4)
+	} else {
+		line.QtyInStockUOM = newQty.Round(4)
+	}
 	calcSalesOrderLine(&line, rate)
 
 	if err := db.Transaction(func(tx *gorm.DB) error {

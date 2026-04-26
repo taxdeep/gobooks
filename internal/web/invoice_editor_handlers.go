@@ -901,6 +901,11 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 
 		// Insert lines.
 		for i, cl := range computed {
+			// UOM snapshot (Phase U2 — 2026-04-25). Resolves the line's
+			// UOM defaults from the linked product (Sell side for invoices)
+			// and computes Qty × factor for the inventory module to read
+			// without re-multiplying.
+			uom := services.SnapshotLineUOM(tx, companyID, cl.ProductServiceID, services.LineUOMSell, cl.Qty, "", decimal.Zero)
 			line := models.InvoiceLine{
 				CompanyID:        companyID,
 				InvoiceID:        inv.ID,
@@ -908,6 +913,9 @@ func (s *Server) handleInvoiceSaveDraft(c *fiber.Ctx) error {
 				Description:      cl.Description,
 				Qty:              cl.Qty,
 				UnitPrice:        cl.UnitPrice,
+				LineUOM:          uom.LineUOM,
+				LineUOMFactor:    uom.LineUOMFactor,
+				QtyInStockUOM:    uom.QtyInStockUOM,
 				LineNet:          cl.LineNet,
 				LineTax:          cl.LineTax,
 				LineTotal:        cl.LineTotal,
@@ -1450,6 +1458,7 @@ func (s *Server) handleInvoiceSaveTaskDraft(c *fiber.Ctx) error {
 					lineTax = services.SumTaxResults(results)
 				}
 			}
+			uom := services.SnapshotLineUOM(tx, companyID, nl.ProductServiceID, services.LineUOMSell, nl.Qty, "", decimal.Zero)
 			newL := models.InvoiceLine{
 				CompanyID:        companyID,
 				InvoiceID:        inv.ID,
@@ -1457,6 +1466,9 @@ func (s *Server) handleInvoiceSaveTaskDraft(c *fiber.Ctx) error {
 				Description:      nl.Description,
 				Qty:              nl.Qty,
 				UnitPrice:        nl.UnitPrice,
+				LineUOM:          uom.LineUOM,
+				LineUOMFactor:    uom.LineUOMFactor,
+				QtyInStockUOM:    uom.QtyInStockUOM,
 				LineNet:          lineNet,
 				LineTax:          lineTax,
 				LineTotal:        lineNet.Add(lineTax),

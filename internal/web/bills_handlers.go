@@ -871,6 +871,11 @@ func (s *Server) handleBillSaveDraft(c *fiber.Ctx) error {
 		}
 
 		for i, cl := range computed {
+			// UOM snapshot (Phase U2 — 2026-04-25). Defaults to the
+			// product's PurchaseUOM (Bill is buy-side); inventory module
+			// reads QtyInStockUOM downstream so it never has to know
+			// the line's display unit.
+			uom := services.SnapshotLineUOM(tx, companyID, cl.ProductServiceID, services.LineUOMPurchase, cl.Qty, "", decimal.Zero)
 			line := models.BillLine{
 				CompanyID:          companyID,
 				BillID:             bill.ID,
@@ -879,6 +884,9 @@ func (s *Server) handleBillSaveDraft(c *fiber.Ctx) error {
 				Description:        cl.Description,
 				Qty:                cl.Qty,
 				UnitPrice:          cl.UnitPrice,
+				LineUOM:            uom.LineUOM,
+				LineUOMFactor:      uom.LineUOMFactor,
+				QtyInStockUOM:      uom.QtyInStockUOM,
 				LineNet:             cl.LineNet,
 				LineTax:             cl.LineTax,
 				LineTotal:           cl.LineTotal,

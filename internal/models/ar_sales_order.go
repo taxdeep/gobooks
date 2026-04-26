@@ -152,6 +152,14 @@ type SalesOrderLine struct {
 	TaxAmount decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`
 	LineTotal decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`
 
+	// UOM snapshot (Phase U2 — 2026-04-25). Matches the same shape on
+	// InvoiceLine / BillLine. SO lines snapshot ProductService.SellUOM
+	// at create time so a downstream Invoice picks up the same UOM by
+	// default.  See UOM_DESIGN.md §3.2.
+	LineUOM       string          `gorm:"type:varchar(16);not null;default:'EA'"`
+	LineUOMFactor decimal.Decimal `gorm:"type:numeric(18,6);not null;default:1"`
+	QtyInStockUOM decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`
+
 	// InvoicedQty tracks how much of this line has been invoiced.
 	InvoicedQty decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`
 

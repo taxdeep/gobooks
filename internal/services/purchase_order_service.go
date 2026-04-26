@@ -91,6 +91,7 @@ func nextPONumber(db *gorm.DB, companyID uint) (string, bool) {
 // computePOLine computes cached totals for a PurchaseOrderLine.
 // Tax computation is simplified (rate × net); for full tax logic use TaxCode service.
 func computePOLine(db *gorm.DB, companyID uint, in POLineInput) (models.PurchaseOrderLine, error) {
+	uom := SnapshotLineUOM(db, companyID, in.ProductServiceID, LineUOMPurchase, in.Qty, "", decimal.Zero)
 	line := models.PurchaseOrderLine{
 		CompanyID:        companyID,
 		SortOrder:        in.SortOrder,
@@ -98,6 +99,9 @@ func computePOLine(db *gorm.DB, companyID uint, in POLineInput) (models.Purchase
 		Description:      in.Description,
 		Qty:              in.Qty,
 		UnitPrice:        in.UnitPrice,
+		LineUOM:          uom.LineUOM,
+		LineUOMFactor:    uom.LineUOMFactor,
+		QtyInStockUOM:    uom.QtyInStockUOM,
 		TaxCodeID:        in.TaxCodeID,
 		ExpenseAccountID: in.ExpenseAccountID,
 	}

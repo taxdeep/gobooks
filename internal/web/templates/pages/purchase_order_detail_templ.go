@@ -1294,9 +1294,9 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var71 string
-				templ_7745c5c3_Var71, templ_7745c5c3_Err = templ.JoinStringErrs(QtyDisplayForLineProduct(line.Qty, line.ProductService))
+				templ_7745c5c3_Var71, templ_7745c5c3_Err = templ.JoinStringErrs(poLineQtyDisplay(line))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 372, Col: 121}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 372, Col: 88}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var71))
 				if templ_7745c5c3_Err != nil {
@@ -1500,6 +1500,19 @@ func poLineItemOptionLabel(p models.ProductService) string {
 		name = p.SKU + " — " + p.Name
 	}
 	return name + " · " + kind
+}
+
+// poLineQtyDisplay renders Qty + UOM snapshot for a single PO line on
+// the read-only path. PO is buy-side, so the snapshot UOM defaults to
+// the product's PurchaseUOM at create time.
+func poLineQtyDisplay(line models.PurchaseOrderLine) string {
+	isStock := false
+	stockUOM := ""
+	if line.ProductService != nil {
+		isStock = line.ProductService.IsStockItem
+		stockUOM = line.ProductService.StockUOM
+	}
+	return QtyWithUOM(line.Qty, isStock, line.LineUOM, line.LineUOMFactor, stockUOM)
 }
 
 var _ = templruntime.GeneratedTemplate

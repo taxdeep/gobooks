@@ -996,9 +996,9 @@ func bodyInvoiceDetail(vm InvoiceDetailVM) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var49 string
-				templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(QtyDisplayForLineProduct(l.Qty, l.ProductService))
+				templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(invoiceLineQtyDisplay(l))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_detail.templ`, Line: 435, Col: 106}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/invoice_detail.templ`, Line: 435, Col: 81}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 				if templ_7745c5c3_Err != nil {
@@ -2105,6 +2105,19 @@ func bodyInvoiceDetail(vm InvoiceDetailVM) templ.Component {
 		}
 		return nil
 	})
+}
+
+// invoiceLineQtyDisplay renders Qty + UOM snapshot ("8 CASE
+// (192 BOTTLE in stock)") with safe fallbacks for legacy lines that
+// pre-date the UOM snapshot fields.
+func invoiceLineQtyDisplay(l models.InvoiceLine) string {
+	isStock := false
+	stockUOM := ""
+	if l.ProductService != nil {
+		isStock = l.ProductService.IsStockItem
+		stockUOM = l.ProductService.StockUOM
+	}
+	return QtyWithUOM(l.Qty, isStock, l.LineUOM, l.LineUOMFactor, stockUOM)
 }
 
 func paymentRequestBadgeClass(status string) string {

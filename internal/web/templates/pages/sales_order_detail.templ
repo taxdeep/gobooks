@@ -132,6 +132,19 @@ templ soLineQtyEditor(vm SalesOrderDetailVM, line models.SalesOrderLine) {
 
 // qtyEditorHint returns the title-attribute tooltip shown on hover.
 // Renders as plain text inside the <input>'s native tooltip — no HTML.
+// soLineQtyDisplay renders Qty + UOM snapshot for a single SO line on
+// the read-only path. Mirrors invoiceLineQtyDisplay; falls back to the
+// product's IsStockItem + StockUOM via QtyWithUOM's safe-default rules.
+func soLineQtyDisplay(line models.SalesOrderLine) string {
+	isStock := false
+	stockUOM := ""
+	if line.ProductService != nil {
+		isStock = line.ProductService.IsStockItem
+		stockUOM = line.ProductService.StockUOM
+	}
+	return QtyWithUOM(line.Quantity, isStock, line.LineUOM, line.LineUOMFactor, stockUOM)
+}
+
 func qtyEditorHint(vm SalesOrderDetailVM, line models.SalesOrderLine) string {
 	min := QtyDisplayForLineProduct(line.InvoicedQty, line.ProductService)
 	if max, ok := vm.QtyMaxByLineID[line.ID]; ok {
@@ -466,7 +479,7 @@ templ soReadOnlyBody(vm SalesOrderDetailVM) {
 									if vm.Order.Status == models.SalesOrderStatusPartiallyInvoiced {
 										@soLineQtyEditor(vm, line)
 									} else {
-										{ QtyDisplayForLineProduct(line.Quantity, line.ProductService) }
+										{ soLineQtyDisplay(line) }
 									}
 								</td>
 								<td class="py-2 pr-4 text-right font-mono text-text-muted2" data-numfmt>
