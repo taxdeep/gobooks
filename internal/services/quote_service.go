@@ -171,7 +171,7 @@ func CreateQuote(db *gorm.DB, companyID uint, in QuoteInput) (*models.Quote, err
 // GetQuote loads a quote with its lines for the given company.
 func GetQuote(db *gorm.DB, companyID, quoteID uint) (*models.Quote, error) {
 	var q models.Quote
-	err := db.Preload("Lines").Preload("Customer").
+	err := db.Preload("Lines.ProductService").Preload("Customer").
 		Where("id = ? AND company_id = ?", quoteID, companyID).
 		First(&q).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {

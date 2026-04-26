@@ -57,3 +57,40 @@ func TestSalesOrderDraftEditorDoesNotNestStatusForms(t *testing.T) {
 		t.Fatal("draft editor footer should render Save Order in the same action bar")
 	}
 }
+
+func TestSalesOrderReadOnlyLineItemsShowProductService(t *testing.T) {
+	item := &models.ProductService{ID: 11, Name: "Computer 1"}
+	var sb strings.Builder
+	vm := SalesOrderDetailVM{
+		HasCompany: true,
+		Order: models.SalesOrder{
+			ID:           3,
+			OrderNumber:  "SO-0003",
+			Status:       models.SalesOrderStatusConfirmed,
+			OrderDate:    time.Date(2026, 4, 25, 0, 0, 0, 0, time.UTC),
+			CurrencyCode: "CAD",
+			Customer:     models.Customer{Name: "AR TESTING"},
+			Lines: []models.SalesOrderLine{
+				{
+					ProductServiceID: &item.ID,
+					ProductService:   item,
+					Description:      "Computer workstation",
+					Quantity:         decimal.NewFromInt(10),
+					UnitPrice:        decimal.NewFromInt(500),
+					LineNet:          decimal.NewFromInt(5000),
+					LineTotal:        decimal.NewFromInt(5000),
+				},
+			},
+		},
+	}
+
+	if err := SalesOrderDetail(vm).Render(context.Background(), &sb); err != nil {
+		t.Fatalf("render sales order detail: %v", err)
+	}
+	html := sb.String()
+	for _, want := range []string{"Item / Description", "Computer 1", "Computer workstation"} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("expected sales order detail HTML to contain %q", want)
+		}
+	}
+}

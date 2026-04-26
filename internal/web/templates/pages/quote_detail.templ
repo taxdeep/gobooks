@@ -371,7 +371,7 @@ templ quoteReadOnlyBody(vm QuoteDetailVM) {
 				<table class="w-full text-left text-body">
 					<thead class="text-small uppercase tracking-wider text-text-muted">
 						<tr class="border-b border-border">
-							<th class="py-2 pr-4">Description</th>
+							<th class="py-2 pr-4">Item / Description</th>
 							<th class="py-2 pr-4 w-24 text-right">Qty</th>
 							<th class="py-2 pr-4 w-32 text-right">Unit Price</th>
 							<th class="py-2 pr-4 w-32 text-right">Net</th>
@@ -382,7 +382,16 @@ templ quoteReadOnlyBody(vm QuoteDetailVM) {
 					<tbody class="text-text">
 						for _, line := range vm.Quote.Lines {
 							<tr class="border-b border-border-subtle">
-								<td class="py-2 pr-4">{ line.Description }</td>
+								<td class="py-2 pr-4">
+									if line.ProductService != nil {
+										<div class="font-medium text-text">{ line.ProductService.Name }</div>
+										if line.Description != "" {
+											<div class="text-small text-text-muted">{ line.Description }</div>
+										}
+									} else {
+										{ line.Description }
+									}
+								</td>
 								<td class="py-2 pr-4 text-right font-mono" data-numfmt>{ QtyDisplayForLineProduct(line.Quantity, line.ProductService) }</td>
 								<td class="py-2 pr-4 text-right font-mono" data-numfmt>{ line.UnitPrice.StringFixed(2) }</td>
 								<td class="py-2 pr-4 text-right font-mono" data-numfmt>{ line.LineNet.StringFixed(2) }</td>

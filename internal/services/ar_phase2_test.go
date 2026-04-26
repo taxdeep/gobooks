@@ -80,6 +80,37 @@ func p2TaxCode(t *testing.T, db *gorm.DB, companyID uint, rate float64) uint {
 	return tc.ID
 }
 
+func p2RevenueAccount(t *testing.T, db *gorm.DB, companyID uint) uint {
+	t.Helper()
+	acct := models.Account{
+		CompanyID:         companyID,
+		Code:              "4000",
+		Name:              "Sales",
+		RootAccountType:   models.RootRevenue,
+		DetailAccountType: models.DetailServiceRevenue,
+		IsActive:          true,
+	}
+	if err := db.Create(&acct).Error; err != nil {
+		t.Fatal(err)
+	}
+	return acct.ID
+}
+
+func p2ProductService(t *testing.T, db *gorm.DB, companyID, revenueAccountID uint, name string) uint {
+	t.Helper()
+	item := models.ProductService{
+		CompanyID:        companyID,
+		Name:             name,
+		Type:             models.ProductServiceTypeService,
+		RevenueAccountID: revenueAccountID,
+		IsActive:         true,
+	}
+	if err := db.Create(&item).Error; err != nil {
+		t.Fatal(err)
+	}
+	return item.ID
+}
+
 // ── Quote CRUD ────────────────────────────────────────────────────────────────
 
 func TestPhase2_CreateQuote(t *testing.T) {
@@ -126,6 +157,45 @@ func TestPhase2_CreateQuote(t *testing.T) {
 	}
 	if q.QuoteNumber == "" {
 		t.Error("QuoteNumber must be set")
+	}
+}
+
+func TestPhase2_GetQuotePreloadsLineProductService(t *testing.T) {
+	db := phase2DB(t)
+	cid := p2Company(t, db, "Test Co")
+	custID := p2Customer(t, db, cid)
+	revenueID := p2RevenueAccount(t, db, cid)
+	itemID := p2ProductService(t, db, cid, revenueID, "Implementation Service")
+
+	q, err := CreateQuote(db, cid, QuoteInput{
+		CustomerID:   custID,
+		CurrencyCode: "CAD",
+		QuoteDate:    time.Now(),
+		Lines: []QuoteLineInput{
+			{
+				ProductServiceID: &itemID,
+				Description:      "Implementation work",
+				Quantity:         decimal.NewFromInt(2),
+				UnitPrice:        decimal.NewFromInt(150),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateQuote: %v", err)
+	}
+
+	got, err := GetQuote(db, cid, q.ID)
+	if err != nil {
+		t.Fatalf("GetQuote: %v", err)
+	}
+	if len(got.Lines) != 1 {
+		t.Fatalf("expected 1 line; got %d", len(got.Lines))
+	}
+	if got.Lines[0].ProductService == nil {
+		t.Fatal("expected QuoteLine.ProductService to be preloaded")
+	}
+	if got.Lines[0].ProductService.Name != "Implementation Service" {
+		t.Fatalf("ProductService.Name = %q", got.Lines[0].ProductService.Name)
 	}
 }
 
@@ -317,6 +387,8 @@ func TestPhase2_ConvertQuoteToSalesOrder(t *testing.T) {
 	cid := p2Company(t, db, "Test Co")
 	custID := p2Customer(t, db, cid)
 	taxID := p2TaxCode(t, db, cid, 0.05)
+	revenueID := p2RevenueAccount(t, db, cid)
+	itemID := p2ProductService(t, db, cid, revenueID, "Consulting Service")
 
 	q, _ := CreateQuote(db, cid, QuoteInput{
 		CustomerID:   custID,
@@ -324,10 +396,11 @@ func TestPhase2_ConvertQuoteToSalesOrder(t *testing.T) {
 		QuoteDate:    time.Now(),
 		Lines: []QuoteLineInput{
 			{
-				TaxCodeID:   &taxID,
-				Description: "Consulting",
-				Quantity:    decimal.NewFromInt(10),
-				UnitPrice:   decimal.NewFromInt(200),
+				ProductServiceID: &itemID,
+				TaxCodeID:        &taxID,
+				Description:      "Consulting",
+				Quantity:         decimal.NewFromInt(10),
+				UnitPrice:        decimal.NewFromInt(200),
 			},
 		},
 	})
@@ -356,6 +429,9 @@ func TestPhase2_ConvertQuoteToSalesOrder(t *testing.T) {
 	}
 	if len(so.Lines) != 1 {
 		t.Fatalf("expected 1 SO line; got %d", len(so.Lines))
+	}
+	if so.Lines[0].ProductServiceID == nil || *so.Lines[0].ProductServiceID != itemID {
+		t.Fatalf("SO line ProductServiceID = %v, want %d", so.Lines[0].ProductServiceID, itemID)
 	}
 
 	// Quote should now be converted with SalesOrderID set.

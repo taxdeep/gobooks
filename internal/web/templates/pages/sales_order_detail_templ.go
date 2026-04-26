@@ -1444,7 +1444,7 @@ func soReadOnlyBody(vm SalesOrderDetailVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "\"><h2 class=\"text-section font-semibold text-text\">Line Items</h2><div class=\"mt-4 overflow-x-auto\"><table class=\"w-full text-left text-body\"><thead class=\"text-small uppercase tracking-wider text-text-muted\"><tr class=\"border-b border-border\"><th class=\"py-2 pr-4\">Description</th><th class=\"py-2 pr-4 w-24 text-right\">Qty</th><th class=\"py-2 pr-4 w-24 text-right\">Invoiced</th><th class=\"py-2 pr-4 w-32 text-right\">Unit Price</th><th class=\"py-2 pr-4 w-32 text-right\">Net</th><th class=\"py-2 pr-4 w-28 text-right\">Tax</th><th class=\"py-2 w-32 text-right\">Total</th></tr></thead> <tbody class=\"text-text\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "\"><h2 class=\"text-section font-semibold text-text\">Line Items</h2><div class=\"mt-4 overflow-x-auto\"><table class=\"w-full text-left text-body\"><thead class=\"text-small uppercase tracking-wider text-text-muted\"><tr class=\"border-b border-border\"><th class=\"py-2 pr-4\">Item / Description</th><th class=\"py-2 pr-4 w-24 text-right\">Qty</th><th class=\"py-2 pr-4 w-24 text-right\">Invoiced</th><th class=\"py-2 pr-4 w-32 text-right\">Unit Price</th><th class=\"py-2 pr-4 w-32 text-right\">Net</th><th class=\"py-2 pr-4 w-28 text-right\">Tax</th><th class=\"py-2 w-32 text-right\">Total</th></tr></thead> <tbody class=\"text-text\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

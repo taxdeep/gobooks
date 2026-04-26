@@ -207,7 +207,7 @@ func (s *Server) handleInvoiceNew(c *fiber.Ctx) error {
 // shortcut is a convenience, not a required flow.
 func (s *Server) prefillInvoiceFromSalesOrder(companyID, soID uint, vm *pages.InvoiceEditorVM) {
 	var so models.SalesOrder
-	if err := s.DB.Preload("Lines").
+	if err := s.DB.Preload("Lines.ProductService").
 		Where("id = ? AND company_id = ?", soID, companyID).
 		First(&so).Error; err != nil {
 		return
