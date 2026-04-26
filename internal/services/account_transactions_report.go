@@ -35,8 +35,8 @@ type AccountTransactionsReport struct {
 	AccountID       uint
 	AccountCode     string
 	AccountName     string
-	AccountRootType string // e.g. "liability"
-	DetailType      string // e.g. "sales_tax_payable"
+	AccountRootType string          // e.g. "liability"
+	DetailType      string          // e.g. "sales_tax_payable"
 	StartingBalance decimal.Decimal // credit-normal balance before fromDate
 	Rows            []AccountTransactionRow
 	TotalDebits     decimal.Decimal
@@ -58,10 +58,10 @@ func BuildAccountTransactionsReport(
 ) (*AccountTransactionsReport, error) {
 	// ── 1. Load account ───────────────────────────────────────────────────────
 	type accountRow struct {
-		ID              uint
-		Code            string
-		Name            string
-		RootAccountType string
+		ID                uint
+		Code              string
+		Name              string
+		RootAccountType   string
 		DetailAccountType string
 	}
 	var acc accountRow
@@ -90,7 +90,7 @@ func BuildAccountTransactionsReport(
 		JOIN journal_entries je ON je.id = jl.journal_entry_id
 		WHERE jl.account_id = ?
 		  AND je.company_id = ?
-		  AND je.status = 'posted'
+		  AND `+reportableJournalEntryWhere+`
 		  AND je.entry_date < ?
 	`, accountID, companyID, fromDate).Scan(&prePeriod).Error; err != nil {
 		return nil, err
@@ -114,7 +114,7 @@ func BuildAccountTransactionsReport(
 		JOIN journal_entries je ON je.id = jl.journal_entry_id
 		WHERE jl.account_id = ?
 		  AND je.company_id = ?
-		  AND je.status = 'posted'
+		  AND `+reportableJournalEntryWhere+`
 		  AND je.entry_date >= ?
 		  AND je.entry_date <= ?
 		ORDER BY je.entry_date ASC, je.id ASC, jl.id ASC
@@ -464,4 +464,3 @@ func sourceTable(sourceType string) (string, string) {
 		return "", ""
 	}
 }
-

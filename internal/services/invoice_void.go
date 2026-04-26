@@ -116,8 +116,8 @@ func VoidInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 		}
 
 		// b. Reversal JE header — status=posted, linked back to the original.
-		//    SourceType=reversal + SourceID=inv.ID pairs with the original posting JE
-		//    (SourceType=invoice + SourceID=inv.ID, now status=reversed) without conflict.
+		//    SourceID is the original JE ID, not the invoice ID, so reversal
+		//    records cannot collide across source document families.
 		reversalJE := models.JournalEntry{
 			CompanyID:      companyID,
 			EntryDate:      origJE.EntryDate,
@@ -125,7 +125,7 @@ func VoidInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 			ReversedFromID: &origJE.ID,
 			Status:         models.JournalEntryStatusPosted,
 			SourceType:     models.LedgerSourceReversal,
-			SourceID:       inv.ID,
+			SourceID:       origJE.ID,
 		}
 		if err := wrapUniqueViolation(tx.Create(&reversalJE).Error, "create reversal journal entry"); err != nil {
 			return fmt.Errorf("create reversal journal entry: %w", err)
@@ -151,29 +151,14 @@ func VoidInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 			createdRevLines = append(createdRevLines, line)
 		}
 
-		// d. Mark original JE as reversed.
-		//    Targeted UPDATE guards against overwriting other fields under concurrency.
-		if err := tx.Model(&models.JournalEntry{}).
-			Where("id = ? AND company_id = ?", origJE.ID, companyID).
-			Update("status", models.JournalEntryStatusReversed).Error; err != nil {
-			return fmt.Errorf("mark original journal entry reversed: %w", err)
-		}
-
-		// e. Mark original JE's ledger entries as reversed.
-		//    No-op for JEs created before Phase 4 (ledger_entries didn't exist yet);
-		//    correct and necessary for all JEs created from Phase 4 onward.
-		if err := MarkLedgerEntriesReversed(tx, companyID, origJE.ID); err != nil {
-			return fmt.Errorf("mark ledger entries reversed: %w", err)
-		}
-
-		// f. Project reversal JE to ledger — new active entries for the reversal,
-		//    so the full picture (original debit + reversal credit, etc.) is in
-		//    ledger_entries for reporting.
+		// d. Keep the original JE posted and project a posted reversal. Ordinary
+		//    reports hide reversal pairs through reportableJournalEntryWhere;
+		//    audit views still have both entries and a direct reversed_from_id link.
 		if err := ProjectToLedger(tx, companyID, LedgerPostInput{
 			JournalEntry: reversalJE,
 			Lines:        createdRevLines,
 			SourceType:   models.LedgerSourceReversal,
-			SourceID:     inv.ID,
+			SourceID:     origJE.ID,
 		}); err != nil {
 			return fmt.Errorf("project reversal to ledger: %w", err)
 		}
@@ -247,15 +232,51 @@ func VoidInvoice(db *gorm.DB, companyID, invoiceID uint, actor string, userID *u
 			return fmt.Errorf("reverse invoice on sales order tracking: %w", err)
 		}
 
-		// h. Audit log.
 		cid := companyID
+		if err := WriteAuditLogWithContextDetails(tx, "journal_entry.reversal.created", "journal_entry", reversalJE.ID, actor,
+			map[string]any{
+				"company_id":          companyID,
+				"source_entity_type":  "invoice",
+				"source_entity_id":    inv.ID,
+				"source_document_no":  inv.InvoiceNumber,
+				"original_entry_id":   origJE.ID,
+				"reversal_entry_id":   reversalJE.ID,
+				"reversal_journal_no": reversalJE.JournalNo,
+			},
+			&cid, userID,
+			map[string]any{
+				"journal_entry_id": origJE.ID,
+				"status":           string(origJE.Status),
+				"source_type":      string(origJE.SourceType),
+				"source_id":        origJE.SourceID,
+			},
+			map[string]any{
+				"journal_entry_id": reversalJE.ID,
+				"status":           string(reversalJE.Status),
+				"source_type":      string(reversalJE.SourceType),
+				"source_id":        reversalJE.SourceID,
+				"reversed_from_id": origJE.ID,
+			},
+		); err != nil {
+			return err
+		}
+
+		// h. Audit log.
 		return WriteAuditLogWithContextDetails(tx, "invoice.voided", "invoice", inv.ID, actor,
 			map[string]any{"company_id": companyID},
-			&cid, userID, nil,
+			&cid, userID,
 			map[string]any{
-				"invoice_number":    inv.InvoiceNumber,
-				"reversal_entry_id": reversalJE.ID,
-				"total":             inv.Amount.StringFixed(2),
+				"status":           string(inv.Status),
+				"journal_entry_id": origJE.ID,
+				"amount":           inv.Amount.StringFixed(2),
+			},
+			map[string]any{
+				"invoice_number":      inv.InvoiceNumber,
+				"status":              string(models.InvoiceStatusVoided),
+				"original_entry_id":   origJE.ID,
+				"reversal_entry_id":   reversalJE.ID,
+				"reversal_journal_no": reversalJE.JournalNo,
+				"total":               inv.Amount.StringFixed(2),
 			},
 		)
 	})

@@ -25,8 +25,8 @@ const (
 type LedgerSourceType string
 
 const (
-	LedgerSourceInvoice        LedgerSourceType = "invoice"
-	LedgerSourceBill           LedgerSourceType = "bill"
+	LedgerSourceInvoice LedgerSourceType = "invoice"
+	LedgerSourceBill    LedgerSourceType = "bill"
 	// LedgerSourceReceipt is used by Phase H inbound-Receipt posting
 	// (Dr Inventory / Cr GR/IR) under companies.receipt_required=true.
 	LedgerSourceReceipt        LedgerSourceType = "receipt"
@@ -119,9 +119,9 @@ const (
 // JournalEntry is committed (status → posted). They are never edited or deleted.
 //
 // Reversal semantics: when a reversal JournalEntry is posted, its JournalLines
-// produce new LedgerEntry rows (with swapped debit/credit). The original
-// LedgerEntry rows for the reversed JournalEntry are marked status=reversed
-// but remain in the table for full audit traceability.
+// produce new LedgerEntry rows (with swapped debit/credit). Current document
+// void flows keep the original rows active and let report readers hide the
+// original+reversal pair; legacy flows may mark original rows reversed.
 //
 // Reconstruction guarantee: the entire ledger_entries table can be rebuilt
 // from journal_entries + journal_lines at any time. It is a projection, not

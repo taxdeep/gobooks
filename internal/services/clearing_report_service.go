@@ -22,17 +22,17 @@ import (
 
 // ClearingSummary holds aggregated totals for a clearing account.
 type ClearingSummary struct {
-	ChannelAccountID   uint
-	ChannelDisplayName string
-	ClearingAccountID  uint
+	ChannelAccountID    uint
+	ChannelDisplayName  string
+	ClearingAccountID   uint
 	ClearingAccountCode string
 	ClearingAccountName string
 
-	SalesTotal      decimal.Decimal // debits from invoice posting
-	FeesTotal       decimal.Decimal // credits from settlement fee posting
-	PayoutsTotal    decimal.Decimal // credits from payout recording
-	ReversalsTotal  decimal.Decimal // net reversals
-	CurrentBalance  decimal.Decimal // net balance on clearing account
+	SalesTotal     decimal.Decimal // debits from invoice posting
+	FeesTotal      decimal.Decimal // credits from settlement fee posting
+	PayoutsTotal   decimal.Decimal // credits from payout recording
+	ReversalsTotal decimal.Decimal // net reversals
+	CurrentBalance decimal.Decimal // net balance on clearing account
 }
 
 // ClearingMovement is one row in the clearing movement ledger.
@@ -70,9 +70,12 @@ func GetClearingSummary(db *gorm.DB, companyID, channelAccountID uint) (*Clearin
 
 	// Query ledger entries for this clearing account.
 	var entries []models.LedgerEntry
-	db.Where("company_id = ? AND account_id = ? AND status = ?",
-		companyID, clearingAcctID, "active").
-		Order("posting_date ASC, id ASC").
+	db.Table("ledger_entries le").
+		Select("le.*").
+		Joins("JOIN journal_entries je ON je.id = le.journal_entry_id").
+		Where("le.company_id = ? AND le.account_id = ? AND le.status = ? AND "+reportableJournalEntryWhere,
+			companyID, clearingAcctID, "active").
+		Order("le.posting_date ASC, le.id ASC").
 		Find(&entries)
 
 	summary := &ClearingSummary{
@@ -130,9 +133,12 @@ func ListClearingMovements(db *gorm.DB, companyID, channelAccountID uint, limit 
 
 	// Query ledger entries for the clearing account, ordered by date ASC for running balance.
 	var entries []models.LedgerEntry
-	db.Where("company_id = ? AND account_id = ? AND status = ?",
-		companyID, clearingAcctID, "active").
-		Order("posting_date ASC, id ASC").
+	db.Table("ledger_entries le").
+		Select("le.*").
+		Joins("JOIN journal_entries je ON je.id = le.journal_entry_id").
+		Where("le.company_id = ? AND le.account_id = ? AND le.status = ? AND "+reportableJournalEntryWhere,
+			companyID, clearingAcctID, "active").
+		Order("le.posting_date ASC, le.id ASC").
 		Limit(limit).
 		Find(&entries)
 

@@ -555,11 +555,11 @@ func TestInvoiceFullLifecycle_DraftToIssueToVoid(t *testing.T) {
 		t.Fatalf("Expected voided, got %s", inv.Status)
 	}
 
-	// 4. Verify original JE is reversed
+	// 4. Verify original JE remains posted; reversal JE cancels it.
 	var origJE models.JournalEntry
 	db.First(&origJE, *inv.JournalEntryID)
-	if origJE.Status != models.JournalEntryStatusReversed {
-		t.Fatalf("Original JE expected reversed, got %s", origJE.Status)
+	if origJE.Status != models.JournalEntryStatusPosted {
+		t.Fatalf("Original JE expected posted, got %s", origJE.Status)
 	}
 
 	// 5. Verify reversal JE exists

@@ -117,9 +117,10 @@ func AccountBalance(db *gorm.DB, companyID, accountID uint, asOf time.Time) (mod
 		TotalCredit float64
 	}
 	var row balanceRow
-	err := db.Model(&models.LedgerEntry{}).
-		Select("COALESCE(SUM(debit_amount), 0) AS total_debit, COALESCE(SUM(credit_amount), 0) AS total_credit").
-		Where("company_id = ? AND account_id = ? AND posting_date <= ? AND status = ?",
+	err := db.Table("ledger_entries le").
+		Select("COALESCE(SUM(le.debit_amount), 0) AS total_debit, COALESCE(SUM(le.credit_amount), 0) AS total_credit").
+		Joins("JOIN journal_entries je ON je.id = le.journal_entry_id").
+		Where("le.company_id = ? AND le.account_id = ? AND le.posting_date <= ? AND le.status = ? AND "+reportableJournalEntryWhere,
 			companyID, accountID, asOf.Format("2006-01-02"), models.LedgerEntryStatusActive).
 		Scan(&row).Error
 	if err != nil {
@@ -137,13 +138,15 @@ func AccountBalance(db *gorm.DB, companyID, accountID uint, asOf time.Time) (mod
 // generation. Only active entries are returned.
 func LedgerEntriesForAccount(db *gorm.DB, companyID, accountID uint, from, to time.Time) ([]models.LedgerEntry, error) {
 	var entries []models.LedgerEntry
-	err := db.
-		Where("company_id = ? AND account_id = ? AND posting_date BETWEEN ? AND ? AND status = ?",
+	err := db.Table("ledger_entries le").
+		Select("le.*").
+		Joins("JOIN journal_entries je ON je.id = le.journal_entry_id").
+		Where("le.company_id = ? AND le.account_id = ? AND le.posting_date BETWEEN ? AND ? AND le.status = ? AND "+reportableJournalEntryWhere,
 			companyID, accountID,
 			from.Format("2006-01-02"),
 			to.Format("2006-01-02"),
 			models.LedgerEntryStatusActive).
-		Order("posting_date ASC, id ASC").
+		Order("le.posting_date ASC, le.id ASC").
 		Find(&entries).Error
 	if err != nil {
 		return nil, fmt.Errorf("ledger: entries for account %d: %w", accountID, err)

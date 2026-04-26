@@ -32,9 +32,9 @@ const (
 	// No ledger entries exist for a voided JE.
 	JournalEntryStatusVoided JournalEntryStatus = "voided"
 
-	// JournalEntryStatusReversed means a reversal JE has been created and posted.
-	// This entry's ledger entries have been marked reversed.
-	// The entry itself is retained permanently for audit traceability.
+	// JournalEntryStatusReversed is a legacy/non-reporting state retained for
+	// audit compatibility. Current posted-document voids keep the original JE
+	// posted and link a posted reversal JE through ReversedFromID.
 	JournalEntryStatusReversed JournalEntryStatus = "reversed"
 )
 
@@ -45,12 +45,13 @@ const (
 // Lifecycle synchronisation (enforced by the posting engine, not DB triggers):
 //
 //	PostInvoice / PostBill       → Status = posted
-//	VoidInvoice / VoidBill       → original JE Status = reversed
+//	VoidInvoice / VoidBill       → original JE Status = posted
 //	                               reversal JE Status = posted
-//	ReverseJournalEntry          → same as above
+//	ReverseJournalEntry          → legacy reversal helper for manual flows
 //
 // ReversedFromID links a reversal JE back to the original it cancels.
-// The original JE's Status is set to 'reversed' when a reversal is posted.
+// Report readers can use that relationship to hide reversal pairs from
+// ordinary activity while audit views can show the full chain.
 //
 // Concurrency / uniqueness:
 //

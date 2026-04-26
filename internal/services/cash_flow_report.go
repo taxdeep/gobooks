@@ -15,8 +15,8 @@ import (
 // the operator can answer "where did my cash come from" and "where did
 // it go" at a glance.
 type CashFlowSourceRow struct {
-	SourceType  string // raw journal_entries.source_type ("" for manual)
-	SourceLabel string // human label via transactionTypeLabel
+	SourceType  string          // raw journal_entries.source_type ("" for manual)
+	SourceLabel string          // human label via transactionTypeLabel
 	Inflow      decimal.Decimal // total DR to cash accounts (money in)
 	Outflow     decimal.Decimal // total CR to cash accounts (money out)
 	Net         decimal.Decimal // Inflow − Outflow
@@ -24,13 +24,13 @@ type CashFlowSourceRow struct {
 
 // CashAccountSummary is one cash/bank account's period activity.
 type CashAccountSummary struct {
-	AccountID       uint
-	AccountCode     string
-	AccountName     string
-	OpeningBalance  decimal.Decimal
-	TotalInflow     decimal.Decimal
-	TotalOutflow    decimal.Decimal
-	ClosingBalance  decimal.Decimal
+	AccountID      uint
+	AccountCode    string
+	AccountName    string
+	OpeningBalance decimal.Decimal
+	TotalInflow    decimal.Decimal
+	TotalOutflow   decimal.Decimal
+	ClosingBalance decimal.Decimal
 }
 
 // CashFlowReport is the operator-friendly cash flow summary. NOT a
@@ -53,11 +53,11 @@ type CashFlowReport struct {
 	InflowBySource  []CashFlowSourceRow
 	OutflowBySource []CashFlowSourceRow
 
-	OpeningCash decimal.Decimal
-	TotalInflow decimal.Decimal
+	OpeningCash  decimal.Decimal
+	TotalInflow  decimal.Decimal
 	TotalOutflow decimal.Decimal
-	NetChange   decimal.Decimal // Inflow − Outflow
-	ClosingCash decimal.Decimal
+	NetChange    decimal.Decimal // Inflow − Outflow
+	ClosingCash  decimal.Decimal
 }
 
 // BuildCashFlowReport assembles the cash flow summary. Strategy:
@@ -104,9 +104,9 @@ func BuildCashFlowReport(db *gorm.DB, companyID uint, fromDate, toDate time.Time
 
 	// ── 2. Per-account opening + period sums ──────────────────────────
 	type sumRow struct {
-		AccountID    uint
-		Debit        decimal.Decimal
-		Credit       decimal.Decimal
+		AccountID uint
+		Debit     decimal.Decimal
+		Credit    decimal.Decimal
 	}
 	openSums := map[uint]decimal.Decimal{}
 	periodSums := map[uint]struct{ Debit, Credit decimal.Decimal }{}
@@ -122,7 +122,7 @@ func BuildCashFlowReport(db *gorm.DB, companyID uint, fromDate, toDate time.Time
 			JOIN journal_entries je ON je.id = jl.journal_entry_id
 			WHERE jl.account_id IN ?
 			  AND je.company_id = ?
-			  AND je.status = 'posted'
+			  AND `+reportableJournalEntryWhere+`
 			  AND je.entry_date < ?
 			GROUP BY jl.account_id
 		`, cashIDs, companyID, fromDate).Scan(&rows).Error; err == nil {
@@ -144,7 +144,7 @@ func BuildCashFlowReport(db *gorm.DB, companyID uint, fromDate, toDate time.Time
 			JOIN journal_entries je ON je.id = jl.journal_entry_id
 			WHERE jl.account_id IN ?
 			  AND je.company_id = ?
-			  AND je.status = 'posted'
+			  AND `+reportableJournalEntryWhere+`
 			  AND je.entry_date >= ?
 			  AND je.entry_date <= ?
 			GROUP BY jl.account_id
@@ -190,7 +190,7 @@ func BuildCashFlowReport(db *gorm.DB, companyID uint, fromDate, toDate time.Time
 		JOIN journal_entries je ON je.id = jl.journal_entry_id
 		WHERE jl.account_id IN ?
 		  AND je.company_id = ?
-		  AND je.status = 'posted'
+		  AND `+reportableJournalEntryWhere+`
 		  AND je.entry_date >= ?
 		  AND je.entry_date <= ?
 		GROUP BY je.source_type

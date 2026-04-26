@@ -198,7 +198,7 @@ func BuildSalesTaxReport(
 			FROM journal_lines jl
 			JOIN journal_entries je ON je.id = jl.journal_entry_id
 			WHERE je.company_id = ?
-			  AND je.status = 'posted'
+			  AND `+reportableJournalEntryWhere+`
 			  AND jl.account_id IN ?
 			GROUP BY jl.account_id
 		`, fromDate, fromDate, toDate, toDate, companyID, accountIDs).Scan(&glRows).Error; err != nil {

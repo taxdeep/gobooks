@@ -95,7 +95,7 @@ func normalBalance(root models.RootAccountType, debit, credit decimal.Decimal) d
 //   - Account type filtering is applied only when RootTypes is non-empty.
 func accountBalances(db *gorm.DB, f AccountBalanceFilter) ([]RawAccountBalance, error) {
 	// Build the inner subquery WHERE clause for entry_date + company scoping.
-	innerWhere := "je.status = 'posted' AND je.company_id = ?"
+	innerWhere := reportableJournalEntryWhere + " AND je.company_id = ?"
 	innerArgs := []any{f.CompanyID}
 	if !f.FromDate.IsZero() {
 		innerWhere += " AND je.entry_date >= ?"

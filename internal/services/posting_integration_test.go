@@ -22,9 +22,9 @@ package services
 //     TestPostBill_DuplicatePostingRejected             — second PostBill call rejected
 //
 //   Lifecycle: void
-//     TestVoidInvoice_CreatesReversalAndMarkOriginalReversed
-//       — reversal JE created, original JE status=reversed,
-//         original ledger entries status=reversed, reversal ledger entries active
+//     TestVoidInvoice_CreatesAuditedReversalAndHidesPairFromReport
+//       — reversal JE created, original JE remains posted,
+//         ordinary reports hide the void/reversal pair, audit logs keep the chain
 //
 //   Lifecycle: reverse
 //     TestReverseJournalEntry_CreatesReversingJE
@@ -468,11 +468,11 @@ func TestPostBill_DuplicatePostingRejected(t *testing.T) {
 
 // ── Lifecycle: void ───────────────────────────────────────────────────────────
 
-func TestVoidInvoice_CreatesReversalAndMarkOriginalReversed(t *testing.T) {
+func TestVoidInvoice_CreatesAuditedReversalAndHidesPairFromReport(t *testing.T) {
 	db := testPostingDB(t)
 	cid := seedInvoicePostCompany(t, db, "Void Co")
 	custID := seedCustomer(t, db, cid)
-	_ = seedInvoicePostAccount(t, db, cid, "1100", models.RootAsset, models.DetailAccountsReceivable)
+	arID := seedInvoicePostAccount(t, db, cid, "1100", models.RootAsset, models.DetailAccountsReceivable)
 	revID := seedInvoicePostAccount(t, db, cid, "4000", models.RootRevenue, models.DetailServiceRevenue)
 	psID := seedProductService(t, db, cid, revID)
 
@@ -500,14 +500,14 @@ func TestVoidInvoice_CreatesReversalAndMarkOriginalReversed(t *testing.T) {
 		t.Errorf("invoice status = %q, want 'voided'", inv.Status)
 	}
 
-	// Original JE must be reversed.
+	// Original JE remains posted; the posted reversal JE is what cancels it.
 	var origJE models.JournalEntry
 	db.First(&origJE, origJEID)
-	if origJE.Status != models.JournalEntryStatusReversed {
-		t.Errorf("original JE status = %q, want 'reversed'", origJE.Status)
+	if origJE.Status != models.JournalEntryStatusPosted {
+		t.Errorf("original JE status = %q, want 'posted'", origJE.Status)
 	}
 
-	// Reversal JE must exist: source_type='reversal', source_id=invID, status='posted'.
+	// Reversal JE must exist: source_type='reversal', source_id=origJEID, status='posted'.
 	var revJE models.JournalEntry
 	if err := db.Where("reversed_from_id = ? AND company_id = ?", origJEID, cid).First(&revJE).Error; err != nil {
 		t.Fatalf("reversal JE not found: %v", err)
@@ -518,17 +518,18 @@ func TestVoidInvoice_CreatesReversalAndMarkOriginalReversed(t *testing.T) {
 	if revJE.SourceType != models.LedgerSourceReversal {
 		t.Errorf("reversal JE source_type = %q, want 'reversal'", revJE.SourceType)
 	}
-	if revJE.SourceID != invID {
-		t.Errorf("reversal JE source_id = %d, want %d", revJE.SourceID, invID)
+	if revJE.SourceID != origJEID {
+		t.Errorf("reversal JE source_id = %d, want %d", revJE.SourceID, origJEID)
 	}
 
-	// Original ledger entries must all be reversed.
+	// Original and reversal ledger entries remain active so audit readers can
+	// reconstruct the full pair from the JE chain.
 	var activeOrigLedger int64
 	db.Model(&models.LedgerEntry{}).
 		Where("journal_entry_id = ? AND status = ?", origJEID, models.LedgerEntryStatusActive).
 		Count(&activeOrigLedger)
-	if activeOrigLedger != 0 {
-		t.Errorf("original JE still has %d active ledger entries, want 0", activeOrigLedger)
+	if activeOrigLedger == 0 {
+		t.Error("original JE has 0 active ledger entries, want > 0")
 	}
 
 	// Reversal JE ledger entries must be active.
@@ -561,9 +562,99 @@ func TestVoidInvoice_CreatesReversalAndMarkOriginalReversed(t *testing.T) {
 				rv.AccountID, orig.Debit, orig.Credit, rv.Debit, rv.Credit)
 		}
 	}
+
+	report, err := BuildAccountTransactionsReport(db, cid, arID,
+		time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("BuildAccountTransactionsReport: %v", err)
+	}
+	if len(report.Rows) != 0 {
+		t.Fatalf("void/reversal pair should be hidden from ordinary account report, got %d rows", len(report.Rows))
+	}
+	if !report.EndingBalance.IsZero() {
+		t.Fatalf("ending balance after hidden void/reversal pair: got %s want 0", report.EndingBalance)
+	}
+
+	var reversalAudit, invoiceAudit int64
+	db.Model(&models.AuditLog{}).
+		Where("action = ? AND entity_type = ? AND entity_id = ?", "journal_entry.reversal.created", "journal_entry", revJE.ID).
+		Count(&reversalAudit)
+	db.Model(&models.AuditLog{}).
+		Where("action = ? AND entity_type = ? AND entity_id = ?", "invoice.voided", "invoice", invID).
+		Count(&invoiceAudit)
+	if reversalAudit != 1 || invoiceAudit != 1 {
+		t.Fatalf("audit logs: reversal=%d invoice=%d, want 1 each", reversalAudit, invoiceAudit)
+	}
 }
 
 // ── Lifecycle: reverse ────────────────────────────────────────────────────────
+
+func TestVoidBill_CreatesAuditedReversalAndHidesPairFromReport(t *testing.T) {
+	db := testPostingDB(t)
+	cid := seedInvoicePostCompany(t, db, "Void Bill Co")
+	vendorID := seedVendor(t, db, cid)
+	apID := seedInvoicePostAccount(t, db, cid, "2000", models.RootLiability, models.DetailAccountsPayable)
+	expID := seedInvoicePostAccount(t, db, cid, "6100", models.RootExpense, models.DetailOperatingExpense)
+
+	billID := seedBill(t, db, cid, vendorID, "500.00", []models.BillLine{
+		{ExpenseAccountID: &expID, Description: "Legal fees", Qty: d("1"), UnitPrice: d("500"), LineNet: d("500.00"), LineTotal: d("500.00")},
+	})
+	if err := PostBill(db, cid, billID, "tester", nil); err != nil {
+		t.Fatalf("PostBill: %v", err)
+	}
+	var billAfterPost models.Bill
+	db.First(&billAfterPost, billID)
+	origJEID := *billAfterPost.JournalEntryID
+
+	if err := VoidBill(db, cid, billID, "tester", nil); err != nil {
+		t.Fatalf("VoidBill: %v", err)
+	}
+
+	var bill models.Bill
+	db.First(&bill, billID)
+	if bill.Status != models.BillStatusVoided {
+		t.Fatalf("bill status = %q, want voided", bill.Status)
+	}
+
+	var origJE models.JournalEntry
+	db.First(&origJE, origJEID)
+	if origJE.Status != models.JournalEntryStatusPosted {
+		t.Fatalf("original JE status = %q, want posted", origJE.Status)
+	}
+
+	var revJE models.JournalEntry
+	if err := db.Where("reversed_from_id = ? AND company_id = ?", origJEID, cid).First(&revJE).Error; err != nil {
+		t.Fatalf("reversal JE not found: %v", err)
+	}
+	if revJE.SourceType != models.LedgerSourceReversal || revJE.SourceID != origJEID {
+		t.Fatalf("reversal source = %s/%d, want reversal/%d", revJE.SourceType, revJE.SourceID, origJEID)
+	}
+
+	report, err := BuildAccountTransactionsReport(db, cid, apID,
+		time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("BuildAccountTransactionsReport: %v", err)
+	}
+	if len(report.Rows) != 0 {
+		t.Fatalf("void/reversal pair should be hidden from ordinary account report, got %d rows", len(report.Rows))
+	}
+	if !report.EndingBalance.IsZero() {
+		t.Fatalf("ending balance after hidden void/reversal pair: got %s want 0", report.EndingBalance)
+	}
+
+	var reversalAudit, billAudit int64
+	db.Model(&models.AuditLog{}).
+		Where("action = ? AND entity_type = ? AND entity_id = ?", "journal_entry.reversal.created", "journal_entry", revJE.ID).
+		Count(&reversalAudit)
+	db.Model(&models.AuditLog{}).
+		Where("action = ? AND entity_type = ? AND entity_id = ?", "bill.voided", "bill", billID).
+		Count(&billAudit)
+	if reversalAudit != 1 || billAudit != 1 {
+		t.Fatalf("audit logs: reversal=%d bill=%d, want 1 each", reversalAudit, billAudit)
+	}
+}
 
 func TestReverseJournalEntry_CreatesReversingJE(t *testing.T) {
 	db := testPostingDB(t)

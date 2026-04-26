@@ -39,7 +39,7 @@ func seedH4Fixture(t *testing.T, db *gorm.DB, s invPostingSetup) uint {
 	if err := db.Model(&models.Company{}).
 		Where("id = ?", s.companyID).
 		Updates(map[string]any{
-			"receipt_required":         true,
+			"receipt_required":          true,
 			"gr_ir_clearing_account_id": grir.ID,
 		}).Error; err != nil {
 		t.Fatalf("flip flag + wire GR/IR: %v", err)
@@ -396,7 +396,7 @@ func TestVoidBill_H4_FlagOn_StockBill_ReversesJENoMovements(t *testing.T) {
 	if err := VoidBill(db, s.companyID, bill.ID, "tester", nil); err != nil {
 		t.Fatalf("VoidBill: %v", err)
 	}
-	// Reversal JE exists; original JE marked reversed.
+	// Reversal JE exists; original JE remains posted and is cancelled by the reversal.
 	var voided models.Bill
 	db.First(&voided, bill.ID)
 	if voided.Status != models.BillStatusVoided {
@@ -404,8 +404,8 @@ func TestVoidBill_H4_FlagOn_StockBill_ReversesJENoMovements(t *testing.T) {
 	}
 	var origJE models.JournalEntry
 	db.First(&origJE, *voided.JournalEntryID)
-	if origJE.Status != models.JournalEntryStatusReversed {
-		t.Fatalf("orig JE status: got %q want reversed", origJE.Status)
+	if origJE.Status != models.JournalEntryStatusPosted {
+		t.Fatalf("orig JE status: got %q want posted", origJE.Status)
 	}
 	// No bill movements existed → no reversal movements.
 	var revCount int64

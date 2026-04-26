@@ -84,7 +84,8 @@ func VoidBill(db *gorm.DB, companyID, billID uint, actor string, userID *uuid.UU
 			return ErrBillNotVoidable
 		}
 
-		// b. Reversal JE header.
+		// b. Reversal JE header. SourceID is the original JE ID, not the
+		//    bill ID, so reversal records cannot collide across source families.
 		reversalJE := models.JournalEntry{
 			CompanyID:      companyID,
 			EntryDate:      origJE.EntryDate,
@@ -92,7 +93,7 @@ func VoidBill(db *gorm.DB, companyID, billID uint, actor string, userID *uuid.UU
 			ReversedFromID: &origJE.ID,
 			Status:         models.JournalEntryStatusPosted,
 			SourceType:     models.LedgerSourceReversal,
-			SourceID:       bill.ID,
+			SourceID:       origJE.ID,
 		}
 		if err := wrapUniqueViolation(tx.Create(&reversalJE).Error, "create reversal journal entry"); err != nil {
 			return fmt.Errorf("create reversal journal entry: %w", err)
@@ -117,22 +118,14 @@ func VoidBill(db *gorm.DB, companyID, billID uint, actor string, userID *uuid.UU
 			createdRevLines = append(createdRevLines, line)
 		}
 
-		// d. Mark original JE as reversed.
-		if err := tx.Model(&models.JournalEntry{}).
-			Where("id = ? AND company_id = ?", origJE.ID, companyID).
-			Update("status", models.JournalEntryStatusReversed).Error; err != nil {
-			return fmt.Errorf("mark original journal entry reversed: %w", err)
-		}
-
-		// e. Mark original ledger entries as reversed + project reversal.
-		if err := MarkLedgerEntriesReversed(tx, companyID, origJE.ID); err != nil {
-			return fmt.Errorf("mark ledger entries reversed: %w", err)
-		}
+		// d. Keep the original JE posted and project a posted reversal. Ordinary
+		//    reports hide reversal pairs through reportableJournalEntryWhere;
+		//    audit views still have both entries and a direct reversed_from_id link.
 		if err := ProjectToLedger(tx, companyID, LedgerPostInput{
 			JournalEntry: reversalJE,
 			Lines:        createdRevLines,
 			SourceType:   models.LedgerSourceReversal,
-			SourceID:     bill.ID,
+			SourceID:     origJE.ID,
 		}); err != nil {
 			return fmt.Errorf("project reversal to ledger: %w", err)
 		}
@@ -188,15 +181,51 @@ func VoidBill(db *gorm.DB, companyID, billID uint, actor string, userID *uuid.UU
 			return fmt.Errorf("update bill status: %w", err)
 		}
 
-		// h. Audit log.
 		cid := companyID
+		if err := WriteAuditLogWithContextDetails(tx, "journal_entry.reversal.created", "journal_entry", reversalJE.ID, actor,
+			map[string]any{
+				"company_id":          companyID,
+				"source_entity_type":  "bill",
+				"source_entity_id":    bill.ID,
+				"source_document_no":  bill.BillNumber,
+				"original_entry_id":   origJE.ID,
+				"reversal_entry_id":   reversalJE.ID,
+				"reversal_journal_no": reversalJE.JournalNo,
+			},
+			&cid, userID,
+			map[string]any{
+				"journal_entry_id": origJE.ID,
+				"status":           string(origJE.Status),
+				"source_type":      string(origJE.SourceType),
+				"source_id":        origJE.SourceID,
+			},
+			map[string]any{
+				"journal_entry_id": reversalJE.ID,
+				"status":           string(reversalJE.Status),
+				"source_type":      string(reversalJE.SourceType),
+				"source_id":        reversalJE.SourceID,
+				"reversed_from_id": origJE.ID,
+			},
+		); err != nil {
+			return err
+		}
+
+		// h. Audit log.
 		return WriteAuditLogWithContextDetails(tx, "bill.voided", "bill", bill.ID, actor,
 			map[string]any{"company_id": companyID},
-			&cid, userID, nil,
+			&cid, userID,
 			map[string]any{
-				"bill_number":       bill.BillNumber,
-				"reversal_entry_id": reversalJE.ID,
-				"total":             bill.Amount.StringFixed(2),
+				"status":           string(bill.Status),
+				"journal_entry_id": origJE.ID,
+				"amount":           bill.Amount.StringFixed(2),
+			},
+			map[string]any{
+				"bill_number":         bill.BillNumber,
+				"status":              string(models.BillStatusVoided),
+				"original_entry_id":   origJE.ID,
+				"reversal_entry_id":   reversalJE.ID,
+				"reversal_journal_no": reversalJE.JournalNo,
+				"total":               bill.Amount.StringFixed(2),
 			},
 		)
 	})
