@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"gobooks/internal/models"
 )
@@ -19,13 +20,18 @@ func TestSmartPickerUsage_PersistsSelectionEvent(t *testing.T) {
 	companyID := seedCompany(t, db, "Picker Usage Co")
 	user, rawToken := seedUserSession(t, db, &companyID)
 	seedMembership(t, db, user.ID, companyID)
+	accountID := seedSPAccount(t, db, companyID, "6100", "Office Supplies", models.RootExpense, true)
 
 	app := testRouteApp(t, db)
 	payload, err := json.Marshal(map[string]any{
-		"entity":     "account",
-		"context":    "expense_form_category",
-		"item_id":    "42",
-		"request_id": "req-usage-001",
+		"entity":        "account",
+		"context":       "expense_form_category",
+		"item_id":       fmt.Sprintf("%d", accountID),
+		"event_type":    "select",
+		"rank_position": 2,
+		"result_count":  5,
+		"query":         "office",
+		"request_id":    "req-usage-001",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -44,18 +50,33 @@ func TestSmartPickerUsage_PersistsSelectionEvent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.StatusCode != http.StatusNoContent {
-		t.Fatalf("expected 204, got %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
 	}
 
 	var usage models.SmartPickerUsage
 	if err := db.Where("company_id = ? AND entity = ? AND context = ? AND item_id = ?",
-		companyID, "account", "expense_form_category", 42).
+		companyID, "account", "expense_form_category", accountID).
 		First(&usage).Error; err != nil {
 		t.Fatalf("expected persisted usage row, got %v", err)
 	}
 	if usage.RequestID != "req-usage-001" {
 		t.Fatalf("expected request_id to persist, got %q", usage.RequestID)
+	}
+	var event models.SmartPickerEvent
+	if err := db.Where("company_id = ? AND context = ? AND entity_type = ? AND selected_entity_id = ?",
+		companyID, "expense_form_category", "account", accountID).
+		First(&event).Error; err != nil {
+		t.Fatalf("expected smart picker event, got %v", err)
+	}
+	var companyStat models.SmartPickerUsageStat
+	if err := db.Where("company_id = ? AND scope_type = ? AND context = ? AND entity_type = ? AND entity_id = ?",
+		companyID, models.SmartPickerScopeCompany, "expense_form_category", "account", accountID).
+		First(&companyStat).Error; err != nil {
+		t.Fatalf("expected company usage stat, got %v", err)
+	}
+	if companyStat.SelectCount != 1 || companyStat.AvgRankPosition.InexactFloat64() != 2 {
+		t.Fatalf("unexpected company stat: %+v", companyStat)
 	}
 }
 
@@ -68,12 +89,13 @@ func TestSmartPickerUsage_PersistsVendorContext(t *testing.T) {
 	companyID := seedCompany(t, db, "Picker Vendor Usage Co")
 	user, rawToken := seedUserSession(t, db, &companyID)
 	seedMembership(t, db, user.ID, companyID)
+	vendorID := seedSPVendor(t, db, companyID, "North Supplies", "north@example.com", "")
 
 	app := testRouteApp(t, db)
 	payload, err := json.Marshal(map[string]any{
 		"entity":     "vendor",
 		"context":    "expense_form_vendor",
-		"item_id":    "7",
+		"item_id":    fmt.Sprintf("%d", vendorID),
 		"request_id": "req-vendor-usage-001",
 	})
 	if err != nil {
@@ -93,13 +115,13 @@ func TestSmartPickerUsage_PersistsVendorContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.StatusCode != http.StatusNoContent {
-		t.Fatalf("expected 204, got %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
 	}
 
 	var usage models.SmartPickerUsage
 	if err := db.Where("company_id = ? AND entity = ? AND context = ? AND item_id = ?",
-		companyID, "vendor", "expense_form_vendor", 7).
+		companyID, "vendor", "expense_form_vendor", vendorID).
 		First(&usage).Error; err != nil {
 		t.Fatalf("expected persisted vendor usage row, got %v", err)
 	}
@@ -118,23 +140,28 @@ func TestSmartPickerAcceleration_SearchRanksByUsage(t *testing.T) {
 	officeID := seedSPAccount(t, db, companyID, "6100", "Office Supplies", models.RootExpense, true)
 	travelID := seedSPAccount(t, db, companyID, "6200", "Travel", models.RootExpense, true)
 
-	for i := 0; i < 3; i++ {
-		if err := db.Create(&models.SmartPickerUsage{
-			CompanyID: companyID,
-			Entity:    "account",
-			Context:   "expense_form_category",
-			ItemID:    travelID,
-			RequestID: fmt.Sprintf("req-%d", i),
-		}).Error; err != nil {
-			t.Fatal(err)
-		}
+	now := time.Now().UTC()
+	if err := db.Create(&models.SmartPickerUsageStat{
+		CompanyID:      companyID,
+		ScopeType:      models.SmartPickerScopeCompany,
+		Context:        "expense_form_category",
+		EntityType:     "account",
+		EntityID:       travelID,
+		SelectCount:    3,
+		LastSelectedAt: &now,
+		UpdatedAt:      now,
+	}).Error; err != nil {
+		t.Fatal(err)
 	}
-	if err := db.Create(&models.SmartPickerUsage{
-		CompanyID: companyID,
-		Entity:    "account",
-		Context:   "expense_form_category",
-		ItemID:    officeID,
-		RequestID: "req-office",
+	if err := db.Create(&models.SmartPickerUsageStat{
+		CompanyID:      companyID,
+		ScopeType:      models.SmartPickerScopeCompany,
+		Context:        "expense_form_category",
+		EntityType:     "account",
+		EntityID:       officeID,
+		SelectCount:    1,
+		LastSelectedAt: &now,
+		UpdatedAt:      now,
 	}).Error; err != nil {
 		t.Fatal(err)
 	}

@@ -73,6 +73,17 @@ func testRouteDB(t *testing.T) *gorm.DB {
 		&models.PurchaseOrder{},
 		&models.VendorCreditNote{},
 		&models.VendorRefund{},
+		&models.SmartPickerUsage{},
+		&models.SmartPickerEvent{},
+		&models.SmartPickerUsageStat{},
+		&models.SmartPickerPairStat{},
+		&models.SmartPickerRecentQuery{},
+		&models.SmartPickerLearningProfile{},
+		&models.SmartPickerRankingHint{},
+		&models.SmartPickerAliasSuggestion{},
+		&models.AIJobRun{},
+		&models.AIRequestLog{},
+		&models.SmartPickerDecisionTrace{},
 		// Customer Deposit — AR liability document for overpayments
 		// and manual prepayments. Successor to CustomerCredit.
 		&models.CustomerDeposit{},

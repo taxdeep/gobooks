@@ -32,6 +32,9 @@ function gobooksSmartPicker() {
     createUrl:   "",
     createLabel: "Add new",
     placeholder: "Search\u2026",
+    anchorContext:    "",
+    anchorEntityType: "",
+    anchorEntityId:   "",
 
     // ── Selection state ──
     selectedId:    "",   // value written to hidden input; what the form submits
@@ -55,6 +58,8 @@ function gobooksSmartPicker() {
     _lastFetchQuery: null,  // dedup: skip identical back-to-back requests
     _fetchSeq:       0,     // monotonic counter; used to discard stale out-of-order responses
     _lastRequestId:  "",    // request_id from last backend response; correlated into usage ping
+    _lastUsageSearchKey: "",
+    _lastUsageSearchAt:  0,
     requiresBackendValidation: true,
 
     init() {
@@ -68,6 +73,9 @@ function gobooksSmartPicker() {
       this.createUrl   = el.dataset.createUrl   || "";
       this.createLabel = el.dataset.createLabel || "Add new";
       this.placeholder = el.dataset.placeholder || "Search\u2026";
+      this.anchorContext    = el.dataset.anchorContext    || "";
+      this.anchorEntityType = el.dataset.anchorEntityType || "";
+      this.anchorEntityId   = el.dataset.anchorEntityId   || "";
 
       // Edit-page rehydration: server pre-populates data-value + data-selected-label.
       // selectedLabel MUST come from the server; we never fall back to displaying the
@@ -167,6 +175,11 @@ function gobooksSmartPicker() {
           limit:   String(this.limit),
           request_id: requestId,
         });
+        if (this.anchorContext && this.anchorEntityType && this.anchorEntityId) {
+          params.set("anchor_context", this.anchorContext);
+          params.set("anchor_entity_type", this.anchorEntityType);
+          params.set("anchor_entity_id", this.anchorEntityId);
+        }
         const fetchFn = window.gobooksFetch || fetch;
         const res = await fetchFn("/api/smart-picker/search?" + params.toString(), {
           method: "GET",
@@ -189,6 +202,7 @@ function gobooksSmartPicker() {
         if (data.request_id && data.request_id === requestId) {
           this._lastRequestId = data.request_id;
         }
+        this._maybeSendSearchUsage(q, this.items.length);
         this.failed = false;
       } catch (_) {
         if (seq !== this._fetchSeq) return;
@@ -200,6 +214,10 @@ function gobooksSmartPicker() {
     },
 
     select(item) {
+      const selectedQuery = this.query.trim();
+      const rankIndex = this.items.findIndex((it) => String(it.id) === String(item.id));
+      const rankPosition = rankIndex >= 0 ? rankIndex + 1 : (item.rank_position || null);
+      const resultCount = this.items.length;
       this.selectedId    = item.id;
       this.selectedLabel = item.primary;
       this.query         = item.primary;
@@ -218,17 +236,13 @@ function gobooksSmartPicker() {
       // Fire-and-forget usage ping for future ranking signals.
       // Uses gobooksFetch so the X-CSRF-Token is injected automatically.
       // Errors are silently ignored — this must never break picker UX.
-      const fetchFn = window.gobooksFetch || fetch;
-      fetchFn("/api/smart-picker/usage", {
-        method:  "POST",
-        headers: {"Content-Type": "application/json"},
-        body:    JSON.stringify({
-          entity:     this.entity,
-          context:    this.context,
-          item_id:    item.id,
-          request_id: this._lastRequestId || "",
-        }),
-      }).catch(() => {});
+      this._sendUsage("select", {
+        query: selectedQuery,
+        selected_entity_id: item.id,
+        item_id: item.id,
+        rank_position: rankPosition,
+        result_count: resultCount,
+      });
     },
 
     // triggerCreate — fired when user clicks/keyboards to the "+ Add new" row.
@@ -237,6 +251,10 @@ function gobooksSmartPicker() {
     triggerCreate() {
       const q = this.query.trim();
       this.close();
+      this._sendUsage("create_new", {
+        query: q,
+        result_count: this.items.length,
+      });
       this.$dispatch("gobooks-picker-create", {
         entity:  this.entity,
         context: this.context,
@@ -254,6 +272,7 @@ function gobooksSmartPicker() {
 
     // clear() is only reachable when required=false (clear button not rendered for required fields).
     clear() {
+      const q = this.query.trim();
       this.selectedId      = "";
       this.selectedLabel   = "";
       this.query           = "";
@@ -262,6 +281,7 @@ function gobooksSmartPicker() {
       this.highlighted     = -1;
       this._lastFetchQuery = null;
       this._fetchSeq       = 0;
+      this._sendUsage("clear", { query: q });
     },
 
     // ── Keyboard navigation ──
@@ -309,6 +329,42 @@ function gobooksSmartPicker() {
           }
           break;
       }
+    },
+
+    _maybeSendSearchUsage(q, resultCount) {
+      const now = Date.now();
+      const key = [this.entity, this.context, q, resultCount].join("|");
+      if (key !== this._lastUsageSearchKey || now - this._lastUsageSearchAt > 1000) {
+        this._lastUsageSearchKey = key;
+        this._lastUsageSearchAt = now;
+        this._sendUsage("search", { query: q, result_count: resultCount });
+      }
+      if (q && resultCount === 0) {
+        this._sendUsage("no_match", { query: q, result_count: 0 });
+      }
+    },
+
+    _sendUsage(eventType, extra = {}) {
+      const fetchFn = window.gobooksFetch || fetch;
+      const payload = {
+        entity: this.entity,
+        entity_type: this.entity,
+        context: this.context,
+        event_type: eventType,
+        request_id: this._lastRequestId || "",
+        source_route: window.location ? window.location.pathname : "",
+        ...extra,
+      };
+      if (this.anchorContext && this.anchorEntityType && this.anchorEntityId) {
+        payload.anchor_context = this.anchorContext;
+        payload.anchor_entity_type = this.anchorEntityType;
+        payload.anchor_entity_id = this.anchorEntityId;
+      }
+      fetchFn("/api/smart-picker/usage", {
+        method:  "POST",
+        headers: {"Content-Type": "application/json"},
+        body:    JSON.stringify(payload),
+      }).catch(() => {});
     },
 
     _newRequestId() {

@@ -227,6 +227,16 @@ func Migrate(db *gorm.DB) error {
 		&models.PaymentReverseResolutionAttempt{},
 		// SmartPicker: selection event log (ranking/popularity signal)
 		&models.SmartPickerUsage{},
+		&models.SmartPickerEvent{},
+		&models.SmartPickerUsageStat{},
+		&models.SmartPickerPairStat{},
+		&models.SmartPickerRecentQuery{},
+		&models.SmartPickerLearningProfile{},
+		&models.SmartPickerRankingHint{},
+		&models.SmartPickerAliasSuggestion{},
+		&models.AIJobRun{},
+		&models.AIRequestLog{},
+		&models.SmartPickerDecisionTrace{},
 		// User preferences (number format, etc.) — one row per user
 		&models.UserPreference{},
 		// Phase 8: per-secondary-book accounted amounts for each journal line.

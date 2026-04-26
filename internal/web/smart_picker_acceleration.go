@@ -4,15 +4,12 @@ package web
 import (
 	"fmt"
 	"log/slog"
-	"sort"
-	"strconv"
 	"strings"
 	"time"
 
 	"gorm.io/gorm"
 
 	"gobooks/internal/cache"
-	"gobooks/internal/models"
 )
 
 // SmartPickerAcceleration wraps the provider registry with a TTL cache.
@@ -65,30 +62,41 @@ func (a *SmartPickerAcceleration) Search(
 		return result, "db", err
 	}
 
-	key := spCacheKey(provider.EntityType(), ctx.Context, ctx.CompanyID, q, ctx.Limit)
+	key := spCacheKeyForContext(provider.EntityType(), ctx, q)
 
-	if cached, ok := a.cache.Get(key); ok {
-		slog.Debug("smart_picker.cache_hit",
-			"entity", provider.EntityType(),
-			"context", ctx.Context,
-			"company_id", ctx.CompanyID,
-			"q", q,
-		)
-		// Return a shallow copy so the handler can safely assign RequestID.
-		cp := *cached
-		return &cp, "cache", nil
+	if !ctx.TraceEnabled {
+		if cached, ok := a.cache.Get(key); ok {
+			slog.Debug("smart_picker.cache_hit",
+				"entity", provider.EntityType(),
+				"context", ctx.Context,
+				"company_id", ctx.CompanyID,
+				"q", q,
+			)
+			// Return a shallow copy so the handler can safely assign RequestID.
+			cp := *cached
+			return &cp, "cache", nil
+		}
 	}
 
 	result, err := provider.Search(db, ctx, q)
 	if err != nil {
 		return nil, "db", err
 	}
-	if ranked := a.rankCandidates(db, ctx.CompanyID, provider.EntityType(), ctx.Context, result); ranked {
-		a.cache.Set(key, result)
+	ctx.Query = q
+	ranked := rankSmartPickerCandidates(db, ctx, provider.EntityType(), result)
+	if ranked.TraceID != "" {
+		result.TraceID = ranked.TraceID
+	}
+	if ranked.Applied {
+		if !ctx.TraceEnabled {
+			a.cache.Set(key, result)
+		}
 		return result, "ranked", nil
 	}
 
-	a.cache.Set(key, result)
+	if !ctx.TraceEnabled {
+		a.cache.Set(key, result)
+	}
 	return result, "db", nil
 }
 
@@ -114,70 +122,13 @@ func spCacheKey(entity, context string, companyID uint, q string, limit int) str
 	return fmt.Sprintf("sp:c%d|%s|%s|%s|%d", companyID, entity, context, q, limit)
 }
 
-func (a *SmartPickerAcceleration) rankCandidates(
-	db *gorm.DB,
-	companyID uint,
-	entity string,
-	context string,
-	result *SmartPickerResult,
-) bool {
-	if result == nil || len(result.Candidates) < 2 {
-		return false
+func spCacheKeyForContext(entity string, ctx SmartPickerContext, q string) string {
+	key := spCacheKey(entity, ctx.Context, ctx.CompanyID, q, ctx.Limit)
+	if ctx.UserID != nil {
+		key += "|u:" + ctx.UserID.String()
 	}
-
-	itemIDs := make([]uint, 0, len(result.Candidates))
-	originalOrder := make(map[string]int, len(result.Candidates))
-	for idx, item := range result.Candidates {
-		originalOrder[item.ID] = idx
-		id64, err := strconv.ParseUint(item.ID, 10, 64)
-		if err != nil || id64 == 0 {
-			continue
-		}
-		itemIDs = append(itemIDs, uint(id64))
+	if ctx.AnchorEntityID != nil {
+		key += fmt.Sprintf("|a:%s:%s:%d", ctx.AnchorContext, ctx.AnchorEntityType, *ctx.AnchorEntityID)
 	}
-	if len(itemIDs) == 0 {
-		return false
-	}
-
-	type usageCountRow struct {
-		ItemID uint
-		Count  int64
-	}
-	var rows []usageCountRow
-	if err := db.Model(&models.SmartPickerUsage{}).
-		Select("item_id, COUNT(*) AS count").
-		Where("company_id = ? AND entity = ? AND context = ? AND item_id IN ?", companyID, entity, context, itemIDs).
-		Group("item_id").
-		Scan(&rows).Error; err != nil {
-		slog.Warn("smart_picker.rank_usage_query_failed",
-			"entity", entity,
-			"context", context,
-			"company_id", companyID,
-			"error", err,
-		)
-		return false
-	}
-
-	counts := make(map[string]int64, len(rows))
-	hasUsage := false
-	for _, row := range rows {
-		if row.Count <= 0 {
-			continue
-		}
-		hasUsage = true
-		counts[strconv.FormatUint(uint64(row.ItemID), 10)] = row.Count
-	}
-	if !hasUsage {
-		return false
-	}
-
-	sort.SliceStable(result.Candidates, func(i, j int) bool {
-		left := counts[result.Candidates[i].ID]
-		right := counts[result.Candidates[j].ID]
-		if left != right {
-			return left > right
-		}
-		return originalOrder[result.Candidates[i].ID] < originalOrder[result.Candidates[j].ID]
-	})
-	return true
+	return key
 }

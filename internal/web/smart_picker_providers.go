@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"gobooks/internal/models"
@@ -20,11 +21,14 @@ import (
 //	Use this for auto-fill values (e.g. default_price) that downstream Alpine
 //	components can act on without polluting the visual display.
 type SmartPickerItem struct {
-	ID        string            `json:"id"`
-	Primary   string            `json:"primary"`
-	Secondary string            `json:"secondary"`
-	Meta      map[string]string `json:"meta,omitempty"`
-	Payload   map[string]string `json:"payload,omitempty"`
+	ID           string            `json:"id"`
+	Primary      string            `json:"primary"`
+	Secondary    string            `json:"secondary"`
+	Meta         map[string]string `json:"meta,omitempty"`
+	Payload      map[string]string `json:"payload,omitempty"`
+	Score        float64           `json:"score,omitempty"`
+	Reason       string            `json:"reason,omitempty"`
+	RankPosition int               `json:"rank_position,omitempty"`
 }
 
 // SmartPickerResult is the top-level JSON response from the search endpoint.
@@ -41,14 +45,23 @@ type SmartPickerResult struct {
 	// RequestID is a per-request UUID echoed back to the frontend so the JS
 	// can discard stale out-of-order responses (last-write-wins by sequence).
 	RequestID string `json:"request_id,omitempty"`
+	TraceID   string `json:"trace_id,omitempty"`
 }
 
 // SmartPickerContext carries per-request scope that providers receive.
 // CompanyID is always sourced from the authenticated session — never from query params.
 type SmartPickerContext struct {
-	CompanyID uint
-	Context   string // discriminates purpose within an entity type (e.g. "expense_form_category")
-	Limit     int
+	CompanyID        uint
+	Context          string // discriminates purpose within an entity type (e.g. "expense_form_category")
+	Limit            int
+	UserID           *uuid.UUID
+	EntityType       string
+	Query            string
+	AnchorContext    string
+	AnchorEntityType string
+	AnchorEntityID   *uint
+	TraceEnabled     bool
+	TraceSampleRate  float64
 }
 
 // SmartPickerProvider is the interface each entity domain must implement.

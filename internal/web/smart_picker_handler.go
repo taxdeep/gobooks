@@ -1,25 +1,17 @@
-// 遵循project_guide.md
 package web
 
 import (
+	"encoding/json"
+	"errors"
 	"log/slog"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-
-	"gobooks/internal/models"
 )
 
 // handleSmartPickerSearch serves GET /api/smart-picker/search.
-// Query params:
-//
-//	entity  — required; maps to SmartPickerProvider.EntityType() (e.g. "account")
-//	context — optional; narrows purpose within the entity (e.g. "expense_form_category")
-//	q       — optional search string
-//	limit   — optional integer 1–20 (default 20; hard cap 20)
-//
-// companyID is always sourced from the authenticated session — never from query params.
+// Company and user scope always come from the authenticated session.
 func (s *Server) handleSmartPickerSearch(c *fiber.Ctx) error {
 	companyID, ok := ActiveCompanyIDFromCtx(c)
 	if !ok {
@@ -28,7 +20,15 @@ func (s *Server) handleSmartPickerSearch(c *fiber.Ctx) error {
 
 	entity := c.Query("entity")
 	if entity == "" {
+		entity = c.Query("entity_type")
+	}
+	if entity == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "entity param required"})
+	}
+
+	def, err := validateSmartPickerContext(entity, c.Query("context"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	provider, ok := defaultSmartPickerRegistry.get(entity)
@@ -46,10 +46,27 @@ func (s *Server) handleSmartPickerSearch(c *fiber.Ctx) error {
 		limit = 20
 	}
 
+	anchorContext, anchorEntityType, anchorEntityID, err := s.smartPickerAnchorFromQuery(companyID, c)
+	if err != nil {
+		var usageErr smartPickerUsageError
+		if errors.As(err, &usageErr) {
+			return c.Status(usageErr.status).JSON(fiber.Map{"error": usageErr.message})
+		}
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
 	ctx := SmartPickerContext{
-		CompanyID: companyID,
-		Context:   c.Query("context"),
-		Limit:     limit,
+		CompanyID:        companyID,
+		Context:          def.ProviderContext,
+		Limit:            limit,
+		UserID:           smartPickerUserID(c),
+		EntityType:       entity,
+		Query:            c.Query("q"),
+		AnchorContext:    anchorContext,
+		AnchorEntityType: anchorEntityType,
+		AnchorEntityID:   anchorEntityID,
+		TraceEnabled:     s.Cfg.SmartPickerTraceEnabled,
+		TraceSampleRate:  s.Cfg.SmartPickerDecisionTraceSampleRate,
 	}
 
 	requestID := c.Query("request_id")
@@ -74,7 +91,7 @@ func (s *Server) handleSmartPickerSearch(c *fiber.Ctx) error {
 
 	slog.Info("smart_picker.search",
 		"entity", entity,
-		"context", c.Query("context"),
+		"context", ctx.Context,
 		"company_id", companyID,
 		"q", c.Query("q"),
 		"source", source,
@@ -86,51 +103,72 @@ func (s *Server) handleSmartPickerSearch(c *fiber.Ctx) error {
 }
 
 // handleSmartPickerUsage serves POST /api/smart-picker/usage.
-// Called by the frontend (fire-and-forget) when the user selects an item from
-// the picker. Used for future ranking/popularity signals; does not affect
-// correctness or authorization. Always returns 204.
-//
-// JSON body: {"entity": "account", "context": "...", "item_id": "42", "request_id": "uuid"}
+// It records validated, company-scoped behavior events and updates aggregate
+// ranking signals. Legacy select pings remain accepted.
 func (s *Server) handleSmartPickerUsage(c *fiber.Ctx) error {
 	companyID, ok := ActiveCompanyIDFromCtx(c)
 	if !ok {
-		return c.SendStatus(fiber.StatusNoContent)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "no active company"})
 	}
 
-	var body struct {
-		Entity    string `json:"entity"`
-		Context   string `json:"context"`
-		ItemID    string `json:"item_id"`
-		RequestID string `json:"request_id"`
+	var body smartPickerUsageEventInput
+	if err := json.Unmarshal(c.Body(), &body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid JSON body"})
 	}
-	// Ignore parse errors — usage pings are best-effort.
-	_ = c.BodyParser(&body)
 
 	slog.Info("smart_picker.usage",
-		"entity", body.Entity,
+		"entity", firstNonEmpty(body.EntityType, body.Entity),
 		"context", body.Context,
-		"item_id", body.ItemID,
+		"event_type", body.EventType,
+		"selected_entity_id", firstNonEmpty(body.SelectedEntityID, body.ItemID),
 		"request_id", body.RequestID,
 		"company_id", companyID,
 	)
 
-	// Persist selection event for future ranking. Failures are non-fatal.
-	if itemID64, err := strconv.ParseUint(body.ItemID, 10, 64); err == nil && itemID64 > 0 {
-		usage := models.SmartPickerUsage{
-			CompanyID: companyID,
-			Entity:    body.Entity,
-			Context:   body.Context,
-			ItemID:    uint(itemID64),
-			RequestID: body.RequestID,
+	sessionID := ""
+	if sess := SessionFromCtx(c); sess != nil {
+		sessionID = sess.ID.String()
+	}
+	if err := recordSmartPickerUsageEvent(s.DB, companyID, smartPickerUserID(c), sessionID, body); err != nil {
+		var usageErr smartPickerUsageError
+		if errors.As(err, &usageErr) {
+			return c.Status(usageErr.status).JSON(fiber.Map{"error": usageErr.message})
 		}
-		if err := s.DB.Create(&usage).Error; err != nil {
-			slog.Warn("smart_picker.usage_persist_failed",
-				"entity", body.Entity,
-				"item_id", body.ItemID,
-				"error", err,
-			)
-		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "usage event failed"})
 	}
 
-	return c.SendStatus(fiber.StatusNoContent)
+	return c.JSON(fiber.Map{"ok": true})
+}
+
+func smartPickerUserID(c *fiber.Ctx) *uuid.UUID {
+	user := UserFromCtx(c)
+	if user == nil {
+		return nil
+	}
+	id := user.ID
+	return &id
+}
+
+func (s *Server) smartPickerAnchorFromQuery(companyID uint, c *fiber.Ctx) (string, string, *uint, error) {
+	anchorContext := c.Query("anchor_context")
+	anchorEntityType := c.Query("anchor_entity_type")
+	anchorIDRaw := c.Query("anchor_entity_id")
+	if anchorContext == "" && anchorEntityType == "" && anchorIDRaw == "" {
+		return "", "", nil, nil
+	}
+	anchorID, err := parseSmartPickerEntityID(anchorIDRaw)
+	if err != nil {
+		return "", "", nil, smartPickerUsageError{status: fiber.StatusBadRequest, message: "invalid anchor_entity_id"}
+	}
+	if anchorID == nil {
+		return "", "", nil, smartPickerUsageError{status: fiber.StatusBadRequest, message: "anchor_entity_id required when anchor context is provided"}
+	}
+	def, err := validateSmartPickerContext(anchorEntityType, anchorContext)
+	if err != nil {
+		return "", "", nil, smartPickerUsageError{status: fiber.StatusBadRequest, message: "invalid anchor context"}
+	}
+	if err := validateSmartPickerEntityID(s.DB, companyID, def.ProviderContext, anchorEntityType, *anchorID); err != nil {
+		return "", "", nil, err
+	}
+	return def.ProviderContext, anchorEntityType, anchorID, nil
 }
