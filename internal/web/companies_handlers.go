@@ -3,6 +3,7 @@ package web
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -30,9 +31,11 @@ func (s *Server) handleCompaniesGet(c *fiber.Ctx) error {
 	if sess != nil && sess.ActiveCompanyID != nil {
 		activeID = *sess.ActiveCompanyID
 	}
+	searchQuery := strings.TrimSpace(c.Query("q"))
 
-	// Reuse the existing helper that loads memberships + company names.
-	selectRows, err := s.buildSelectCompanyRows(user.ID)
+	// Search is hard-limited to companies reachable through this user's active
+	// memberships. The query only filters company names inside that boundary.
+	selectRows, err := s.buildSelectCompanyRowsFiltered(user.ID, searchQuery)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "database error")
 	}
@@ -52,5 +55,6 @@ func (s *Server) handleCompaniesGet(c *fiber.Ctx) error {
 		Rows:            rows,
 		ActiveCompanyID: activeID,
 		PlanName:        fullUser.Plan.Name,
+		SearchQuery:     searchQuery,
 	}).Render(c.Context(), c)
 }

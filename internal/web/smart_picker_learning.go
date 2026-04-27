@@ -292,7 +292,7 @@ func (s *Server) storeDeterministicRankingHints(companyID uint, jobRunID uuid.UU
 			if entity.SelectCount < 2 {
 				continue
 			}
-			if err := validateSmartPickerEntityID(s.DB, companyID, contextSummary.Context, entity.EntityType, entity.EntityID); err != nil {
+			if err := validateSmartPickerEntityID(s.DB, companyID, nil, contextSummary.Context, entity.EntityType, entity.EntityID); err != nil {
 				continue
 			}
 			boost := math.Min(math.Log(float64(entity.SelectCount)+1)*2, 10)
@@ -367,7 +367,7 @@ func (s *Server) processSmartPickerAIOutput(companyID uint, jobRunID uuid.UUID, 
 			warnings = append(warnings, "AI ranking suggestion rejected: invalid confidence")
 			continue
 		}
-		if err := validateSmartPickerEntityID(s.DB, companyID, def.ProviderContext, suggestion.EntityType, suggestion.EntityID.Value); err != nil {
+		if err := validateSmartPickerEntityID(s.DB, companyID, nil, def.ProviderContext, suggestion.EntityType, suggestion.EntityID.Value); err != nil {
 			warnings = append(warnings, "AI ranking suggestion rejected: "+err.Error())
 			continue
 		}
@@ -411,7 +411,7 @@ func (s *Server) processSmartPickerAIOutput(companyID uint, jobRunID uuid.UUID, 
 			warnings = append(warnings, "AI alias suggestion rejected: invalid confidence")
 			continue
 		}
-		if err := validateSmartPickerEntityID(s.DB, companyID, def.ProviderContext, suggestion.EntityType, suggestion.EntityID.Value); err != nil {
+		if err := validateSmartPickerEntityID(s.DB, companyID, nil, def.ProviderContext, suggestion.EntityType, suggestion.EntityID.Value); err != nil {
 			warnings = append(warnings, "AI alias suggestion rejected: "+err.Error())
 			continue
 		}

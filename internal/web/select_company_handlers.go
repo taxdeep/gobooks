@@ -61,6 +61,7 @@ func (s *Server) handleSelectCompanyPost(c *fiber.Ctx) error {
 	if err := s.DB.Model(&models.Session{}).Where("id = ?", sess.ID).Update("active_company_id", companyID).Error; err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "database error")
 	}
+	s.recordCompanySwitcherSelection(companyID, user, sess, c)
 
 	if c.Get("HX-Request") == "true" {
 		c.Set("HX-Redirect", "/")
@@ -95,6 +96,10 @@ func (s *Server) renderSelectCompanyWithError(c *fiber.Ctx, userID uuid.UUID, ms
 }
 
 func (s *Server) buildSelectCompanyRows(userID uuid.UUID) ([]pages.SelectCompanyRowVM, error) {
+	return s.buildSelectCompanyRowsFiltered(userID, "")
+}
+
+func (s *Server) buildSelectCompanyRowsFiltered(userID uuid.UUID, companyNameQuery string) ([]pages.SelectCompanyRowVM, error) {
 	memRepo := repository.NewMembershipRepository(s.DB)
 	memberships, err := memRepo.ListMembershipsByUser(userID)
 	if err != nil {
@@ -110,7 +115,11 @@ func (s *Server) buildSelectCompanyRows(userID uuid.UUID) ([]pages.SelectCompany
 		ids = append(ids, m.CompanyID)
 	}
 	var companies []models.Company
-	if err := s.DB.Where("id IN ?", ids).Find(&companies).Error; err != nil {
+	q := s.DB.Where("id IN ? AND is_active = true", ids)
+	if strings.TrimSpace(companyNameQuery) != "" {
+		q = applySmartPickerTextSearch(q, s.DB.Dialector.Name(), companyNameQuery, "name")
+	}
+	if err := q.Find(&companies).Error; err != nil {
 		return nil, err
 	}
 	byID := make(map[uint]models.Company, len(companies))
@@ -137,16 +146,34 @@ func (s *Server) buildSelectCompanyRows(userID uuid.UUID) ([]pages.SelectCompany
 	return rows, nil
 }
 
+func (s *Server) recordCompanySwitcherSelection(companyID uint, user *models.User, sess *models.Session, c *fiber.Ctx) {
+	if user == nil || sess == nil {
+		return
+	}
+	userID := user.ID
+	rankPosition := 1
+	input := smartPickerUsageEventInput{
+		EntityType:       "company",
+		Context:          "company.switcher",
+		EventType:        models.SmartPickerEventSelect,
+		SelectedEntityID: strconv.FormatUint(uint64(companyID), 10),
+		RankPosition:     &rankPosition,
+		SourceRoute:      c.Get("Referer"),
+	}
+	if err := recordSmartPickerUsageEvent(s.DB, companyID, &userID, sess.ID.String(), input); err != nil {
+		// Company switching is already validated above; learning telemetry must
+		// never block the user's ability to change business context.
+		return
+	}
+}
+
 func (s *Server) userHasActiveMembership(userID uuid.UUID, companyID uint) bool {
-	memRepo := repository.NewMembershipRepository(s.DB)
-	memberships, err := memRepo.ListMembershipsByUser(userID)
-	if err != nil {
+	var count int64
+	if err := s.DB.Model(&models.CompanyMembership{}).
+		Joins("JOIN companies ON companies.id = company_memberships.company_id").
+		Where("company_memberships.user_id = ? AND company_memberships.company_id = ? AND company_memberships.is_active = true AND companies.is_active = true", userID, companyID).
+		Count(&count).Error; err != nil {
 		return false
 	}
-	for _, m := range filterActiveMemberships(memberships) {
-		if m.CompanyID == companyID {
-			return true
-		}
-	}
-	return false
+	return count > 0
 }

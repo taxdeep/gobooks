@@ -63,7 +63,7 @@ func recordSmartPickerUsageEvent(db *gorm.DB, companyID uint, userID *uuid.UUID,
 		return smartPickerUsageError{status: 400, message: "invalid selected_entity_id"}
 	}
 	if selectedID != nil {
-		if err := validateSmartPickerEntityID(db, companyID, def.ProviderContext, entityType, *selectedID); err != nil {
+		if err := validateSmartPickerEntityID(db, companyID, userID, def.ProviderContext, entityType, *selectedID); err != nil {
 			return err
 		}
 	}
@@ -83,7 +83,7 @@ func recordSmartPickerUsageEvent(db *gorm.DB, companyID uint, userID *uuid.UUID,
 		if anchorID == nil {
 			return smartPickerUsageError{status: 400, message: "anchor_entity_id required when anchor context is provided"}
 		}
-		if err := validateSmartPickerEntityID(db, companyID, anchorContext, anchorEntityType, *anchorID); err != nil {
+		if err := validateSmartPickerEntityID(db, companyID, userID, anchorContext, anchorEntityType, *anchorID); err != nil {
 			return err
 		}
 	}
@@ -176,12 +176,12 @@ func recordSmartPickerUsageEvent(db *gorm.DB, companyID uint, userID *uuid.UUID,
 	return err
 }
 
-func validateSmartPickerEntityID(db *gorm.DB, companyID uint, context string, entityType string, id uint) error {
+func validateSmartPickerEntityID(db *gorm.DB, companyID uint, userID *uuid.UUID, context string, entityType string, id uint) error {
 	provider, ok := defaultSmartPickerRegistry.get(entityType)
 	if !ok {
 		return smartPickerUsageError{status: 400, message: "unknown smart picker entity type"}
 	}
-	item, err := provider.GetByID(db, SmartPickerContext{CompanyID: companyID, Context: context}, strconv.FormatUint(uint64(id), 10))
+	item, err := provider.GetByID(db, SmartPickerContext{CompanyID: companyID, Context: context, UserID: userID}, strconv.FormatUint(uint64(id), 10))
 	if err != nil {
 		return fmt.Errorf("validate smart picker entity: %w", err)
 	}

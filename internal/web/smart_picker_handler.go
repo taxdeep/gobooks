@@ -167,7 +167,7 @@ func (s *Server) smartPickerAnchorFromQuery(companyID uint, c *fiber.Ctx) (strin
 	if err != nil {
 		return "", "", nil, smartPickerUsageError{status: fiber.StatusBadRequest, message: "invalid anchor context"}
 	}
-	if err := validateSmartPickerEntityID(s.DB, companyID, def.ProviderContext, anchorEntityType, *anchorID); err != nil {
+	if err := validateSmartPickerEntityID(s.DB, companyID, smartPickerUserID(c), def.ProviderContext, anchorEntityType, *anchorID); err != nil {
 		return "", "", nil, err
 	}
 	return def.ProviderContext, anchorEntityType, anchorID, nil

@@ -4,13 +4,17 @@ package web
 import (
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 
 	"gobooks/internal/models"
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/ui"
 )
+
+const companySwitcherDefaultLimit = 8
 
 // LoadSidebarData is a Fiber middleware that resolves the company-switcher data
 // for the current authenticated user and stores it in the Go request context via
@@ -85,7 +89,7 @@ func (s *Server) buildSidebarData(user *models.User, activeCompanyID uint) ui.Si
 	}
 
 	var companies []models.Company
-	if err := s.DB.Select("id, name").Where("id IN ?", ids).Find(&companies).Error; err != nil {
+	if err := s.DB.Select("id, name").Where("id IN ? AND is_active = true", ids).Find(&companies).Error; err != nil {
 		return ui.SidebarData{
 			CompanyName:  companyName,
 			PlanName:     planName,
@@ -110,7 +114,7 @@ func (s *Server) buildSidebarData(user *models.User, activeCompanyID uint) ui.Si
 			IsActive:     m.CompanyID == activeCompanyID,
 		})
 	}
-	sort.Slice(rows, func(i, j int) bool { return rows[i].Name < rows[j].Name })
+	rows = s.rankCompanySwitcherRows(user.ID, rows, activeCompanyID, ids)
 
 	return ui.SidebarData{
 		CompanyName:  companyName,
@@ -118,4 +122,73 @@ func (s *Server) buildSidebarData(user *models.User, activeCompanyID uint) ui.Si
 		SwitcherRows: rows,
 		NumberFormat: numFmt,
 	}
+}
+
+func (s *Server) rankCompanySwitcherRows(userID uuid.UUID, rows []ui.SwitcherRow, activeCompanyID uint, companyIDs []uint) []ui.SwitcherRow {
+	type stat struct {
+		count int
+		last  *time.Time
+	}
+	statsByID := map[string]stat{}
+	if len(companyIDs) > 0 {
+		var stats []models.SmartPickerUsageStat
+		if err := s.DB.
+			Where("scope_type = ? AND user_id = ? AND context = ? AND entity_type = ? AND entity_id IN ?",
+				models.SmartPickerScopeUser, userID, "company.switcher", "company", companyIDs).
+			Find(&stats).Error; err == nil {
+			for _, row := range stats {
+				key := strconv.FormatUint(uint64(row.EntityID), 10)
+				cur := statsByID[key]
+				if row.SelectCount > cur.count || (row.SelectCount == cur.count && moreRecent(row.LastSelectedAt, cur.last)) {
+					statsByID[key] = stat{count: row.SelectCount, last: row.LastSelectedAt}
+				}
+			}
+		}
+	}
+	sort.SliceStable(rows, func(i, j int) bool {
+		left := statsByID[rows[i].CompanyIDStr]
+		right := statsByID[rows[j].CompanyIDStr]
+		if left.count != right.count {
+			return left.count > right.count
+		}
+		if !sameTime(left.last, right.last) {
+			return moreRecent(left.last, right.last)
+		}
+		return rows[i].Name < rows[j].Name
+	})
+	if len(rows) <= companySwitcherDefaultLimit {
+		return rows
+	}
+
+	activeIDStr := strconv.FormatUint(uint64(activeCompanyID), 10)
+	selected := append([]ui.SwitcherRow(nil), rows[:companySwitcherDefaultLimit]...)
+	for _, row := range selected {
+		if row.CompanyIDStr == activeIDStr {
+			return selected
+		}
+	}
+	for _, row := range rows[companySwitcherDefaultLimit:] {
+		if row.CompanyIDStr == activeIDStr {
+			selected[len(selected)-1] = row
+			return selected
+		}
+	}
+	return selected
+}
+
+func moreRecent(left, right *time.Time) bool {
+	if left == nil {
+		return false
+	}
+	if right == nil {
+		return true
+	}
+	return left.After(*right)
+}
+
+func sameTime(left, right *time.Time) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return left.Equal(*right)
 }

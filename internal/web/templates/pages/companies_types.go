@@ -6,6 +6,7 @@ type CompaniesVM struct {
 	Rows            []CompanyRowVM
 	ActiveCompanyID uint   // currently active company in the session (0 if none)
 	PlanName        string // user's plan name, shown in the page subtitle
+	SearchQuery     string // optional company-name filter scoped to the current user
 }
 
 // CompanyRowVM is one row in the company list.

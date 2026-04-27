@@ -33,11 +33,43 @@ templ bodyCompanies(vm CompaniesVM) {
 			</a>
 		</div>
 
+		<form method="get" action="/companies" class="mt-6 rounded-lg border border-border bg-surface p-4">
+			<label for="company-search" class="block text-label uppercase tracking-wide text-text-muted3">Search</label>
+			<div class="mt-2 flex items-center gap-2">
+				<input
+					id="company-search"
+					name="q"
+					type="search"
+					value={ vm.SearchQuery }
+					placeholder="Company name..."
+					class="min-w-0 flex-1 rounded-md border border-border-input bg-background px-3 py-2 text-body text-text placeholder:text-text-muted3 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+				/>
+				<button
+					type="submit"
+					class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+				>
+					Search
+				</button>
+				if vm.SearchQuery != "" {
+					<a
+						href="/companies"
+						class="rounded-md border border-border-input bg-background px-4 py-2 text-body font-medium text-text hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+					>
+						Reset
+					</a>
+				}
+			</div>
+		</form>
+
 		<!-- Company list -->
 		<div class="mt-6 space-y-3">
 			if len(vm.Rows) == 0 {
 				<div class="rounded-lg border border-border bg-surface p-8 text-center text-body text-text-muted2">
-					You don't have access to any companies yet.
+					if vm.SearchQuery != "" {
+						No companies match this search.
+					} else {
+						You don't have access to any companies yet.
+					}
 				</div>
 			}
 			for _, row := range vm.Rows {

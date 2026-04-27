@@ -22,6 +22,7 @@ func init() {
 		{Context: "journal_entry.account_picker", ProviderContext: "journal_entry_account", EntityType: "account", Description: "journal entry posting account"},
 		{Context: "expense_form_payment", ProviderContext: "expense_form_payment", EntityType: "payment_account", Description: "expense payment account"},
 		{Context: "expense.payment_account_picker", ProviderContext: "expense_form_payment", EntityType: "payment_account", Description: "expense payment account"},
+		{Context: "company.switcher", ProviderContext: "company.switcher", EntityType: "company", Description: "company switcher"},
 
 		{Context: "invoice_editor_customer", ProviderContext: "invoice_editor_customer", EntityType: "customer", Description: "invoice customer"},
 		{Context: "invoice_customer", ProviderContext: "invoice_editor_customer", EntityType: "customer", Description: "invoice customer"},
@@ -92,6 +93,8 @@ func defaultSmartPickerContext(entityType string) string {
 		return "invoice_line_item"
 	case "payment_account":
 		return "expense_form_payment"
+	case "company":
+		return "company.switcher"
 	default:
 		return ""
 	}

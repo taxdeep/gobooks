@@ -101,6 +101,7 @@ func (r *SmartPickerRegistry) get(entity string) (SmartPickerProvider, bool) {
 // defaultRegistry is the application-wide registry, initialized at startup.
 var defaultSmartPickerRegistry = newSmartPickerRegistry(
 	&ExpenseAccountProvider{},
+	&CompanyProvider{},
 	&CustomerProvider{},
 	&VendorProvider{},
 	&ProductServiceProvider{},
@@ -134,6 +135,61 @@ func applySmartPickerTextSearch(db *gorm.DB, dialect string, query string, field
 }
 
 // ── ExpenseAccountProvider ───────────────────────────────────────────────────
+
+// CompanyProvider handles entity="company" for user-owned company switching.
+// It is deliberately user-scoped: candidates are restricted to active
+// memberships for the authenticated user before name matching.
+type CompanyProvider struct{}
+
+func (p *CompanyProvider) EntityType() string { return "company" }
+
+func (p *CompanyProvider) scopedQuery(db *gorm.DB, ctx SmartPickerContext) *gorm.DB {
+	if ctx.UserID == nil {
+		return db.Where("1 = 0")
+	}
+	return db.Model(&models.Company{}).
+		Joins("JOIN company_memberships ON company_memberships.company_id = companies.id").
+		Where("company_memberships.user_id = ? AND company_memberships.is_active = true AND companies.is_active = true", *ctx.UserID)
+}
+
+func (p *CompanyProvider) Search(db *gorm.DB, ctx SmartPickerContext, query string) (*SmartPickerResult, error) {
+	var companies []models.Company
+	q := p.scopedQuery(db, ctx).
+		Order("companies.name ASC").
+		Limit(smartPickerLimit(ctx))
+	q = applySmartPickerTextSearch(q, db.Dialector.Name(), query, "companies.name")
+	if err := q.Find(&companies).Error; err != nil {
+		return nil, fmt.Errorf("company search: %w", err)
+	}
+
+	items := make([]SmartPickerItem, 0, len(companies))
+	for _, co := range companies {
+		items = append(items, SmartPickerItem{
+			ID:        fmt.Sprintf("%d", co.ID),
+			Primary:   co.Name,
+			Secondary: "Company",
+		})
+	}
+	return &SmartPickerResult{Candidates: items}, nil
+}
+
+func (p *CompanyProvider) GetByID(db *gorm.DB, ctx SmartPickerContext, id string) (*SmartPickerItem, error) {
+	var company models.Company
+	err := p.scopedQuery(db, ctx).
+		Where("companies.id = ?", id).
+		First(&company).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("company get by id: %w", err)
+	}
+	return &SmartPickerItem{
+		ID:        fmt.Sprintf("%d", company.ID),
+		Primary:   company.Name,
+		Secondary: "Company",
+	}, nil
+}
 
 // ExpenseAccountProvider handles entity="account". It used to be a single-
 // context provider (expense_form_category, returning only RootExpense
