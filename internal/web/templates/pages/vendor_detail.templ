@@ -98,8 +98,6 @@ templ vendorDetailHeader(vm VendorDetailVM) {
 				@vendorFinancialSummary(vm)
 				<div class="flex flex-wrap items-center gap-2">
 					<a href={ templ.SafeURL(fmt.Sprintf("/bills/new?vendor_id=%d", vm.Vendor.ID)) } class="rounded-md bg-primary px-3 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover">New Bill</a>
-					<a href={ vendorDetailsHref(vm.Vendor.ID) } class="rounded-md border border-border-input px-3 py-1.5 text-small font-medium text-text hover:bg-background">Edit</a>
-					@vendorLifecycleActions(vm)
 				</div>
 			</div>
 		</div>
@@ -172,7 +170,11 @@ templ vendorDetailTabBody(vm VendorDetailVM) {
 			case "purchase-orders":
 				@vendorTabPurchaseOrders(vm)
 			case "details":
-				@vendorEditCard(vm)
+				if vm.Editing {
+					@vendorEditCard(vm)
+				} else {
+					@vendorDetailsReadCard(vm)
+				}
 			case "notes":
 				@vendorTabNotesPlaceholder(vm)
 		}
@@ -360,6 +362,42 @@ templ vendorTabNotesPlaceholder(vm VendorDetailVM) {
 // unchanged — Details tab renders customerEditCard-style and header
 // action strip reuses lifecycle buttons.
 
+templ vendorDetailsReadCard(vm VendorDetailVM) {
+	<div class="rounded-lg border border-border bg-surface p-5">
+		<div class="flex flex-wrap items-center justify-between gap-3">
+			<h2 class="text-section font-semibold text-text">Vendor Details</h2>
+			<a href={ templ.SafeURL(fmt.Sprintf("/vendors/%d?tab=details&edit=1", vm.Vendor.ID)) } class="rounded-md border border-border-input px-3 py-1.5 text-small font-medium text-text hover:bg-background">Edit</a>
+		</div>
+		<dl class="mt-4 grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
+			@vendorReadOnlyField("Name", vm.Vendor.Name)
+			@vendorReadOnlyField("Email", vm.Vendor.Email)
+			@vendorReadOnlyField("Phone", vm.Vendor.Phone)
+			@vendorReadOnlyField("Currency", vendorCurrencyDisplay(vm))
+			@vendorReadOnlyField("Default Payment Term", vm.DefaultPaymentTermLabel)
+			@vendorReadOnlyField("Status", vendorStatusLabel(vm))
+			<div class="md:col-span-2">
+				@vendorReadOnlyField("Address", vm.Vendor.Address)
+			</div>
+			<div class="md:col-span-2">
+				@vendorReadOnlyField("Notes", vm.Vendor.Notes)
+			</div>
+		</dl>
+	</div>
+}
+
+templ vendorReadOnlyField(label, value string) {
+	<div>
+		<dt class="text-small font-medium text-text-muted">{ label }</dt>
+		<dd class="mt-1 text-body text-text whitespace-pre-line">
+			if value != "" {
+				{ value }
+			} else {
+				<span class="text-text-muted2">—</span>
+			}
+		</dd>
+	</div>
+}
+
 templ vendorEditCard(vm VendorDetailVM) {
 	<div class="rounded-lg border border-border bg-surface p-5">
 		<h2 class="text-section font-semibold text-text">Vendor Details</h2>
@@ -421,13 +459,22 @@ templ vendorEditCard(vm VendorDetailVM) {
 					Save
 				</button>
 				<a
-					href={ templ.SafeURL(fmt.Sprintf("/vendors/%d?tab=transactions", vm.Vendor.ID)) }
+					href={ templ.SafeURL(fmt.Sprintf("/vendors/%d?tab=details", vm.Vendor.ID)) }
 					class="rounded-md border border-border-input px-4 py-2 text-body font-medium text-text hover:bg-background"
 				>
 					Cancel
 				</a>
 			</div>
 		</form>
+		<div class="mt-5 border-t border-border-subtle pt-4">
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<div>
+					<p class="text-body font-semibold text-text">Vendor status</p>
+					<p class="mt-1 text-small text-text-muted2">Control whether this vendor appears in new transaction pickers. Historical records stay intact.</p>
+				</div>
+				@vendorLifecycleActions(vm)
+			</div>
+		</div>
 	</div>
 }
 
@@ -435,19 +482,13 @@ templ vendorLifecycleActions(vm VendorDetailVM) {
 	if !vm.Vendor.IsActive {
 		<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/vendors/%d/reactivate", vm.Vendor.ID)) } class="inline">
 			<button type="submit" class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-small font-medium text-text hover:bg-background">
-				Reactivate
-			</button>
-		</form>
-	} else if vm.HasRecords {
-		<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/vendors/%d/deactivate", vm.Vendor.ID)) } class="inline" onsubmit="return confirm('Deactivate this vendor? They will be hidden from pickers but historical records remain. You can reactivate later.');">
-			<button type="submit" class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-small font-medium text-text hover:bg-background">
-				Deactivate
+				Activate vendor
 			</button>
 		</form>
 	} else {
-		<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/vendors/%d/delete", vm.Vendor.ID)) } class="inline" onsubmit="return confirm('Permanently delete this vendor? This cannot be undone. (Only available because no bills, POs or other records reference this vendor.)');">
+		<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/vendors/%d/deactivate", vm.Vendor.ID)) } class="inline" onsubmit="return confirm('Deactivate this vendor? They will be hidden from pickers but historical records remain. You can reactivate later.');">
 			<button type="submit" class="rounded-md border border-border-danger bg-danger-soft px-3 py-1.5 text-small font-medium text-danger hover:bg-danger-soft">
-				Delete
+				Deactivate vendor
 			</button>
 		</form>
 	}

@@ -56,6 +56,7 @@ func (s *Server) handleVendorUpdate(c *fiber.Ctx) error {
 	buildEditVM := func() pages.VendorDetailVM {
 		vm := pages.VendorDetailVM{
 			HasCompany:                 true,
+			Tab:                        "details",
 			Vendor:                     vendor,
 			Editing:                    true,
 			FormName:                   name,
@@ -130,5 +131,5 @@ func (s *Server) handleVendorUpdate(c *fiber.Ctx) error {
 	}, &cid, &uid)
 	s.SPAcceleration.InvalidateCompany(companyID)
 
-	return c.Redirect("/vendors/"+c.Params("id")+"?saved=1", fiber.StatusSeeOther)
+	return c.Redirect("/vendors/"+c.Params("id")+"?tab=details&saved=1", fiber.StatusSeeOther)
 }

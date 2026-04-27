@@ -157,3 +157,67 @@ func TestVendorDetailPageTabs(t *testing.T) {
 		}
 	}
 }
+
+func TestVendorDetailsTabRequiresEditMode(t *testing.T) {
+	db := testRouteDB(t)
+	companyID := seedCompany(t, db, "Vendor Details Edit Co")
+	user, rawToken := seedUserSession(t, db, &companyID)
+	seedMembership(t, db, user.ID, companyID)
+
+	vendorID := seedVendor(t, db, companyID, "Editable Vendor")
+	if err := db.Model(&models.Vendor{}).
+		Where("id = ?", vendorID).
+		Updates(map[string]any{
+			"email":   "editable-vendor@example.com",
+			"phone":   "+1-555-0200",
+			"address": "789 Vendor Way",
+			"notes":   "Preferred shipping window: morning.",
+		}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	app := testRouteApp(t, db)
+	readResp := performRequest(t, app, fmt.Sprintf("/vendors/%d?tab=details", vendorID), rawToken)
+	if readResp.StatusCode != http.StatusOK {
+		t.Fatalf("details read mode status = %d, want %d", readResp.StatusCode, http.StatusOK)
+	}
+	readBody := readResponseBody(t, readResp)
+	for _, want := range []string{
+		"Vendor Details",
+		"Editable Vendor",
+		"editable-vendor@example.com",
+		"+1-555-0200",
+		"789 Vendor Way",
+		"edit=1",
+	} {
+		if !strings.Contains(readBody, want) {
+			t.Fatalf("read-only vendor details missing %q", want)
+		}
+	}
+	for _, notWant := range []string{
+		`name="name"`,
+		"Deactivate vendor",
+		fmt.Sprintf("/vendors/%d/deactivate", vendorID),
+	} {
+		if strings.Contains(readBody, notWant) {
+			t.Fatalf("read-only vendor details should not contain %q", notWant)
+		}
+	}
+
+	editResp := performRequest(t, app, fmt.Sprintf("/vendors/%d?tab=details&edit=1", vendorID), rawToken)
+	if editResp.StatusCode != http.StatusOK {
+		t.Fatalf("details edit mode status = %d, want %d", editResp.StatusCode, http.StatusOK)
+	}
+	editBody := readResponseBody(t, editResp)
+	for _, want := range []string{
+		`name="name"`,
+		"Save",
+		"Cancel",
+		"Deactivate vendor",
+		fmt.Sprintf("/vendors/%d/deactivate", vendorID),
+	} {
+		if !strings.Contains(editBody, want) {
+			t.Fatalf("edit vendor details missing %q", want)
+		}
+	}
+}

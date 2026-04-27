@@ -140,15 +140,12 @@ func (s *Server) handleVendorDetail(c *fiber.Ctx) error {
 		OverdueBillCount:        int(overdueCount),
 		CreditCount:             creditCount,
 		CreditRemaining:         creditRemaining,
-		// Details tab is always-editable now. Keep the Editing flag on
-		// so the existing customerEditCard-style form + POST re-render
-		// paths still work.
-		Editing:      tab == "details",
-		Saved:        c.Query("saved") == "1",
-		HasRecords:   hasRecords,
-		Deactivated:  c.Query("deactivated") == "1",
-		Reactivated:  c.Query("reactivated") == "1",
-		LifecycleErr: strings.TrimSpace(c.Query("error")),
+		Editing:                 tab == "details" && editFlag,
+		Saved:                   c.Query("saved") == "1",
+		HasRecords:              hasRecords,
+		Deactivated:             c.Query("deactivated") == "1",
+		Reactivated:             c.Query("reactivated") == "1",
+		LifecycleErr:            strings.TrimSpace(c.Query("error")),
 	}
 
 	// Seed the Details-tab form from the current vendor values.

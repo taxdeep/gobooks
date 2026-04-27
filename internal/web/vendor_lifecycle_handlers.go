@@ -78,7 +78,7 @@ func setVendorActiveAndRedirect(s *Server, c *fiber.Ctx, active bool, auditActio
 	}
 
 	if err := services.SetVendorActive(s.DB, companyID, vendorID, active); err != nil {
-		return redirectErr(c, "/vendors/"+c.Params("id"), "Could not update vendor status.")
+		return redirectErr(c, "/vendors/"+c.Params("id")+"?tab=details&edit=1", "Could not update vendor status.")
 	}
 	_ = producers.ProjectVendor(c.Context(), s.DB, s.SearchProjector, companyID, vendorID)
 
@@ -93,5 +93,5 @@ func setVendorActiveAndRedirect(s *Server, c *fiber.Ctx, active bool, auditActio
 	}, &cid, &uid)
 	s.SPAcceleration.InvalidateCompany(companyID)
 
-	return c.Redirect("/vendors/"+c.Params("id")+"?"+queryFlag+"=1", fiber.StatusSeeOther)
+	return c.Redirect("/vendors/"+c.Params("id")+"?tab=details&"+queryFlag+"=1", fiber.StatusSeeOther)
 }
