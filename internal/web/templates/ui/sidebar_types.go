@@ -38,9 +38,23 @@ type SwitcherRow struct {
 
 type sidebarDataKey struct{}
 
+type sidebarDataUserValueSetter interface {
+	SetUserValue(key interface{}, value interface{})
+}
+
 // WithSidebarData stores sd into ctx and returns the new context.
 func WithSidebarData(ctx context.Context, sd SidebarData) context.Context {
 	return context.WithValue(ctx, sidebarDataKey{}, sd)
+}
+
+// AttachSidebarData stores sd on request contexts that support user values
+// (Fiber's c.Context()), and falls back to a standard context value.
+func AttachSidebarData(ctx context.Context, sd SidebarData) context.Context {
+	if setter, ok := ctx.(sidebarDataUserValueSetter); ok {
+		setter.SetUserValue(sidebarDataKey{}, sd)
+		return ctx
+	}
+	return WithSidebarData(ctx, sd)
 }
 
 // SidebarDataFromCtx retrieves the SidebarData from ctx.

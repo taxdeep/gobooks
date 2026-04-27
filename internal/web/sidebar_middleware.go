@@ -37,9 +37,10 @@ func (s *Server) LoadSidebarData() fiber.Handler {
 
 		sd := s.buildSidebarData(user, activeID)
 
-		// Store in Go context so layout.templ can read it via ctx.
-		newCtx := ui.WithSidebarData(c.Context(), sd)
-		c.SetUserContext(newCtx)
+		// Store in both Fiber's request context (used by templates rendered
+		// with c.Context()) and UserContext (used by service-style code).
+		ui.AttachSidebarData(c.Context(), sd)
+		c.SetUserContext(ui.WithSidebarData(c.UserContext(), sd))
 
 		return c.Next()
 	}
