@@ -34,6 +34,7 @@ type dashboardKPIResponse struct {
 	IsPositive bool   `json:"is_positive"`
 	Hint       string `json:"hint"`
 	Tone       string `json:"tone"`
+	Href       string `json:"href,omitempty"`
 }
 
 type dashboardTrendResponse struct {
@@ -110,12 +111,14 @@ func buildDashboardVM(db *gorm.DB, companyID uint) pages.DashboardVM {
 	vm := pages.DashboardVM{
 		HasCompany:   true,
 		RangeLabel:   "Last 30 days",
+		ReportFrom:   fromDate.Format("2006-01-02"),
+		ReportTo:     toDate.Format("2006-01-02"),
 		RevenueTrend: []pages.RevenueTrendPointVM{},
 	}
 
 	if report, err := services.IncomeStatementReport(db, companyID, fromDate, toDate); err == nil {
 		vm.PnL.Revenue = toMoneyVM(report.TotalRevenue)
-		vm.PnL.Expenses = toMoneyVM(report.TotalExpenses.Neg())
+		vm.PnL.Expenses = toMoneyVM(report.TotalExpenses)
 		vm.PnL.NetIncome = toMoneyVM(report.NetIncome)
 		vm.Expenses.Total = vm.PnL.Expenses
 
@@ -127,7 +130,7 @@ func buildDashboardVM(db *gorm.DB, companyID uint) pages.DashboardVM {
 		for _, line := range top {
 			vm.Expenses.TopLines = append(vm.Expenses.TopLines, pages.ExpenseLineVM{
 				Account: line.Name,
-				Amount:  toMoneyVM(line.Amount.Neg()),
+				Amount:  toMoneyVM(line.Amount),
 			})
 		}
 	}
@@ -253,13 +256,21 @@ func dashboardKPIResponses(vm pages.DashboardVM, tasks []models.ActionCenterTask
 		}
 	}
 	return []dashboardKPIResponse{
-		{Key: "revenue", Label: "Revenue", Value: vm.PnL.Revenue.Value, IsPositive: vm.PnL.Revenue.IsPositive, Hint: "last 30d", Tone: "success"},
-		{Key: "expenses", Label: "Expenses", Value: vm.PnL.Expenses.Value, IsPositive: vm.PnL.Expenses.IsPositive, Hint: "last 30d", Tone: "danger"},
-		{Key: "net_income", Label: "Net Income", Value: vm.PnL.NetIncome.Value, IsPositive: vm.PnL.NetIncome.IsPositive, Hint: "last 30d", Tone: "primary"},
+		{Key: "revenue", Label: "Revenue", Value: vm.PnL.Revenue.Value, IsPositive: vm.PnL.Revenue.IsPositive, Hint: "last 30d", Tone: "success", Href: dashboardIncomeStatementURL(vm.ReportFrom, vm.ReportTo, "revenue")},
+		{Key: "expenses", Label: "Expenses", Value: vm.PnL.Expenses.Value, IsPositive: vm.PnL.Expenses.IsPositive, Hint: "last 30d", Tone: "danger", Href: dashboardIncomeStatementURL(vm.ReportFrom, vm.ReportTo, "expenses")},
+		{Key: "net_income", Label: "Net Income", Value: vm.PnL.NetIncome.Value, IsPositive: vm.PnL.NetIncome.IsPositive, Hint: "last 30d", Tone: "primary", Href: dashboardIncomeStatementURL(vm.ReportFrom, vm.ReportTo, "net-income")},
 		{Key: "attention", Label: "Attention", Value: decimal.NewFromInt(int64(len(tasks) + len(suggestions))).String(), IsPositive: len(tasks)+len(suggestions) == 0, Hint: "tasks + suggestions", Tone: "warning"},
-		{Key: "overdue_invoices", Label: "Overdue invoices", Value: decimal.NewFromInt(int64(overdueCount)).String(), IsPositive: overdueCount == 0, Hint: "action center", Tone: "danger"},
-		{Key: "bills_due", Label: "Bills due", Value: decimal.NewFromInt(int64(billsDueCount)).String(), IsPositive: billsDueCount == 0, Hint: "next 7 days", Tone: "warning"},
+		{Key: "overdue_invoices", Label: "Overdue invoices", Value: decimal.NewFromInt(int64(overdueCount)).String(), IsPositive: overdueCount == 0, Hint: "AR aging", Tone: "danger", Href: "/reports/ar-aging"},
+		{Key: "bills_due", Label: "Bills due", Value: decimal.NewFromInt(int64(billsDueCount)).String(), IsPositive: billsDueCount == 0, Hint: "AP aging", Tone: "warning", Href: "/ap-aging"},
 	}
+}
+
+func dashboardIncomeStatementURL(fromDate, toDate, anchor string) string {
+	href := "/reports/income-statement?from=" + fromDate + "&to=" + toDate
+	if anchor != "" {
+		href += "#" + anchor
+	}
+	return href
 }
 
 func dashboardTrendResponses(points []pages.RevenueTrendPointVM) []dashboardTrendResponse {

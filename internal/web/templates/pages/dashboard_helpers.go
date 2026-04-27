@@ -22,6 +22,14 @@ func dashboardBankCountVM(vm DashboardVM) MoneyVM {
 	}
 }
 
+func dashboardIncomeStatementURL(vm DashboardVM, anchor string) string {
+	href := "/reports/income-statement?from=" + vm.ReportFrom + "&to=" + vm.ReportTo
+	if anchor != "" {
+		href += "#" + anchor
+	}
+	return href
+}
+
 // dashboardRevenueMax returns (formattedMaxLabel, numericMax) over the
 // revenue trend series. Used both for scaling the bar heights and for
 // the "Peak" hint shown below the chart.

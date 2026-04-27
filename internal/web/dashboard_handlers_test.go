@@ -46,6 +46,9 @@ func TestDashboardPageMountsReactIslandWithFallback(t *testing.T) {
 
 func TestDashboardOverviewReturnsCompanyScopedTasksSuggestionsAndWidgets(t *testing.T) {
 	db := testRouteDB(t)
+	if err := db.AutoMigrate(&models.JournalEntry{}, &models.JournalLine{}); err != nil {
+		t.Fatal(err)
+	}
 	companyID := seedCompany(t, db, "Dashboard API Co")
 	otherCompanyID := seedCompany(t, db, "Other Dashboard Co")
 	user, rawToken := seedUserSession(t, db, &companyID)
@@ -53,6 +56,64 @@ func TestDashboardOverviewReturnsCompanyScopedTasksSuggestionsAndWidgets(t *test
 	seedMembership(t, db, user.ID, otherCompanyID)
 
 	now := time.Now().UTC()
+	revenueAccount := models.Account{
+		CompanyID:         companyID,
+		Code:              "4000",
+		Name:              "Sales Revenue",
+		RootAccountType:   models.RootRevenue,
+		DetailAccountType: models.DetailOperatingRevenue,
+		IsActive:          true,
+		CurrencyMode:      models.CurrencyModeBaseOnly,
+	}
+	expenseAccount := models.Account{
+		CompanyID:         companyID,
+		Code:              "6000",
+		Name:              "Office Expense",
+		RootAccountType:   models.RootExpense,
+		DetailAccountType: models.DetailOfficeExpense,
+		IsActive:          true,
+		CurrencyMode:      models.CurrencyModeBaseOnly,
+	}
+	assetAccount := models.Account{
+		CompanyID:         companyID,
+		Code:              "1000",
+		Name:              "Cash",
+		RootAccountType:   models.RootAsset,
+		DetailAccountType: models.DetailBank,
+		IsActive:          true,
+		CurrencyMode:      models.CurrencyModeBaseOnly,
+	}
+	if err := db.Create(&[]models.Account{revenueAccount, expenseAccount, assetAccount}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Where("company_id = ? AND code = ?", companyID, "4000").First(&revenueAccount).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Where("company_id = ? AND code = ?", companyID, "6000").First(&expenseAccount).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Where("company_id = ? AND code = ?", companyID, "1000").First(&assetAccount).Error; err != nil {
+		t.Fatal(err)
+	}
+	je := models.JournalEntry{
+		CompanyID:               companyID,
+		EntryDate:               now,
+		Status:                  models.JournalEntryStatusPosted,
+		TransactionCurrencyCode: "CAD",
+		ExchangeRate:            decimal.NewFromInt(1),
+		ExchangeRateDate:        now,
+		ExchangeRateSource:      "identity",
+	}
+	if err := db.Create(&je).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&[]models.JournalLine{
+		{CompanyID: companyID, JournalEntryID: je.ID, AccountID: assetAccount.ID, Debit: decimal.NewFromInt(875)},
+		{CompanyID: companyID, JournalEntryID: je.ID, AccountID: expenseAccount.ID, Debit: decimal.NewFromInt(125)},
+		{CompanyID: companyID, JournalEntryID: je.ID, AccountID: revenueAccount.ID, Credit: decimal.NewFromInt(1000)},
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
 	dueDate := now.AddDate(0, 0, 3)
 	if err := db.Create(&models.ActionCenterTask{
 		CompanyID:      companyID,
@@ -142,10 +203,7 @@ func TestDashboardOverviewReturnsCompanyScopedTasksSuggestionsAndWidgets(t *test
 	}
 
 	var got struct {
-		KPIs []struct {
-			Key   string `json:"key"`
-			Value string `json:"value"`
-		} `json:"kpis"`
+		KPIs  []dashboardTestKPI `json:"kpis"`
 		Tasks []struct {
 			Title     string         `json:"title"`
 			ActionURL string         `json:"action_url"`
@@ -166,6 +224,20 @@ func TestDashboardOverviewReturnsCompanyScopedTasksSuggestionsAndWidgets(t *test
 	if len(got.KPIs) == 0 {
 		t.Fatal("expected KPI payload")
 	}
+	expensesKPI := findDashboardTestKPI(got.KPIs, "expenses")
+	if expensesKPI == nil {
+		t.Fatalf("expected expenses KPI, got %+v", got.KPIs)
+	}
+	if strings.Contains(expensesKPI.Value, "-") {
+		t.Fatalf("expected expenses to display as a positive cost, got %q", expensesKPI.Value)
+	}
+	if !strings.Contains(expensesKPI.Href, "/reports/income-statement?from=") || !strings.Contains(expensesKPI.Href, "#expenses") {
+		t.Fatalf("expected expenses KPI to link to income statement expenses, got %q", expensesKPI.Href)
+	}
+	netIncomeKPI := findDashboardTestKPI(got.KPIs, "net_income")
+	if netIncomeKPI == nil || !strings.Contains(netIncomeKPI.Href, "#net-income") {
+		t.Fatalf("expected net income KPI report link, got %+v", netIncomeKPI)
+	}
 	if len(got.Tasks) != 1 || got.Tasks[0].Title != "Review bills due soon" {
 		t.Fatalf("expected one company-scoped task, got %+v", got.Tasks)
 	}
@@ -184,4 +256,19 @@ func TestDashboardOverviewReturnsCompanyScopedTasksSuggestionsAndWidgets(t *test
 	if len(got.Widgets) != 1 || got.Widgets[0].WidgetKey != "cash_balance" {
 		t.Fatalf("expected one active company-scoped widget, got %+v", got.Widgets)
 	}
+}
+
+type dashboardTestKPI struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+	Href  string `json:"href"`
+}
+
+func findDashboardTestKPI(kpis []dashboardTestKPI, key string) *dashboardTestKPI {
+	for i := range kpis {
+		if kpis[i].Key == key {
+			return &kpis[i]
+		}
+	}
+	return nil
 }

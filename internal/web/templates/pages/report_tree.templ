@@ -2,6 +2,7 @@
 package pages
 
 import (
+	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -134,7 +135,7 @@ func reportDetailLabel(detail string) string {
 // reportSectionHeaderRow is the tr at the top of each section
 // (Assets / Liabilities / Equity / Revenue / COGS / Expenses).
 templ reportSectionHeaderRow(title string) {
-	<tr class="bg-surface-tableHeader">
+	<tr id={ reportAnchorID(title) } class="bg-surface-tableHeader scroll-mt-24">
 		<td class="py-1.5 pl-2 pr-4 text-body font-semibold text-text" colspan="3"><span>{ title }</span></td>
 	</tr>
 }
@@ -173,10 +174,18 @@ templ reportSectionTotalRow(title string, total decimal.Decimal) {
 }
 
 templ reportSummaryRow(label string, amount decimal.Decimal) {
-	<tr class="border-t border-border bg-surface-tableHeader">
+	<tr id={ reportAnchorID(label) } class="border-t border-border bg-surface-tableHeader scroll-mt-24">
 		<td class="py-2 pl-2 pr-4 text-body font-semibold text-text" colspan="2">{ label }</td>
 		<td class="py-2 pr-4 text-right tabular-nums font-semibold text-text">{ Money(amount) }</td>
 	</tr>
+}
+
+func reportAnchorID(label string) string {
+	label = strings.TrimSpace(strings.ToLower(label))
+	label = strings.ReplaceAll(label, "&", "and")
+	label = strings.ReplaceAll(label, "/", "-")
+	label = strings.ReplaceAll(label, " ", "-")
+	return label
 }
 
 templ reportSpacerRow() {

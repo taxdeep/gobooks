@@ -19,13 +19,13 @@ type ExpenseLineVM struct {
 }
 
 type ExpensesVM struct {
-	Total     MoneyVM
-	TopLines  []ExpenseLineVM
+	Total    MoneyVM
+	TopLines []ExpenseLineVM
 }
 
 type RevenueTrendPointVM struct {
-	Label      string
-	Revenue    MoneyVM
+	Label   string
+	Revenue MoneyVM
 }
 
 type BankAccountVM struct {
@@ -34,12 +34,13 @@ type BankAccountVM struct {
 }
 
 type DashboardVM struct {
-	HasCompany    bool
-	RangeLabel    string
+	HasCompany bool
+	RangeLabel string
+	ReportFrom string
+	ReportTo   string
 
-	PnL           ProfitLossVM
-	Expenses      ExpensesVM
-	RevenueTrend  []RevenueTrendPointVM
-	BankAccounts  []BankAccountVM
+	PnL          ProfitLossVM
+	Expenses     ExpensesVM
+	RevenueTrend []RevenueTrendPointVM
+	BankAccounts []BankAccountVM
 }
-

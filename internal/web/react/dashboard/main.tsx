@@ -14,6 +14,7 @@ type KPI = {
   is_positive: boolean;
   hint: string;
   tone: "success" | "danger" | "primary" | "warning" | string;
+  href?: string;
 };
 
 type TrendPoint = {
@@ -131,10 +132,9 @@ function priorityClass(priority: string) {
 }
 
 function kpiClass(tone: string, isPositive: boolean) {
-  if (!isPositive && tone === "danger") return "text-danger-hover";
+  if (tone === "danger") return "text-danger-hover";
   if (tone === "success") return "text-success-hover";
   if (tone === "warning") return isPositive ? "text-text" : "text-warning-hover";
-  if (tone === "danger") return isPositive ? "text-text" : "text-danger-hover";
   return "text-text";
 }
 
@@ -215,6 +215,8 @@ function DashboardIsland({ apiURL }: { apiURL: string }) {
 
   const maxRevenue = useMemo(() => maxTrendValue(data?.revenue_trend || []), [data]);
   const attentionCount = (data?.tasks.length || 0) + (data?.suggestions.length || 0);
+  const revenueReportHref = data?.kpis.find((kpi) => kpi.key === "revenue")?.href || "/reports/income-statement";
+  const expensesReportHref = data?.kpis.find((kpi) => kpi.key === "expenses")?.href || "/reports/income-statement#expenses";
 
   if (!data && loading) {
     return (
@@ -241,11 +243,7 @@ function DashboardIsland({ apiURL }: { apiURL: string }) {
 
       <section className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
         {data.kpis.map((kpi) => (
-          <div key={kpi.key} className="rounded-lg border border-border bg-surface px-4 py-3 shadow-sm">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">{kpi.label}</div>
-            <div className={classNames("mt-2 text-section font-semibold tabular-nums", kpiClass(kpi.tone, kpi.is_positive))}>{kpi.value}</div>
-            <div className="mt-0.5 text-[11px] text-text-muted3">{kpi.hint}</div>
-          </div>
+          <KPICard key={kpi.key} kpi={kpi} />
         ))}
       </section>
 
@@ -257,7 +255,7 @@ function DashboardIsland({ apiURL }: { apiURL: string }) {
                 <div className="text-section font-semibold text-text">Revenue trend</div>
                 <div className="text-small text-text-muted2">Last 3 calendar months</div>
               </div>
-              <a href="/reports/income-statement" className="text-small text-primary hover:underline">Income Statement</a>
+              <a href={revenueReportHref} className="text-small text-primary hover:underline">Income Statement</a>
             </div>
             <div className="px-4 py-4">
               {data.revenue_trend.length > 0 ? (
@@ -280,7 +278,7 @@ function DashboardIsland({ apiURL }: { apiURL: string }) {
           </div>
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <TopExpenses expenses={data.expenses} />
+            <TopExpenses expenses={data.expenses} reportHref={expensesReportHref} />
             <BankAccounts accounts={data.bank_accounts} />
           </div>
         </div>
@@ -294,6 +292,27 @@ function DashboardIsland({ apiURL }: { apiURL: string }) {
       <QuickActions />
     </div>
   );
+}
+
+function KPICard({ kpi }: { kpi: KPI }) {
+  const inner = (
+    <>
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">{kpi.label}</div>
+      <div className={classNames("mt-2 text-section font-semibold tabular-nums", kpiClass(kpi.tone, kpi.is_positive))}>{kpi.value}</div>
+      <div className="mt-0.5 text-[11px] text-text-muted3">{kpi.hint}</div>
+    </>
+  );
+
+  const cardClass = "rounded-lg border border-border bg-surface px-4 py-3 shadow-sm transition-colors";
+  if (kpi.href) {
+    return (
+      <a href={kpi.href} className={classNames(cardClass, "block hover:border-primary/60 hover:bg-primary-soft/10")} title={`Open ${kpi.label} report`}>
+        {inner}
+      </a>
+    );
+  }
+
+  return <div className={cardClass}>{inner}</div>;
 }
 
 function DashboardHeader({ loading, busy, generatedAt, onRefresh }: { loading: boolean; busy: boolean; generatedAt?: string; onRefresh: () => void }) {
@@ -331,7 +350,7 @@ function EmptyState({ text }: { text: string }) {
   return <div className="rounded-md border border-dashed border-border p-6 text-center text-small text-text-muted2">{text}</div>;
 }
 
-function TopExpenses({ expenses }: { expenses: DashboardOverview["expenses"] }) {
+function TopExpenses({ expenses, reportHref }: { expenses: DashboardOverview["expenses"]; reportHref: string }) {
   return (
     <div className="rounded-lg border border-border bg-surface shadow-sm">
       <div className="flex items-start justify-between border-b border-border px-4 py-3">
@@ -339,7 +358,7 @@ function TopExpenses({ expenses }: { expenses: DashboardOverview["expenses"] }) 
           <div className="text-section font-semibold text-text">Top expenses</div>
           <div className="text-small text-text-muted2">Largest expense accounts</div>
         </div>
-        <div className={classNames("text-section font-semibold tabular-nums", expenses.total.is_positive ? "text-text" : "text-danger-hover")}>{expenses.total.value}</div>
+        <a href={reportHref} className="text-section font-semibold tabular-nums text-danger-hover hover:underline">{expenses.total.value}</a>
       </div>
       <div className="p-4">
         {expenses.top_lines.length > 0 ? (
@@ -347,7 +366,7 @@ function TopExpenses({ expenses }: { expenses: DashboardOverview["expenses"] }) 
             {expenses.top_lines.map((line) => (
               <div key={line.account} className="flex items-center justify-between gap-3 rounded-md border border-border-subtle px-3 py-2">
                 <div className="min-w-0 truncate text-body text-text">{line.account}</div>
-                <div className={classNames("shrink-0 font-mono text-small tabular-nums", line.amount.is_positive ? "text-text" : "text-danger-hover")}>{line.amount.value}</div>
+                <div className="shrink-0 font-mono text-small tabular-nums text-danger-hover">{line.amount.value}</div>
               </div>
             ))}
           </div>
