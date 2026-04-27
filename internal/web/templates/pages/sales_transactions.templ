@@ -28,9 +28,7 @@ templ bodySalesTransactions(vm SalesTxVM) {
 
 		@salesTxFilterBar(vm)
 
-		@salesTxTable(vm)
-
-		@salesTxPager(vm)
+		@salesTxReactIsland(vm)
 	</div>
 }
 
@@ -174,6 +172,18 @@ templ salesTxFilterBar(vm SalesTxVM) {
 
 // salesTxTable is the compact transaction grid. Row height py-2 (~36px)
 // to meet the "compress information density" brief.
+templ salesTxReactIsland(vm SalesTxVM) {
+	<div
+		id="sales-transactions-island"
+		data-gb-react="sales-transactions"
+		data-api-url={ salesTxAPIHref(vm) }
+	>
+		@salesTxTable(vm)
+		@salesTxPager(vm)
+	</div>
+	<script type="module" src="/static/react/sales_transactions.js?v=1"></script>
+}
+
 templ salesTxTable(vm SalesTxVM) {
 	<div class="rounded-lg border border-border bg-surface shadow-sm">
 		<div class="overflow-x-auto">

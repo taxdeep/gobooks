@@ -281,6 +281,20 @@ func salesTxPageHref(vm SalesTxVM, page int) string {
 	return "/sales-transactions?" + q.Encode()
 }
 
+func salesTxAPIHref(vm SalesTxVM) string {
+	q := salesTxQueryValues(vm)
+	if vm.Page > 1 {
+		q.Set("page", strconv.Itoa(vm.Page))
+	}
+	if vm.PageSize != 0 && vm.PageSize != 50 {
+		q.Set("size", strconv.Itoa(vm.PageSize))
+	}
+	if encoded := q.Encode(); encoded != "" {
+		return "/api/sales-transactions?" + encoded
+	}
+	return "/api/sales-transactions"
+}
+
 func salesTxSortHref(vm SalesTxVM, field string) string {
 	q := salesTxQueryValues(vm)
 	q.Set("sort", field)

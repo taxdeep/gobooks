@@ -11,7 +11,7 @@
 #   1. Verifies the existing installation is intact
 #   2. Creates a pre-upgrade database backup
 #   3. Copies new source code (preserving .env and data/)
-#   4. Rebuilds Go binaries and Tailwind CSS
+#   4. Rebuilds Go binaries, CSS, and React static assets
 #   5. Runs database migrations
 #   6. Restarts the GoBooks service
 #   7. Verifies the service is healthy
@@ -26,10 +26,11 @@ set -euo pipefail
 
 INSTALL_DIR="/opt/gobooks"
 BACKUP_DIR="/var/backups/gobooks"
-GO_VERSION="1.23.6"
+GO_VERSION="1.26.1"
 GO_MIN_MAJOR=1
-GO_MIN_MINOR=23
-NODE_MAJOR=20
+GO_MIN_MINOR=26
+GO_MIN_PATCH=0
+NODE_INSTALL_MAJOR=22
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -104,18 +105,23 @@ go_version_ok() {
         return 1
     fi
     local ver
-    ver=$(go version | grep -oP 'go\K[0-9]+\.[0-9]+')
-    local maj min
+    ver=$(go version | grep -oE 'go[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1 | sed 's/^go//')
+    local maj min patch
     maj=$(echo "$ver" | cut -d. -f1)
     min=$(echo "$ver" | cut -d. -f2)
+    patch=$(echo "$ver" | cut -d. -f3)
+    patch="${patch:-0}"
+    if [[ -z "$maj" || -z "$min" ]]; then return 1; fi
     if [[ "$maj" -gt "$GO_MIN_MAJOR" ]]; then return 0; fi
-    if [[ "$maj" -eq "$GO_MIN_MAJOR" && "$min" -ge "$GO_MIN_MINOR" ]]; then return 0; fi
-    return 1
+    if [[ "$maj" -lt "$GO_MIN_MAJOR" ]]; then return 1; fi
+    if [[ "$min" -gt "$GO_MIN_MINOR" ]]; then return 0; fi
+    if [[ "$min" -lt "$GO_MIN_MINOR" ]]; then return 1; fi
+    [[ "$patch" -ge "$GO_MIN_PATCH" ]]
 }
 
 if ! go_version_ok; then
     if command -v go &>/dev/null; then
-        warn "Installed Go $(go version | grep -oP 'go[0-9.]+') is below minimum ${GO_MIN_MAJOR}.${GO_MIN_MINOR}. Upgrading..."
+        warn "Installed Go $(go version | grep -oE 'go[0-9.]+') is below minimum ${GO_MIN_MAJOR}.${GO_MIN_MINOR}.${GO_MIN_PATCH}. Upgrading..."
     else
         log "Go not found. Installing..."
     fi
@@ -128,7 +134,7 @@ GOEOF
     hash -r 2>/dev/null || true
     log "Go $(go version) installed."
 else
-    log "Go $(go version | grep -oP 'go[0-9.]+') OK (>= ${GO_MIN_MAJOR}.${GO_MIN_MINOR})."
+    log "Go $(go version | grep -oE 'go[0-9.]+') OK (>= ${GO_MIN_MAJOR}.${GO_MIN_MINOR}.${GO_MIN_PATCH})."
 fi
 
 # ── Read current config ──────────────────────────────────────────────────────
@@ -137,24 +143,41 @@ node_version_ok() {
     if ! command -v node &>/dev/null; then
         return 1
     fi
-    local major
-    major=$(node -v | sed -E 's/^v([0-9]+).*/\1/')
-    [[ -n "$major" && "$major" -ge "$NODE_MAJOR" ]]
+    local ver major minor patch
+    ver=$(node -v | sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+    major=$(echo "$ver" | cut -d. -f1)
+    minor=$(echo "$ver" | cut -d. -f2)
+    patch=$(echo "$ver" | cut -d. -f3)
+    patch="${patch:-0}"
+    if [[ -z "$major" || -z "$minor" ]]; then return 1; fi
+
+    # Vite/Rolldown requires Node ^20.19.0 or >=22.12.0.
+    if [[ "$major" -eq 20 ]]; then
+        if [[ "$minor" -gt 19 ]]; then return 0; fi
+        if [[ "$minor" -eq 19 && "$patch" -ge 0 ]]; then return 0; fi
+        return 1
+    fi
+    if [[ "$major" -eq 22 ]]; then
+        if [[ "$minor" -gt 12 ]]; then return 0; fi
+        if [[ "$minor" -eq 12 && "$patch" -ge 0 ]]; then return 0; fi
+        return 1
+    fi
+    [[ "$major" -gt 22 ]]
 }
 
 install_node() {
-    log "Installing Node.js ${NODE_MAJOR}.x..."
+    log "Installing Node.js ${NODE_INSTALL_MAJOR}.x..."
     apt-get install -y -qq curl ca-certificates gnupg
-    curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash -
+    curl -fsSL "https://deb.nodesource.com/setup_${NODE_INSTALL_MAJOR}.x" | bash -
     apt-get install -y -qq nodejs
     log "Node.js $(node -v) installed."
 }
 
 if node_version_ok; then
-    log "Node.js $(node -v) OK (>= ${NODE_MAJOR})."
+    log "Node.js $(node -v) OK (compatible with Vite: ^20.19.0 or >=22.12.0)."
 else
     if command -v node &>/dev/null; then
-        warn "Installed Node.js $(node -v) is below minimum ${NODE_MAJOR}. Upgrading..."
+        warn "Installed Node.js $(node -v) is below the required Vite runtime (^20.19.0 or >=22.12.0). Upgrading..."
     else
         log "Node.js not found. Installing..."
     fi
@@ -227,10 +250,16 @@ fi
 cd "$INSTALL_DIR"
 
 log "Installing Node.js dependencies..."
-npm ci --silent 2>/dev/null || npm install --silent
+npm ci --include=dev --silent 2>/dev/null || npm install --include=dev --silent
+
+log "Type-checking React TypeScript islands..."
+npm run typecheck:react
 
 log "Building Tailwind CSS..."
 npm run build:css
+
+log "Building React static assets..."
+npm run build:react
 
 log "Building Go binaries..."
 mkdir -p bin

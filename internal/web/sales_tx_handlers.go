@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/shopspring/decimal"
 
 	"gobooks/internal/services"
 	"gobooks/internal/web/templates/pages"
@@ -32,6 +33,105 @@ func (s *Server) handleSalesTransactions(c *fiber.Ctx) error {
 		return c.Redirect("/select-company", fiber.StatusSeeOther)
 	}
 
+	query := parseSalesTxQuery(c)
+
+	rows, total, err := services.ListSalesTransactions(s.DB, companyID, query.Filter, query.Page, query.Size)
+	if err != nil {
+		rows = nil
+		total = 0
+	}
+
+	kpi, _ := services.ComputeSalesTxKPI(s.DB, companyID)
+
+	customers, _ := s.customersForCompany(companyID)
+
+	// Customer label for echo — look up from loaded list so the filter
+	// dropdown can render a readable value after submit.
+	customerLabel := ""
+	if query.CustomerID != 0 {
+		for _, cu := range customers {
+			if cu.ID == query.CustomerID {
+				customerLabel = cu.Name
+				break
+			}
+		}
+	}
+
+	totalPages := (total + query.Size - 1) / query.Size
+	if totalPages < 1 {
+		totalPages = 1
+	}
+
+	vm := pages.SalesTxVM{
+		HasCompany:    true,
+		KPI:           kpi,
+		TypeFilter:    query.TypeFilter,
+		DateFilter:    query.DateToken,
+		DateFrom:      query.CustomFrom,
+		DateTo:        query.CustomTo,
+		StatusFilter:  query.StatusFilter,
+		CustomerID:    query.CustomerID,
+		CustomerLabel: customerLabel,
+		Search:        query.Search,
+		SortBy:        query.SortBy,
+		SortDir:       query.SortDir,
+		Customers:     customers,
+		Rows:          rows,
+		Page:          query.Page,
+		PageSize:      query.Size,
+		Total:         total,
+		TotalPages:    totalPages,
+	}
+	return pages.SalesTransactions(vm).Render(c.Context(), c)
+}
+
+func (s *Server) handleSalesTransactionsAPI(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "active company required"})
+	}
+
+	query := parseSalesTxQuery(c)
+	rows, total, err := services.ListSalesTransactions(s.DB, companyID, query.Filter, query.Page, query.Size)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not load sales transactions"})
+	}
+
+	totalPages := (total + query.Size - 1) / query.Size
+	if totalPages < 1 {
+		totalPages = 1
+	}
+
+	return c.JSON(salesTransactionsAPIResponse{
+		Rows:       salesTxRowsAPI(rows),
+		Page:       query.Page,
+		PageSize:   query.Size,
+		Total:      total,
+		TotalPages: totalPages,
+		PageStart:  salesTxPageStart(query.Page, query.Size, total),
+		PageEnd:    salesTxPageEnd(query.Page, query.Size, total),
+		RowsTotal:  salesTxRowsTotalString(rows),
+		SortBy:     query.SortBy,
+		SortDir:    query.SortDir,
+	})
+}
+
+type salesTxParsedQuery struct {
+	TypeFilter   string
+	DateToken    string
+	CustomFrom   string
+	CustomTo     string
+	StatusFilter string
+	CustomerID   uint
+	Search       string
+	SortBy       string
+	SortDir      string
+	Page         int
+	Size         int
+	Filter       services.SalesTxFilter
+}
+
+func parseSalesTxQuery(c *fiber.Ctx) salesTxParsedQuery {
 	typeFilter := strings.TrimSpace(c.Query("type"))
 	dateToken := strings.TrimSpace(c.Query("date"))
 	customFrom := strings.TrimSpace(c.Query("from"))
@@ -61,65 +161,117 @@ func (s *Server) handleSalesTransactions(c *fiber.Ctx) error {
 
 	dateFrom, dateTo := resolveSalesTxDateRange(dateToken, customFrom, customTo)
 
-	filter := services.SalesTxFilter{
-		Type:       typeFilter,
-		DateFrom:   dateFrom,
-		DateTo:     dateTo,
-		CustomerID: customerID,
-		Status:     statusFilter,
-		Search:     search,
-		SortBy:     sortBy,
-		SortDir:    sortDir,
+	return salesTxParsedQuery{
+		TypeFilter:   typeFilter,
+		DateToken:    dateToken,
+		CustomFrom:   customFrom,
+		CustomTo:     customTo,
+		StatusFilter: statusFilter,
+		CustomerID:   customerID,
+		Search:       search,
+		SortBy:       sortBy,
+		SortDir:      sortDir,
+		Page:         page,
+		Size:         size,
+		Filter: services.SalesTxFilter{
+			Type:       typeFilter,
+			DateFrom:   dateFrom,
+			DateTo:     dateTo,
+			CustomerID: customerID,
+			Status:     statusFilter,
+			Search:     search,
+			SortBy:     sortBy,
+			SortDir:    sortDir,
+		},
 	}
+}
 
-	rows, total, err := services.ListSalesTransactions(s.DB, companyID, filter, page, size)
-	if err != nil {
-		rows = nil
-		total = 0
-	}
+type salesTransactionsAPIResponse struct {
+	Rows       []salesTransactionsAPIRow `json:"rows"`
+	Page       int                       `json:"page"`
+	PageSize   int                       `json:"page_size"`
+	Total      int                       `json:"total"`
+	TotalPages int                       `json:"total_pages"`
+	PageStart  int                       `json:"page_start"`
+	PageEnd    int                       `json:"page_end"`
+	RowsTotal  string                    `json:"rows_total"`
+	SortBy     string                    `json:"sort_by"`
+	SortDir    string                    `json:"sort_dir"`
+}
 
-	kpi, _ := services.ComputeSalesTxKPI(s.DB, companyID)
+type salesTransactionsAPIRow struct {
+	Key          string  `json:"key"`
+	ID           uint    `json:"id"`
+	Type         string  `json:"type"`
+	Date         string  `json:"date"`
+	Number       string  `json:"number"`
+	CustomerID   uint    `json:"customer_id"`
+	CustomerName string  `json:"customer_name"`
+	CustomerURL  string  `json:"customer_url"`
+	Memo         string  `json:"memo"`
+	Amount       string  `json:"amount"`
+	Currency     string  `json:"currency"`
+	Status       string  `json:"status"`
+	DueDate      *string `json:"due_date,omitempty"`
+	DetailURL    string  `json:"detail_url"`
+}
 
-	customers, _ := s.customersForCompany(companyID)
-
-	// Customer label for echo — look up from loaded list so the filter
-	// dropdown can render a readable value after submit.
-	customerLabel := ""
-	if customerID != 0 {
-		for _, cu := range customers {
-			if cu.ID == customerID {
-				customerLabel = cu.Name
-				break
-			}
+func salesTxRowsAPI(rows []services.SalesTxRow) []salesTransactionsAPIRow {
+	out := make([]salesTransactionsAPIRow, 0, len(rows))
+	for _, row := range rows {
+		var dueDate *string
+		if row.DueDate != nil {
+			value := row.DueDate.Format("2006-01-02")
+			dueDate = &value
 		}
+		customerURL := ""
+		if row.CustomerID != 0 {
+			customerURL = "/customers/" + strconv.FormatUint(uint64(row.CustomerID), 10)
+		}
+		out = append(out, salesTransactionsAPIRow{
+			Key:          row.Type + ":" + strconv.FormatUint(uint64(row.ID), 10),
+			ID:           row.ID,
+			Type:         row.Type,
+			Date:         row.Date.Format("2006-01-02"),
+			Number:       row.Number,
+			CustomerID:   row.CustomerID,
+			CustomerName: row.CustomerName,
+			CustomerURL:  customerURL,
+			Memo:         row.Memo,
+			Amount:       row.Amount.StringFixed(2),
+			Currency:     row.Currency,
+			Status:       row.Status,
+			DueDate:      dueDate,
+			DetailURL:    row.DetailURL,
+		})
 	}
+	return out
+}
 
-	totalPages := (total + size - 1) / size
-	if totalPages < 1 {
-		totalPages = 1
+func salesTxPageStart(page, size, total int) int {
+	if total <= 0 {
+		return 0
 	}
+	return (page-1)*size + 1
+}
 
-	vm := pages.SalesTxVM{
-		HasCompany:    true,
-		KPI:           kpi,
-		TypeFilter:    typeFilter,
-		DateFilter:    dateToken,
-		DateFrom:      customFrom,
-		DateTo:        customTo,
-		StatusFilter:  statusFilter,
-		CustomerID:    customerID,
-		CustomerLabel: customerLabel,
-		Search:        search,
-		SortBy:        sortBy,
-		SortDir:       sortDir,
-		Customers:     customers,
-		Rows:          rows,
-		Page:          page,
-		PageSize:      size,
-		Total:         total,
-		TotalPages:    totalPages,
+func salesTxPageEnd(page, size, total int) int {
+	end := page * size
+	if end > total {
+		return total
 	}
-	return pages.SalesTransactions(vm).Render(c.Context(), c)
+	if end < 0 {
+		return 0
+	}
+	return end
+}
+
+func salesTxRowsTotalString(rows []services.SalesTxRow) string {
+	total := decimal.Zero
+	for _, row := range rows {
+		total = total.Add(row.Amount)
+	}
+	return total.StringFixed(2)
 }
 
 // resolveSalesTxDateRange maps a preset token (or "custom" + raw strings)

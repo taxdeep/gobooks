@@ -193,6 +193,7 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	// the dropdown's "Advanced transactions search" link). Same projection,
 	// flat paginated results, richer filter set.
 	app.Get("/advanced-search", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleAdvancedSearch)
+	app.Get("/api/sales-transactions", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleSalesTransactionsAPI)
 	app.Get("/api/exchange-rate", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleExchangeRateGet)
 	// SmartPicker 使用事件（fire-and-forget，用于未来的排名信号）
 	app.Post("/api/smart-picker/usage", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleSmartPickerUsage)

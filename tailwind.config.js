@@ -3,7 +3,8 @@
 module.exports = {
   content: [
     "./internal/web/templates/**/*.templ",
-    "./internal/web/**/*.go"
+    "./internal/web/**/*.go",
+    "./internal/web/react/**/*.{ts,tsx}"
   ],
   // Class-based dark mode: <html class="dark"> triggers .dark { --gb-* } overrides in input.css.
   // All semantic color tokens are defined as CSS custom properties — no template changes needed.

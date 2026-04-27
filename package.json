@@ -6,11 +6,23 @@
   "scripts": {
     "dev:css": "tailwindcss -i ./internal/web/assets/input.css -o ./internal/web/static/app.css --watch",
     "build:css": "tailwindcss -i ./internal/web/assets/input.css -o ./internal/web/static/app.css --minify",
+    "dev:react": "vite build --watch",
+    "build:react": "vite build",
+    "typecheck:react": "tsc --noEmit",
     "test:runtime-js": "node internal/web/static/runtime.test.js"
   },
   "devDependencies": {
-    "tailwindcss": "^3.4.13",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "autoprefixer": "^10.4.20",
     "postcss": "^8.4.39",
-    "autoprefixer": "^10.4.20"
+    "tailwindcss": "^3.4.13",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.10"
+  },
+  "dependencies": {
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
   }
 }

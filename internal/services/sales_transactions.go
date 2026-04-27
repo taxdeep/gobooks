@@ -135,9 +135,9 @@ func ListSalesTransactions(db *gorm.DB, companyID uint, f SalesTxFilter, page, s
 
 	// Normalise Type: blank → all. Pseudo-types translate into (base type
 	// + pre-applied filter) before the loader scans.
-	typ := strings.ToLower(strings.TrimSpace(f.Type))
+	typ := NormalizeSalesTxType(f.Type)
 	switch typ {
-	case "", "all":
+	case "all":
 		typ = "all"
 	case SalesTxPseudoUnbilled:
 		// Unbilled = confirmed/partially-invoiced SalesOrders.
@@ -220,6 +220,31 @@ func ListSalesTransactions(db *gorm.DB, companyID uint, f SalesTxFilter, page, s
 // Per-type loaders. Each applies the shared filter's date range + customer
 // + search + status (when applicable) and emits a slice of SalesTxRow.
 // ──────────────────────────────────────────────────────────────────────
+
+// NormalizeSalesTxType maps UI/query aliases to the canonical service
+// discriminator. It preserves unknown values so callers get an empty result
+// set rather than silently widening scope.
+func NormalizeSalesTxType(raw string) string {
+	typ := strings.ToLower(strings.TrimSpace(raw))
+	switch typ {
+	case "", "all":
+		return "all"
+	case "invoices":
+		return SalesTxTypeInvoice
+	case "quotes":
+		return SalesTxTypeQuote
+	case "sales_orders", "sales-orders":
+		return SalesTxTypeSalesOrder
+	case "payments", "receipts", "customer_receipts":
+		return SalesTxTypePayment
+	case "credit_memos", "credit-notes", "credit_notes":
+		return SalesTxTypeCreditNote
+	case "returns":
+		return SalesTxTypeReturn
+	default:
+		return typ
+	}
+}
 
 func NormalizeSalesTxSort(sortBy, sortDir string) (string, string) {
 	field := strings.ToLower(strings.TrimSpace(sortBy))

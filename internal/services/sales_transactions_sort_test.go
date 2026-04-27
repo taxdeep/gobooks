@@ -29,6 +29,30 @@ func TestNormalizeSalesTxSort(t *testing.T) {
 	}
 }
 
+func TestNormalizeSalesTxType(t *testing.T) {
+	cases := []struct {
+		raw  string
+		want string
+	}{
+		{"", "all"},
+		{"all", "all"},
+		{"invoices", SalesTxTypeInvoice},
+		{"quotes", SalesTxTypeQuote},
+		{"sales_orders", SalesTxTypeSalesOrder},
+		{"payments", SalesTxTypePayment},
+		{"credit_memos", SalesTxTypeCreditNote},
+		{"returns", SalesTxTypeReturn},
+		{"unbilled", SalesTxPseudoUnbilled},
+		{"recently_paid", SalesTxPseudoRecentlyPaid},
+		{"unknown", "unknown"},
+	}
+	for _, tc := range cases {
+		if got := NormalizeSalesTxType(tc.raw); got != tc.want {
+			t.Fatalf("NormalizeSalesTxType(%q) = %q, want %q", tc.raw, got, tc.want)
+		}
+	}
+}
+
 func TestSortSalesTransactions(t *testing.T) {
 	rows := []SalesTxRow{
 		sortTxRow(1, SalesTxTypeInvoice, "2026-01-03", "INV-2", "Zulu", "issued", "50.00"),

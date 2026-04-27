@@ -11,7 +11,7 @@
 #   1. Installs system dependencies (Go, Node.js, PostgreSQL, Nginx, wkhtmltopdf)
 #   2. Creates a "gobooks" system user
 #   3. Creates the PostgreSQL database and role
-#   4. Builds GoBooks from source (Go binaries + Tailwind CSS)
+#   4. Builds GoBooks from source (Go binaries + CSS + React static assets)
 #   5. Writes the .env configuration file
 #   6. Runs database migrations
 #   7. Installs a systemd service (auto-start on boot)
@@ -28,8 +28,8 @@ set -euo pipefail
 INSTALL_DIR="/opt/gobooks"
 DATA_DIR="/opt/gobooks/data"
 BACKUP_DIR="/var/backups/gobooks"
-GO_VERSION="1.23.6"
-NODE_MAJOR=20
+GO_VERSION="1.26.1"
+NODE_INSTALL_MAJOR=22
 SERVICE_USER="gobooks"
 DB_NAME="gobooks"
 DB_USER="gobooks"
@@ -114,7 +114,8 @@ apt-get install -y -qq \
 # ── 2. Install Go ────────────────────────────────────────────────────────────
 
 GO_MIN_MAJOR=1
-GO_MIN_MINOR=23
+GO_MIN_MINOR=26
+GO_MIN_PATCH=0
 
 # Compare installed Go version against minimum requirement.
 # Returns 0 if installed version is sufficient, 1 otherwise.
@@ -123,17 +124,22 @@ go_version_ok() {
         return 1
     fi
     local ver
-    ver=$(go version | grep -oP 'go\K[0-9]+\.[0-9]+')
-    local maj min
+    ver=$(go version | grep -oE 'go[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1 | sed 's/^go//')
+    local maj min patch
     maj=$(echo "$ver" | cut -d. -f1)
     min=$(echo "$ver" | cut -d. -f2)
+    patch=$(echo "$ver" | cut -d. -f3)
+    patch="${patch:-0}"
+    if [[ -z "$maj" || -z "$min" ]]; then return 1; fi
     if [[ "$maj" -gt "$GO_MIN_MAJOR" ]]; then return 0; fi
-    if [[ "$maj" -eq "$GO_MIN_MAJOR" && "$min" -ge "$GO_MIN_MINOR" ]]; then return 0; fi
-    return 1
+    if [[ "$maj" -lt "$GO_MIN_MAJOR" ]]; then return 1; fi
+    if [[ "$min" -gt "$GO_MIN_MINOR" ]]; then return 0; fi
+    if [[ "$min" -lt "$GO_MIN_MINOR" ]]; then return 1; fi
+    [[ "$patch" -ge "$GO_MIN_PATCH" ]]
 }
 
 install_go() {
-    log "Installing Go ${GO_VERSION} (minimum required: ${GO_MIN_MAJOR}.${GO_MIN_MINOR})..."
+    log "Installing Go ${GO_VERSION} (minimum required: ${GO_MIN_MAJOR}.${GO_MIN_MINOR}.${GO_MIN_PATCH})..."
     # Remove any existing /usr/local/go to avoid mixing versions
     rm -rf /usr/local/go
     curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /usr/local -xzf -
@@ -147,10 +153,10 @@ GOEOF
 
 export PATH=$PATH:/usr/local/go/bin
 if go_version_ok; then
-    log "Go $(go version | grep -oP 'go[0-9.]+') already installed (>= ${GO_MIN_MAJOR}.${GO_MIN_MINOR})."
+    log "Go $(go version | grep -oE 'go[0-9.]+') already installed (>= ${GO_MIN_MAJOR}.${GO_MIN_MINOR}.${GO_MIN_PATCH})."
 else
     if command -v go &>/dev/null; then
-        warn "Installed Go $(go version | grep -oP 'go[0-9.]+') is below minimum ${GO_MIN_MAJOR}.${GO_MIN_MINOR}. Upgrading..."
+        warn "Installed Go $(go version | grep -oE 'go[0-9.]+') is below minimum ${GO_MIN_MAJOR}.${GO_MIN_MINOR}.${GO_MIN_PATCH}. Upgrading..."
     fi
     install_go
 fi
@@ -161,23 +167,40 @@ node_version_ok() {
     if ! command -v node &>/dev/null; then
         return 1
     fi
-    local major
-    major=$(node -v | sed -E 's/^v([0-9]+).*/\1/')
-    [[ -n "$major" && "$major" -ge "$NODE_MAJOR" ]]
+    local ver major minor patch
+    ver=$(node -v | sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+    major=$(echo "$ver" | cut -d. -f1)
+    minor=$(echo "$ver" | cut -d. -f2)
+    patch=$(echo "$ver" | cut -d. -f3)
+    patch="${patch:-0}"
+    if [[ -z "$major" || -z "$minor" ]]; then return 1; fi
+
+    # Vite/Rolldown requires Node ^20.19.0 or >=22.12.0.
+    if [[ "$major" -eq 20 ]]; then
+        if [[ "$minor" -gt 19 ]]; then return 0; fi
+        if [[ "$minor" -eq 19 && "$patch" -ge 0 ]]; then return 0; fi
+        return 1
+    fi
+    if [[ "$major" -eq 22 ]]; then
+        if [[ "$minor" -gt 12 ]]; then return 0; fi
+        if [[ "$minor" -eq 12 && "$patch" -ge 0 ]]; then return 0; fi
+        return 1
+    fi
+    [[ "$major" -gt 22 ]]
 }
 
 install_node() {
-    log "Installing Node.js ${NODE_MAJOR}.x..."
-    curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash -
+    log "Installing Node.js ${NODE_INSTALL_MAJOR}.x..."
+    curl -fsSL "https://deb.nodesource.com/setup_${NODE_INSTALL_MAJOR}.x" | bash -
     apt-get install -y -qq nodejs
     log "Node.js $(node -v) installed."
 }
 
 if node_version_ok; then
-    log "Node.js $(node -v) already installed (>= ${NODE_MAJOR})."
+    log "Node.js $(node -v) already installed (compatible with Vite: ^20.19.0 or >=22.12.0)."
 else
     if command -v node &>/dev/null; then
-        warn "Installed Node.js $(node -v) is below minimum ${NODE_MAJOR}. Upgrading..."
+        warn "Installed Node.js $(node -v) is below the required Vite runtime (^20.19.0 or >=22.12.0). Upgrading..."
     else
         log "Node.js not found. Installing..."
     fi
@@ -243,10 +266,16 @@ if [[ ! -f "go.mod" ]]; then
 fi
 
 log "Installing Node.js dependencies..."
-npm ci --silent 2>/dev/null || npm install --silent
+npm ci --include=dev --silent 2>/dev/null || npm install --include=dev --silent
+
+log "Type-checking React TypeScript islands..."
+npm run typecheck:react
 
 log "Building Tailwind CSS..."
 npm run build:css
+
+log "Building React static assets..."
+npm run build:react
 
 log "Building Go binaries..."
 export PATH=$PATH:/usr/local/go/bin
