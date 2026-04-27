@@ -10,7 +10,7 @@ Built on Go · Fiber · GORM · PostgreSQL · Templ · Alpine.js · Tailwind CSS
 
 ## Table of Contents
 
-- [What's new in 0.0.16](#whats-new-in-0016)
+- [What's new in 0.00.016](#whats-new-in-000016)
 - [AI Product Architecture](#ai-product-architecture)
 - [Quick Start — Docker](#quick-start--docker)
 - [Local Development](#local-development)
@@ -23,7 +23,7 @@ Built on Go · Fiber · GORM · PostgreSQL · Templ · Alpine.js · Tailwind CSS
 
 ---
 
-## What's new in 0.0.16
+## What's new in 0.00.016
 
 This release establishes the SmartPicker recommendation and AI learning foundation:
 
@@ -36,7 +36,7 @@ This release establishes the SmartPicker recommendation and AI learning foundati
 - Decision traces can be enabled with feature flags to persist compact score breakdowns for debugging.
 - Natural-language accounting copilot interfaces are scaffolded for future draft/review workflows, with no auto-posting.
 
-See `RELEASE_NOTES_0.0.16.md` for the implementation record.
+See `RELEASE_NOTES_0.00.016.md` for the implementation record.
 
 ---
 

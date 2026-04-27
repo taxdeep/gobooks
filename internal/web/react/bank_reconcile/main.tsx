@@ -4,6 +4,10 @@ import { createRoot } from "react-dom/client";
 declare global {
   interface Window {
     gobooksFetch?: (url: string, options?: RequestInit) => Promise<Response>;
+    gbUnsavedWork?: {
+      set: (key: string, state: "saving" | "unsaved" | "error", message?: string) => void;
+      clear: (key: string) => void;
+    };
   }
 }
 
@@ -199,6 +203,20 @@ function BankReconcileWorkspace({ payload }: { payload: WorkspacePayload }) {
     }, 800);
     return () => window.clearTimeout(t);
   }, [selectedIDs.join(",")]);
+
+  useEffect(() => {
+    if (!window.gbUnsavedWork) return;
+    const key = "bank-reconcile";
+    if (saveState === "saved") {
+      window.gbUnsavedWork.clear(key);
+      return;
+    }
+    const message = saveState === "saving"
+      ? "Your bank reconciliation is still saving. Please wait before switching company."
+      : "Your bank reconciliation has unsaved changes. Please save before switching company.";
+    window.gbUnsavedWork.set(key, saveState, message);
+    return () => window.gbUnsavedWork?.clear(key);
+  }, [saveState]);
 
   const runSave = async (_reason: "auto" | "manual" | "navigate") => {
     setSaveState("saving");
@@ -613,7 +631,7 @@ function TransactionPane({
       </div>
       <div className="max-h-[62vh] overflow-auto">
         <table className="min-w-full table-fixed text-left text-[11px]">
-          <thead className="sticky top-0 z-10 bg-background text-[11px] font-bold uppercase tracking-wider text-text-muted2">
+          <thead className="sticky top-0 z-10 bg-background text-body font-bold uppercase tracking-wider text-text-muted2">
             <tr className="border-b border-border">
               <Header label="Date" sortKey="date" current={sortKey} asc={sortAsc} onSort={setSort} className="w-24" />
               {!compact ? <Header label="Type" sortKey="type" current={sortKey} asc={sortAsc} onSort={setSort} className="w-28" /> : null}

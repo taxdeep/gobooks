@@ -1,5 +1,16 @@
 // Package version holds the application release string.
 package version
 
-// Version is the semantic version of the GoBooks binary.
-const Version = "0.0.16.26042720"
+const (
+	// Major, Minor, and Patch are decimal release components.
+	Major = 0
+	Minor = 0
+	Patch = 16
+
+	// BuildCode is a fixed-width uppercase base36 build counter.
+	BuildCode = "0000"
+
+	// Version format: M.mm.ppp.BBBB
+	// M/mm/ppp are decimal; BBBB is a four-character base36 build code.
+	Version = "0.00.016.0000"
+)
