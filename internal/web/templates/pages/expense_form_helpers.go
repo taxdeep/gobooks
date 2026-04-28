@@ -12,6 +12,8 @@ func expenseInitialLinesJSON(vm ExpenseFormVM) string {
 		ExpenseAccountID string `json:"expense_account_id"`
 		ProductServiceID string `json:"product_service_id"`
 		Description      string `json:"description"`
+		Qty              string `json:"qty"`
+		UnitPrice        string `json:"unit_price"`
 		Amount           string `json:"amount"`
 		TaxCodeID        string `json:"tax_code_id"`
 		LineTax          string `json:"line_tax"`
@@ -30,6 +32,8 @@ func expenseInitialLinesJSON(vm ExpenseFormVM) string {
 			ExpenseAccountID: l.ExpenseAccountID,
 			ProductServiceID: l.ProductServiceID,
 			Description:      l.Description,
+			Qty:              l.Qty,
+			UnitPrice:        l.UnitPrice,
 			Amount:           l.Amount,
 			TaxCodeID:        l.TaxCodeID,
 			LineTax:          l.LineTax,

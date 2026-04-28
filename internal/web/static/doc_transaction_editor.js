@@ -1,5 +1,5 @@
 // doc_transaction_editor.js — Alpine factory for "simple" line-item editors.
-// v=1
+// v=2
 //
 // Shared by Quote, Sales Order, Purchase Order, Bill, Expense — every
 // transaction-document editor whose totals are a plain
@@ -84,6 +84,19 @@ function docTransactionEditor() {
         this._recalcAll();
       },
 
+      onCounterpartySelectChange(event) {
+        const option = event && event.target ? event.target.selectedOptions[0] : null;
+        if (!option) return;
+        this._applyCounterpartyCurrency(option.dataset.currency || option.dataset.defaultCurrency || "");
+      },
+
+      onCounterpartyPickerSelect(event) {
+        const detail = event.detail || {};
+        if (detail.entity !== "customer" && detail.entity !== "vendor") return;
+        const payload = detail.payload || {};
+        this._applyCounterpartyCurrency(payload.default_currency || payload.currency_code || "");
+      },
+
       calcLine(idx) {
         const line = this.lines[idx];
         line.qty        = this._sanitizeDecimalInput(line.qty, 4);
@@ -136,6 +149,21 @@ function docTransactionEditor() {
         const tc = this._taxCodesById[String(taxCodeId)];
         if (!tc) return 0;
         return parseFloat(tc.rate) || 0;
+      },
+
+      _applyCounterpartyCurrency(raw) {
+        const currency = String(raw || "").trim().toUpperCase();
+        if (!currency) return;
+        const field = this.$el.querySelector('[name="currency_code"]');
+        if (!field) return;
+        if (field.tagName === "SELECT") {
+          const option = Array.from(field.options).find(o => o.value.toUpperCase() === currency);
+          if (!option) return;
+          field.value = option.value;
+        } else {
+          field.value = currency;
+        }
+        field.dispatchEvent(new Event("change", { bubbles: true }));
       },
 
       _sanitizeDecimalInput(val, maxDp) {

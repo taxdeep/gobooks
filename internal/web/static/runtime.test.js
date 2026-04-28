@@ -19,8 +19,30 @@ function loadBrowserScript(filename, extraContext) {
   return context;
 }
 
+function loadBrowserScripts(filenames, extraContext) {
+  const context = {
+    console,
+    Event: class {
+      constructor(type) {
+        this.type = type;
+      }
+    },
+    URLSearchParams,
+    setTimeout,
+    clearTimeout,
+    ...extraContext,
+  };
+  context.window = context.window || {};
+  vm.createContext(context);
+  for (const filename of filenames) {
+    const source = fs.readFileSync(path.join(__dirname, filename), 'utf8');
+    vm.runInContext(source, context, { filename });
+  }
+  return context;
+}
+
 function testInvoiceEditorInitializesWithSingleBlankLine() {
-  const context = loadBrowserScript('invoice_editor.js', {});
+  const context = loadBrowserScripts(['doc_line_items.js', 'invoice_editor.js'], {});
   const editor = context.invoiceEditor();
 
   editor.$el = {
@@ -45,6 +67,7 @@ function testInvoiceEditorInitializesWithSingleBlankLine() {
     JSON.parse(JSON.stringify(editor.lines[0])),
     {
       product_service_id: '',
+      product_service_label: '',
       description: '',
       qty: '1',
       unit_price: '0.00',
@@ -53,6 +76,7 @@ function testInvoiceEditorInitializesWithSingleBlankLine() {
       line_tax: '0.00',
       error: '',
       locked: false,
+      _rowKey: 1,
     },
   );
 }
@@ -82,7 +106,11 @@ function testBillEditorInitializesWithSingleBlankLine() {
     JSON.parse(JSON.stringify(editor.lines[0])),
     {
       expense_account_id: '',
+      product_service_id: '',
       description: '',
+      qty: '1',
+      unit: '',
+      unit_price: '0.00',
       task_id: '',
       is_billable: false,
       amount: '0.00',
@@ -90,6 +118,14 @@ function testBillEditorInitializesWithSingleBlankLine() {
       line_net: '0.00',
       line_tax: '0.00',
       error: '',
+      category_query: '',
+      category_source: '',
+      category_open: false,
+      category_loading: false,
+      category_failed: false,
+      category_results: [],
+      category_highlighted: -1,
+      category_fetch_seq: 0,
     },
   );
 }
@@ -144,19 +180,54 @@ async function testVendorSmartPickerRequestCarriesContext() {
       }
       return null;
     },
+    addEventListener() {},
   };
 
   picker.init();
   await picker._fetch('');
 
   assert.equal(hiddenInput.name, 'vendor_id');
-  assert.equal(fetchCalls.length, 1);
+  const searchCalls = fetchCalls.filter(call => String(call.url).startsWith('/api/smart-picker/search?'));
+  assert.equal(searchCalls.length, 1);
 
-  const requestURL = new URL(fetchCalls[0].url, 'https://example.test');
+  const requestURL = new URL(searchCalls[0].url, 'https://example.test');
   assert.equal(requestURL.pathname, '/api/smart-picker/search');
   assert.equal(requestURL.searchParams.get('entity'), 'vendor');
   assert.equal(requestURL.searchParams.get('context'), 'expense_form_vendor');
-  assert.equal(fetchCalls[0].options.method, 'GET');
+  assert.equal(searchCalls[0].options.method, 'GET');
+}
+
+function testDocTransactionEditorCounterpartyCurrencySync() {
+  const context = loadBrowserScripts(['doc_line_items.js', 'doc_transaction_editor.js'], {});
+  const editor = context.docTransactionEditor();
+
+  const currencyEvents = [];
+  const currencyField = {
+    tagName: 'SELECT',
+    value: 'CAD',
+    options: [{ value: 'CAD' }, { value: 'USD' }],
+    dispatchEvent(event) {
+      currencyEvents.push(event.type);
+    },
+  };
+  const selectedOption = { dataset: { currency: 'usd' } };
+  editor.$el = {
+    dataset: {
+      products: '[]',
+      taxCodes: '[]',
+      initialLines: '[]',
+    },
+    querySelector(selector) {
+      if (selector === '[name="currency_code"]') return currencyField;
+      return null;
+    },
+  };
+
+  editor.init();
+  editor.onCounterpartySelectChange({ target: { selectedOptions: [selectedOption] } });
+
+  assert.equal(currencyField.value, 'USD');
+  assert.deepEqual(currencyEvents, ['change']);
 }
 
 function testBillDateFilterInputSanitizesAndNormalizes() {
@@ -399,6 +470,10 @@ async function run() {
     {
       name: 'vendor smart picker search request includes expense_form_vendor context',
       fn: testVendorSmartPickerRequestCarriesContext,
+    },
+    {
+      name: 'document transaction editor syncs currency from selected counterparty',
+      fn: testDocTransactionEditorCounterpartyCurrencySync,
     },
     {
       name: 'bill date filter input strips letters and normalizes 8-digit dates',

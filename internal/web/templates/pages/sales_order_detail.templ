@@ -155,11 +155,12 @@ templ soHeaderLeft(vm SalesOrderDetailVM) {
 		<select
 			name="customer_id"
 			required
+			@change="onCounterpartySelectChange($event)"
 			class={ fieldClass(false) }
 		>
 			<option value="">— Select Customer —</option>
 			for _, c := range vm.Customers {
-				<option value={ Uitoa(c.ID) } selected?={ c.ID == vm.Order.CustomerID }>{ c.Name }</option>
+				<option value={ Uitoa(c.ID) } data-currency={ c.CurrencyCode } selected?={ c.ID == vm.Order.CustomerID }>{ c.Name }</option>
 			}
 		</select>
 	</div>

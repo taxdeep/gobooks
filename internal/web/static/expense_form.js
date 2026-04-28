@@ -1,5 +1,5 @@
 // expense_form.js — Alpine component for the multi-line expense entry form.
-// v=4
+// v=5
 //
 // State read from data-* attributes on the form element:
 //   data-base-currency      — company base currency code (e.g. "CAD")
@@ -9,8 +9,8 @@
 //   data-tasks              — JSON [{id, title, customer_name}]
 //   data-products           — JSON [{id, sku, name, kind}]  kind is "stock"|"service"
 //   data-initial-lines      — JSON [{expense_account_id, product_service_id, description,
-//                                    amount, tax_code_id, line_tax, line_total, task_id,
-//                                    is_billable, error}]
+//                                    qty, unit_price, amount, tax_code_id, line_tax,
+//                                    line_total, task_id, is_billable, error}]
 //
 function balancizExpenseForm() {
   return {

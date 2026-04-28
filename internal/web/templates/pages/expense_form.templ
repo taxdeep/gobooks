@@ -1,4 +1,4 @@
-// 遵循project_guide.md
+// Follow project_guide.md
 package pages
 
 import "balanciz/internal/models"
@@ -15,7 +15,7 @@ templ ExpenseForm(vm ExpenseFormVM) {
 
 templ expenseFormBody(vm ExpenseFormVM) {
 	@ui.DocEditorShell(expenseFormShellVM(vm), expenseFormShellContent(vm))
-	<script src="/static/expense_form.js?v=4"></script>
+	<script src="/static/expense_form.js?v=5"></script>
 }
 
 templ expenseFormShellContent(vm ExpenseFormVM) {
@@ -25,11 +25,6 @@ templ expenseFormShellContent(vm ExpenseFormVM) {
 		</div>
 	}
 
-	// IN.2 controlled-mode warning: when the company runs on
-	// receipt_required=true, any stock-item line will cause Post
-	// to reject loudly (ErrExpenseStockItemRequiresReceipt). Warn
-	// the operator up-front so they don't discover it only at
-	// post time — and reroute through Receipt per Rule #4 Q2.
 	if vm.ReceiptRequired {
 		@expenseControlledModeWarning()
 	}
@@ -48,17 +43,11 @@ templ expenseFormShellContent(vm ExpenseFormVM) {
 		data-initial-lines={ expenseInitialLinesJSON(vm) }
 		@balanciz-picker-select="onPickerSelect($event)"
 	>
-		@ui.SectionCard("Expense Header", "", expenseHeaderSection(vm))
+		@expenseEntryHeader(vm)
 		@expenseFXStrip(vm)
-		@ui.SectionCard("Line Items", "Each row is one cost category. The total is the sum of all lines.", expenseLinesSection(vm))
-		@ui.SectionCard("Notes", "", expenseNotesSection(vm))
+		@expenseLinesSection(vm)
+		@expenseMemoAndTotals(vm)
 
-		// IN.2: Post / Void buttons are SIBLINGS of the save form,
-		// never nested (HTML5 forbids nested <form> elements; a
-		// nested form silently falls through to the enclosing form's
-		// action — same class of bug that broke the PO Confirm button
-		// earlier). Rendered above the sticky footer so Save lives in
-		// the unified action bar at the page bottom.
 		@ui.DocEditorFooter(expenseFormFooterVM(vm))
 	</form>
 
@@ -80,23 +69,14 @@ templ expenseFormShellContent(vm ExpenseFormVM) {
 	}
 }
 
-// expenseControlledModeWarning renders the Rule #4 Q2 banner for
-// companies running receipt_required=true. Extracted to its own
-// templ function so the inline HTML doesn't collide with templ's
-// if-block parser in the caller.
 templ expenseControlledModeWarning() {
 	<div class="rounded-md border border-warning-border bg-warning-soft p-3 text-body text-warning-hover">
 		<strong>Receipt-first mode is active for this company.</strong>
 		Expense lines that pick a stock item will be
-		<strong>rejected</strong> at post — inbound inventory must
-		route through a Receipt. Stock-item purchases should be
-		entered as a Receipt (and matching Bill), not an Expense.
+		<strong>rejected</strong> at post. Inbound inventory must route through a Receipt.
 	</div>
 }
 
-// expenseStatusBadge renders a small pill showing the expense's
-// IN.2 lifecycle state. Colour keyed to the same tokens PO / Bill
-// detail views use.
 templ expenseStatusBadge(status string) {
 	if status == "posted" {
 		<span class="rounded bg-success-soft px-2 py-0.5 text-small font-semibold text-success">Posted</span>
@@ -107,129 +87,139 @@ templ expenseStatusBadge(status string) {
 	}
 }
 
-// expenseHeaderSection renders the top header row:
-// Vendor | Expense Date | Currency | Payment Account | Payment Method | Reference
-templ expenseHeaderSection(vm ExpenseFormVM) {
-	<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+templ expenseEntryHeader(vm ExpenseFormVM) {
+	<div class={ ui.SectionCardChromeClass() }>
+		<div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+			<div class="min-w-0 flex-1">
+				<div class="grid grid-cols-1 gap-x-4 gap-y-3 md:grid-cols-2 xl:grid-cols-4">
+					<div class="md:col-span-2 xl:col-span-1">
+						@ui.SmartPicker(ui.SmartPickerVM{
+							Label:         "Payee",
+							FieldName:     "vendor_id",
+							Entity:        "vendor",
+							Context:       "expense_form_vendor",
+							Value:         vm.VendorID,
+							SelectedLabel: vm.VendorLabel,
+							Placeholder:   "Who did you pay?",
+							Required:      false,
+							Error:         vm.VendorError,
+							Limit:         20,
+						})
+					</div>
 
-		<!-- Vendor (SmartPicker) -->
-		<div class="sm:col-span-2 lg:col-span-1">
-			@ui.SmartPicker(ui.SmartPickerVM{
-				Label:         "Vendor",
-				FieldName:     "vendor_id",
-				Entity:        "vendor",
-				Context:       "expense_form_vendor",
-				Value:         vm.VendorID,
-				SelectedLabel: vm.VendorLabel,
-				Placeholder:   "Search vendors… (optional)",
-				Required:      false,
-				Error:         vm.VendorError,
-				Limit:         20,
-			})
-		</div>
+					<div class="md:col-span-2 xl:col-span-1">
+						@ui.SmartPicker(ui.SmartPickerVM{
+							Label:         "Payment Account",
+							FieldName:     "payment_account_id",
+							Entity:        "payment_account",
+							Context:       "expense_form_payment",
+							Value:         vm.PaymentAccountID,
+							SelectedLabel: vm.PaymentAccountLabel,
+							Placeholder:   "Bank, credit card, or petty cash",
+							Required:      false,
+							Error:         vm.PaymentAccountError,
+						})
+					</div>
 
-		<!-- Expense Date -->
-		<div>
-			<label class="block text-body font-medium text-text">Expense Date *</label>
-			<input
-				type="date"
-				name="expense_date"
-				value={ vm.ExpenseDate }
-				class={ taskInputClass(vm.ExpenseDateError != "") }
-				style="color-scheme:dark"
-				@change="onDateChange($event.target.value)"
-			/>
-			if vm.ExpenseDateError != "" {
-				<div class="mt-1 text-small text-danger">{ vm.ExpenseDateError }</div>
-			}
-		</div>
+					<div>
+						<label class="block text-small font-medium uppercase tracking-wider text-text-muted">Payment Date *</label>
+						<input
+							type="date"
+							name="expense_date"
+							value={ vm.ExpenseDate }
+							class={ taskInputClass(vm.ExpenseDateError != "") }
+							style="color-scheme:dark"
+							@change="onDateChange($event.target.value)"
+						/>
+						if vm.ExpenseDateError != "" {
+							<div class="mt-1 text-small text-danger">{ vm.ExpenseDateError }</div>
+						}
+					</div>
 
-		<!-- Currency -->
-		<div>
-			<label class="block text-body font-medium text-text">Currency</label>
-			if vm.MultiCurrency {
-				<select
-					name="currency_code"
-					x-ref="currencySelect"
-					class={ taskInputClass(vm.CurrencyError != "") }
-					@change="onCurrencyChange($event.target.value)"
-				>
-					for _, code := range vm.CurrencyOptions {
-						<option value={ code } selected?={ code == vm.CurrencyCode }>{ code }</option>
+					<div>
+						<label class="block text-small font-medium uppercase tracking-wider text-text-muted">Currency</label>
+						if vm.MultiCurrency {
+							<select
+								name="currency_code"
+								x-ref="currencySelect"
+								class={ taskInputClass(vm.CurrencyError != "") }
+								@change="onCurrencyChange($event.target.value)"
+							>
+								for _, code := range vm.CurrencyOptions {
+									<option value={ code } selected?={ code == vm.CurrencyCode }>{ code }</option>
+								}
+							</select>
+						} else {
+							@ui.ReadonlyField("", vm.BaseCurrencyCode, "Multi-currency not enabled.")
+							<input type="hidden" name="currency_code" value={ vm.BaseCurrencyCode }/>
+						}
+						if vm.CurrencyError != "" {
+							<div class="mt-1 text-small text-danger">{ vm.CurrencyError }</div>
+						}
+					</div>
+
+					<div>
+						<label class="block text-small font-medium uppercase tracking-wider text-text-muted">Payment Method</label>
+						<select
+							name="payment_method"
+							class={ taskInputClass(vm.PaymentMethodError != "") }
+						>
+							<option value="">None</option>
+							for _, m := range models.ExpensePaymentMethods() {
+								<option value={ string(m) } selected?={ string(m) == vm.PaymentMethod }>{ models.PaymentMethodLabel(m) }</option>
+							}
+						</select>
+						if vm.PaymentMethodError != "" {
+							<div class="mt-1 text-small text-danger">{ vm.PaymentMethodError }</div>
+						}
+					</div>
+
+					<div>
+						<label class="block text-small font-medium uppercase tracking-wider text-text-muted">Ref No.</label>
+						<input
+							type="text"
+							name="payment_reference"
+							value={ vm.PaymentReference }
+							maxlength="200"
+							placeholder="Cheque #1042, TX-9281"
+							class={ taskInputClass(false) }
+						/>
+					</div>
+
+					<div>
+						<label class="block text-small font-medium uppercase tracking-wider text-text-muted">Amounts Are</label>
+						<select disabled class={ taskInputClass(false) }>
+							<option>Exclusive of Tax</option>
+						</select>
+						<p class="mt-1 text-small text-text-muted2">Line amounts are entered before tax.</p>
+					</div>
+
+					if len(vm.Warehouses) > 0 {
+						<div>
+							<label class="block text-small font-medium uppercase tracking-wider text-text-muted">Warehouse</label>
+							<select name="warehouse_id" class={ taskInputClass(false) }>
+								<option value="">Company default</option>
+								for _, w := range vm.Warehouses {
+									<option value={ Uitoa(w.ID) } selected?={ Uitoa(w.ID) == vm.WarehouseID }>{ w.Name } ({ w.Code })</option>
+								}
+							</select>
+							<p class="mt-1 text-small text-text-muted2">Used only for stock-item lines.</p>
+						</div>
 					}
-				</select>
-			} else {
-				@ui.ReadonlyField("", vm.BaseCurrencyCode, "Multi-currency not enabled.")
-				<input type="hidden" name="currency_code" value={ vm.BaseCurrencyCode }/>
-			}
-			if vm.CurrencyError != "" {
-				<div class="mt-1 text-small text-danger">{ vm.CurrencyError }</div>
-			}
-		</div>
+				</div>
+			</div>
 
-		<!-- Payment Account (SmartPicker) -->
-		<div class="sm:col-span-2 lg:col-span-1">
-			@ui.SmartPicker(ui.SmartPickerVM{
-				Label:         "Payment Account",
-				FieldName:     "payment_account_id",
-				Entity:        "payment_account",
-				Context:       "expense_form_payment",
-				Value:         vm.PaymentAccountID,
-				SelectedLabel: vm.PaymentAccountLabel,
-				Placeholder:   "Search bank / credit card accounts…",
-				Required:      false,
-				Error:         vm.PaymentAccountError,
-			})
+			<div class="shrink-0 rounded-md border border-border bg-background px-5 py-4 text-right lg:min-w-48">
+				<p class="text-small font-semibold uppercase tracking-wider text-text-muted">Amount</p>
+				<p class="mt-2 font-mono text-[2rem] font-semibold leading-none tabular-nums text-text">
+					<span x-text="currency || baseCurrency"></span>
+					<span x-text="grandTotal()"></span>
+				</p>
+			</div>
 		</div>
-
-		<!-- Payment Method -->
-		<div>
-			<label class="block text-body font-medium text-text">Payment Method</label>
-			<select
-				name="payment_method"
-				class={ taskInputClass(vm.PaymentMethodError != "") }
-			>
-				<option value="">— None —</option>
-				for _, m := range models.ExpensePaymentMethods() {
-					<option value={ string(m) } selected?={ string(m) == vm.PaymentMethod }>{ models.PaymentMethodLabel(m) }</option>
-				}
-			</select>
-			if vm.PaymentMethodError != "" {
-				<div class="mt-1 text-small text-danger">{ vm.PaymentMethodError }</div>
-			}
-		</div>
-
-		<!-- Payment Reference -->
-		<div>
-			<label class="block text-body font-medium text-text">Reference</label>
-			<input
-				type="text"
-				name="payment_reference"
-				value={ vm.PaymentReference }
-				maxlength="200"
-				placeholder="e.g. Cheque #1042, TX-9281"
-				class={ taskInputClass(false) }
-			/>
-		</div>
-
-		<!-- Warehouse (IN.2 Q3): header routing for any stock-item
-		     expense lines. Empty = company default warehouse. -->
-		<div>
-			<label class="block text-body font-medium text-text">Warehouse</label>
-			<select name="warehouse_id" class={ taskInputClass(false) }>
-				<option value="">— Company default —</option>
-				for _, w := range vm.Warehouses {
-					<option value={ Uitoa(w.ID) } selected?={ Uitoa(w.ID) == vm.WarehouseID }>{ w.Name } ({ w.Code })</option>
-				}
-			</select>
-			<p class="mt-1 text-small text-text-muted2">Stock-item expense lines route inventory to the selected warehouse on post.</p>
-		</div>
-
 	</div>
 }
 
-// expenseFXStrip renders a compact informational FX note when the selected
-// currency differs from the company base currency.
 templ expenseFXStrip(vm ExpenseFormVM) {
 	<div x-show="showFX" x-cloak class="rounded-md border border-border-subtle bg-background/70 px-4 py-2.5 text-small text-text-muted2">
 		<span>
@@ -239,246 +229,239 @@ templ expenseFXStrip(vm ExpenseFormVM) {
 	</div>
 }
 
-// expenseLinesSection renders the compact line-item rows managed by Alpine.
-// Each line is 3 rows:
-//   Row 1 (flex, never stacks): [Category (flex)] [Amount (w-28)] [Tax (w-36)] [×]
-//   Row 2: [Description (full width)]
-//   Row 3 (flex): [Task (flex)] [Billable]
-// Footer: subtotal + per-code tax adjustment + grand total
 templ expenseLinesSection(vm ExpenseFormVM) {
-	<div>
-		<!-- Dynamic line rows -->
-		<div class="space-y-2">
-			<template x-for="(line, idx) in lines" :key="idx">
-				<div class="rounded-md border border-border bg-surface/30 px-2 py-2 space-y-1.5">
-
-					<!-- Row 1: Category | Amount | Tax | Remove (always one line, flex) -->
-					<div class="flex items-center gap-2">
-						<!-- Category select (grows to fill) -->
-						<div class="min-w-0 flex-1">
-							<select
-								:name="'line_expense_account_id[' + idx + ']'"
-								x-model="line.expense_account_id"
-								@change="onAccountChange(idx)"
-								class="block w-full rounded border border-border-input bg-surface px-2 py-1.5 text-small text-text outline-none focus:ring-2 focus:ring-primary-focus"
-								:class="line.error ? 'border-danger focus:ring-danger-focus' : ''"
-							>
-								<option value="">— Category —</option>
-								<template x-for="a in accounts" :key="a.id">
-									<option :value="String(a.id)" :selected="String(line.expense_account_id) === String(a.id)" x-text="a.code + ' ' + a.name"></option>
-								</template>
-							</select>
-						</div>
-
-						<!-- Amount: readonly when an item is picked (computed as qty × unit_price) -->
-						<input
-							type="text"
-							:name="'line_amount[' + idx + ']'"
-							x-model="line.amount"
-							:readonly="Boolean(line.product_service_id)"
-							inputmode="decimal"
-							placeholder="0.00"
-							@blur="onAmountBlur(idx)"
-							@input="onAmountInput(idx)"
-							class="w-28 shrink-0 rounded border border-border-input bg-surface px-2 py-1.5 text-right font-mono text-small text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus tabular-nums"
-							:class="line.product_service_id ? 'opacity-70' : ''"
-						/>
-
-						<!-- Tax code -->
-						<div class="w-36 shrink-0">
-							<select
-								:name="'line_tax_code_id[' + idx + ']'"
-								x-model="line.tax_code_id"
-								@change="onTaxCodeChange(idx)"
-								class="block w-full rounded border border-border-input bg-surface px-2 py-1.5 text-small text-text outline-none focus:ring-2 focus:ring-primary-focus"
-							>
-								<option value="">— No tax —</option>
-								<template x-for="tc in taxCodes" :key="tc.id">
-									<option :value="String(tc.id)" :selected="String(line.tax_code_id) === String(tc.id)" x-text="tc.code + ' — ' + tc.name"></option>
-								</template>
-							</select>
-						</div>
-
-						<!-- Remove -->
-						<button
-							type="button"
-							@click="removeLine(idx)"
-							:disabled="lines.length <= 1"
-							class="shrink-0 flex items-center justify-center rounded p-1 text-text-muted3 hover:text-danger disabled:cursor-not-allowed disabled:opacity-30"
-							aria-label="Remove line"
-						>
-							<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-								<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-							</svg>
-						</button>
-					</div>
-
-					<!-- Row 1b: optional catalog item picker + Qty/UnitPrice
-					     (IN.2 Rule #4). Empty string = expense-only; selecting
-					     an item with IsStockItem=true routes the post through
-					     inventory.ReceiveStock under legacy mode and is
-					     rejected loudly under controlled mode
-					     (receipt_required=true). Qty × UnitPrice becomes the
-					     authoritative Amount when an item is picked. -->
-					<div class="flex items-center gap-2">
-						<div class="min-w-0 flex-1">
-							<select
-								:name="'line_product_service_id[' + idx + ']'"
-								x-model="line.product_service_id"
-								@change="onProductChange(idx)"
-								class="block w-full rounded border border-border-input bg-surface px-2 py-1.5 text-small text-text outline-none focus:ring-2 focus:ring-primary-focus"
-							>
-								<option value="">— Expense only (no item) —</option>
-								<template x-for="p in products" :key="p.id">
-									<option
-										:value="String(p.id)"
-										:selected="String(line.product_service_id) === String(p.id)"
-										x-text="(p.sku ? p.sku + ' — ' : '') + p.name + ' · ' + p.kind"
-									></option>
-								</template>
-							</select>
-						</div>
-						<!-- Qty: authoritative when item picked; disabled otherwise -->
-						<input
-							type="text"
-							:name="'line_qty[' + idx + ']'"
-							x-model="line.qty"
-							:disabled="!line.product_service_id"
-							@input="onQtyOrPriceInput(idx)"
-							@blur="onQtyBlur(idx)"
-							inputmode="decimal"
-							placeholder="Qty"
-							class="w-20 shrink-0 rounded border border-border-input bg-surface px-2 py-1.5 text-right font-mono text-small text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus tabular-nums disabled:opacity-40"
-						/>
-						<!-- Unit Price: authoritative when item picked -->
-						<input
-							type="text"
-							:name="'line_unit_price[' + idx + ']'"
-							x-model="line.unit_price"
-							:disabled="!line.product_service_id"
-							@input="onQtyOrPriceInput(idx)"
-							@blur="onUnitPriceBlur(idx)"
-							inputmode="decimal"
-							placeholder="Unit price"
-							class="w-28 shrink-0 rounded border border-border-input bg-surface px-2 py-1.5 text-right font-mono text-small text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus tabular-nums disabled:opacity-40"
-						/>
-					</div>
-
-					<!-- Row 2: Description -->
-					<input
-						type="text"
-						:name="'line_description[' + idx + ']'"
-						x-model="line.description"
-						maxlength="255"
-						placeholder="Description (optional)"
-						class="block w-full rounded border border-border-input bg-surface px-2 py-1.5 text-small text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus"
-					/>
-
-					<!-- Row 3: Task + Billable (flex) -->
-					<div class="flex items-center gap-3">
-						<div class="min-w-0 flex-1">
-							<select
-								:name="'line_task_id[' + idx + ']'"
-								x-model="line.task_id"
-								@change="onLineTaskChange(idx, $event.target.value)"
-								class="block w-full rounded border border-border-input bg-surface px-2 py-1.5 text-small text-text outline-none focus:ring-2 focus:ring-primary-focus"
-							>
-								<option value="">— No task —</option>
-								<template x-for="t in tasks" :key="t.id">
-									<option :value="String(t.id)" :selected="String(line.task_id) === String(t.id)" x-text="t.title + ' — ' + t.customer_name"></option>
-								</template>
-							</select>
-						</div>
-						<label
-							class="inline-flex shrink-0 items-center gap-1.5 text-small"
-							:class="line.task_id ? 'text-text' : 'text-text-muted3 cursor-not-allowed'"
-						>
-							<input
-								type="checkbox"
-								:name="'line_is_billable[' + idx + ']'"
-								value="1"
-								x-model="line.is_billable"
-								:disabled="!line.task_id"
-								class="h-3.5 w-3.5 rounded border-border-input accent-primary focus:ring-primary-focus disabled:opacity-40"
-							/>
-							<span>Billable</span>
-						</label>
-					</div>
-
-					<!-- Inline error -->
-					<div x-show="line.error" class="text-small text-danger" x-text="line.error"></div>
-				</div>
-			</template>
-		</div>
-
-		<!-- Hidden line count -->
-		<input type="hidden" name="line_count" :value="lines.length"/>
-
-		<!-- Totals footer -->
-		<div class="mt-4 flex flex-col items-end gap-0.5 border-t border-border pt-3">
-			<!-- Add line button (left) + totals (right) -->
-			<div class="flex w-full items-start justify-between">
-				<button
-					type="button"
-					@click="addLine()"
-					class="text-small text-primary hover:underline"
-				>+ Add line</button>
-
-				<!-- Totals panel -->
-				<div class="w-64 space-y-1 text-body">
-					<!-- Pre-tax subtotal -->
-					<div class="flex items-center justify-between">
-						<span class="text-text-muted2">Pre-tax subtotal</span>
-						<span class="font-mono tabular-nums text-text" x-text="subtotal()"></span>
-					</div>
-
-					<!-- Per-tax-code breakdown (editable override) -->
-					<template x-for="tc in taxBreakdown()" :key="tc.id">
-						<div class="flex items-center justify-between gap-2">
-							<span class="truncate text-small text-text-muted2" x-text="tc.code + ' @ ' + (tc.rate * 100).toFixed(2).replace(/\\.?0+$/, '') + '%'"></span>
-							<input
-								type="text"
-								inputmode="decimal"
-								:value="taxAdjValue(tc.id)"
-								@input="onTaxAdjInput(tc.id, $event.target.value)"
-								@blur="if (!$event.target.value.trim()) { $event.target.value = taxAdjValue(tc.id) }"
-								class="w-24 rounded-md border border-border-input bg-surface px-2 py-0.5 text-right font-mono text-body text-text tabular-nums outline-none focus:ring-2 focus:ring-primary-focus"
-							/>
-						</div>
-					</template>
-
-					<!-- Hidden tax adjustment inputs submitted with form -->
-					<template x-if="taxBreakdown().length > 0">
-						<span>
-							<input type="hidden" name="tax_adj_count" :value="taxBreakdown().length"/>
-							<template x-for="(tc, i) in taxBreakdown()" :key="tc.id">
-								<span>
-									<input type="hidden" :name="'tax_adj_id[' + i + ']'" :value="tc.id"/>
-									<input type="hidden" :name="'tax_adj_amount[' + i + ']'" :value="taxAdjValue(tc.id)"/>
-								</span>
-							</template>
-						</span>
-					</template>
-
-					<!-- Grand total -->
-					<div class="flex items-center justify-between border-t border-border pt-1.5 font-semibold">
-						<span>Total</span>
-						<span class="font-mono tabular-nums" x-text="grandTotal()"></span>
-					</div>
-				</div>
+	<div class={ ui.SectionCardChromeClass() }>
+		<div class="flex flex-wrap items-center justify-between gap-3">
+			<div>
+				<h2 class="text-section font-semibold text-text">Line Items</h2>
+				<p class="mt-1 text-small text-text-muted2">Enter category expenses directly, or pick an item when quantity and unit price should drive the amount.</p>
 			</div>
+			<button
+				type="button"
+				@click="addLine()"
+				class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-body font-medium text-text hover:bg-background"
+			>
+				Add lines
+			</button>
 		</div>
+
+		<div class="mt-4 overflow-x-auto">
+			<table class="w-full min-w-[1320px] table-fixed text-left text-body">
+				<thead class="border-b border-border text-small uppercase tracking-wider text-text-muted">
+					<tr>
+						<th class="w-10 px-2 py-2">#</th>
+						<th class="w-52 px-2 py-2">Category</th>
+						<th class="w-64 px-2 py-2">Description</th>
+						<th class="w-48 px-2 py-2">Item</th>
+						<th class="w-20 px-2 py-2 text-right">Qty</th>
+						<th class="w-28 px-2 py-2 text-right">Unit Price</th>
+						<th class="w-28 px-2 py-2 text-right">Amount</th>
+						<th class="w-36 px-2 py-2">Sales Tax</th>
+						<th class="w-48 px-2 py-2">Task</th>
+						<th class="w-24 px-2 py-2">Billable</th>
+						<th class="w-12 px-2 py-2"></th>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-border-subtle">
+					<template x-for="(line, idx) in lines" :key="idx">
+						<tr class="align-top">
+							<td class="px-2 py-2 text-small text-text-muted2 tabular-nums" x-text="idx + 1"></td>
+							<td class="px-2 py-2">
+								<select
+									:name="'line_expense_account_id[' + idx + ']'"
+									x-model="line.expense_account_id"
+									@change="onAccountChange(idx)"
+									class="block w-full rounded border border-border-input bg-surface px-2 py-1.5 text-small text-text outline-none focus:ring-2 focus:ring-primary-focus"
+									:class="line.error ? 'border-danger focus:ring-danger-focus' : ''"
+								>
+									<option value="">Category</option>
+									<template x-for="a in accounts" :key="a.id">
+										<option :value="String(a.id)" :selected="String(line.expense_account_id) === String(a.id)" x-text="a.code + ' ' + a.name"></option>
+									</template>
+								</select>
+								<div x-show="line.error" class="mt-1 text-small text-danger" x-text="line.error"></div>
+							</td>
+							<td class="px-2 py-2">
+								<input
+									type="text"
+									:name="'line_description[' + idx + ']'"
+									x-model="line.description"
+									maxlength="255"
+									placeholder="Description"
+									class="block w-full rounded border border-border-input bg-surface px-2 py-1.5 text-small text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus"
+								/>
+							</td>
+							<td class="px-2 py-2">
+								<select
+									:name="'line_product_service_id[' + idx + ']'"
+									x-model="line.product_service_id"
+									@change="onProductChange(idx)"
+									class="block w-full rounded border border-border-input bg-surface px-2 py-1.5 text-small text-text outline-none focus:ring-2 focus:ring-primary-focus"
+								>
+									<option value="">Expense only</option>
+									<template x-for="p in products" :key="p.id">
+										<option
+											:value="String(p.id)"
+											:selected="String(line.product_service_id) === String(p.id)"
+											x-text="(p.sku ? p.sku + ' - ' : '') + p.name + ' - ' + p.kind"
+										></option>
+									</template>
+								</select>
+							</td>
+							<td class="px-2 py-2">
+								<input
+									type="text"
+									:name="'line_qty[' + idx + ']'"
+									x-model="line.qty"
+									:disabled="!line.product_service_id"
+									@input="onQtyOrPriceInput(idx)"
+									@blur="onQtyBlur(idx)"
+									inputmode="decimal"
+									placeholder="1"
+									class="block w-full rounded border border-border-input bg-surface px-2 py-1.5 text-right font-mono text-small text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus tabular-nums disabled:opacity-40"
+								/>
+							</td>
+							<td class="px-2 py-2">
+								<input
+									type="text"
+									:name="'line_unit_price[' + idx + ']'"
+									x-model="line.unit_price"
+									:disabled="!line.product_service_id"
+									@input="onQtyOrPriceInput(idx)"
+									@blur="onUnitPriceBlur(idx)"
+									inputmode="decimal"
+									placeholder="0.00"
+									class="block w-full rounded border border-border-input bg-surface px-2 py-1.5 text-right font-mono text-small text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus tabular-nums disabled:opacity-40"
+								/>
+							</td>
+							<td class="px-2 py-2">
+								<input
+									type="text"
+									:name="'line_amount[' + idx + ']'"
+									x-model="line.amount"
+									:readonly="Boolean(line.product_service_id)"
+									inputmode="decimal"
+									placeholder="0.00"
+									@blur="onAmountBlur(idx)"
+									@input="onAmountInput(idx)"
+									class="block w-full rounded border border-border-input bg-surface px-2 py-1.5 text-right font-mono text-small text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus tabular-nums"
+									:class="line.product_service_id ? 'opacity-70' : ''"
+								/>
+							</td>
+							<td class="px-2 py-2">
+								<select
+									:name="'line_tax_code_id[' + idx + ']'"
+									x-model="line.tax_code_id"
+									@change="onTaxCodeChange(idx)"
+									class="block w-full rounded border border-border-input bg-surface px-2 py-1.5 text-small text-text outline-none focus:ring-2 focus:ring-primary-focus"
+								>
+									<option value="">No tax</option>
+									<template x-for="tc in taxCodes" :key="tc.id">
+										<option :value="String(tc.id)" :selected="String(line.tax_code_id) === String(tc.id)" x-text="tc.code + ' - ' + tc.name"></option>
+									</template>
+								</select>
+							</td>
+							<td class="px-2 py-2">
+								<select
+									:name="'line_task_id[' + idx + ']'"
+									x-model="line.task_id"
+									@change="onLineTaskChange(idx, $event.target.value)"
+									class="block w-full rounded border border-border-input bg-surface px-2 py-1.5 text-small text-text outline-none focus:ring-2 focus:ring-primary-focus"
+								>
+									<option value="">No task</option>
+									<template x-for="t in tasks" :key="t.id">
+										<option :value="String(t.id)" :selected="String(line.task_id) === String(t.id)" x-text="t.title + ' - ' + t.customer_name"></option>
+									</template>
+								</select>
+							</td>
+							<td class="px-2 py-2">
+								<label
+									class="inline-flex h-8 items-center gap-2 text-small"
+									:class="line.task_id ? 'text-text' : 'text-text-muted3 cursor-not-allowed'"
+								>
+									<input
+										type="checkbox"
+										:name="'line_is_billable[' + idx + ']'"
+										value="1"
+										x-model="line.is_billable"
+										:disabled="!line.task_id"
+										class="h-4 w-4 rounded border-border-input accent-primary focus:ring-primary-focus disabled:opacity-40"
+									/>
+									<span>Yes</span>
+								</label>
+							</td>
+							<td class="px-2 py-2 text-right">
+								<button
+									type="button"
+									@click="removeLine(idx)"
+									:disabled="lines.length <= 1"
+									class="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-muted3 hover:bg-danger-soft hover:text-danger disabled:cursor-not-allowed disabled:opacity-30"
+									aria-label="Remove line"
+									title="Remove line"
+								>x</button>
+							</td>
+						</tr>
+					</template>
+				</tbody>
+			</table>
+		</div>
+
+		<input type="hidden" name="line_count" :value="lines.length"/>
 	</div>
 }
 
-// expenseNotesSection renders the Notes textarea.
-templ expenseNotesSection(vm ExpenseFormVM) {
-	<textarea
-		name="notes"
-		rows="3"
-		placeholder="Optional notes about this expense."
-		class={ taskInputClass(false) }
-	>{ vm.Notes }</textarea>
+templ expenseMemoAndTotals(vm ExpenseFormVM) {
+	<div class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+		<div>
+			<label class="block text-small font-medium uppercase tracking-wider text-text-muted">Memo</label>
+			<textarea
+				name="notes"
+				rows="4"
+				placeholder="Optional notes about this expense."
+				class={ taskInputClass(false) }
+			>{ vm.Notes }</textarea>
+		</div>
+		<div class="rounded-md border border-border bg-surface p-4">
+			<div class="space-y-2 text-body">
+				<div class="flex items-center justify-between">
+					<span class="text-text-muted2">Subtotal</span>
+					<span class="font-mono tabular-nums text-text" x-text="subtotal()"></span>
+				</div>
+				<template x-for="tc in taxBreakdown()" :key="tc.id">
+					<div class="flex items-center justify-between gap-3">
+						<span class="truncate text-small text-text-muted2" x-text="tc.code + ' @ ' + (tc.rate * 100).toFixed(2).replace(/\\.?0+$/, '') + '%'"></span>
+						<input
+							type="text"
+							inputmode="decimal"
+							:value="taxAdjValue(tc.id)"
+							@input="onTaxAdjInput(tc.id, $event.target.value)"
+							@blur="if (!$event.target.value.trim()) { $event.target.value = taxAdjValue(tc.id) }"
+							class="w-24 rounded-md border border-border-input bg-surface px-2 py-1 text-right font-mono text-body text-text tabular-nums outline-none focus:ring-2 focus:ring-primary-focus"
+						/>
+					</div>
+				</template>
+				<div class="flex items-center justify-between">
+					<span class="text-text-muted2">Tax</span>
+					<span class="font-mono tabular-nums text-text" x-text="totalTax()"></span>
+				</div>
+				<div class="flex items-center justify-between border-t border-border pt-2 font-semibold">
+					<span>Total</span>
+					<span class="font-mono tabular-nums" x-text="grandTotal()"></span>
+				</div>
+			</div>
+			<template x-if="taxBreakdown().length > 0">
+				<span>
+					<input type="hidden" name="tax_adj_count" :value="taxBreakdown().length"/>
+					<template x-for="(tc, i) in taxBreakdown()" :key="tc.id">
+						<span>
+							<input type="hidden" :name="'tax_adj_id[' + i + ']'" :value="tc.id"/>
+							<input type="hidden" :name="'tax_adj_amount[' + i + ']'" :value="taxAdjValue(tc.id)"/>
+						</span>
+					</template>
+				</span>
+			</template>
+		</div>
+	</div>
 }
 
 func expenseFormTitle(vm ExpenseFormVM) string {

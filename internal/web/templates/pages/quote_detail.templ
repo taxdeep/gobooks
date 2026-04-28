@@ -39,6 +39,7 @@ templ quoteEditorContent(vm QuoteDetailVM) {
 		class="space-y-6"
 		x-data="docTransactionEditor()"
 		@balanciz-item-picker-select="onProductChange($event.detail.idx, $event.detail.id)"
+		@balanciz-picker-select="onCounterpartyPickerSelect($event)"
 		data-products={ quoteProductsJSON(vm.ProductServices) }
 		data-tax-codes={ quoteTaxCodesJSON(vm.TaxCodes) }
 		data-initial-lines={ quoteInitialLinesJSON(vm.Quote.Lines) }
@@ -118,7 +119,7 @@ templ quoteHeaderLeft(vm QuoteDetailVM) {
 			>
 				<option value="">— Select Customer —</option>
 				for _, c := range vm.Customers {
-					<option value={ Uitoa(c.ID) } selected?={ c.ID == vm.Quote.CustomerID }>{ c.Name }</option>
+					<option value={ Uitoa(c.ID) } data-currency={ c.CurrencyCode } selected?={ c.ID == vm.Quote.CustomerID }>{ c.Name }</option>
 				}
 			</select>
 		</div>

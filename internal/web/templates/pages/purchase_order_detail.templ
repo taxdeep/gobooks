@@ -104,11 +104,12 @@ templ poHeaderLeft(vm PurchaseOrderDetailVM) {
 		<select
 			name="vendor_id"
 			required
+			@change="onCounterpartySelectChange($event)"
 			class={ fieldClass(false) }
 		>
 			<option value="">— Select vendor —</option>
 			for _, v := range vm.Vendors {
-				<option value={ fmt.Sprintf("%d", v.ID) } selected?={ vm.PurchaseOrder.VendorID == v.ID }>{ v.Name }</option>
+				<option value={ fmt.Sprintf("%d", v.ID) } data-currency={ v.CurrencyCode } selected?={ vm.PurchaseOrder.VendorID == v.ID }>{ v.Name }</option>
 			}
 		</select>
 	</div>
