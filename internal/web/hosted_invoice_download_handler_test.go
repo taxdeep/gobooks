@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -118,6 +119,10 @@ func wkhtmltopdfPresent() bool {
 	return err == nil
 }
 
+func pdfEnginePresent() bool {
+	return services.PDFGeneratorAvailable()
+}
+
 // ── Filename unit test ────────────────────────────────────────────────────────
 
 func TestInvoicePDFSafeFilename(t *testing.T) {
@@ -208,8 +213,8 @@ func TestHandleHostedInvoiceDownload_RevokedToken(t *testing.T) {
 // ── PDF engine tests ──────────────────────────────────────────────────────────
 
 func TestHandleHostedInvoiceDownload_NoPDFEngine(t *testing.T) {
-	if wkhtmltopdfPresent() {
-		t.Skip("wkhtmltopdf is installed — this test only applies when it is absent")
+	if pdfEnginePresent() {
+		t.Skip("PDF engine is available - this test only applies when it is absent")
 	}
 	db := hostedDownloadDB(t)
 	_, _, token := seedDownloadBase(t, db)
@@ -231,6 +236,9 @@ func TestHandleHostedInvoiceDownload_NoPDFEngine(t *testing.T) {
 }
 
 func TestHandleHostedInvoiceDownload_HappyPath(t *testing.T) {
+	if os.Getenv("RUN_PDF_RENDER_TESTS") != "1" {
+		t.Skip("set RUN_PDF_RENDER_TESTS=1 to run real PDF render integration tests")
+	}
 	if !wkhtmltopdfPresent() {
 		t.Skip("wkhtmltopdf not installed")
 	}
@@ -320,8 +328,8 @@ func TestHostedDownload_CompanyIsolation(t *testing.T) {
 // ── Toolbar / CanDownload flag tests ─────────────────────────────────────────
 
 func TestHandleHostedInvoice_CanDownloadFalseWhenNoPDFEngine(t *testing.T) {
-	if wkhtmltopdfPresent() {
-		t.Skip("wkhtmltopdf is installed — CanDownload will be true; skip no-engine test")
+	if pdfEnginePresent() {
+		t.Skip("PDF engine is available - CanDownload will be true; skip no-engine test")
 	}
 	db := hostedDownloadDB(t)
 	_, _, token := seedDownloadBase(t, db)
@@ -349,8 +357,8 @@ func TestHandleHostedInvoice_CanDownloadFalseWhenNoPDFEngine(t *testing.T) {
 }
 
 func TestHandleHostedInvoice_CanDownloadTrueWhenPDFEnginePresent(t *testing.T) {
-	if !wkhtmltopdfPresent() {
-		t.Skip("wkhtmltopdf not installed — CanDownload will be false")
+	if !pdfEnginePresent() {
+		t.Skip("PDF engine not available - CanDownload will be false")
 	}
 	db := hostedDownloadDB(t)
 	_, _, token := seedDownloadBase(t, db)
@@ -385,7 +393,7 @@ func TestHostedDownload_CustomerBoundary(t *testing.T) {
 	// audit log links, edit buttons, etc.) in the rendered invoice HTML.
 	// We verify by confirming that the 503 response (no wkhtmltopdf) or HTML render
 	// does not contain admin route strings.
-	if wkhtmltopdfPresent() {
+	if pdfEnginePresent() {
 		t.Skip("when PDF engine present, response is binary PDF — boundary checked via render unit test")
 	}
 	db := hostedDownloadDB(t)

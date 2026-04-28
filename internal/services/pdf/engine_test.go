@@ -61,6 +61,25 @@ func TestEnsureChromeWorkDirCreatesWritableRuntimeTree(t *testing.T) {
 	}
 }
 
+func TestResolveChromePathHonorsConfiguredPath(t *testing.T) {
+	got, err := resolveChromePath("/opt/google/chrome/chrome")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "/opt/google/chrome/chrome" {
+		t.Fatalf("chrome path: got %q", got)
+	}
+}
+
+func TestIsSnapChromePathRejectsSnapWrapper(t *testing.T) {
+	if !isSnapChromePath("/snap/bin/chromium") {
+		t.Fatal("expected /snap/bin/chromium to be treated as snap Chromium")
+	}
+	if isSnapChromePath("/usr/bin/google-chrome") {
+		t.Fatal("expected google-chrome path to be accepted")
+	}
+}
+
 func TestRenderHTMLOutputIsBase64Encodable(t *testing.T) {
 	// Quick sanity: every HTML output the renderer produces must round-trip
 	// through base64 without panic — the engine wraps it as a data: URL.

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	pdfengine "balanciz/internal/services/pdf"
+
 	"github.com/google/uuid"
 )
 
@@ -104,7 +106,8 @@ func GenerateInvoicePDF(htmlContent string) ([]byte, error) {
 	return pdfBytes, nil
 }
 
-// PDFGeneratorAvailable returns true when wkhtmltopdf is installed and usable.
+// PDFGeneratorAvailable returns true when a supported Chrome executable is
+// installed and usable.
 //
 // This is the single source of truth for PDF capability across all paths:
 // internal detail page, hosted invoice page, and email attachment.
@@ -112,22 +115,10 @@ func GenerateInvoicePDF(htmlContent string) ([]byte, error) {
 // An inexpensive OS call (~0.1 ms); safe to call per-request.
 //
 // Phase 3 G4-cleanup: PDF generation switched from wkhtmltopdf to chromedp
-// (headless Chrome). The check accepts any of the chromium-family binaries
-// chromedp's auto-detection looks for. wkhtmltopdf is also accepted for the
-// transitional period in case any caller still uses the legacy renderer
-// (none after G4-cleanup, but kept for forward compat).
+// (headless Chrome). Snap Chromium is not accepted: the snap launcher can fail
+// before Chrome sees our user-data-dir/XDG runtime overrides.
 func PDFGeneratorAvailable() bool {
-	if path := strings.TrimSpace(os.Getenv("PDF_CHROME_PATH")); path != "" {
-		if _, err := os.Stat(path); err == nil {
-			return true
-		}
-	}
-	for _, bin := range []string{"chromium-browser", "chromium", "google-chrome", "chrome", "wkhtmltopdf"} {
-		if _, err := exec.LookPath(bin); err == nil {
-			return true
-		}
-	}
-	return false
+	return pdfengine.ChromeExecutableAvailable()
 }
 
 // InvoicePDFSafeFilename returns the Content-Disposition filename for an invoice PDF.

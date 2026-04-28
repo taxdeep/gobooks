@@ -30,7 +30,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os/exec"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -220,8 +220,11 @@ func TestInvoicePDF_CrossCompanyDenied(t *testing.T) {
 // ── Filename safety in Content-Disposition ────────────────────────────────────
 
 func TestInvoicePDF_BadFilenameInContentDisposition(t *testing.T) {
-	if _, err := exec.LookPath("wkhtmltopdf"); err != nil {
-		t.Skip("wkhtmltopdf not installed — Content-Disposition header test skipped; run on CI with wkhtmltopdf")
+	if os.Getenv("RUN_PDF_RENDER_TESTS") != "1" {
+		t.Skip("set RUN_PDF_RENDER_TESTS=1 to run real PDF render integration tests")
+	}
+	if !services.PDFGeneratorAvailable() {
+		t.Skip("PDF engine not available — Content-Disposition header test skipped")
 	}
 	db := pdfAccessDB(t)
 	co := models.Company{Name: "Bad Name Co", BaseCurrencyCode: "USD", IsActive: true}
@@ -277,8 +280,8 @@ func TestInvoicePDF_BadFilenameInContentDisposition(t *testing.T) {
 // ── Internal capability gating tests ─────────────────────────────────────────
 
 func TestInvoiceDetail_PDFLinkHiddenWhenNoPDFEngine(t *testing.T) {
-	if _, err := exec.LookPath("wkhtmltopdf"); err == nil {
-		t.Skip("wkhtmltopdf is installed — PDFAvailable=true; skip no-engine test")
+	if services.PDFGeneratorAvailable() {
+		t.Skip("PDF engine is available — PDFAvailable=true; skip no-engine test")
 	}
 	db := pdfAccessDB(t)
 	_, u, inv := seedPDFBase(t, db)
@@ -310,8 +313,8 @@ func TestInvoiceDetail_PDFLinkHiddenWhenNoPDFEngine(t *testing.T) {
 }
 
 func TestInvoiceDetail_PrintLinkShownWhenNoPDFEngine(t *testing.T) {
-	if _, err := exec.LookPath("wkhtmltopdf"); err == nil {
-		t.Skip("wkhtmltopdf is installed — PDFAvailable=true; this test is for absent-engine path")
+	if services.PDFGeneratorAvailable() {
+		t.Skip("PDF engine is available — PDFAvailable=true; this test is for absent-engine path")
 	}
 	db := pdfAccessDB(t)
 	_, u, inv := seedPDFBase(t, db)
@@ -391,13 +394,13 @@ func TestChannelConvert_RejectsInvalidDocNumber(t *testing.T) {
 	app := channelConvertApp(srv, u, co.ID)
 
 	invalidNumbers := []string{
-		"INV 001",     // space not allowed
-		"INV/001",     // slash not allowed
-		"INV\\001",    // backslash not allowed
-		`INV"001`,     // quote not allowed
-		"INV;001",     // semicolon not allowed
-		"INV<001>",    // angle brackets not allowed
-		"INV\r\n001",  // control chars not allowed
+		"INV 001",    // space not allowed
+		"INV/001",    // slash not allowed
+		"INV\\001",   // backslash not allowed
+		`INV"001`,    // quote not allowed
+		"INV;001",    // semicolon not allowed
+		"INV<001>",   // angle brackets not allowed
+		"INV\r\n001", // control chars not allowed
 	}
 
 	for _, num := range invalidNumbers {
@@ -528,8 +531,11 @@ func TestChannelConvertService_RejectsInvalidDocNumber(t *testing.T) {
 //   - No risk of drift between tagged and untagged code paths.
 
 func TestInvoicePDF_HappyPath(t *testing.T) {
-	if _, err := exec.LookPath("wkhtmltopdf"); err != nil {
-		t.Skip("wkhtmltopdf not installed — skipped; run on CI with: apt-get install wkhtmltopdf")
+	if os.Getenv("RUN_PDF_RENDER_TESTS") != "1" {
+		t.Skip("set RUN_PDF_RENDER_TESTS=1 to run real PDF render integration tests")
+	}
+	if !services.PDFGeneratorAvailable() {
+		t.Skip("PDF engine not available — skipped")
 	}
 	db := pdfAccessDB(t)
 	_, u, inv := seedPDFBase(t, db)

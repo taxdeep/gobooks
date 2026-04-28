@@ -21,7 +21,7 @@ package services
 //   TestGetInvoiceSendDefaults_PDFAvailableField
 //     — InvoiceSendDefaults.PDFAvailable reflects PDFGeneratorAvailable()
 //   TestPDFGeneratorAvailable_IsSharedTruth
-//     — PDFGeneratorAvailable() returns a bool consistent with wkhtmltopdf presence
+//     — PDFGeneratorAvailable() returns the shared chromedp engine truth
 
 import (
 	"encoding/json"
@@ -30,6 +30,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	pdfengine "balanciz/internal/services/pdf"
 
 	"github.com/glebarez/sqlite"
 	"github.com/shopspring/decimal"
@@ -348,7 +350,7 @@ func TestSendInvoiceByEmail_SharedFilenameLogic(t *testing.T) {
 	db.Create(&je)
 	inv := models.Invoice{
 		CompanyID: co.ID, CustomerID: cust.ID,
-		InvoiceNumber:         "2024/001",   // slash → sanitized to dash
+		InvoiceNumber:         "2024/001", // slash → sanitized to dash
 		InvoiceDate:           time.Now(),
 		Status:                models.InvoiceStatusIssued,
 		Amount:                decimal.RequireFromString("50.00"),
@@ -437,12 +439,12 @@ func TestGetInvoiceSendDefaults_PDFAvailableField(t *testing.T) {
 }
 
 func TestPDFGeneratorAvailable_IsSharedTruth(t *testing.T) {
-	// PDFGeneratorAvailable() must return a bool consistent with exec.LookPath.
+	// PDFGeneratorAvailable() must return the same truth the chromedp engine
+	// uses, including rejecting snap Chromium wrappers.
 	// This test locks the function to its documented contract.
-	_, lookErr := exec.LookPath("wkhtmltopdf")
 	got := PDFGeneratorAvailable()
-	want := lookErr == nil
+	want := pdfengine.ChromeExecutableAvailable()
 	if got != want {
-		t.Errorf("PDFGeneratorAvailable() = %v but exec.LookPath returned err=%v (want consistent)", got, lookErr)
+		t.Errorf("PDFGeneratorAvailable() = %v, want %v", got, want)
 	}
 }

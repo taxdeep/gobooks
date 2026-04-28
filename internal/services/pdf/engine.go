@@ -6,7 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -186,9 +189,10 @@ func ensureEngine() error {
 		default:
 			opts = append(opts, chromedp.Headless)
 		}
-		chromePath := engineConfig.ChromePath
-		if chromePath == "" {
-			chromePath = os.Getenv("PDF_CHROME_PATH")
+		chromePath, err := resolveChromePath(engineConfig.ChromePath)
+		if err != nil {
+			engineErr = fmt.Errorf("pdf engine init: %w", err)
+			return
 		}
 		if chromePath != "" {
 			opts = append(opts, chromedp.ExecPath(chromePath))
@@ -236,6 +240,84 @@ func ensureChromeWorkDir(configured string) (string, error) {
 		}
 	}
 	return base, nil
+}
+
+// ChromeExecutableAvailable reports whether the PDF engine can find a
+// Chrome-family binary that is suitable for server-side rendering. Snap
+// Chromium is intentionally rejected because the snap launcher often requires
+// a writable login home and /run/user directory before Chrome flags/env are
+// applied.
+func ChromeExecutableAvailable() bool {
+	_, err := resolveChromePath("")
+	return err == nil
+}
+
+func resolveChromePath(configured string) (string, error) {
+	if path := strings.TrimSpace(configured); path != "" {
+		return path, nil
+	}
+	if path := strings.TrimSpace(os.Getenv("PDF_CHROME_PATH")); path != "" {
+		return path, nil
+	}
+
+	for _, candidate := range chromeCandidates() {
+		found, err := exec.LookPath(candidate)
+		if err != nil {
+			continue
+		}
+		if isSnapChromePath(found) {
+			continue
+		}
+		return found, nil
+	}
+
+	return "", fmt.Errorf("no non-snap Chrome/Chromium executable found; install google-chrome-stable or set PDF_CHROME_PATH to a non-snap Chrome binary")
+}
+
+func chromeCandidates() []string {
+	switch runtime.GOOS {
+	case "darwin":
+		return []string{
+			"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+			"/Applications/Chromium.app/Contents/MacOS/Chromium",
+		}
+	case "windows":
+		return []string{
+			"chrome",
+			"chrome.exe",
+			`C:\Program Files\Google\Chrome\Application\chrome.exe`,
+			`C:\Program Files (x86)\Google\Chrome\Application\chrome.exe`,
+			filepath.Join(os.Getenv("USERPROFILE"), `AppData\Local\Google\Chrome\Application\chrome.exe`),
+			filepath.Join(os.Getenv("USERPROFILE"), `AppData\Local\Chromium\Application\chrome.exe`),
+		}
+	default:
+		return []string{
+			"google-chrome-stable",
+			"google-chrome",
+			"google-chrome-beta",
+			"google-chrome-unstable",
+			"/usr/bin/google-chrome-stable",
+			"/usr/bin/google-chrome",
+			"/opt/google/chrome/chrome",
+			"headless-shell",
+			"headless_shell",
+			"chromium-browser",
+			"chromium",
+			"chrome",
+		}
+	}
+}
+
+func isSnapChromePath(path string) bool {
+	clean := filepath.ToSlash(path)
+	if strings.Contains(clean, "/snap/") {
+		return true
+	}
+	target, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return false
+	}
+	return strings.Contains(filepath.ToSlash(target), "/snap/")
 }
 
 // resetEngine clears the once flag so the next call re-initialises Chrome.
