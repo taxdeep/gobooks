@@ -84,7 +84,7 @@ func bodyPDFTemplates(vm PDFTemplatesVM) templ.Component {
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"max-w-[95%]\"><div class=\"flex flex-wrap items-start justify-between gap-4\"><div><h1 class=\"text-title font-semibold\">PDF Templates</h1><p class=\"mt-1 text-text-muted2\">Choose which template renders each document type. Clone a system template to customise its layout (visual editor coming soon).</p></div><a href=\"/\" class=\"text-body text-text-muted3 hover:text-text\">← Back</a></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"max-w-[95%]\"><div class=\"flex flex-wrap items-start justify-between gap-4\"><div><h1 class=\"text-title font-semibold\">PDF Templates</h1><p class=\"mt-1 text-text-muted2\">Choose which template renders each document type. Clone a system template to customise its layout (visual editor coming soon).</p></div><a href=\"/settings\" class=\"text-body text-text-muted3 hover:text-text\">← Back to Settings</a></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
