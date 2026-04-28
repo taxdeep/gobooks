@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -49,6 +51,10 @@ type EngineConfig struct {
 	// HeadlessFlag is the headless mode flag passed to Chrome.
 	// "new" (default) uses the new Headless mode; "old" uses legacy.
 	HeadlessFlag string
+	// WorkDir is a writable parent directory for Chrome profile/cache/runtime
+	// data. Empty = os.TempDir()/balanciz-pdf. This matters on systemd/snap
+	// deployments where HOME or XDG_RUNTIME_DIR may point at unwritable paths.
+	WorkDir string
 }
 
 var (
@@ -154,10 +160,25 @@ func Shutdown() {
 
 func ensureEngine() error {
 	engineOnce.Do(func() {
+		workDir, err := ensureChromeWorkDir(engineConfig.WorkDir)
+		if err != nil {
+			engineErr = fmt.Errorf("pdf engine init: %w", err)
+			return
+		}
 		opts := append([]chromedp.ExecAllocatorOption{},
 			chromedp.NoFirstRun,
 			chromedp.NoDefaultBrowserCheck,
 			chromedp.DisableGPU,
+			chromedp.UserDataDir(filepath.Join(workDir, "profile")),
+			chromedp.Flag("no-sandbox", true),
+			chromedp.Flag("disable-dev-shm-usage", true),
+			chromedp.Flag("no-zygote", true),
+			chromedp.Env(
+				"HOME="+filepath.Join(workDir, "home"),
+				"XDG_CACHE_HOME="+filepath.Join(workDir, "cache"),
+				"XDG_CONFIG_HOME="+filepath.Join(workDir, "config"),
+				"XDG_RUNTIME_DIR="+filepath.Join(workDir, "runtime"),
+			),
 		)
 		switch engineConfig.HeadlessFlag {
 		case "old":
@@ -165,8 +186,12 @@ func ensureEngine() error {
 		default:
 			opts = append(opts, chromedp.Headless)
 		}
-		if engineConfig.ChromePath != "" {
-			opts = append(opts, chromedp.ExecPath(engineConfig.ChromePath))
+		chromePath := engineConfig.ChromePath
+		if chromePath == "" {
+			chromePath = os.Getenv("PDF_CHROME_PATH")
+		}
+		if chromePath != "" {
+			opts = append(opts, chromedp.ExecPath(chromePath))
 		}
 		allocatorCtx, allocatorCancel = chromedp.NewExecAllocator(context.Background(), opts...)
 		browserCtx, browserCancel = chromedp.NewContext(allocatorCtx)
@@ -183,6 +208,34 @@ func ensureEngine() error {
 		engineSemaphore = make(chan struct{}, max)
 	})
 	return engineErr
+}
+
+func ensureChromeWorkDir(configured string) (string, error) {
+	base := configured
+	if base == "" {
+		base = os.Getenv("PDF_CHROME_WORK_DIR")
+	}
+	if base == "" {
+		base = filepath.Join(os.TempDir(), "balanciz-pdf")
+	}
+
+	dirs := []string{
+		base,
+		filepath.Join(base, "profile"),
+		filepath.Join(base, "home"),
+		filepath.Join(base, "cache"),
+		filepath.Join(base, "config"),
+		filepath.Join(base, "runtime"),
+	}
+	for _, dir := range dirs {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return "", fmt.Errorf("create chrome work dir %q: %w", dir, err)
+		}
+		if err := os.Chmod(dir, 0o700); err != nil {
+			return "", fmt.Errorf("chmod chrome work dir %q: %w", dir, err)
+		}
+	}
+	return base, nil
 }
 
 // resetEngine clears the once flag so the next call re-initialises Chrome.

@@ -117,6 +117,11 @@ func GenerateInvoicePDF(htmlContent string) ([]byte, error) {
 // transitional period in case any caller still uses the legacy renderer
 // (none after G4-cleanup, but kept for forward compat).
 func PDFGeneratorAvailable() bool {
+	if path := strings.TrimSpace(os.Getenv("PDF_CHROME_PATH")); path != "" {
+		if _, err := os.Stat(path); err == nil {
+			return true
+		}
+	}
 	for _, bin := range []string{"chromium-browser", "chromium", "google-chrome", "chrome", "wkhtmltopdf"} {
 		if _, err := exec.LookPath(bin); err == nil {
 			return true

@@ -2,6 +2,8 @@
 package pdf
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -22,6 +24,7 @@ func TestConfigureEngineStoresValues(t *testing.T) {
 		MaxConcurrent: 4,
 		ChromePath:    "/custom/chrome",
 		HeadlessFlag:  "old",
+		WorkDir:       "/tmp/custom-pdf",
 	})
 	if engineConfig.MaxConcurrent != 4 {
 		t.Errorf("MaxConcurrent: got %d want 4", engineConfig.MaxConcurrent)
@@ -31,6 +34,30 @@ func TestConfigureEngineStoresValues(t *testing.T) {
 	}
 	if engineConfig.HeadlessFlag != "old" {
 		t.Errorf("HeadlessFlag: got %q", engineConfig.HeadlessFlag)
+	}
+	if engineConfig.WorkDir != "/tmp/custom-pdf" {
+		t.Errorf("WorkDir: got %q", engineConfig.WorkDir)
+	}
+}
+
+func TestEnsureChromeWorkDirCreatesWritableRuntimeTree(t *testing.T) {
+	base := filepath.Join(t.TempDir(), "chrome")
+	got, err := ensureChromeWorkDir(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != base {
+		t.Fatalf("work dir: got %q want %q", got, base)
+	}
+	for _, name := range []string{"profile", "home", "cache", "config", "runtime"} {
+		path := filepath.Join(base, name)
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("expected %s to exist: %v", path, err)
+		}
+		if !info.IsDir() {
+			t.Fatalf("expected %s to be a directory", path)
+		}
 	}
 }
 
