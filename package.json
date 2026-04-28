@@ -22,6 +22,7 @@
     "vite": "^8.0.10"
   },
   "dependencies": {
+    "grapesjs": "^0.22.16",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"
   }
