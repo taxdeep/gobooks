@@ -91,6 +91,7 @@ func errorFeedbackApp(server *Server, user *models.User, companyID uint) *fiber.
 
 	app.Get("/invoices", server.handleInvoices)
 	app.Get("/invoices/:id", server.handleInvoiceDetail)
+	app.Post("/invoices/:id/issue", server.handleInvoiceIssue)
 	app.Post("/invoices/:id/request-payment", server.handleInvoiceRequestPayment)
 
 	app.Get("/settings/payment-gateways", server.handlePaymentGateways)
@@ -124,6 +125,50 @@ func errorFeedbackApp(server *Server, user *models.User, companyID uint) *fiber.
 	app.Get("/reports/clearing", server.handleClearingReport)
 
 	return app
+}
+
+func TestInvoiceIssueFailureShowsSpecificReason(t *testing.T) {
+	db := testErrorFeedbackDB(t)
+	server := &Server{DB: db}
+	user := seedErrorFeedbackUser(t, db)
+	companyID := seedValidationCompany(t, db, "Invoice Issue Error Co")
+	customerID := seedValidationCustomer(t, db, companyID, "Issue Customer")
+	invoice := models.Invoice{
+		CompanyID:     companyID,
+		CustomerID:    customerID,
+		InvoiceNumber: "INV-ISSUE-ERR-001",
+		InvoiceDate:   time.Now().UTC(),
+		Status:        models.InvoiceStatusDraft,
+	}
+	if err := db.Create(&invoice).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	app := errorFeedbackApp(server, user, companyID)
+	resp := performFormRequest(t, app, http.MethodPost, fmt.Sprintf("/invoices/%d/issue", invoice.ID), url.Values{}, "")
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("expected %d, got %d", http.StatusSeeOther, resp.StatusCode)
+	}
+	location := resp.Header.Get("Location")
+	if !strings.Contains(location, fmt.Sprintf("/invoices/%d?error=", invoice.ID)) {
+		t.Fatalf("expected redirect with error, got %q", location)
+	}
+	decodedLocation, err := url.QueryUnescape(location)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(decodedLocation, "Could not issue invoice: invoice must have at least one line item") {
+		t.Fatalf("expected specific issue reason in redirect, got %q", decodedLocation)
+	}
+
+	page := performRequest(t, app, location, "")
+	body := readResponseBody(t, page)
+	if !strings.Contains(body, "invoice must have at least one line item") {
+		t.Fatalf("expected specific issue reason in page banner, got %q", body)
+	}
+	if strings.Contains(body, ">Could not issue invoice.<") {
+		t.Fatalf("generic issue error should not be shown alone, got %q", body)
+	}
 }
 
 func readResponseBody(t *testing.T, resp *http.Response) string {

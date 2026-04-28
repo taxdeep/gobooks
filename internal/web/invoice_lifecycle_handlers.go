@@ -2,6 +2,7 @@
 package web
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -9,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
-	"github.com/shopspring/decimal"
 	"balanciz/internal/models"
 	"balanciz/internal/searchprojection/producers"
 	"balanciz/internal/services"
 	"balanciz/internal/web/templates/pages"
+	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -34,7 +35,7 @@ func (s *Server) handleInvoiceIssue(c *fiber.Ctx) error {
 
 	_, err = services.IssueInvoice(s.DB, companyID, invoiceID)
 	if err != nil {
-		return redirectErr(c, fmt.Sprintf("/invoices/%d", invoiceID), "Could not issue invoice.")
+		return redirectErr(c, fmt.Sprintf("/invoices/%d", invoiceID), invoiceIssueErrorMessage(err))
 	}
 	_ = producers.ProjectInvoice(c.Context(), s.DB, s.SearchProjector, companyID, invoiceID)
 
@@ -428,4 +429,55 @@ func redirectErr(c *fiber.Ctx, path, errMsg string) error {
 		sep = "&"
 	}
 	return c.Redirect(path+sep+"error="+url.QueryEscape(errMsg), fiber.StatusSeeOther)
+}
+
+func invoiceIssueErrorMessage(err error) string {
+	const fallback = "Could not issue invoice."
+	if err == nil {
+		return fallback
+	}
+
+	var validationErr *services.InvoiceValidationError
+	if errors.As(err, &validationErr) && len(validationErr.Errors) > 0 {
+		return "Could not issue invoice: " + joinIssueReasons(validationErr.Errors)
+	}
+
+	msg := cleanIssueReason(err.Error())
+	if msg == "" {
+		return fallback
+	}
+	return "Could not issue invoice: " + msg
+}
+
+func joinIssueReasons(reasons []string) string {
+	cleaned := make([]string, 0, len(reasons))
+	for _, reason := range reasons {
+		if msg := cleanIssueReason(reason); msg != "" {
+			cleaned = append(cleaned, msg)
+		}
+	}
+	return strings.Join(cleaned, "; ")
+}
+
+func cleanIssueReason(msg string) string {
+	msg = strings.TrimSpace(msg)
+	for {
+		before := msg
+		for _, prefix := range []string{
+			"invoice validation failed:",
+			"posting failed:",
+			"build invoice fragments:",
+			"aggregate journal lines:",
+			"journal line account validation:",
+		} {
+			msg = strings.TrimSpace(strings.TrimPrefix(msg, prefix))
+		}
+		if msg == before {
+			break
+		}
+	}
+	msg = strings.ReplaceAll(msg, "\r\n", "; ")
+	msg = strings.ReplaceAll(msg, "\n", "; ")
+	msg = strings.TrimSpace(strings.TrimPrefix(msg, "-"))
+	return strings.TrimSpace(msg)
 }
