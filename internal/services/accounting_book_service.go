@@ -7,7 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ErrBookAlreadyExists is returned when a secondary book with the same

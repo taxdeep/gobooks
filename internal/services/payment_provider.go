@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // CheckoutSessionInput is the provider-agnostic input for creating a checkout session.

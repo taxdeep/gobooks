@@ -1,7 +1,7 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/ui"
 
 // billEditorShellVM maps BillEditorVM → DocEditorShellVM, providing the
 // Bill editor's title / subtitle / banner stack to the shared shell.

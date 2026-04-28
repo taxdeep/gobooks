@@ -24,9 +24,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // ── View models ──────────────────────────────────────────────────────────────
@@ -94,7 +94,7 @@ func VRSList(vm VRSListVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Returns to Vendor",
+			"Balanciz - Returns to Vendor",
 			ui.SidebarVM{Active: "Returns to Vendor", HasCompany: vm.HasCompany},
 			bodyVRSList(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -314,7 +314,7 @@ func VRSDetail(vm VRSDetailVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Return to Vendor",
+			"Balanciz - Return to Vendor",
 			ui.SidebarVM{Active: "Returns to Vendor", HasCompany: vm.HasCompany},
 			bodyVRSDetail(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -789,7 +789,7 @@ func VRSForm(vm VRSFormVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - New Return to Vendor",
+			"Balanciz - New Return to Vendor",
 			ui.SidebarVM{Active: "Returns to Vendor", HasCompany: vm.HasCompany},
 			bodyVRSForm(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

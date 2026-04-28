@@ -4,8 +4,8 @@ package admin
 import (
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/admintmpl"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/admintmpl"
 )
 
 // handleAdminSystem 显示系统控制页面（维护模式开关、重启 stub、

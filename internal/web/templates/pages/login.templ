@@ -1,12 +1,12 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ Login(vm LoginViewModel) {
 	@layout.LayoutAuth(
-		"GoBooks - Sign in",
+		"Balanciz - Sign in",
 		bodyLogin(vm),
 	)
 }
@@ -15,7 +15,7 @@ templ bodyLogin(vm LoginViewModel) {
 	<div class="w-full max-w-md">
 		<h1 class="text-title font-semibold text-center">Sign in</h1>
 		<p class="mt-2 text-text-muted2 text-center">
-			Use your GoBooks account email and password.
+			Use your Balanciz account email and password.
 		</p>
 
 		if vm.FormError != "" {

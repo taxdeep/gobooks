@@ -10,7 +10,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/services/search_engine"
+	"balanciz/internal/services/search_engine"
 )
 
 // stubAdvancedEngine captures the AdvancedRequest the selector dispatches

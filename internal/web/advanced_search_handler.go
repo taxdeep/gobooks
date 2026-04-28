@@ -8,8 +8,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/services/search_engine"
-	"gobooks/internal/web/templates/pages"
+	"balanciz/internal/services/search_engine"
+	"balanciz/internal/web/templates/pages"
 )
 
 // handleAdvancedSearch serves GET /advanced-search — the full-page filter

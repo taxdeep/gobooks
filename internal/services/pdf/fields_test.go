@@ -4,7 +4,7 @@ package pdf
 import (
 	"testing"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func TestEveryDocumentTypeHasFields(t *testing.T) {

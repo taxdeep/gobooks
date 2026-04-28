@@ -8,9 +8,9 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 
-	"gobooks/ent"
-	"gobooks/ent/searchdocument"
-	"gobooks/internal/logging"
+	"balanciz/ent"
+	"balanciz/ent/searchdocument"
+	"balanciz/internal/logging"
 )
 
 // ErrCompanyMismatch is returned by Projector.Upsert when the supplied

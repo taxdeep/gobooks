@@ -2,9 +2,9 @@
 package pages
 
 import (
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // CompanyCurrencyVM is the view-model for the company currency settings page.
@@ -28,7 +28,7 @@ type CompanyCurrencyVM struct {
 
 templ CompanyCurrency(vm CompanyCurrencyVM) {
 	@layout.Layout(
-		"GoBooks - Currency",
+		"Balanciz - Currency",
 		ui.SidebarVM{Active: "Company Currency", HasCompany: vm.HasCompany},
 		bodyCompanyCurrency(vm),
 	)

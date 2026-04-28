@@ -9,11 +9,11 @@ import (
 	"log"
 	"reflect"
 
-	"gobooks/ent/migrate"
+	"balanciz/ent/migrate"
 
-	"gobooks/ent/searchdocument"
-	"gobooks/ent/searchrecentquery"
-	"gobooks/ent/searchusagestat"
+	"balanciz/ent/searchdocument"
+	"balanciz/ent/searchrecentquery"
+	"balanciz/ent/searchusagestat"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"

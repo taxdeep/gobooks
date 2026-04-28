@@ -3,14 +3,14 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ VendorPrepaymentDetail(vm VendorPrepaymentDetailVM) {
 	@layout.Layout(
-		"GoBooks - "+vpDetailTitle(vm),
+		"Balanciz - "+vpDetailTitle(vm),
 		ui.SidebarVM{Active: "Vendor Prepayments", HasCompany: vm.HasCompany},
 		bodyVPDetail(vm),
 	)

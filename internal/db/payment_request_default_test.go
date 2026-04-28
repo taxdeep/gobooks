@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func TestPaymentRequestStatusDefault_ModelAndMigrationStayAligned(t *testing.T) {

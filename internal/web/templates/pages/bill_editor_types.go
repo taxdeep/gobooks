@@ -1,7 +1,7 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/models"
+import "balanciz/internal/models"
 
 // BillEditorVM is the view-model for the bill create/edit editor page.
 type BillEditorVM struct {

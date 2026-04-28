@@ -7,7 +7,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // Happy path: reserve 4 of 10 on-hand → reserved = 4, available = 6.

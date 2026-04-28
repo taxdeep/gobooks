@@ -9,10 +9,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 
-	"gobooks/internal/models"
-	"gobooks/internal/repository"
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/pages"
+	"balanciz/internal/models"
+	"balanciz/internal/repository"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/pages"
 )
 
 func (s *Server) handleSelectCompanyGet(c *fiber.Ctx) error {

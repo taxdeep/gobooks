@@ -1,6 +1,6 @@
 -- Phase 1 — Identity & membership (no app code changes required to run this file alone).
 -- Prerequisites: table `companies` must already exist (GORM AutoMigrate).
--- Assumptions: PostgreSQL; run against the same schema GoBooks uses (typically `public`).
+-- Assumptions: PostgreSQL; run against the same schema Balanciz uses (typically `public`).
 --
 -- Idempotency: CREATE TABLE IF NOT EXISTS / CREATE TYPE IF NOT EXISTS / CREATE INDEX IF NOT EXISTS
 -- are safe to re-run. Extension pgcrypto is required by 003 (numbering_settings.id default) and

@@ -10,7 +10,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func TestDashboardPageMountsReactIslandWithFallback(t *testing.T) {

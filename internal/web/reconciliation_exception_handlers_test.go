@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func reconciliationDetailTestDB(t *testing.T) *gorm.DB {

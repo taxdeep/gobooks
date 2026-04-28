@@ -10,9 +10,9 @@ package pages
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "gobooks/internal/models"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/models"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 func AIConnect(vm AIConnectVM) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -36,7 +36,7 @@ func AIConnect(vm AIConnectVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - AI Connect",
+			"Balanciz - AI Connect",
 			ui.SidebarVM{Active: "AI Connect Settings", HasCompany: vm.HasCompany},
 			bodyAIConnect(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

@@ -1,7 +1,7 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/models"
+import "balanciz/internal/models"
 
 // WarehousesVM is the view-model for the warehouse list page.
 type WarehousesVM struct {

@@ -22,8 +22,8 @@ import (
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
-	"gobooks/internal/logging"
-	"gobooks/internal/services"
+	"balanciz/internal/logging"
+	"balanciz/internal/services"
 )
 
 // handleStripeWebhook processes incoming Stripe webhook events.

@@ -7,7 +7,7 @@ import (
 	"html"
 	"strings"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // renderer.go — Schema → HTML.

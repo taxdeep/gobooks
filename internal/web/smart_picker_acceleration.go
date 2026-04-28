@@ -9,7 +9,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"gobooks/internal/cache"
+	"balanciz/internal/cache"
 )
 
 // SmartPickerAcceleration wraps the provider registry with a TTL cache.

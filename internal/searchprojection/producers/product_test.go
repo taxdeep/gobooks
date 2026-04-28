@@ -12,7 +12,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func TestProductServiceDocument_StockItemMapping(t *testing.T) {

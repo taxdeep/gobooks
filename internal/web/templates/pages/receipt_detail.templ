@@ -3,14 +3,14 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ ReceiptDetail(vm ReceiptDetailVM) {
 	@layout.Layout(
-		"GoBooks - "+receiptDetailTitle(vm),
+		"Balanciz - "+receiptDetailTitle(vm),
 		ui.SidebarVM{Active: "Customer Receipts", HasCompany: vm.HasCompany},
 		bodyReceiptDetail(vm),
 	)

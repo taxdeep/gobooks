@@ -7,7 +7,7 @@ import (
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // seed.go — idempotent insert of system-shipped preset rows.

@@ -3,13 +3,13 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ CustomerCredits(vm CustomerCreditsVM) {
-	@layout.Layout("GoBooks - Customer Credits", ui.SidebarVM{Active: "Customers", HasCompany: vm.HasCompany}, bodyCustomerCredits(vm))
+	@layout.Layout("Balanciz - Customer Credits", ui.SidebarVM{Active: "Customers", HasCompany: vm.HasCompany}, bodyCustomerCredits(vm))
 }
 
 templ bodyCustomerCredits(vm CustomerCreditsVM) {

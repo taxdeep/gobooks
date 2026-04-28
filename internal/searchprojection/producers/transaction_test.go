@@ -8,8 +8,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
-	"gobooks/internal/searchprojection"
+	"balanciz/internal/models"
+	"balanciz/internal/searchprojection"
 )
 
 // Transaction producer tests focus on Document mapping (pure function)

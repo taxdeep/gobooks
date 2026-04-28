@@ -11,11 +11,11 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"balanciz/internal/models"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 	"github.com/shopspring/decimal"
-	"gobooks/internal/models"
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
 )
 
 func InventoryStock(vm StockReportVM) templ.Component {
@@ -40,7 +40,7 @@ func InventoryStock(vm StockReportVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Stock Report",
+			"Balanciz - Stock Report",
 			ui.SidebarVM{Active: "Stock Report", HasCompany: vm.HasCompany},
 			bodyInventoryStock(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

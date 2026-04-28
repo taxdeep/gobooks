@@ -6,8 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gobooks/ent/predicate"
-	"gobooks/ent/searchdocument"
+	"balanciz/ent/predicate"
+	"balanciz/ent/searchdocument"
 	"time"
 
 	"entgo.io/ent/dialect/sql"

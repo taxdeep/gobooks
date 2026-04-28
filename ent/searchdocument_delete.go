@@ -4,8 +4,8 @@ package ent
 
 import (
 	"context"
-	"gobooks/ent/predicate"
-	"gobooks/ent/searchdocument"
+	"balanciz/ent/predicate"
+	"balanciz/ent/searchdocument"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"

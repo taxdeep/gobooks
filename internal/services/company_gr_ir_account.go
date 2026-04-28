@@ -27,7 +27,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ErrGRIRClearingAccountInvalid — the referenced account either does

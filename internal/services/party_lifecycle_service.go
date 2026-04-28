@@ -15,7 +15,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ErrPartyHasRecords is returned by DeleteCustomer / DeleteVendor when the

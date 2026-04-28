@@ -13,10 +13,10 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"fmt"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 func VendorDetail(vm VendorDetailVM) templ.Component {
@@ -41,7 +41,7 @@ func VendorDetail(vm VendorDetailVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - "+vm.Vendor.Name,
+			"Balanciz - "+vm.Vendor.Name,
 			ui.SidebarVM{Active: "Vendors", HasCompany: vm.HasCompany},
 			bodyVendorDetail(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

@@ -11,7 +11,7 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 	"strconv"
 )
 

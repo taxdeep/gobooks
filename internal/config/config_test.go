@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"gobooks/internal/services/search_engine"
+	"balanciz/internal/services/search_engine"
 )
 
 // setRequiredDBEnv stubs the DB env vars Load() asserts so SearchEngine

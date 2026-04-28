@@ -13,9 +13,9 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"fmt"
 
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 func CompanyProfile(vm CompanySettingsVM) templ.Component {
@@ -40,7 +40,7 @@ func CompanyProfile(vm CompanySettingsVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Profile",
+			"Balanciz - Profile",
 			ui.SidebarVM{Active: "Company Profile", HasCompany: vm.HasCompany},
 			bodyCompanyProfile(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -113,7 +113,7 @@ func bodyCompanyProfile(vm CompanySettingsVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<!-- ── Company Logo ─────────────────────────────────────────────────── --><div class=\"mt-6 rounded-lg border border-border bg-surface p-6\"><h2 class=\"text-section font-semibold text-text\">Company Logo</h2><p class=\"mt-1 text-small text-text-muted2\">Accepted formats: JPG, PNG · Maximum size: 2 MB · Displayed within GoBooks only.</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<!-- ── Company Logo ─────────────────────────────────────────────────── --><div class=\"mt-6 rounded-lg border border-border bg-surface p-6\"><h2 class=\"text-section font-semibold text-text\">Company Logo</h2><p class=\"mt-1 text-small text-text-muted2\">Accepted formats: JPG, PNG · Maximum size: 2 MB · Displayed within Balanciz only.</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

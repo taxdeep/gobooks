@@ -26,7 +26,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ── Output types ──────────────────────────────────────────────────────────────

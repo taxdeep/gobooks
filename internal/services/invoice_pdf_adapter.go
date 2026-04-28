@@ -7,8 +7,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services/pdf"
+	"balanciz/internal/models"
+	"balanciz/internal/services/pdf"
 )
 
 // invoice_pdf_adapter.go — bridges the Invoice GORM model into the Phase 3

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# GoBooks — Upgrade Script for Ubuntu 24.04 LTS
+# Balanciz — Upgrade Script for Ubuntu 24.04 LTS
 # ─────────────────────────────────────────────────────────────────────────────
 #
 # Usage:
@@ -13,7 +13,7 @@
 #   3. Copies new source code (preserving .env and data/)
 #   4. Rebuilds Go binaries, CSS, and React static assets
 #   5. Runs database migrations
-#   6. Restarts the GoBooks service
+#   6. Restarts the Balanciz service
 #   7. Verifies the service is healthy
 #
 # If anything fails, the database backup and old binaries remain available
@@ -24,13 +24,22 @@ set -euo pipefail
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-INSTALL_DIR="/opt/gobooks"
-BACKUP_DIR="/var/backups/gobooks"
+PRIMARY_INSTALL_DIR="/opt/balanciz"
+PRIMARY_BACKUP_DIR="/var/backups/balanciz"
+LEGACY_INSTALL_DIR="/opt/gobooks"
+LEGACY_BACKUP_DIR="/var/backups/gobooks"
 GO_VERSION="1.26.1"
 GO_MIN_MAJOR=1
 GO_MIN_MINOR=26
 GO_MIN_PATCH=0
 NODE_INSTALL_MAJOR=22
+APP_LABEL="Balanciz"
+APP_BIN="balanciz"
+MIGRATE_BIN="balanciz-migrate"
+SERVICE_NAME="balanciz"
+DEFAULT_DB_USER="balanciz"
+DEFAULT_DB_NAME="balanciz"
+DEFAULT_SERVICE_USER="balanciz"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -49,14 +58,31 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
+if [[ -f "${PRIMARY_INSTALL_DIR}/.env" ]]; then
+    INSTALL_DIR="${PRIMARY_INSTALL_DIR}"
+    BACKUP_DIR="${PRIMARY_BACKUP_DIR}"
+elif [[ -f "${LEGACY_INSTALL_DIR}/.env" ]]; then
+    INSTALL_DIR="${LEGACY_INSTALL_DIR}"
+    BACKUP_DIR="${LEGACY_BACKUP_DIR}"
+    APP_BIN="gobooks"
+    MIGRATE_BIN="gobooks-migrate"
+    SERVICE_NAME="gobooks"
+    DEFAULT_DB_USER="gobooks"
+    DEFAULT_DB_NAME="gobooks"
+    DEFAULT_SERVICE_USER="gobooks"
+else
+    INSTALL_DIR="${PRIMARY_INSTALL_DIR}"
+    BACKUP_DIR="${PRIMARY_BACKUP_DIR}"
+fi
+
 if [[ ! -f "${INSTALL_DIR}/.env" ]]; then
-    err "No existing installation found at ${INSTALL_DIR}."
+    err "No existing installation found at ${PRIMARY_INSTALL_DIR} or ${LEGACY_INSTALL_DIR}."
     err "Run install.sh for a fresh installation."
     exit 1
 fi
 
-if [[ ! -f "${INSTALL_DIR}/bin/gobooks" ]]; then
-    err "GoBooks binary not found at ${INSTALL_DIR}/bin/gobooks."
+if [[ ! -f "${INSTALL_DIR}/bin/${APP_BIN}" ]]; then
+    err "${APP_LABEL} binary not found at ${INSTALL_DIR}/bin/${APP_BIN}."
     err "Installation appears incomplete. Run install.sh instead."
     exit 1
 fi
@@ -66,7 +92,7 @@ SOURCE_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 
 if [[ ! -f "${SOURCE_DIR}/go.mod" ]]; then
     err "No go.mod found in ${SOURCE_DIR}."
-    err "Usage: sudo bash upgrade.sh [/path/to/gobooks-source]"
+    err "Usage: sudo bash upgrade.sh [/path/to/balanciz-source]"
     exit 1
 fi
 
@@ -87,7 +113,7 @@ if [[ "${SOURCE_DIR}" == "${INSTALL_DIR}" && ! -d "${SOURCE_DIR}/.git" ]]; then
     warn "This directory is typically a deployed source snapshot, not a live git checkout."
     warn "upgrade.sh does not download updates from GitHub by itself."
     warn "If you expected a newer version, clone or pull the latest repo elsewhere and run:"
-    warn "  sudo bash upgrade.sh /path/to/latest-gobooks-source"
+    warn "  sudo bash upgrade.sh /path/to/latest-balanciz-source"
 fi
 
 if ! command -v rsync &>/dev/null; then
@@ -185,15 +211,15 @@ else
 fi
 
 set -a; source "${INSTALL_DIR}/.env"; set +a
-DB_USER="${DB_USER:-gobooks}"
-DB_NAME="${DB_NAME:-gobooks}"
+DB_USER="${DB_USER:-${DEFAULT_DB_USER}}"
+DB_NAME="${DB_NAME:-${DEFAULT_DB_NAME}}"
 
-SERVICE_USER=$(stat -c '%U' "${INSTALL_DIR}/bin/gobooks" 2>/dev/null || echo "gobooks")
+SERVICE_USER=$(stat -c '%U' "${INSTALL_DIR}/bin/${APP_BIN}" 2>/dev/null || echo "${DEFAULT_SERVICE_USER}")
 
 # ── Start upgrade ─────────────────────────────────────────────────────────────
 
 echo ""
-echo -e "${CYAN}── GoBooks Upgrade ──${NC}"
+echo -e "${CYAN}── Balanciz Upgrade ──${NC}"
 echo ""
 echo -e "  Install dir:  ${INSTALL_DIR}"
 echo -e "  Source dir:    ${SOURCE_DIR}"
@@ -204,7 +230,7 @@ echo ""
 
 # ── 1. Pre-upgrade database backup ───────────────────────────────────────────
 
-BACKUP_FILE="${BACKUP_DIR}/gobooks_pre_upgrade_$(date +%Y%m%d_%H%M%S).sql.gz"
+BACKUP_FILE="${BACKUP_DIR}/${APP_BIN}_pre_upgrade_$(date +%Y%m%d_%H%M%S).sql.gz"
 mkdir -p "$BACKUP_DIR"
 
 log "Creating pre-upgrade database backup..."
@@ -218,15 +244,15 @@ fi
 
 # ── 2. Stop service ──────────────────────────────────────────────────────────
 
-log "Stopping GoBooks service..."
-systemctl stop gobooks 2>/dev/null || true
+log "Stopping ${APP_LABEL} service..."
+systemctl stop "${SERVICE_NAME}" 2>/dev/null || true
 
 # ── 3. Backup old binaries ───────────────────────────────────────────────────
 
-if [[ -f "${INSTALL_DIR}/bin/gobooks" ]]; then
+if [[ -f "${INSTALL_DIR}/bin/${APP_BIN}" ]]; then
     log "Backing up old binaries..."
-    cp "${INSTALL_DIR}/bin/gobooks"         "${INSTALL_DIR}/bin/gobooks.bak"         2>/dev/null || true
-    cp "${INSTALL_DIR}/bin/gobooks-migrate" "${INSTALL_DIR}/bin/gobooks-migrate.bak" 2>/dev/null || true
+    cp "${INSTALL_DIR}/bin/${APP_BIN}"     "${INSTALL_DIR}/bin/${APP_BIN}.bak"     2>/dev/null || true
+    cp "${INSTALL_DIR}/bin/${MIGRATE_BIN}" "${INSTALL_DIR}/bin/${MIGRATE_BIN}.bak" 2>/dev/null || true
 fi
 
 # ── 4. Sync source code ──────────────────────────────────────────────────────
@@ -271,11 +297,11 @@ export PATH="$(pwd)/bin:$PATH"
 log "Generating templ files..."
 templ generate -build-vcs-version=false 2>/dev/null || templ generate
 
-NEW_APP_BIN="${INSTALL_DIR}/bin/gobooks.new"
-NEW_MIGRATE_BIN="${INSTALL_DIR}/bin/gobooks-migrate.new"
+NEW_APP_BIN="${INSTALL_DIR}/bin/${APP_BIN}.new"
+NEW_MIGRATE_BIN="${INSTALL_DIR}/bin/${MIGRATE_BIN}.new"
 rm -f "$NEW_APP_BIN" "$NEW_MIGRATE_BIN"
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "$NEW_APP_BIN"      ./cmd/gobooks
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "$NEW_MIGRATE_BIN"  ./cmd/gobooks-migrate
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "$NEW_APP_BIN"      ./cmd/balanciz
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "$NEW_MIGRATE_BIN"  ./cmd/balanciz-migrate
 
 log "Build complete."
 
@@ -287,8 +313,8 @@ set -a; source "${INSTALL_DIR}/.env"; set +a
 log "Migrations complete."
 
 log "Activating new binaries..."
-mv -f "$NEW_APP_BIN" "${INSTALL_DIR}/bin/gobooks"
-mv -f "$NEW_MIGRATE_BIN" "${INSTALL_DIR}/bin/gobooks-migrate"
+mv -f "$NEW_APP_BIN" "${INSTALL_DIR}/bin/${APP_BIN}"
+mv -f "$NEW_MIGRATE_BIN" "${INSTALL_DIR}/bin/${MIGRATE_BIN}"
 
 # ── 7. Fix ownership ─────────────────────────────────────────────────────────
 
@@ -296,9 +322,9 @@ chown -R "$SERVICE_USER":"$SERVICE_USER" "$INSTALL_DIR"
 
 # ── 8. Restart service ───────────────────────────────────────────────────────
 
-log "Starting GoBooks service..."
+log "Starting ${APP_LABEL} service..."
 systemctl daemon-reload
-systemctl start gobooks
+systemctl start "${SERVICE_NAME}"
 
 # ── 9. Health check ──────────────────────────────────────────────────────────
 
@@ -306,7 +332,7 @@ log "Waiting for service to become healthy..."
 HEALTHY=false
 for i in $(seq 1 10); do
     sleep 1
-    if systemctl is-active --quiet gobooks; then
+    if systemctl is-active --quiet "${SERVICE_NAME}"; then
         HEALTHY=true
         break
     fi
@@ -315,7 +341,7 @@ done
 if [[ "$HEALTHY" == true ]]; then
     log "Service is running."
 else
-    err "Service did not start. Check logs: sudo journalctl -u gobooks -n 50"
+    err "Service did not start. Check logs: sudo journalctl -u ${SERVICE_NAME} -n 50"
     warn "Old binaries backed up at ${INSTALL_DIR}/bin/*.bak"
     warn "Database backup at ${BACKUP_FILE}"
     warn "To rollback: copy *.bak over binaries and restart."
@@ -324,17 +350,17 @@ fi
 
 # ── 10. Clean up old backups ─────────────────────────────────────────────────
 
-rm -f "${INSTALL_DIR}/bin/gobooks.bak" "${INSTALL_DIR}/bin/gobooks-migrate.bak"
-rm -f "${INSTALL_DIR}/bin/gobooks.new" "${INSTALL_DIR}/bin/gobooks-migrate.new"
+rm -f "${INSTALL_DIR}/bin/${APP_BIN}.bak" "${INSTALL_DIR}/bin/${MIGRATE_BIN}.bak"
+rm -f "${INSTALL_DIR}/bin/${APP_BIN}.new" "${INSTALL_DIR}/bin/${MIGRATE_BIN}.new"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 
 echo ""
 echo -e "${GREEN}════════════════════════════════════════════════════════════════${NC}"
-echo -e "${GREEN}  GoBooks upgraded successfully!${NC}"
+echo -e "${GREEN}  ${APP_LABEL} upgraded successfully!${NC}"
 echo -e "${GREEN}════════════════════════════════════════════════════════════════${NC}"
 echo ""
-echo -e "  Status:   ${CYAN}sudo systemctl status gobooks${NC}"
-echo -e "  Logs:     ${CYAN}sudo journalctl -u gobooks -f${NC}"
+echo -e "  Status:   ${CYAN}sudo systemctl status ${SERVICE_NAME}${NC}"
+echo -e "  Logs:     ${CYAN}sudo journalctl -u ${SERVICE_NAME} -f${NC}"
 echo -e "  Backup:   ${CYAN}${BACKUP_FILE}${NC}"
 echo ""

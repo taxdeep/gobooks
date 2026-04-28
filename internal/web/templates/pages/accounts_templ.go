@@ -10,9 +10,9 @@ package pages
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "gobooks/internal/models"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/models"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 func Accounts(vm AccountsVM) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -36,7 +36,7 @@ func Accounts(vm AccountsVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Chart of Accounts",
+			"Balanciz - Chart of Accounts",
 			ui.SidebarVM{Active: "Accounts", HasCompany: vm.HasCompany},
 			bodyAccounts(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -146,7 +146,7 @@ func accountsCreateDrawerForm(vm AccountsVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" data-parent-account-id=\"0\" x-data=\"gobooksAccountDrawerSuggest()\" x-init=\"$nextTick(() => { validate($refs.codeInput?.value || ''); const ir = $el.dataset.initialRoot; const id = $el.dataset.initialDetail; if (ir && $refs.rootSelect) { $refs.rootSelect.value = ir; } if (id && $refs.detailSelect) { $nextTick(() => { $refs.detailSelect.value = id; }); } })\"><div><label class=\"block text-body font-medium text-text\">Account Code *</label> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" data-parent-account-id=\"0\" x-data=\"balancizAccountDrawerSuggest()\" x-init=\"$nextTick(() => { validate($refs.codeInput?.value || ''); const ir = $el.dataset.initialRoot; const id = $el.dataset.initialDetail; if (ir && $refs.rootSelect) { $refs.rootSelect.value = ir; } if (id && $refs.detailSelect) { $nextTick(() => { $refs.detailSelect.value = id; }); } })\"><div><label class=\"block text-body font-medium text-text\">Account Code *</label> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1145,7 +1145,7 @@ func accountsEditDrawerForm(vm AccountsVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 112, "\" x-data=\"gobooksAccountDrawerSuggest()\"><div><label class=\"block text-body font-medium text-text\">Account Code</label> <input type=\"text\" readonly value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 112, "\" x-data=\"balancizAccountDrawerSuggest()\"><div><label class=\"block text-body font-medium text-text\">Account Code</label> <input type=\"text\" readonly value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

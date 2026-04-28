@@ -4,7 +4,7 @@ package services
 import (
 	"testing"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // The PPV setter mirrors ChangeCompanyGRIRClearingAccount's shape and

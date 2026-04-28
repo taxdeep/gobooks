@@ -4,15 +4,15 @@ services:
   db:
     image: postgres:16
     environment:
-      POSTGRES_USER: gobooks
-      POSTGRES_PASSWORD: gobooks
-      POSTGRES_DB: gobooks
+      POSTGRES_USER: balanciz
+      POSTGRES_PASSWORD: balanciz
+      POSTGRES_DB: balanciz
     ports:
       - "5432:5432"
     volumes:
-      - gobooks_pgdata:/var/lib/postgresql/data
+      - balanciz_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U gobooks -d gobooks"]
+      test: ["CMD-SHELL", "pg_isready -U balanciz -d balanciz"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -20,7 +20,7 @@ services:
 
   migrate:
     build: .
-    command: ["/app/gobooks-migrate"]
+    command: ["/app/balanciz-migrate"]
     restart: "no"
     depends_on:
       db:
@@ -28,9 +28,9 @@ services:
     environment:
       DB_HOST: db
       DB_PORT: "5432"
-      DB_USER: gobooks
-      DB_PASSWORD: gobooks
-      DB_NAME: gobooks
+      DB_USER: balanciz
+      DB_PASSWORD: balanciz
+      DB_NAME: balanciz
       DB_SSLMODE: disable
 
   app:
@@ -45,12 +45,12 @@ services:
       APP_ADDR: :6768
       DB_HOST: db
       DB_PORT: "5432"
-      DB_USER: gobooks
-      DB_PASSWORD: gobooks
-      DB_NAME: gobooks
+      DB_USER: balanciz
+      DB_PASSWORD: balanciz
+      DB_NAME: balanciz
       DB_SSLMODE: disable
     ports:
       - "6768:6768"
 
 volumes:
-  gobooks_pgdata:
+  balanciz_pgdata:

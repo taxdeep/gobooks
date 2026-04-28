@@ -7,8 +7,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services/pdf"
+	"balanciz/internal/models"
+	"balanciz/internal/services/pdf"
 )
 
 // bill_pdf_adapter.go — Bill → pdf.RenderInput.

@@ -24,7 +24,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 var ErrBillNotVoidable = errors.New("only posted bills can be voided")

@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func TestSelectCompanyPostRecordsSmartPickerUsage(t *testing.T) {

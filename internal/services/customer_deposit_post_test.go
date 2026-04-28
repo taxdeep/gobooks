@@ -10,7 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // customer_deposit_post_test.go — locks the auto-routing behaviour added

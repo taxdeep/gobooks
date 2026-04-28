@@ -3,9 +3,9 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 func vrfStatusBadgeClass(s models.VendorRefundStatus) string {
@@ -26,7 +26,7 @@ func vrfStatusBadgeClass(s models.VendorRefundStatus) string {
 
 templ VendorRefunds(vm VendorRefundsVM) {
 	@layout.Layout(
-		"GoBooks - Vendor Refunds",
+		"Balanciz - Vendor Refunds",
 		ui.SidebarVM{Active: "Vendor Refunds", HasCompany: vm.HasCompany},
 		bodyVendorRefunds(vm),
 	)

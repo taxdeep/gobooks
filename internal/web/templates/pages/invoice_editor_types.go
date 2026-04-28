@@ -2,7 +2,7 @@
 package pages
 
 import (
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // InvoiceEditorVM is the view-model for the invoice create/edit editor page.

@@ -78,7 +78,7 @@
   };
 
   if (typeof window !== 'undefined') {
-    window.gobooksDateFilterInput = api;
+    window.balancizDateFilterInput = api;
   }
 
   if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {

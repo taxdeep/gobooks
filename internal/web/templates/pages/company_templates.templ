@@ -3,14 +3,14 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ CompanyTemplates(vm CompanyTemplatesVM) {
 	@layout.Layout(
-		"GoBooks - Templates",
+		"Balanciz - Templates",
 		ui.SidebarVM{Active: "Company Templates", HasCompany: vm.HasCompany},
 		bodyCompanyTemplates(vm),
 	)

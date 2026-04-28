@@ -10,8 +10,8 @@ package pages
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 // customerNewCurrencyOptions converts the VM currency list to SelectOption slice.
 func customerNewCurrencyOptions(vm CustomerNewVM) []ui.SelectOption {
@@ -44,7 +44,7 @@ func CustomerNew(vm CustomerNewVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - New Customer",
+			"Balanciz - New Customer",
 			ui.SidebarVM{Active: "Customers", HasCompany: vm.HasCompany},
 			bodyCustomerNew(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

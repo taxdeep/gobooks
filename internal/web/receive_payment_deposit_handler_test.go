@@ -12,7 +12,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // receive_payment_deposit_handler_test.go — HTTP-level coverage for the

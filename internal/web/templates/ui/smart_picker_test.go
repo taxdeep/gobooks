@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/web/templates/ui"
 )
 
 // renderSP renders a SmartPicker to a string for assertion.
@@ -162,7 +162,7 @@ func TestSmartPicker_Disabled(t *testing.T) {
 	})
 
 	// No Alpine component
-	if strings.Contains(html, `x-data="gobooksSmartPicker()"`) {
+	if strings.Contains(html, `x-data="balancizSmartPicker()"`) {
 		t.Error("disabled picker must not render Alpine component")
 	}
 	// Static label shown

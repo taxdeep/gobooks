@@ -4,7 +4,7 @@ package web
 import (
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/web/templates/pages"
+	"balanciz/internal/web/templates/pages"
 )
 
 // handleSettingsHub renders the top-level Settings landing page.

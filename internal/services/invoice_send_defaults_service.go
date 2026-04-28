@@ -4,7 +4,7 @@ package services
 import (
 	"fmt"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 	"gorm.io/gorm"
 )
 

@@ -2,8 +2,8 @@
 package pages
 
 import (
-	"gobooks/internal/models"
-	"gobooks/internal/services"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
 )
 
 // ── ARWriteOff VMs ────────────────────────────────────────────────────────────

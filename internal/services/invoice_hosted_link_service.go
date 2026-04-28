@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 	"gorm.io/gorm"
 )
 

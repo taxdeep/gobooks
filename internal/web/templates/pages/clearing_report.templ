@@ -1,13 +1,13 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 import "fmt"
 
 templ ClearingReport(vm ClearingReportVM) {
 	@layout.Layout(
-		"GoBooks - Clearing Account Report",
+		"Balanciz - Clearing Account Report",
 		ui.SidebarVM{Active: "Channels", HasCompany: vm.HasCompany},
 		bodyClearingReport(vm),
 	)

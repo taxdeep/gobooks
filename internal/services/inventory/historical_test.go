@@ -7,7 +7,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // Historical GetOnHand now reports quantity AND weighted-avg cost AND

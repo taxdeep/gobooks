@@ -3,9 +3,9 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 func receiptStatusBadgeClass(s models.CustomerReceiptStatus) string {
@@ -30,7 +30,7 @@ func receiptStatusBadgeClass(s models.CustomerReceiptStatus) string {
 
 templ Receipts(vm ReceiptsVM) {
 	@layout.Layout(
-		"GoBooks - Customer Receipts",
+		"Balanciz - Customer Receipts",
 		ui.SidebarVM{Active: "Customer Receipts", HasCompany: vm.HasCompany},
 		bodyReceipts(vm),
 	)

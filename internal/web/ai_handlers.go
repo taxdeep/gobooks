@@ -10,8 +10,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/ai"
-	"gobooks/internal/models"
+	"balanciz/internal/ai"
+	"balanciz/internal/models"
 )
 
 // handleAIMemoAssist serves POST /api/ai/invoice-memo-assist.

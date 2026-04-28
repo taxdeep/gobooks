@@ -4,7 +4,7 @@ package pages
 import (
 	"time"
 
-	"gobooks/internal/services"
+	"balanciz/internal/services"
 )
 
 // ── Report Toolbar VM ─────────────────────────────────────────────────────────

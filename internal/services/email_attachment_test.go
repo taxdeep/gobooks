@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func TestBuildRawMessage_PlainText(t *testing.T) {
@@ -43,7 +43,7 @@ func TestBuildMIMEMessage_WithAttachment(t *testing.T) {
 	if !strings.Contains(s, "multipart/mixed") {
 		t.Error("Missing multipart/mixed Content-Type")
 	}
-	if !strings.Contains(s, "GoBooks_MIME_Boundary") {
+	if !strings.Contains(s, "Balanciz_MIME_Boundary") {
 		t.Error("Missing MIME boundary")
 	}
 	if !strings.Contains(s, "Content-Type: text/plain; charset=UTF-8") {

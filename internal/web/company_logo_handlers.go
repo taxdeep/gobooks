@@ -11,8 +11,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
 )
 
 // maxLogoSize is the hard upper limit for uploaded logo files (2 MB).

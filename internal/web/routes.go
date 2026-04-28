@@ -4,7 +4,7 @@ package web
 import (
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func (s *Server) registerRoutes(app *fiber.App) {

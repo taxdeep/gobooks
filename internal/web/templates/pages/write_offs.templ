@@ -3,9 +3,9 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 func writeOffStatusBadgeClass(s models.ARWriteOffStatus) string {
@@ -26,7 +26,7 @@ func writeOffStatusBadgeClass(s models.ARWriteOffStatus) string {
 
 templ WriteOffs(vm WriteOffsVM) {
 	@layout.Layout(
-		"GoBooks - AR Write-Offs",
+		"Balanciz - AR Write-Offs",
 		ui.SidebarVM{Active: "AR Write-Offs", HasCompany: vm.HasCompany},
 		bodyWriteOffs(vm),
 	)

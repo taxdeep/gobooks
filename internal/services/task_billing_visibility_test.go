@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func TestListUnbilledWork_CurrentSourcesOnly(t *testing.T) {

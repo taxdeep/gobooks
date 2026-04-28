@@ -24,9 +24,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // ── View models ──────────────────────────────────────────────────────────────
@@ -98,7 +98,7 @@ func ARReturnReceiptsList(vm ARReturnReceiptsListVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Return Receipts",
+			"Balanciz - Return Receipts",
 			ui.SidebarVM{Active: "Return Receipts", HasCompany: vm.HasCompany},
 			bodyARReturnReceiptsList(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -318,7 +318,7 @@ func ARReturnReceiptDetail(vm ARReturnReceiptDetailVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Return Receipt",
+			"Balanciz - Return Receipt",
 			ui.SidebarVM{Active: "Return Receipts", HasCompany: vm.HasCompany},
 			bodyARReturnReceiptDetail(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -793,7 +793,7 @@ func ARReturnReceiptForm(vm ARReturnReceiptFormVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - New Return Receipt",
+			"Balanciz - New Return Receipt",
 			ui.SidebarVM{Active: "Return Receipts", HasCompany: vm.HasCompany},
 			bodyARReturnReceiptForm(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

@@ -45,7 +45,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // testVRSDB spins an in-memory DB with the full VRS + VCN + Bill +

@@ -22,7 +22,7 @@ package pdf
 import (
 	"sort"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // FieldType is the data kind, used by the renderer to pick a formatter.

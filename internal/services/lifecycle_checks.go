@@ -10,7 +10,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 var ErrDraftWithActiveJournal = errors.New("draft document has a posted journal entry - expected no active JE")

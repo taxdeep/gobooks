@@ -9,7 +9,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // seedLayeredReceipts lays down N receipts in order with distinct dates so

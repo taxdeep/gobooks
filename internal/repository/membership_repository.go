@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 	"gorm.io/gorm"
 )
 

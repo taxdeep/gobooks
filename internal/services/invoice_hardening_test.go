@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ── State Machine Edge Cases ─────────────────────────────────────────────────

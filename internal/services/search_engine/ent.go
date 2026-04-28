@@ -8,10 +8,10 @@ import (
 
 	entsql "entgo.io/ent/dialect/sql"
 
-	"gobooks/ent"
-	"gobooks/ent/predicate"
-	"gobooks/ent/searchdocument"
-	"gobooks/internal/searchprojection"
+	"balanciz/ent"
+	"balanciz/ent/predicate"
+	"balanciz/ent/searchdocument"
+	"balanciz/internal/searchprojection"
 )
 
 // EntEngine reads from the search_documents projection (populated by

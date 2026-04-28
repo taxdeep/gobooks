@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // EmailConfig holds the SMTP parameters required to send email.
@@ -45,8 +45,8 @@ func SendTestEmail(cfg EmailConfig) (string, error) {
 	if err := ValidateEmailConfig(cfg); err != nil {
 		return "", err
 	}
-	subject := "GoBooks – SMTP configuration test"
-	body := "This is an automated test message from your GoBooks notification system.\n\n" +
+	subject := "Balanciz – SMTP configuration test"
+	body := "This is an automated test message from your Balanciz notification system.\n\n" +
 		"If you received this message your SMTP configuration is working correctly.\n" +
 		"You do not need to reply to this email."
 	if err := SendEmail(cfg, cfg.FromEmail, subject, body); err != nil {

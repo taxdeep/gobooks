@@ -25,7 +25,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // IssueStock books a stock outflow and returns the cost the caller needs

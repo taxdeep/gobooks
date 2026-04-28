@@ -4,7 +4,7 @@ package services
 // channel_service.go — Platform-agnostic channel integration services.
 //
 // Provides CRUD for channel accounts, item mappings, raw order management,
-// and the mapping resolver that connects external SKUs to Gobooks items.
+// and the mapping resolver that connects external SKUs to Balanciz items.
 // No marketplace-specific logic lives here — all connector logic is deferred
 // to future platform-specific packages.
 
@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -98,14 +98,14 @@ func UpdateItemMapping(db *gorm.DB, companyID uint, m *models.ItemChannelMapping
 
 // ── Mapping Resolver ─────────────────────────────────────────────────────────
 
-// MappingResult holds the resolution of an external SKU to a Gobooks item.
+// MappingResult holds the resolution of an external SKU to a Balanciz item.
 type MappingResult struct {
 	Item          *models.ProductService
 	MappingStatus models.ChannelMappingStatus
 	MappingID     uint // 0 if unmapped
 }
 
-// ResolveMappedItem finds the Gobooks item mapped to an external SKU.
+// ResolveMappedItem finds the Balanciz item mapped to an external SKU.
 // Returns unmapped if no mapping exists; needs_review if multiple active mappings
 // match (ambiguous); mapped_exact or mapped_bundle for a single match.
 func ResolveMappedItem(db *gorm.DB, companyID, channelAccountID uint, marketplaceID, externalSKU string) (*MappingResult, error) {

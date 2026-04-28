@@ -11,9 +11,9 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import "fmt"
-import "gobooks/internal/models"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/models"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 func InvoiceDetail(vm InvoiceDetailVM) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -37,7 +37,7 @@ func InvoiceDetail(vm InvoiceDetailVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Invoice "+vm.Invoice.InvoiceNumber,
+			"Balanciz - Invoice "+vm.Invoice.InvoiceNumber,
 			ui.SidebarVM{Active: "Invoices", HasCompany: vm.HasCompany},
 			bodyInvoiceDetail(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -1938,7 +1938,7 @@ func bodyInvoiceDetail(vm InvoiceDetailVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 206, "\" x-data=\"gobooksEmailAssist()\" data-invoice-id=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 206, "\" x-data=\"balancizEmailAssist()\" data-invoice-id=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

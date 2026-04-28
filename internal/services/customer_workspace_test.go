@@ -7,7 +7,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func TestGetCustomerWorkspace_UsesSummaryTruthAndRecentInvoices(t *testing.T) {

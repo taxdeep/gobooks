@@ -8,7 +8,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // line_uom_snapshot_test.go — locks the U2 helper that resolves a line's

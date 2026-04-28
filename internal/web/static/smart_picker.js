@@ -1,4 +1,4 @@
-// smart_picker.js — GoBooks universal SmartPicker Alpine component.
+// smart_picker.js — Balanciz universal SmartPicker Alpine component.
 // v=9
 //
 // IMPORTANT — entity semantics:
@@ -9,18 +9,18 @@
 //   Never assume entity="account" means "all accounts" on the frontend.
 //
 // Usage:
-//   <div x-data="gobooksSmartPicker()"
+//   <div x-data="balancizSmartPicker()"
 //        data-field-name="expense_account_id"
 //        data-entity="account"
 //        data-context="expense_form_category"
 //        ...more data-* attrs...>
 //
 // Config is read entirely from data-* attributes in init(); the object
-// returned by gobooksSmartPicker() never receives direct function arguments.
-// This matches the pattern used by gobooksAccountDrawerSuggest() and
-// gobooksJournalEntryDraft().
+// returned by balancizSmartPicker() never receives direct function arguments.
+// This matches the pattern used by balancizAccountDrawerSuggest() and
+// balancizJournalEntryDraft().
 //
-function gobooksSmartPicker() {
+function balancizSmartPicker() {
   return {
     // ── Config (read from data-* attrs in init(); immutable after) ──
     entity:      "",
@@ -92,9 +92,9 @@ function gobooksSmartPicker() {
       const hidden = el.querySelector('input[type=hidden]');
       if (hidden) hidden.name = this.fieldName;
 
-      // gobooks-picker-set-value: programmatic selection from outside the component
+      // balanciz-picker-set-value: programmatic selection from outside the component
       // (e.g. after inline Quick Create). Accepts {id, label, payload?}.
-      el.addEventListener("gobooks-picker-set-value", (e) => {
+      el.addEventListener("balanciz-picker-set-value", (e) => {
         const { id, label, payload } = e.detail || {};
         if (!id) return;
         this.selectedId    = String(id);
@@ -105,7 +105,7 @@ function gobooksSmartPicker() {
         // Dispatch the standard picker-select event so listeners (e.g. due-date
         // auto-fill and currency pre-fill) can react exactly as if the user had
         // picked from the dropdown. Forward the caller's payload (if any).
-        this.$dispatch("gobooks-picker-select", {
+        this.$dispatch("balanciz-picker-select", {
           entity:  this.entity,
           context: this.context,
           id:      String(id),
@@ -180,7 +180,7 @@ function gobooksSmartPicker() {
           params.set("anchor_entity_type", this.anchorEntityType);
           params.set("anchor_entity_id", this.anchorEntityId);
         }
-        const fetchFn = window.gobooksFetch || fetch;
+        const fetchFn = window.balancizFetch || fetch;
         const res = await fetchFn("/api/smart-picker/search?" + params.toString(), {
           method: "GET",
         });
@@ -226,7 +226,7 @@ function gobooksSmartPicker() {
       // Dispatch a bubbling event so parent Alpine components can react.
       // `payload` carries machine-readable data (e.g. default_price) that
       // providers embed in SmartPickerItem.Payload — not shown in the dropdown UI.
-      this.$dispatch("gobooks-picker-select", {
+      this.$dispatch("balanciz-picker-select", {
         entity:                    this.entity,
         context:                   this.context,
         id:                        item.id,
@@ -234,7 +234,7 @@ function gobooksSmartPicker() {
         requiresBackendValidation: this.requiresBackendValidation,
       });
       // Fire-and-forget usage ping for future ranking signals.
-      // Uses gobooksFetch so the X-CSRF-Token is injected automatically.
+      // Uses balancizFetch so the X-CSRF-Token is injected automatically.
       // Errors are silently ignored — this must never break picker UX.
       this._sendUsage("select", {
         query: selectedQuery,
@@ -246,7 +246,7 @@ function gobooksSmartPicker() {
     },
 
     // triggerCreate — fired when user clicks/keyboards to the "+ Add new" row.
-    // Closes the dropdown and dispatches gobooks-picker-create so the host page
+    // Closes the dropdown and dispatches balanciz-picker-create so the host page
     // can open an inline creation panel without navigating away.
     triggerCreate() {
       const q = this.query.trim();
@@ -255,7 +255,7 @@ function gobooksSmartPicker() {
         query: q,
         result_count: this.items.length,
       });
-      this.$dispatch("gobooks-picker-create", {
+      this.$dispatch("balanciz-picker-create", {
         entity:  this.entity,
         context: this.context,
         query:   q,
@@ -345,7 +345,7 @@ function gobooksSmartPicker() {
     },
 
     _sendUsage(eventType, extra = {}) {
-      const fetchFn = window.gobooksFetch || fetch;
+      const fetchFn = window.balancizFetch || fetch;
       const payload = {
         entity: this.entity,
         entity_type: this.entity,
@@ -376,19 +376,19 @@ function gobooksSmartPicker() {
   };
 }
 
-// gobooksTaskRateSync — Alpine component for the Task Form.
+// balancizTaskRateSync — Alpine component for the Task Form.
 //
-// Listens for gobooks-picker-select events bubbling up from any SmartPicker
+// Listens for balanciz-picker-select events bubbling up from any SmartPicker
 // inside the form. When the user picks a service item (context =
 // "task_form_service_item"), and the item carries a non-zero default_price in
 // its payload, the Rate field is auto-filled. The user can still type over it.
 //
 // Usage in templ:
-//   <form x-data="gobooksTaskRateSync()" data-init-rate="0.00"
-//         @gobooks-picker-select="onServiceItemSelect($event)">
+//   <form x-data="balancizTaskRateSync()" data-init-rate="0.00"
+//         @balanciz-picker-select="onServiceItemSelect($event)">
 //     <input name="rate" x-model="rate" ...>
 //   </form>
-function gobooksTaskRateSync() {
+function balancizTaskRateSync() {
   return {
     rate: "0.00",
 

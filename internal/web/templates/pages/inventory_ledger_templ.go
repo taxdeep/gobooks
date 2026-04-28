@@ -10,8 +10,8 @@ package pages
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 import "fmt"
 
 func InventoryLedger(vm InventoryLedgerVM) templ.Component {
@@ -36,7 +36,7 @@ func InventoryLedger(vm InventoryLedgerVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Inventory Ledger",
+			"Balanciz - Inventory Ledger",
 			ui.SidebarVM{Active: "Products & Services", HasCompany: vm.HasCompany},
 			bodyInventoryLedger(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

@@ -9,8 +9,8 @@ package web
 import (
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/searchprojection/producers"
-	"gobooks/internal/services"
+	"balanciz/internal/searchprojection/producers"
+	"balanciz/internal/services"
 )
 
 // POST /customers/:id/delete

@@ -1,7 +1,7 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/ui"
 
 // expenseFormShellVM maps ExpenseFormVM into the shared DocEditorShell.
 // Subtitle adds the auto-assigned reference number on edit pages so the

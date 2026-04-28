@@ -4,11 +4,11 @@ package web
 import (
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/config"
+	"balanciz/internal/config"
 )
 
 // SessionCookieName is the HTTP-only cookie holding the opaque session token.
-const SessionCookieName = "gobooks_session"
+const SessionCookieName = "balanciz_session"
 
 // SessionCookieMaxAgeSec is the default browser cookie lifetime (30 days).
 const SessionCookieMaxAgeSec = 30 * 24 * 3600

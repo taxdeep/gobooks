@@ -4,7 +4,7 @@ package pages
 import "encoding/json"
 
 // expenseInitialLinesJSON serialises vm.Lines into a JSON array consumed by the
-// gobooksExpenseForm Alpine component via data-initial-lines.
+// balancizExpenseForm Alpine component via data-initial-lines.
 // Shape per item: {expense_account_id, description, amount, tax_code_id, line_tax,
 //                  line_total, task_id, is_billable, error}.
 func expenseInitialLinesJSON(vm ExpenseFormVM) string {

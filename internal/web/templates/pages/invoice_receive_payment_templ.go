@@ -10,9 +10,9 @@ package pages
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "gobooks/internal/models"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/models"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 import "fmt"
 
 func InvoiceReceivePayment(vm InvoiceReceivePaymentVM) templ.Component {
@@ -37,7 +37,7 @@ func InvoiceReceivePayment(vm InvoiceReceivePaymentVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Receive Payment",
+			"Balanciz - Receive Payment",
 			ui.SidebarVM{Active: "Invoices", HasCompany: vm.HasCompany},
 			bodyInvoiceReceivePayment(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

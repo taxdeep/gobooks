@@ -11,9 +11,9 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"gobooks/internal/services/search_engine"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/services/search_engine"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // AdvancedSearch renders /advanced-search — the full-page filter view
@@ -43,7 +43,7 @@ func AdvancedSearch(vm AdvancedSearchVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Advanced search",
+			"Balanciz - Advanced search",
 			ui.SidebarVM{Active: "Advanced search", HasCompany: vm.HasCompany},
 			bodyAdvancedSearch(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

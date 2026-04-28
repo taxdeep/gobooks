@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 
 	"gorm.io/gorm"
 )

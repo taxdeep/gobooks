@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
 )
 
 func TestTaskFormCustomerSmartPickerIntegration(t *testing.T) {

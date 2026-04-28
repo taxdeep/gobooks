@@ -1,12 +1,12 @@
-# GoBooks AI Product Architecture V1
+# Balanciz AI Product Architecture V1
 
-This document formalizes GoBooks as an AI-assisted accounting platform.
+This document formalizes Balanciz as an AI-assisted accounting platform.
 
-It is an architecture lock, not an automation permission slip. AI can assist, recommend, summarize, explain, extract, and prepare drafts. Accounting truth remains owned by GoBooks backend engines.
+It is an architecture lock, not an automation permission slip. AI can assist, recommend, summarize, explain, extract, and prepare drafts. Accounting truth remains owned by Balanciz backend engines.
 
 ## 1. Product Philosophy
 
-GoBooks is an accounting system first.
+Balanciz is an accounting system first.
 
 The source of truth remains:
 
@@ -38,7 +38,7 @@ User intent
 
 ## 2. Four-Layer Architecture
 
-GoBooks AI is organized into four layers:
+Balanciz AI is organized into four layers:
 
 1. Business Truth Layer
 2. AI Learning Module
@@ -124,7 +124,7 @@ It produces:
 
 Submodules:
 
-- Behavior Learning Engine: records user actions across GoBooks.
+- Behavior Learning Engine: records user actions across Balanciz.
 - SmartPicker Learning: learns selection habits for vendors, customers, accounts, items, tax codes, payment accounts, and related pairings.
 - Report Usage Learning: learns which reports users open, filter, export, print, drill into, and revisit.
 - Dashboard Preference Learning: learns which widgets users add, remove, accept, dismiss, or ignore.
@@ -244,7 +244,7 @@ Examples:
 AI Output answers:
 
 ```text
-How should GoBooks help the user now?
+How should Balanciz help the user now?
 ```
 
 Examples:
@@ -828,7 +828,7 @@ internal/dashboard/suggestions
 internal/dashboard/layout
 ```
 
-Do not force this structure where existing GoBooks patterns provide a smaller, safer home. New implementation should adapt to the current modular monolith and avoid broad rewrites.
+Do not force this structure where existing Balanciz patterns provide a smaller, safer home. New implementation should adapt to the current modular monolith and avoid broad rewrites.
 
 ## 19. Current Implementation Alignment
 

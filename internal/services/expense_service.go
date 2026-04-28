@@ -10,8 +10,8 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
-	"gobooks/internal/numbering"
+	"balanciz/internal/models"
+	"balanciz/internal/numbering"
 )
 
 var (

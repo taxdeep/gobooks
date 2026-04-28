@@ -10,7 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // sales_order_stockqty_test.go — locks the integer-quantity rule for

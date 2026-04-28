@@ -2,9 +2,9 @@
 package pages
 
 import (
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // CounterpartySummaryVM powers both Sales by Customer + Expense by
@@ -34,7 +34,7 @@ type CounterpartySummaryVM struct {
 
 templ CounterpartySummary(vm CounterpartySummaryVM) {
 	@layout.Layout(
-		"GoBooks - "+vm.PageTitle,
+		"Balanciz - "+vm.PageTitle,
 		ui.SidebarVM{Active: "Reports", HasCompany: vm.HasCompany},
 		bodyCounterpartySummary(vm),
 	)

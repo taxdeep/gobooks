@@ -10,7 +10,7 @@ import (
 	"net/smtp"
 	"strings"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 
 	"gorm.io/gorm"
 )
@@ -102,7 +102,7 @@ func buildRawMessage(from, to, subject, body string) []byte {
 }
 
 func buildMIMEMessage(from, to, subject, body string, att *EmailAttachment) []byte {
-	boundary := "==GoBooks_MIME_Boundary=="
+	boundary := "==Balanciz_MIME_Boundary=="
 
 	var sb strings.Builder
 	sb.WriteString("From: " + from + "\r\n")

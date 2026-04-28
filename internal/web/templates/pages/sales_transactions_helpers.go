@@ -10,7 +10,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/services"
+	"balanciz/internal/services"
 )
 
 // salesTxSelectClass is the standard dark-mode-safe select styling for

@@ -16,8 +16,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
 )
 
 // ── Report tree primitives ──────────────────────────────────────────────────

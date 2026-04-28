@@ -42,13 +42,13 @@ import (
 
 	"gorm.io/gorm"
 
-	"gobooks/ent/searchdocument"
-	"gobooks/internal/config"
-	"gobooks/internal/db"
-	"gobooks/internal/logging"
-	"gobooks/internal/models"
-	"gobooks/internal/searchprojection"
-	"gobooks/internal/searchprojection/producers"
+	"balanciz/ent/searchdocument"
+	"balanciz/internal/config"
+	"balanciz/internal/db"
+	"balanciz/internal/logging"
+	"balanciz/internal/models"
+	"balanciz/internal/searchprojection"
+	"balanciz/internal/searchprojection/producers"
 )
 
 // entityFamily describes one slot in the reconciler's scan loop:

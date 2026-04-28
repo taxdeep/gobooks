@@ -1,5 +1,5 @@
 // Package admintmpl contains SysAdmin HTML templates.
-// Shell layout aligns with main GoBooks (surface header, bordered sidebar) while staying clearly “system mode”.
+// Shell layout aligns with main Balanciz (surface header, bordered sidebar) while staying clearly “system mode”.
 package admintmpl
 
 // adminLayout is the authenticated SysAdmin chrome: top bar + sidebar + main.
@@ -10,7 +10,7 @@ templ adminLayout(title string, adminEmail string, activeNav string, maintenance
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<title>{ title } — GoBooks System</title>
+			<title>{ title } — Balanciz System</title>
 			<link rel="stylesheet" href="/static/app.css?v=3"/>
 			<style>
 				[x-cloak] { display: none !important; }
@@ -28,7 +28,7 @@ templ adminLayout(title string, adminEmail string, activeNav string, maintenance
 					}
 
 					function csrfToken() {
-						return readCookie("gobooks_csrf");
+						return readCookie("balanciz_csrf");
 					}
 
 					document.addEventListener("submit", function (event) {
@@ -67,7 +67,7 @@ templ adminLayout(title string, adminEmail string, activeNav string, maintenance
 								</svg>
 							</button>
 							<a href="/admin/dashboard" class="flex min-w-0 items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus rounded-md">
-								<span class="truncate text-title font-semibold text-text">GoBooks</span>
+								<span class="truncate text-title font-semibold text-text">Balanciz</span>
 								<span class="shrink-0 rounded-md border border-border bg-background px-2 py-0.5 text-xs font-medium text-text-muted3">System</span>
 							</a>
 						</div>

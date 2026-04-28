@@ -2,14 +2,14 @@
 package pages
 
 import (
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ TrialBalance(vm TrialBalanceVM) {
 	@layout.Layout(
-		"GoBooks - Trial Balance",
+		"Balanciz - Trial Balance",
 		ui.SidebarVM{Active: "Reports", HasCompany: vm.HasCompany},
 		bodyTrialBalance(vm),
 	)

@@ -10,9 +10,9 @@ package pages
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "gobooks/internal/models"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/models"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 func ChannelMappings(vm ChannelMappingsVM) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -36,7 +36,7 @@ func ChannelMappings(vm ChannelMappingsVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - SKU Mappings",
+			"Balanciz - SKU Mappings",
 			ui.SidebarVM{Active: "Channels", HasCompany: vm.HasCompany},
 			bodyChannelMappings(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -68,7 +68,7 @@ func bodyChannelMappings(vm ChannelMappingsVM) templ.Component {
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"max-w-[95%]\"><div class=\"flex items-start justify-between gap-4\"><div><h1 class=\"text-title font-semibold\">SKU Mappings</h1><p class=\"mt-2 text-text-muted2\">Map external platform SKUs to your Gobooks items. One item can have multiple mappings across platforms.</p></div><a href=\"/settings/channels\" class=\"text-body text-primary hover:text-primary-hover\">← Channels</a></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"max-w-[95%]\"><div class=\"flex items-start justify-between gap-4\"><div><h1 class=\"text-title font-semibold\">SKU Mappings</h1><p class=\"mt-2 text-text-muted2\">Map external platform SKUs to your Balanciz items. One item can have multiple mappings across platforms.</p></div><a href=\"/settings/channels\" class=\"text-body text-primary hover:text-primary-hover\">← Channels</a></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -185,7 +185,7 @@ func bodyChannelMappings(vm ChannelMappingsVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</div></form><div class=\"mt-6 rounded-lg border border-border bg-surface p-6\"><h2 class=\"text-section font-semibold text-text\">All Mappings</h2><div class=\"mt-4 overflow-x-auto\"><table class=\"w-full text-left text-body\"><thead class=\"text-small uppercase tracking-wider text-text-muted\"><tr class=\"border-b border-border\"><th class=\"py-3 pr-4\">Channel</th><th class=\"py-3 pr-4\">External SKU</th><th class=\"py-3 pr-4\">Gobooks Item</th><th class=\"py-3 pr-4\">ASIN</th><th class=\"py-3 pr-0\">Status</th></tr></thead> <tbody class=\"text-text\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</div></form><div class=\"mt-6 rounded-lg border border-border bg-surface p-6\"><h2 class=\"text-section font-semibold text-text\">All Mappings</h2><div class=\"mt-4 overflow-x-auto\"><table class=\"w-full text-left text-body\"><thead class=\"text-small uppercase tracking-wider text-text-muted\"><tr class=\"border-b border-border\"><th class=\"py-3 pr-4\">Channel</th><th class=\"py-3 pr-4\">External SKU</th><th class=\"py-3 pr-4\">Balanciz Item</th><th class=\"py-3 pr-4\">ASIN</th><th class=\"py-3 pr-0\">Status</th></tr></thead> <tbody class=\"text-text\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

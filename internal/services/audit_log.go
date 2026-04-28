@@ -4,10 +4,10 @@ package services
 import (
 	"encoding/json"
 
-	"gobooks/internal/logging"
+	"balanciz/internal/logging"
 	"github.com/google/uuid"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 
 	"gorm.io/gorm"
 )

@@ -3,14 +3,14 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ CompanyPaymentTerms(vm PaymentTermsVM) {
 	@layout.Layout(
-		"GoBooks - Payment Terms",
+		"Balanciz - Payment Terms",
 		ui.SidebarVM{Active: "Company Payment Terms", HasCompany: vm.HasCompany},
 		bodyCompanyPaymentTerms(vm),
 	)

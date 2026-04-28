@@ -6,9 +6,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/admintmpl"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/admintmpl"
 )
 
 // handleAdminCompanies 列出所有公司（含停用公司）。

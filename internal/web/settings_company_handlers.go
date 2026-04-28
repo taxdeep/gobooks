@@ -7,9 +7,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/pages"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/pages"
 )
 
 func (s *Server) handleCompanyHub(c *fiber.Ctx) error {

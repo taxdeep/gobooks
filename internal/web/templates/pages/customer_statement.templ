@@ -3,13 +3,13 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ CustomerStatement(vm CustomerStatementVM) {
 	@layout.Layout(
-		"GoBooks - Customer Statement",
+		"Balanciz - Customer Statement",
 		ui.SidebarVM{Active: "Customer Statement", HasCompany: vm.HasCompany},
 		bodyCustomerStatement(vm),
 	)

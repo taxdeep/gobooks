@@ -1,7 +1,7 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/models"
+import "balanciz/internal/models"
 
 // PayBillsVM is the view model for the Pay Bills page.
 type PayBillsVM struct {

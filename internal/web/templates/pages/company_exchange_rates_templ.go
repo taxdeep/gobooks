@@ -11,9 +11,9 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // CompanyExchangeRatesVM is the view-model for the exchange rates maintenance page.
@@ -58,7 +58,7 @@ func CompanyExchangeRates(vm CompanyExchangeRatesVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Exchange Rates",
+			"Balanciz - Exchange Rates",
 			ui.SidebarVM{Active: "Company Currency", HasCompany: vm.HasCompany},
 			bodyCompanyExchangeRates(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

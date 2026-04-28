@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/pages"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/pages"
 )
 
 // NormalizePostalCode uppercases trimmed input (country-agnostic; no spacing rules).

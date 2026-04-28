@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func TestTaskModuleMigrationsAndModelsStayAligned(t *testing.T) {

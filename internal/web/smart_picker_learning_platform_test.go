@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	appai "gobooks/internal/ai"
-	"gobooks/internal/config"
-	"gobooks/internal/models"
+	appai "balanciz/internal/ai"
+	"balanciz/internal/config"
+	"balanciz/internal/models"
 )
 
 func TestSmartPickerRanking_CompanyBoundaryAndHintStatus(t *testing.T) {

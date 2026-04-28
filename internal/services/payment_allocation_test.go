@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )

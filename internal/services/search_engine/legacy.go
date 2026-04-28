@@ -4,7 +4,7 @@ package search_engine
 import (
 	"context"
 
-	"gobooks/internal/logging"
+	"balanciz/internal/logging"
 )
 
 // LegacyEngine is the temporary fallback for /api/global-search while

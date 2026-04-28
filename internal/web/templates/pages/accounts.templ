@@ -1,13 +1,13 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/models"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/models"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ Accounts(vm AccountsVM) {
 	@layout.Layout(
-		"GoBooks - Chart of Accounts",
+		"Balanciz - Chart of Accounts",
 		ui.SidebarVM{Active: "Accounts", HasCompany: vm.HasCompany},
 		bodyAccounts(vm),
 	)
@@ -25,7 +25,7 @@ templ accountsCreateDrawerForm(vm AccountsVM) {
 			data-initial-root={ vm.Root }
 			data-initial-detail={ vm.Detail }
 			data-parent-account-id="0"
-			x-data="gobooksAccountDrawerSuggest()"
+			x-data="balancizAccountDrawerSuggest()"
 			x-init="$nextTick(() => { validate($refs.codeInput?.value || ''); const ir = $el.dataset.initialRoot; const id = $el.dataset.initialDetail; if (ir && $refs.rootSelect) { $refs.rootSelect.value = ir; } if (id && $refs.detailSelect) { $nextTick(() => { $refs.detailSelect.value = id; }); } })"
 		>
 			<div>
@@ -389,7 +389,7 @@ templ accountsEditDrawerForm(vm AccountsVM) {
 			data-parent-account-id="0"
 			data-initial-root={ vm.Root }
 			data-initial-detail={ vm.Detail }
-			x-data="gobooksAccountDrawerSuggest()"
+			x-data="balancizAccountDrawerSuggest()"
 		>
 			<div>
 				<label class="block text-body font-medium text-text">Account Code</label>

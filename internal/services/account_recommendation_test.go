@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/glebarez/sqlite"
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 
 	"gorm.io/gorm"
 )

@@ -45,10 +45,10 @@ templ smartPickerDisabled(vm SmartPickerVM) {
 //
 // Config is passed via data-* attributes; the Alpine component reads them in init().
 // This avoids passing complex objects through Alpine's x-data initialiser and matches
-// the pattern used by gobooksAccountDrawerSuggest() and gobooksJournalEntryDraft().
+// the pattern used by balancizAccountDrawerSuggest() and balancizJournalEntryDraft().
 templ smartPickerInteractive(vm SmartPickerVM) {
 	<div
-		x-data="gobooksSmartPicker()"
+		x-data="balancizSmartPicker()"
 		data-entity={ vm.Entity }
 		data-context={ vm.Context }
 		data-field-name={ vm.FieldName }

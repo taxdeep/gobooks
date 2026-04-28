@@ -34,8 +34,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services/inventory"
+	"balanciz/internal/models"
+	"balanciz/internal/services/inventory"
 )
 
 // testI5DB is the full fixture: shipment + invoice + WFI + all the

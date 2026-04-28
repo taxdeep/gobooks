@@ -1,13 +1,13 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 import "fmt"
 
 templ InventoryLedger(vm InventoryLedgerVM) {
 	@layout.Layout(
-		"GoBooks - Inventory Ledger",
+		"Balanciz - Inventory Ledger",
 		ui.SidebarVM{Active: "Products & Services", HasCompany: vm.HasCompany},
 		bodyInventoryLedger(vm),
 	)

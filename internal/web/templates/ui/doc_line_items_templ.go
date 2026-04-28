@@ -30,7 +30,7 @@ import templruntime "github.com/a-h/templ/runtime"
 // event handlers referenced in the bodyRow.
 //
 // Auto-grow behaviour (last blank row becomes a new row when the user starts
-// typing) lives in the gobooksLineItems() Alpine factory and is wired by the
+// typing) lives in the balancizLineItems() Alpine factory and is wired by the
 // parent component; this templ just renders the markup.
 
 // DocLineItemsVM configures the table chrome.

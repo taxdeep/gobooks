@@ -10,8 +10,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
 )
 
 func TestResolveAsOfDateAt_UsesPresetEndDateForBalanceSheet(t *testing.T) {
@@ -333,7 +333,7 @@ func TestARAgingReportPageAndCSVHappyPath(t *testing.T) {
 	if got := csvResp.Header.Get("Content-Type"); !strings.Contains(got, "text/csv") {
 		t.Fatalf("expected csv content type, got %q", got)
 	}
-	if got := csvResp.Header.Get("Content-Disposition"); !strings.Contains(got, "gobooks_ar_aging_") {
+	if got := csvResp.Header.Get("Content-Disposition"); !strings.Contains(got, "balanciz_ar_aging_") {
 		t.Fatalf("expected csv filename header, got %q", got)
 	}
 	csvBody := readResponseBody(t, csvResp)

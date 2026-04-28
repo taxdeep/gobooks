@@ -7,7 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // customer_shipping_service.go — CRUD for the Customer multi-shipping-address

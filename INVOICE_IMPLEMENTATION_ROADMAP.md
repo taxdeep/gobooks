@@ -1,8 +1,8 @@
-# Gobooks Invoice Module — 实现摘要 & 后续步骤
+# Balanciz Invoice Module — 实现摘要 & 后续步骤
 
 ## 📌 分析完成
 
-我已经对 Gobooks 项目进行了深度分析，并为 Invoice Module 制定了完整的实现计划。
+我已经对 Balanciz 项目进行了深度分析，并为 Invoice Module 制定了完整的实现计划。
 
 ### 关键发现
 
@@ -284,7 +284,7 @@ Week 2:
 ## 📝 License & Compliance
 
 所有建议的代码和设计都遵循：
-- Gobooks 现有的 LICENSE.md
+- Balanciz 现有的 LICENSE.md
 - PROJECT_GUIDE.md 的所有强制规则
 - Go 编码标准（formatting, naming, error handling）
 

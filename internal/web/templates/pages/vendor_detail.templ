@@ -4,15 +4,15 @@ package pages
 import (
 	"fmt"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ VendorDetail(vm VendorDetailVM) {
 	@layout.Layout(
-		"GoBooks - "+vm.Vendor.Name,
+		"Balanciz - "+vm.Vendor.Name,
 		ui.SidebarVM{Active: "Vendors", HasCompany: vm.HasCompany},
 		bodyVendorDetail(vm),
 	)

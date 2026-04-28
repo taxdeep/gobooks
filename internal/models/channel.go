@@ -83,7 +83,7 @@ const (
 // ── Mapping status ───────────────────────────────────────────────────────────
 
 // ChannelMappingStatus tracks whether an imported order line has been matched
-// to a Gobooks item.
+// to a Balanciz item.
 type ChannelMappingStatus string
 
 const (
@@ -118,7 +118,7 @@ type SalesChannelAccount struct {
 
 // ── Item ↔ channel SKU mapping ───────────────────────────────────────────────
 
-// ItemChannelMapping links a Gobooks ProductService to an external platform
+// ItemChannelMapping links a Balanciz ProductService to an external platform
 // listing. One item can have multiple mappings across different marketplaces.
 //
 // external_sku is the seller SKU on the platform; asin / fnsku are
@@ -146,7 +146,7 @@ type ItemChannelMapping struct {
 
 // ── Channel order (raw import layer) ─────────────────────────────────────────
 
-// ChannelOrder holds an imported external order before it enters the Gobooks
+// ChannelOrder holds an imported external order before it enters the Balanciz
 // business flow. Orders must go through mapping + validation before they can
 // be converted to invoices or trigger inventory movements.
 //
@@ -175,7 +175,7 @@ type ChannelOrder struct {
 // ── Channel order line ───────────────────────────────────────────────────────
 
 // ChannelOrderLine is one line item from an imported channel order.
-// mapped_item_id is set when the external SKU is matched to a Gobooks item.
+// mapped_item_id is set when the external SKU is matched to a Balanciz item.
 // mapping_status tracks the match state for the import review workflow.
 type ChannelOrderLine struct {
 	ID        uint `gorm:"primaryKey"`

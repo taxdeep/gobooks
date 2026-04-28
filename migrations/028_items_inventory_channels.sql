@@ -142,7 +142,7 @@ CREATE INDEX IF NOT EXISTS idx_channel_accounts_company ON sales_channel_account
 -- PART 6: Item ↔ channel SKU mappings
 -- ═══════════════════════════════════════════════════════════════════════════════
 --
--- Maps a Gobooks item to one or more external platform listings/SKUs.
+-- Maps a Balanciz item to one or more external platform listings/SKUs.
 -- One item may have different ASINs across multiple Amazon marketplaces.
 
 CREATE TABLE IF NOT EXISTS item_channel_mappings (
@@ -170,7 +170,7 @@ CREATE INDEX IF NOT EXISTS idx_item_channel_mappings_ext_sku ON item_channel_map
 -- ═══════════════════════════════════════════════════════════════════════════════
 --
 -- External orders land here first. They are NOT invoices. They must go through
--- mapping + validation before entering the Gobooks business flow.
+-- mapping + validation before entering the Balanciz business flow.
 
 CREATE TABLE IF NOT EXISTS channel_orders (
     id                  BIGSERIAL   PRIMARY KEY,

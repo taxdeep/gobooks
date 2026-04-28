@@ -33,8 +33,8 @@ import (
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
 )
 
 // ── DB + seed helpers ─────────────────────────────────────────────────────────
@@ -571,7 +571,7 @@ func TestHandleInvoiceDetail_SendModalUsesEmailAssistStateGuards(t *testing.T) {
 	body := readResponseBody(t, resp)
 
 	for _, want := range []string{
-		`x-data="gobooksEmailAssist()"`,
+		`x-data="balancizEmailAssist()"`,
 		`:disabled="emailAssist.loading || emailAssist.visible"`,
 		`@input="onBodyEdited()"`,
 		`x-ref="bodyDefaultAttachPDF"`,

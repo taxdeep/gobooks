@@ -1,12 +1,12 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ BankReconcile(vm BankReconcileVM) {
 	@layout.Layout(
-		"GoBooks - Bank Reconciliation",
+		"Balanciz - Bank Reconciliation",
 		ui.SidebarVM{Active: "Bank Reconcile", HasCompany: vm.HasCompany},
 		bodyBankReconcile(vm),
 	)

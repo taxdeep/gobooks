@@ -3,14 +3,14 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // ── Payment multi-allocation form ─────────────────────────────────────────────
 
 templ PaymentAllocation(vm PaymentAllocationVM) {
-	@layout.Layout("GoBooks - Allocate Payment", ui.SidebarVM{Active: "Payment Gateways", HasCompany: vm.HasCompany}, bodyPaymentAllocation(vm))
+	@layout.Layout("Balanciz - Allocate Payment", ui.SidebarVM{Active: "Payment Gateways", HasCompany: vm.HasCompany}, bodyPaymentAllocation(vm))
 }
 
 templ bodyPaymentAllocation(vm PaymentAllocationVM) {
@@ -133,7 +133,7 @@ templ bodyPaymentAllocation(vm PaymentAllocationVM) {
 // ── Customer credit multi-allocation form ─────────────────────────────────────
 
 templ CreditAllocation(vm CreditAllocationVM) {
-	@layout.Layout("GoBooks - Allocate Credit", ui.SidebarVM{Active: "Customers", HasCompany: vm.HasCompany}, bodyCreditAllocation(vm))
+	@layout.Layout("Balanciz - Allocate Credit", ui.SidebarVM{Active: "Customers", HasCompany: vm.HasCompany}, bodyCreditAllocation(vm))
 }
 
 templ bodyCreditAllocation(vm CreditAllocationVM) {

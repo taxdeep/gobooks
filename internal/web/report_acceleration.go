@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"gobooks/internal/cache"
-	"gobooks/internal/services"
+	"balanciz/internal/cache"
+	"balanciz/internal/services"
 )
 
 // ReportAcceleration wraps P&L and AR Aging report results in a shared TTL cache.

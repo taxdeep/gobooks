@@ -1,7 +1,7 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/services"
+import "balanciz/internal/services"
 
 // SalesTaxReportVM is the view-model for Reports → Sales Tax Report.
 type SalesTaxReportVM struct {

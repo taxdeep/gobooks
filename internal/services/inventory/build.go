@@ -37,7 +37,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // PostInventoryBuild executes a single build event. See INVENTORY_MODULE_API.md

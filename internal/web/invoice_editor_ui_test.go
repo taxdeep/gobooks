@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/pages"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/pages"
 )
 
 func TestInvoiceEditor_UsesCustomerSmartPickerContextAndMemoStateGuards(t *testing.T) {

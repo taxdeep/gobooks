@@ -5,8 +5,8 @@ package ent
 import (
 	"context"
 	"fmt"
-	"gobooks/ent/predicate"
-	"gobooks/ent/searchusagestat"
+	"balanciz/ent/predicate"
+	"balanciz/ent/searchusagestat"
 	"math"
 
 	"entgo.io/ent"

@@ -13,9 +13,9 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"time"
 
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 func BalanceSheet(vm BalanceSheetVM) templ.Component {
@@ -40,7 +40,7 @@ func BalanceSheet(vm BalanceSheetVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Balance Sheet",
+			"Balanciz - Balance Sheet",
 			ui.SidebarVM{Active: "Reports", HasCompany: vm.HasCompany},
 			bodyBalanceSheet(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

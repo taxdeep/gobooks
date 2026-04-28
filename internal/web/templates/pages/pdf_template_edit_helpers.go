@@ -4,8 +4,8 @@ package pages
 import (
 	"encoding/json"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services/pdf"
+	"balanciz/internal/models"
+	"balanciz/internal/services/pdf"
 )
 
 // PDFTemplateEditVM is the view-model for the Phase 3 (G7) visual editor.

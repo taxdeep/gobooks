@@ -6,7 +6,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/services"
+	"balanciz/internal/services"
 )
 
 // purchaseTxTypeLabel returns the display label for a canonical AP

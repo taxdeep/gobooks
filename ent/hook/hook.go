@@ -5,7 +5,7 @@ package hook
 import (
 	"context"
 	"fmt"
-	"gobooks/ent"
+	"balanciz/ent"
 )
 
 // The SearchDocumentFunc type is an adapter to allow the use of ordinary

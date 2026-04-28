@@ -2,9 +2,9 @@
 package pages
 
 import (
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // GeneralLedgerVM is the view model for the GL report. Sections are
@@ -21,7 +21,7 @@ type GeneralLedgerVM struct {
 
 templ GeneralLedger(vm GeneralLedgerVM) {
 	@layout.Layout(
-		"GoBooks - General Ledger",
+		"Balanciz - General Ledger",
 		ui.SidebarVM{Active: "Reports", HasCompany: vm.HasCompany},
 		bodyGeneralLedger(vm),
 	)

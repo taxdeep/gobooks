@@ -1,12 +1,12 @@
 // 遵循project_guide.md
 //
-// gobooks-reset drops all GoBooks application tables (and the company_role enum) in the configured
+// balanciz-reset drops all Balanciz application tables (and the company_role enum) in the configured
 // PostgreSQL database/schema so the next app start can run AutoMigrate on a clean slate.
 //
 // Usage (from repo root, with .env present):
 //
-//	go run ./cmd/gobooks-reset -print-target
-//	go run ./cmd/gobooks-reset -yes -confirm-db=YOUR_DATABASE_NAME
+//	go run ./cmd/balanciz-reset -print-target
+//	go run ./cmd/balanciz-reset -yes -confirm-db=YOUR_DATABASE_NAME
 package main
 
 import (
@@ -16,13 +16,13 @@ import (
 	"os"
 	"strings"
 
-	"gobooks/internal/config"
-	"gobooks/internal/db"
+	"balanciz/internal/config"
+	"balanciz/internal/db"
 )
 
 func main() {
 	printTarget := flag.Bool("print-target", false, "connect using .env, print database/schema/user, and exit (no changes)")
-	yes := flag.Bool("yes", false, "required to perform destructive drop (deletes ALL GoBooks tables in the target schema)")
+	yes := flag.Bool("yes", false, "required to perform destructive drop (deletes ALL Balanciz tables in the target schema)")
 	confirmDB := flag.String("confirm-db", "", "must match current_database() exactly (safety check against wrong .env)")
 	flag.Parse()
 
@@ -63,7 +63,7 @@ func main() {
 		log.Fatalf("drop failed: %v", err)
 	}
 
-	log.Println("OK: all GoBooks application tables removed. Start gobooks; AutoMigrate will recreate schema.")
+	log.Println("OK: all Balanciz application tables removed. Start balanciz; AutoMigrate will recreate schema.")
 }
 
 func printBanner(target db.ResetTarget, cfg config.Config) {

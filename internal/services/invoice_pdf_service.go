@@ -203,7 +203,7 @@ func SavePDFToFile(pdfBytes []byte, outputDir string, filename string) (string, 
 // Returns full path and a cleanup function.
 // Cleanup function should be deferred to remove temp files when done.
 func SavePDFToTempDirectory(pdfBytes []byte, invoiceNumber string) (string, func(), error) {
-	tempDir, err := os.MkdirTemp("", "gobooks-invoices-*")
+	tempDir, err := os.MkdirTemp("", "balanciz-invoices-*")
 	if err != nil {
 		return "", nil, fmt.Errorf("temp directory creation failed: %w", err)
 	}

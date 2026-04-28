@@ -4,8 +4,8 @@ package pages
 import (
 	"encoding/json"
 
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/ui"
 )
 
 // soShellVM maps SalesOrderDetailVM into the shared DocEditorShell wrapper

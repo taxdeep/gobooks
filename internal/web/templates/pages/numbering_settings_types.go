@@ -1,7 +1,7 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/numbering"
+import "balanciz/internal/numbering"
 
 // NumberingSettingsVM is Settings > Company > Numbering (display numbering only).
 type NumberingSettingsVM struct {

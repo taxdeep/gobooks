@@ -9,9 +9,9 @@ import (
 
 	"github.com/a-h/templ"
 
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 const journalControlClass = "mt-2 block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted outline-none focus:ring-2 focus:ring-primary-focus"
@@ -19,7 +19,7 @@ const journalNumericControlClass = "mt-2 block w-full rounded-md border border-b
 
 func JournalEntryPage(vm JournalEntryVM) templ.Component {
 	return layout.Layout(
-		"GoBooks - Journal Entry",
+		"Balanciz - Journal Entry",
 		ui.SidebarVM{Active: "Journal Entry", HasCompany: vm.HasCompany},
 		templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
 			_, err := io.WriteString(w, renderJournalEntryPageHTML(vm))
@@ -30,7 +30,7 @@ func JournalEntryPage(vm JournalEntryVM) templ.Component {
 
 func JournalEntryListPage(vm JournalEntryListVM) templ.Component {
 	return layout.Layout(
-		"GoBooks - Journal Entries",
+		"Balanciz - Journal Entries",
 		ui.SidebarVM{Active: "Journal Entry", HasCompany: vm.HasCompany},
 		templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
 			_, err := io.WriteString(w, renderJournalEntryListHTML(vm))
@@ -41,7 +41,7 @@ func JournalEntryListPage(vm JournalEntryListVM) templ.Component {
 
 func JournalEntryDetailPage(vm JournalEntryDetailVM) templ.Component {
 	return layout.Layout(
-		"GoBooks - Journal Entry",
+		"Balanciz - Journal Entry",
 		ui.SidebarVM{Active: "Journal Entry", HasCompany: vm.HasCompany},
 		templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
 			_, err := io.WriteString(w, renderJournalEntryDetailHTML(vm))
@@ -55,12 +55,12 @@ func renderJournalEntryPageHTML(vm JournalEntryVM) string {
 	write := func(s string) { _, _ = b.WriteString(s) }
 	esc := html.EscapeString
 
-	write(`<div class="max-w-[95%]" x-data="gobooksJournalEntryDraft()"`)
+	write(`<div class="max-w-[95%]" x-data="balancizJournalEntryDraft()"`)
 	write(` data-company-id="` + esc(Uitoa(vm.ActiveCompanyID)) + `"`)
 	write(` data-base-currency="` + esc(vm.BaseCurrencyCode) + `"`)
 	write(` data-default-currency="` + esc(vm.DefaultTransactionCurrency) + `">`)
-	write(`<script type="application/json" id="gobooks-journal-accounts-data">` + vm.AccountsDataJSON + `</script>`)
-	write(`<script type="application/json" id="gobooks-journal-currency-options">[`)
+	write(`<script type="application/json" id="balanciz-journal-accounts-data">` + vm.AccountsDataJSON + `</script>`)
+	write(`<script type="application/json" id="balanciz-journal-currency-options">[`)
 	for i, code := range vm.TransactionCurrencyOptions {
 		if i > 0 {
 			write(",")

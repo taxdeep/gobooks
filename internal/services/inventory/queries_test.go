@@ -7,7 +7,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // GetOnHand returns a single row per (item, warehouse) with the right

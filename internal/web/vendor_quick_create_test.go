@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"testing"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func TestVendorQuickCreateCreatesVendorForActiveCompany(t *testing.T) {

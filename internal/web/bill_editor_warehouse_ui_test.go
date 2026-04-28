@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/pages"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/pages"
 )
 
 func renderBillEditor(t *testing.T, vm pages.BillEditorVM) string {

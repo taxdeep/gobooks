@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"net/url"
 
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ Customers(vm CustomersVM) {
 	@layout.Layout(
-		"GoBooks - Customers",
+		"Balanciz - Customers",
 		ui.SidebarVM{Active: "Customers", HasCompany: vm.HasCompany},
 		bodyCustomers(vm),
 	)

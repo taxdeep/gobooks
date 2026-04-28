@@ -4,15 +4,15 @@ package pages
 import (
 	"net/url"
 
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // ── Investigation workspace page ─────────────────────────────────────────────
 
 templ InvestigationWorkspace(vm InvestigationWorkspaceVM) {
-	@layout.Layout("GoBooks - Investigation Workspace", ui.SidebarVM{Active: "Investigation Workspace", HasCompany: vm.HasCompany}, bodyInvestigationWorkspace(vm))
+	@layout.Layout("Balanciz - Investigation Workspace", ui.SidebarVM{Active: "Investigation Workspace", HasCompany: vm.HasCompany}, bodyInvestigationWorkspace(vm))
 }
 
 templ bodyInvestigationWorkspace(vm InvestigationWorkspaceVM) {

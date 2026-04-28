@@ -2,7 +2,7 @@
 
 **SPDX-License-Identifier: AGPL-3.0-only**
 
-Copyright © 2026 TAXDEEP CORP. — GoBooks v0.0.4
+Copyright © 2026 TAXDEEP CORP. — Balanciz v0.0.4
 
 This program is free software: you can redistribute it and/or modify it under the
 terms of the **GNU Affero General Public License as published by the Free Software
@@ -26,7 +26,7 @@ link above.
 1. **Network use** — Hosting a modified version for others over a network triggers
    AGPL source-distribution obligations. See the full license.
 2. **Attribution** — Preserve copyright and license notices in source distributions.
-3. **Trademarks** — This license does not grant rights to the **GoBooks** name or
+3. **Trademarks** — This license does not grant rights to the **Balanciz** name or
    related branding of **TAXDEEP CORP.**; see `README.md` and `COMMERCIAL.md`.
 
 ## Dual licensing

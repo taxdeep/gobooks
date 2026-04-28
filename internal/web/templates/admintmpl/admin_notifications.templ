@@ -2,7 +2,7 @@
 package admintmpl
 
 import (
-	"gobooks/internal/web/templates/pages"
+	"balanciz/internal/web/templates/pages"
 )
 
 templ AdminNotifications(vm pages.SystemNotificationSettingsVM) {
@@ -67,7 +67,7 @@ templ bodyAdminNotifications(vm pages.SystemNotificationSettingsVM) {
 				</div>
 
 				@adminNotifField("From Email", "smtp_from_email", vm.SMTPFromEmail, "no-reply@example.com")
-				@adminNotifField("From Name", "smtp_from_name", vm.SMTPFromName, "GoBooks")
+				@adminNotifField("From Name", "smtp_from_name", vm.SMTPFromName, "Balanciz")
 
 				<div>
 					<label class="block text-body font-medium text-text">Encryption</label>
@@ -145,7 +145,7 @@ templ bodyAdminNotifications(vm pages.SystemNotificationSettingsVM) {
 					}
 				</div>
 
-				@adminNotifField("Sender ID / From Number", "sms_sender_id", vm.SMSSenderID, "e.g. +1 555-000-0000 or GoBooks")
+				@adminNotifField("Sender ID / From Number", "sms_sender_id", vm.SMSSenderID, "e.g. +1 555-000-0000 or Balanciz")
 			</div>
 		</div>
 

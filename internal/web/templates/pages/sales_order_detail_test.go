@@ -9,7 +9,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func TestSalesOrderDraftEditorDoesNotNestStatusForms(t *testing.T) {

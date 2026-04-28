@@ -4,14 +4,14 @@ package pages
 import (
 	"fmt"
 
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ CompanyProfile(vm CompanySettingsVM) {
 	@layout.Layout(
-		"GoBooks - Profile",
+		"Balanciz - Profile",
 		ui.SidebarVM{Active: "Company Profile", HasCompany: vm.HasCompany},
 		bodyCompanyProfile(vm),
 	)
@@ -42,7 +42,7 @@ templ bodyCompanyProfile(vm CompanySettingsVM) {
 		<div class="mt-6 rounded-lg border border-border bg-surface p-6">
 			<h2 class="text-section font-semibold text-text">Company Logo</h2>
 			<p class="mt-1 text-small text-text-muted2">
-				Accepted formats: JPG, PNG · Maximum size: 2 MB · Displayed within GoBooks only.
+				Accepted formats: JPG, PNG · Maximum size: 2 MB · Displayed within Balanciz only.
 			</p>
 
 			if vm.LogoError != "" {

@@ -1,8 +1,8 @@
-# Gobooks UI Unification Plan
+# Balanciz UI Unification Plan
 
 ## Authority
 
-This document governs all UI/CSS/template work in Gobooks.  
+This document governs all UI/CSS/template work in Balanciz.  
 Priority: **Project Guide v5 > UI System Plan > page-specific notes**
 
 ---

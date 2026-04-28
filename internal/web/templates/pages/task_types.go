@@ -2,8 +2,8 @@
 package pages
 
 import "github.com/shopspring/decimal"
-import "gobooks/internal/models"
-import "gobooks/internal/services"
+import "balanciz/internal/models"
+import "balanciz/internal/services"
 
 type TasksVM struct {
 	HasCompany bool

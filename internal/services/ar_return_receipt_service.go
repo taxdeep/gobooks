@@ -79,7 +79,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // Error sentinels. Prefixed `ErrARReturnReceipt*` to namespace cleanly

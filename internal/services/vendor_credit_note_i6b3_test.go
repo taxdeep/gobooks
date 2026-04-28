@@ -32,7 +32,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ── Scenario 1: exact coverage posts (stock-only VCN at cost → no JE) ───────

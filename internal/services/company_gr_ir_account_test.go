@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // testGRIRDB spins a minimal DB with Company, Account, and AuditLog —

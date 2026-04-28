@@ -25,7 +25,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func TestBillEdit_ReloadPreservesItemQtyUnitPrice(t *testing.T) {

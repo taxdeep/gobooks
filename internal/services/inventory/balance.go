@@ -20,7 +20,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // readOrCreateBalance locates the InventoryBalance row for the given

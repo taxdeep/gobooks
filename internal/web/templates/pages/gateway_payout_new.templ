@@ -2,9 +2,9 @@
 package pages
 
 import (
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // GatewaySelectItem is a minimal read-model for gateway account dropdowns.
@@ -29,7 +29,7 @@ type GatewayPayoutNewVM struct {
 }
 
 templ GatewayPayoutNew(vm GatewayPayoutNewVM) {
-	@layout.Layout("GoBooks - New Gateway Payout", ui.SidebarVM{Active: "Gateway Payouts", HasCompany: vm.HasCompany}, bodyGatewayPayoutNew(vm))
+	@layout.Layout("Balanciz - New Gateway Payout", ui.SidebarVM{Active: "Gateway Payouts", HasCompany: vm.HasCompany}, bodyGatewayPayoutNew(vm))
 }
 
 templ bodyGatewayPayoutNew(vm GatewayPayoutNewVM) {

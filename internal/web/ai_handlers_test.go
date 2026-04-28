@@ -18,8 +18,8 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/ai"
-	"gobooks/internal/models"
+	"balanciz/internal/ai"
+	"balanciz/internal/models"
 )
 
 func aiAssistTestDB(t *testing.T) *gorm.DB {

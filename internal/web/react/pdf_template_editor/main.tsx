@@ -5,7 +5,7 @@ import "grapesjs/dist/css/grapes.min.css";
 
 declare global {
   interface Window {
-    gobooksFetch?: (url: string, options?: RequestInit) => Promise<Response>;
+    balancizFetch?: (url: string, options?: RequestInit) => Promise<Response>;
   }
 }
 
@@ -485,7 +485,7 @@ function PDFTemplateEditor({ config }: { config: RootConfig }) {
     if (!previewRef.current) return;
     setError("");
     try {
-      const response = await (window.gobooksFetch || fetch)(config.previewUrl, {
+      const response = await (window.balancizFetch || fetch)(config.previewUrl, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -536,7 +536,7 @@ function PDFTemplateEditor({ config }: { config: RootConfig }) {
       form.set("name", name);
       form.set("description", description);
       form.set("schema_json", serializeSchema());
-      const response = await (window.gobooksFetch || fetch)(config.saveUrl, {
+      const response = await (window.balancizFetch || fetch)(config.saveUrl, {
         method: "POST",
         credentials: "same-origin",
         body: form
@@ -690,7 +690,7 @@ function PDFTemplateEditor({ config }: { config: RootConfig }) {
             </div>
             <Button onClick={refreshPreview}>Refresh preview</Button>
           </div>
-          <div className="gobooks-grapes-host" ref={editorHostRef} />
+          <div className="balanciz-grapes-host" ref={editorHostRef} />
         </main>
 
         <aside className="space-y-4">

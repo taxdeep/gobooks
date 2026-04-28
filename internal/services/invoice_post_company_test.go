@@ -11,7 +11,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func testInvoicePostDB(t *testing.T) *gorm.DB {

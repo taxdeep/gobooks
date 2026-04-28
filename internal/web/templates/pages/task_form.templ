@@ -1,13 +1,13 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/models"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/models"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ TaskForm(vm TaskFormVM) {
 	@layout.Layout(
-		"GoBooks - "+taskFormTitle(vm),
+		"Balanciz - "+taskFormTitle(vm),
 		ui.SidebarVM{Active: "Tasks", HasCompany: vm.HasCompany},
 		bodyTaskForm(vm),
 	)
@@ -39,9 +39,9 @@ templ bodyTaskForm(vm TaskFormVM) {
 		}
 
 		<form method="post" action={ taskFormAction(vm) } class="mt-6 space-y-6"
-			x-data="gobooksTaskRateSync()"
+			x-data="balancizTaskRateSync()"
 			data-init-rate={ vm.Rate }
-			@gobooks-picker-select="onServiceItemSelect($event)">
+			@balanciz-picker-select="onServiceItemSelect($event)">
 			<div class="rounded-lg border border-border bg-surface p-6">
 				<h2 class="text-section font-semibold text-text">Task Details</h2>
 				<div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">

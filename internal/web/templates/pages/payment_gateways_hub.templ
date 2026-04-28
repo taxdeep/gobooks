@@ -1,12 +1,12 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ PaymentGatewaysHub(vm PaymentGatewaysHubVM) {
 	@layout.Layout(
-		"GoBooks - Payment Gateways",
+		"Balanciz - Payment Gateways",
 		ui.SidebarVM{Active: "Payment Gateways", HasCompany: vm.HasCompany},
 		bodyPaymentGatewaysHub(vm),
 	)

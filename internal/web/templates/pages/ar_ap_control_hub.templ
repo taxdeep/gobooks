@@ -3,14 +3,14 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ ARAPControlHub(vm ARAPControlVM) {
 	@layout.Layout(
-		"GoBooks - AR/AP Control Accounts",
+		"Balanciz - AR/AP Control Accounts",
 		ui.SidebarVM{Active: "AR/AP Control", HasCompany: vm.HasCompany},
 		bodyARAPControlHub(vm),
 	)

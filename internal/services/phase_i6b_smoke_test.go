@@ -30,7 +30,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ── Scenario: split return (6 + 4 summing to VCN qty 10) ────────────────────

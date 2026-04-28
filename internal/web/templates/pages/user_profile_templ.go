@@ -10,8 +10,8 @@ package pages
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 func UserProfile(vm UserProfileVM) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -35,7 +35,7 @@ func UserProfile(vm UserProfileVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Profile",
+			"Balanciz - Profile",
 			ui.SidebarVM{Active: "Profile", HasCompany: vm.HasCompany, UserEmail: vm.CurrentEmail},
 			bodyUserProfile(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

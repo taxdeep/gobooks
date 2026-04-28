@@ -8,7 +8,7 @@
 // prompts). Invoice has its own dedicated factory because of those
 // extra concerns.
 //
-// Composes gobooksLineItems() for line-array management (addLine /
+// Composes balancizLineItems() for line-array management (addLine /
 // removeLine / insertLineBelow / auto-grow) and adds:
 //   • products / taxCodes catalogue (from data-* attrs)
 //   • per-row recalc on qty / price / tax_code change
@@ -20,7 +20,7 @@
 // handler keeps working unchanged across all five editors.
 function docTransactionEditor() {
   return Object.assign(
-    gobooksLineItems({
+    balancizLineItems({
       defaults: {
         product_service_id:    "",
         product_service_label: "",
@@ -68,7 +68,7 @@ function docTransactionEditor() {
         this._recalcAll();
       },
 
-      // Fired when the per-row Item picker emits gobooks-item-picker-select.
+      // Fired when the per-row Item picker emits balanciz-item-picker-select.
       // Auto-fills description / unit price / tax code from the chosen
       // ProductService, then recomputes totals.
       onProductChange(idx, psId) {

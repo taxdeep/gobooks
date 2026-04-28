@@ -1,8 +1,8 @@
-# GoBooks 0.00.016 Release Notes
+# Balanciz 0.00.016 Release Notes
 
 ## Summary
 
-GoBooks 0.00.016 adds the SmartPicker Recommendation + AI Learning Platform V1 foundation. The batch keeps accounting truth in backend services while adding explainable, company-isolated learning signals for faster SmartPicker recommendations.
+Balanciz 0.00.016 adds the SmartPicker Recommendation + AI Learning Platform V1 foundation. The batch keeps accounting truth in backend services while adding explainable, company-isolated learning signals for faster SmartPicker recommendations.
 
 ## What Changed
 

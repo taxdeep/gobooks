@@ -27,7 +27,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // testRevalDB opens an in-memory SQLite database with all tables needed for

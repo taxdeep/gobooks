@@ -5,9 +5,9 @@ import (
 	"errors"
 	"log/slog"
 
-	"gobooks/internal/logging"
-	"gobooks/internal/models"
-	"gobooks/internal/services"
+	"balanciz/internal/logging"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"

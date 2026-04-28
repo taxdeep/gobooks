@@ -4,7 +4,7 @@ package pdf
 import (
 	"encoding/json"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // presets.go — 18 system-shipped templates: 3 styles × 6 document types.

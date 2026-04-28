@@ -3,7 +3,7 @@ package services
 
 // gateway_settlement_service.go — Payment settlement bridge.
 //
-// Converts a verified hosted payment (gateway-side truth) into Gobooks
+// Converts a verified hosted payment (gateway-side truth) into Balanciz
 // invoice settlement truth (accounting-side truth) under strict eligibility rules.
 //
 // ─── Why this is not reconciliation ─────────────────────────────────────────
@@ -62,7 +62,7 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 	"gorm.io/gorm"
 )
 

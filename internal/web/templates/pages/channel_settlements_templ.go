@@ -10,9 +10,9 @@ package pages
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "gobooks/internal/models"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/models"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 import "fmt"
 
 func Settlements(vm SettlementsVM) templ.Component {
@@ -37,7 +37,7 @@ func Settlements(vm SettlementsVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Settlements",
+			"Balanciz - Settlements",
 			ui.SidebarVM{Active: "Channels", HasCompany: vm.HasCompany},
 			bodySettlements(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -367,7 +367,7 @@ func SettlementDetail(vm SettlementDetailVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Settlement Detail",
+			"Balanciz - Settlement Detail",
 			ui.SidebarVM{Active: "Channels", HasCompany: vm.HasCompany},
 			bodySettlementDetail(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

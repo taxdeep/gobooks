@@ -1,11 +1,11 @@
-# Gobooks Bug Fix Protocol
+# Balanciz Bug Fix Protocol
 ## Final · Executable Version
 
 ---
 
 ## ⚠️ Authority
 
-This protocol governs how bugs are analyzed, fixed, reviewed, and merged in Gobooks.
+This protocol governs how bugs are analyzed, fixed, reviewed, and merged in Balanciz.
 
 Priority order:
 
@@ -24,9 +24,9 @@ It defines the **safe operating procedure for bug fixing**, especially when touc
 
 # 1. Purpose
 
-Gobooks is a correctness-first accounting system.
+Balanciz is a correctness-first accounting system.
 
-In Gobooks:
+In Balanciz:
 > A bad bug fix is more dangerous than the original bug.
 
 This protocol exists to prevent:

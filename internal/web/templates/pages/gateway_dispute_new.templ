@@ -2,8 +2,8 @@
 package pages
 
 import (
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // GatewayDisputeNewVM is the view-model for the open-dispute form.
@@ -14,7 +14,7 @@ type GatewayDisputeNewVM struct {
 }
 
 templ GatewayDisputeNew(vm GatewayDisputeNewVM) {
-	@layout.Layout("GoBooks - Open Dispute", ui.SidebarVM{Active: "Gateway Disputes", HasCompany: vm.HasCompany}, bodyGatewayDisputeNew(vm))
+	@layout.Layout("Balanciz - Open Dispute", ui.SidebarVM{Active: "Gateway Disputes", HasCompany: vm.HasCompany}, bodyGatewayDisputeNew(vm))
 }
 
 templ bodyGatewayDisputeNew(vm GatewayDisputeNewVM) {

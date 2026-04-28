@@ -8,7 +8,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // Reversing a sale (negative-delta original) restores stock at the ORIGINAL

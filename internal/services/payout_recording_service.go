@@ -18,7 +18,7 @@ package services
 // using the existing QuickBooks-style reconciliation system.
 //
 // No separate bank_transactions table is needed — the JE bank line IS the
-// bank transaction in Gobooks' existing architecture.
+// bank transaction in Balanciz' existing architecture.
 //
 // This round only supports full-amount matching (payout.amount == JE amount).
 
@@ -28,7 +28,7 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 	"gorm.io/gorm"
 )
 

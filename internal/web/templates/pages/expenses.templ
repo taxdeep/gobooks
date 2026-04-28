@@ -1,12 +1,12 @@
 package pages
 
-import "gobooks/internal/models"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/models"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ Expenses(vm ExpenseListVM) {
 	@layout.Layout(
-		"GoBooks - Expenses",
+		"Balanciz - Expenses",
 		ui.SidebarVM{Active: "Expenses", HasCompany: vm.HasCompany},
 		bodyExpenses(vm),
 	)

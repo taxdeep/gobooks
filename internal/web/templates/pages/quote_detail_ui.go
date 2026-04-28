@@ -4,8 +4,8 @@ package pages
 import (
 	"encoding/json"
 
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/ui"
 )
 
 // quoteShellVM maps QuoteDetailVM into the shared DocEditorShell wrapper

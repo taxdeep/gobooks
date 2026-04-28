@@ -21,8 +21,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/pages"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/pages"
 )
 
 // handleGatewayPayoutList renders the list of all payouts for the company.

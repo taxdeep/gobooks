@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // TestAccountProvider_JournalEntryContext_ReturnsAllRoots locks the new

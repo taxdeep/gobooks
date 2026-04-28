@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )

@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // CompanyFeaturesVM drives the Features page. One row per registered

@@ -3,15 +3,15 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // ── Payout reconciliation overview ───────────────────────────────────────────
 
 templ PayoutReconciliationOverview(vm PayoutReconciliationOverviewVM) {
-	@layout.Layout("GoBooks - Payout Reconciliation", ui.SidebarVM{Active: "Gateway Payouts", HasCompany: vm.HasCompany}, bodyPayoutReconciliationOverview(vm))
+	@layout.Layout("Balanciz - Payout Reconciliation", ui.SidebarVM{Active: "Gateway Payouts", HasCompany: vm.HasCompany}, bodyPayoutReconciliationOverview(vm))
 }
 
 templ bodyPayoutReconciliationOverview(vm PayoutReconciliationOverviewVM) {
@@ -167,7 +167,7 @@ templ bankEntryForm() {
 // ── Per-payout match form ─────────────────────────────────────────────────────
 
 templ PayoutMatchForm(vm PayoutMatchFormVM) {
-	@layout.Layout("GoBooks - Match Payout", ui.SidebarVM{Active: "Gateway Payouts", HasCompany: vm.HasCompany}, bodyPayoutMatchForm(vm))
+	@layout.Layout("Balanciz - Match Payout", ui.SidebarVM{Active: "Gateway Payouts", HasCompany: vm.HasCompany}, bodyPayoutMatchForm(vm))
 }
 
 templ bodyPayoutMatchForm(vm PayoutMatchFormVM) {

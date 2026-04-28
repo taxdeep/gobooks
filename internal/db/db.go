@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"gobooks/internal/config"
+	"balanciz/internal/config"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"

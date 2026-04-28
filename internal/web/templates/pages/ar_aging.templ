@@ -1,12 +1,12 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ ARAging(vm ARAgingVM) {
 	@layout.Layout(
-		"GoBooks - A/R Aging",
+		"Balanciz - A/R Aging",
 		ui.SidebarVM{Active: "Reports", HasCompany: vm.HasCompany},
 		bodyARAging(vm),
 	)

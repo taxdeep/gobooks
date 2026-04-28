@@ -4,7 +4,7 @@ package web
 import (
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/services"
+	"balanciz/internal/services"
 )
 
 func (s *Server) handleAccountSuggestions(c *fiber.Ctx) error {

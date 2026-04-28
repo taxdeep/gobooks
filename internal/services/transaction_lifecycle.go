@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ErrDeletePostedInvoice is returned when a delete is attempted on a non-draft invoice.

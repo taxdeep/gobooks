@@ -2,13 +2,13 @@
 package pages
 
 import (
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ APAging(vm APAgingVM) {
 	@layout.Layout(
-		"GoBooks - A/P Aging",
+		"Balanciz - A/P Aging",
 		ui.SidebarVM{Active: "AP Aging", HasCompany: vm.HasCompany},
 		bodyAPAging(vm),
 	)

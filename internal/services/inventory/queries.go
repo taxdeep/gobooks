@@ -21,7 +21,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ErrNotImplemented surfaces the BOM-dependent OUT queries before

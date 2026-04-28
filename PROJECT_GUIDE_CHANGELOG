@@ -1,4 +1,4 @@
-# Gobooks Project Guide Changelog
+# Balanciz Project Guide Changelog
 
 ## v4 → v5
 
@@ -46,6 +46,6 @@
 
 ### Directional Impact
 
-* Gobooks is now explicitly governed as an engine-centered accounting platform with formal FX architecture, not just a single-currency bookkeeping core with later add-ons
+* Balanciz is now explicitly governed as an engine-centered accounting platform with formal FX architecture, not just a single-currency bookkeeping core with later add-ons
 * Multi-currency JE and future AR/AP foreign-currency routing are now part of the official architecture direction
 * Shared acceleration and AI infrastructure are now first-class architecture concepts instead of ad hoc feature decisions

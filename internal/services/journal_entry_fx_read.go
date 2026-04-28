@@ -9,7 +9,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 const journalEntryFXMigrationVersion = "048_journal_entry_fx_support.sql"
@@ -30,7 +30,7 @@ type JournalEntryReadFXState struct {
 	ReversalBlockedReason      string
 }
 
-const LegacyForeignJournalEntryReversalBlockedMessage = "This legacy foreign-currency journal entry cannot be reversed automatically because Gobooks could not reconstruct a reliable historical FX snapshot."
+const LegacyForeignJournalEntryReversalBlockedMessage = "This legacy foreign-currency journal entry cannot be reversed automatically because Balanciz could not reconstruct a reliable historical FX snapshot."
 
 type JournalEntryFXResolver struct {
 	db                 *gorm.DB
@@ -158,7 +158,7 @@ func buildLegacyJournalEntryReadFXState(db *gorm.DB, je models.JournalEntry, bas
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				state := legacyUnavailableJournalEntryReadFXState(
 					baseCurrencyCode,
-					"This journal entry predates Gobooks FX snapshots and its linked invoice is no longer available. Historical FX details are unavailable.",
+					"This journal entry predates Balanciz FX snapshots and its linked invoice is no longer available. Historical FX details are unavailable.",
 				)
 				return &state, nil
 			}
@@ -182,7 +182,7 @@ func buildLegacyJournalEntryReadFXState(db *gorm.DB, je models.JournalEntry, bas
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				state := legacyUnavailableJournalEntryReadFXState(
 					baseCurrencyCode,
-					"This journal entry predates Gobooks FX snapshots and its linked bill is no longer available. Historical FX details are unavailable.",
+					"This journal entry predates Balanciz FX snapshots and its linked bill is no longer available. Historical FX details are unavailable.",
 				)
 				return &state, nil
 			}
@@ -200,7 +200,7 @@ func buildLegacyJournalEntryReadFXState(db *gorm.DB, je models.JournalEntry, bas
 	default:
 		state := legacyUnavailableJournalEntryReadFXState(
 			baseCurrencyCode,
-			fmt.Sprintf("This %s journal entry predates Gobooks FX snapshots and no reliable historical FX source is available.", strings.TrimSpace(string(je.SourceType))),
+			fmt.Sprintf("This %s journal entry predates Balanciz FX snapshots and no reliable historical FX source is available.", strings.TrimSpace(string(je.SourceType))),
 		)
 		return &state, nil
 	}
@@ -224,7 +224,7 @@ func buildLegacyDocumentJournalEntryReadFXState(baseCurrencyCode, transactionCur
 		state := legacyUnavailableJournalEntryReadFXState(
 			baseCurrencyCode,
 			fmt.Sprintf(
-				"This legacy journal entry was linked to a %s in %s, but Gobooks could not reconstruct a reliable historical FX rate. Transaction-currency line amounts were not persisted.",
+				"This legacy journal entry was linked to a %s in %s, but Balanciz could not reconstruct a reliable historical FX rate. Transaction-currency line amounts were not persisted.",
 				documentLabel,
 				transactionCurrencyCode,
 			),

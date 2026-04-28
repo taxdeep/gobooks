@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"

@@ -7,8 +7,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/pages"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/pages"
 )
 
 // handleSalesTaxReport renders the Sales Tax Report summary page.

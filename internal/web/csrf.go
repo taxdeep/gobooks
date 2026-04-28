@@ -8,11 +8,11 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/config"
+	"balanciz/internal/config"
 )
 
 const (
-	CSRFCookieName = "gobooks_csrf"
+	CSRFCookieName = "balanciz_csrf"
 	CSRFFormField  = "_csrf"
 	CSRFHeaderName = "X-CSRF-Token"
 )

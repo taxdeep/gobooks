@@ -25,7 +25,7 @@ package services
 import (
 	"testing"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ── Invoice helpers ───────────────────────────────────────────────────────────

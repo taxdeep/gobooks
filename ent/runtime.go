@@ -3,10 +3,10 @@
 package ent
 
 import (
-	"gobooks/ent/schema"
-	"gobooks/ent/searchdocument"
-	"gobooks/ent/searchrecentquery"
-	"gobooks/ent/searchusagestat"
+	"balanciz/ent/schema"
+	"balanciz/ent/searchdocument"
+	"balanciz/ent/searchrecentquery"
+	"balanciz/ent/searchusagestat"
 	"time"
 )
 

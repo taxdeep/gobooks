@@ -1,19 +1,19 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ JournalEntry(vm JournalEntryVM) {
 	@layout.Layout(
-		"GoBooks - Journal Entry",
+		"Balanciz - Journal Entry",
 		ui.SidebarVM{Active: "Journal Entry", HasCompany: vm.HasCompany},
 		bodyJournalEntry(vm),
 	)
 }
 
 templ bodyJournalEntry(vm JournalEntryVM) {
-	<div class="max-w-[95%]" x-data="gobooksJournalEntryDraft()" x-init="init()" data-company-id={ Uitoa(vm.ActiveCompanyID) }>
+	<div class="max-w-[95%]" x-data="balancizJournalEntryDraft()" x-init="init()" data-company-id={ Uitoa(vm.ActiveCompanyID) }>
 		@JournalAccountsJSONScript(vm.AccountsDataJSON)
 		<div>
 			<div class="flex items-center justify-between">

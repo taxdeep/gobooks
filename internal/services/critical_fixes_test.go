@@ -15,7 +15,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ── Test 1: VoidInvoice clears balance_due / balance_due_base ────────────────

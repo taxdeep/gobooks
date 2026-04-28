@@ -9,9 +9,9 @@ import (
 
 	"gorm.io/gorm"
 
-	"gobooks/internal/logging"
-	"gobooks/internal/models"
-	"gobooks/internal/searchprojection"
+	"balanciz/internal/logging"
+	"balanciz/internal/models"
+	"balanciz/internal/searchprojection"
 )
 
 // EntityTypeProductService is the canonical type discriminator for

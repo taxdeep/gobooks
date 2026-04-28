@@ -4,7 +4,7 @@ package pdf
 import (
 	"time"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // preview.go — sample data for the template management page's "Preview"

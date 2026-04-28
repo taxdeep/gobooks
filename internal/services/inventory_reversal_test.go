@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ── Invoice void inventory reversal tests ────────────────────────────────────

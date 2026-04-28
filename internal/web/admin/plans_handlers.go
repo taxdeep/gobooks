@@ -7,8 +7,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/admintmpl"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/admintmpl"
 )
 
 // handleAdminPlans lists all user plans with their user counts.

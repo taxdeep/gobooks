@@ -2,12 +2,12 @@
 package pages
 
 import "fmt"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ Vendors(vm VendorsVM) {
 	@layout.Layout(
-		"GoBooks - Vendors",
+		"Balanciz - Vendors",
 		ui.SidebarVM{Active: "Vendors", HasCompany: vm.HasCompany},
 		bodyVendors(vm),
 	)

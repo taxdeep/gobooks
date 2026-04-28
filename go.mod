@@ -1,5 +1,5 @@
 // 遵循project_guide.md
-module gobooks
+module balanciz
 
 go 1.26
 

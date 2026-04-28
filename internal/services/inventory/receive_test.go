@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // testDB spins up an in-memory SQLite for a single test. It migrates only

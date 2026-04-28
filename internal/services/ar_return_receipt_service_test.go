@@ -48,7 +48,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // testARReturnReceiptDB spins an in-memory DB with the full surface

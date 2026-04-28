@@ -4,14 +4,14 @@ package pages
 import (
 	"fmt"
 
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ SalesOrderDetail(vm SalesOrderDetailVM) {
 	@layout.Layout(
-		"GoBooks - "+soDetailTitle(vm),
+		"Balanciz - "+soDetailTitle(vm),
 		ui.SidebarVM{Active: "Sales Orders", HasCompany: vm.HasCompany},
 		bodySalesOrderDetail(vm),
 	)
@@ -38,7 +38,7 @@ templ soEditorContent(vm SalesOrderDetailVM) {
 		action="/sales-orders/save"
 		class="space-y-6"
 		x-data="docTransactionEditor()"
-		@gobooks-item-picker-select="onProductChange($event.detail.idx, $event.detail.id)"
+		@balanciz-item-picker-select="onProductChange($event.detail.idx, $event.detail.id)"
 		data-products={ soProductsJSON(vm.ProductServices) }
 		data-tax-codes={ soTaxCodesJSON(vm.TaxCodes) }
 		data-initial-lines={ soInitialLinesJSON(vm.Order.Lines) }
@@ -224,7 +224,7 @@ templ soHeaderRight(vm SalesOrderDetailVM) {
 
 templ soLineItemPicker() {
 	<div
-		x-data="gobooksItemPicker(line, idx, { context: 'sales_order_line_item' })"
+		x-data="balancizItemPicker(line, idx, { context: 'sales_order_line_item' })"
 		class="relative"
 		@click.outside="close()"
 		@keydown="onKeydown($event)"

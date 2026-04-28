@@ -1,4 +1,4 @@
--- Gobooks SmartPicker recommendation + AI learning foundation V1.
+-- Balanciz SmartPicker recommendation + AI learning foundation V1.
 -- Accounting truth remains in existing backend services; these tables only
 -- store company-scoped behavior signals, recommendations, and audit trails.
 

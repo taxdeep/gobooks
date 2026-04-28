@@ -4,8 +4,8 @@ package pages
 import (
 	"time"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
 )
 
 // ── Reconcile page VM ─────────────────────────────────────────────────────────

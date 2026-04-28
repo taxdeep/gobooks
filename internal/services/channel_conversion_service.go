@@ -11,7 +11,7 @@ package services
 // Tax handling (conservative strategy):
 //   Line tax is NOT force-mapped from channel order raw tax_amount.
 //   Instead, each invoice line uses the mapped item's DefaultTaxCodeID.
-//   The Gobooks tax engine recalculates tax on invoice save/post.
+//   The Balanciz tax engine recalculates tax on invoice save/post.
 //   This prevents corrupting the tax engine with platform-specific tax values.
 //
 // Discount handling:
@@ -32,7 +32,7 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 	"gorm.io/gorm"
 )
 
@@ -46,7 +46,7 @@ var (
 type ConvertOptions struct {
 	CompanyID      uint
 	ChannelOrderID uint
-	CustomerID     uint   // required — Gobooks invoices must have a customer
+	CustomerID     uint   // required — Balanciz invoices must have a customer
 	InvoiceNumber  string // if empty, caller must provide or use numbering service
 	InvoiceDate    time.Time
 	Memo           string

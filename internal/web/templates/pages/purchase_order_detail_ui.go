@@ -4,8 +4,8 @@ package pages
 import (
 	"encoding/json"
 
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/ui"
 )
 
 // poShellVM maps PurchaseOrderDetailVM into the shared DocEditorShell
@@ -81,7 +81,7 @@ func poFooterVM(vm PurchaseOrderDetailVM) ui.DocEditorFooterVM {
 
 // poProductsJSON serialises the product/service catalogue for the
 // docTransactionEditor's Alpine factory (auto-fills description / price
-// when the operator picks an item via gobooksItemPicker).
+// when the operator picks an item via balancizItemPicker).
 func poProductsJSON(products []models.ProductService) string {
 	type row struct {
 		ID               uint   `json:"id"`

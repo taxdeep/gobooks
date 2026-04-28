@@ -9,9 +9,9 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/datatypes"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/pages"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/pages"
 )
 
 // ── Payment Gateways Hub ──────────────────────────────────────────────────────

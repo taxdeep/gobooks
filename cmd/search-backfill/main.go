@@ -32,11 +32,11 @@ import (
 	"log"
 	"time"
 
-	"gobooks/internal/config"
-	"gobooks/internal/db"
-	"gobooks/internal/logging"
-	"gobooks/internal/searchprojection"
-	"gobooks/internal/searchprojection/backfill"
+	"balanciz/internal/config"
+	"balanciz/internal/db"
+	"balanciz/internal/logging"
+	"balanciz/internal/searchprojection"
+	"balanciz/internal/searchprojection/backfill"
 )
 
 func main() {

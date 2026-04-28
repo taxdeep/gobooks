@@ -10,10 +10,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
-	"gobooks/internal/repository"
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/pages"
+	"balanciz/internal/models"
+	"balanciz/internal/repository"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/pages"
 )
 
 // sessionFromCookie returns the current valid session, or nil if none.

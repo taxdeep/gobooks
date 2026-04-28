@@ -9,7 +9,7 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"gobooks/internal/services/search_engine"
+	"balanciz/internal/services/search_engine"
 )
 
 // Config holds all application configuration in one place.
@@ -90,9 +90,9 @@ func Load() (Config, error) {
 		LogLevel:      getenv("LOG_LEVEL", "INFO"),
 		DBHost:        getenv("DB_HOST", "localhost"),
 		DBPort:        getenv("DB_PORT", "5432"),
-		DBUser:        getenv("DB_USER", "gobooks"),
-		DBPassword:    getenv("DB_PASSWORD", "gobooks"),
-		DBName:        getenv("DB_NAME", "gobooks"),
+		DBUser:        getenv("DB_USER", "balanciz"),
+		DBPassword:    getenv("DB_PASSWORD", "balanciz"),
+		DBName:        getenv("DB_NAME", "balanciz"),
 		DBSSLMode:     getenv("DB_SSLMODE", "disable"),
 		AISecretKey:   getenv("AI_SECRET_KEY", ""),
 		PublicBaseURL: getenv("APP_PUBLIC_URL", ""),

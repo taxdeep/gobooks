@@ -28,7 +28,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ErrSalesOrderLineNotFound is returned when the (so_id, line_id) pair

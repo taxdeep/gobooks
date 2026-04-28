@@ -1,7 +1,7 @@
 // 遵循project_guide.md
 // Package ai is the application-level AI entry point.
 //
-// All AI completions in GoBooks must go through Platform.Complete() —
+// All AI completions in Balanciz must go through Platform.Complete() —
 // direct calls to services.OpenAICompatibleChatCompletion from handlers are
 // forbidden. This enforces:
 //   - Named, versioned prompts via the registry (no inline prompt strings in handlers)
@@ -19,7 +19,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"gobooks/internal/services"
+	"balanciz/internal/services"
 )
 
 // ErrAIDisabled is returned when the company has not configured or enabled AI.

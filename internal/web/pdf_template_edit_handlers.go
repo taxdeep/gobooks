@@ -22,10 +22,10 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services"
-	"gobooks/internal/services/pdf"
-	"gobooks/internal/web/templates/pages"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
+	"balanciz/internal/services/pdf"
+	"balanciz/internal/web/templates/pages"
 )
 
 // GET /pdf-templates/:id/edit

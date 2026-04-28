@@ -9,7 +9,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // Positive adjustment with an explicit unit cost: balance grows by the delta

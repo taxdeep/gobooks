@@ -40,11 +40,11 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/config"
-	"gobooks/internal/db"
-	"gobooks/internal/models"
-	"gobooks/internal/services"
-	"gobooks/internal/services/inventory"
+	"balanciz/internal/config"
+	"balanciz/internal/db"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
+	"balanciz/internal/services/inventory"
 )
 
 type result struct {

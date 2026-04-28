@@ -1,13 +1,13 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/models"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/models"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 import "fmt"
 
 templ PaymentGateways(vm PaymentGatewaysVM) {
-	@layout.Layout("GoBooks - Payment Gateways", ui.SidebarVM{Active: "Payment Gateways", HasCompany: vm.HasCompany}, bodyPaymentGateways(vm))
+	@layout.Layout("Balanciz - Payment Gateways", ui.SidebarVM{Active: "Payment Gateways", HasCompany: vm.HasCompany}, bodyPaymentGateways(vm))
 }
 
 templ bodyPaymentGateways(vm PaymentGatewaysVM) {
@@ -87,7 +87,7 @@ templ bodyPaymentGateways(vm PaymentGatewaysVM) {
 }
 
 templ PaymentMappings(vm PaymentMappingsVM) {
-	@layout.Layout("GoBooks - Payment Mappings", ui.SidebarVM{Active: "Payment Gateways", HasCompany: vm.HasCompany}, bodyPaymentMappings(vm))
+	@layout.Layout("Balanciz - Payment Mappings", ui.SidebarVM{Active: "Payment Gateways", HasCompany: vm.HasCompany}, bodyPaymentMappings(vm))
 }
 
 templ bodyPaymentMappings(vm PaymentMappingsVM) {
@@ -156,7 +156,7 @@ func isPGAcctSelected(mappings map[uint]*models.PaymentAccountingMapping, gwID u
 }
 
 templ PaymentRequests(vm PaymentRequestsVM) {
-	@layout.Layout("GoBooks - Payment Requests", ui.SidebarVM{Active: "Payment Gateways", HasCompany: vm.HasCompany}, bodyPaymentRequests(vm))
+	@layout.Layout("Balanciz - Payment Requests", ui.SidebarVM{Active: "Payment Gateways", HasCompany: vm.HasCompany}, bodyPaymentRequests(vm))
 }
 
 templ bodyPaymentRequests(vm PaymentRequestsVM) {
@@ -229,7 +229,7 @@ templ bodyPaymentRequests(vm PaymentRequestsVM) {
 }
 
 templ PaymentTransactions(vm PaymentTransactionsVM) {
-	@layout.Layout("GoBooks - Payment Transactions", ui.SidebarVM{Active: "Payment Gateways", HasCompany: vm.HasCompany}, bodyPaymentTransactions(vm))
+	@layout.Layout("Balanciz - Payment Transactions", ui.SidebarVM{Active: "Payment Gateways", HasCompany: vm.HasCompany}, bodyPaymentTransactions(vm))
 }
 
 templ bodyPaymentTransactions(vm PaymentTransactionsVM) {

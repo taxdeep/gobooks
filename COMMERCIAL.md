@@ -1,12 +1,12 @@
 # Commercial Licensing
 
-Gobooks is available under the GNU Affero General Public License v3 (AGPL-3.0).
+Balanciz is available under the GNU Affero General Public License v3 (AGPL-3.0).
 
 If you want to:
 
-- Use Gobooks in a commercial SaaS product
+- Use Balanciz in a commercial SaaS product
 - Avoid the requirement to open-source your modifications
-- Integrate Gobooks into a proprietary system
+- Integrate Balanciz into a proprietary system
 
 You must obtain a commercial license.
 
@@ -15,7 +15,7 @@ You must obtain a commercial license.
 **TAXDEEP CORP.**  
 Email: [info@taxdeep.com](mailto:info@taxdeep.com)
 
-Source repository: https://github.com/imlei/gobooks
+Source repository: https://github.com/imlei/balanciz
 
 ## Notes
 

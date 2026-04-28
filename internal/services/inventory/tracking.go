@@ -34,7 +34,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // loadTrackingMode fetches the product's TrackingMode. Missing items

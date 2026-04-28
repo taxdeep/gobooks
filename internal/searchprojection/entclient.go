@@ -8,7 +8,7 @@ import (
 	entsql "entgo.io/ent/dialect/sql"
 	"gorm.io/gorm"
 
-	"gobooks/ent"
+	"balanciz/ent"
 )
 
 // OpenEntFromGorm returns an *ent.Client that drives the same underlying

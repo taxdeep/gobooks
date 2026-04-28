@@ -7,7 +7,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // pdf_qty_uom_test.go — locks the PDF qty-display helper. The customer-

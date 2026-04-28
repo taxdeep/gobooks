@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )

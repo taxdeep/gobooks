@@ -3,9 +3,9 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // BillDetailVM is the view-model for the read-only bill detail page.
@@ -19,7 +19,7 @@ type BillDetailVM struct {
 
 templ BillDetail(vm BillDetailVM) {
 	@layout.Layout(
-		"GoBooks - Bill "+vm.Bill.BillNumber,
+		"Balanciz - Bill "+vm.Bill.BillNumber,
 		ui.SidebarVM{Active: "Bills", HasCompany: vm.HasCompany},
 		bodyBillDetail(vm),
 	)

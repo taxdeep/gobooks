@@ -2,13 +2,13 @@
 package web
 
 import (
-	"gobooks/ent"
-	"gobooks/internal/ai"
-	"gobooks/internal/config"
-	"gobooks/internal/logging"
-	"gobooks/internal/searchprojection"
-	"gobooks/internal/services/search_engine"
-	"gobooks/internal/web/admin"
+	"balanciz/ent"
+	"balanciz/internal/ai"
+	"balanciz/internal/config"
+	"balanciz/internal/logging"
+	"balanciz/internal/searchprojection"
+	"balanciz/internal/services/search_engine"
+	"balanciz/internal/web/admin"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -68,7 +68,7 @@ func NewServer(cfg config.Config, db *gorm.DB) *fiber.App {
 	}
 
 	app := fiber.New(fiber.Config{
-		AppName:      "GoBooks",
+		AppName:      "Balanciz",
 		// 自定义错误处理器：5xx 持久化到 system_logs，4xx 仅 WARN 日志
 		ErrorHandler: NewErrorHandler(db),
 	})

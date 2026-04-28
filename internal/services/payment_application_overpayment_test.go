@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/shopspring/decimal"
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // TestOverpayment_ExactMatch_NoCredit verifies that a payment exactly matching

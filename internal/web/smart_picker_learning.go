@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	appai "gobooks/internal/ai"
-	"gobooks/internal/models"
+	appai "balanciz/internal/ai"
+	"balanciz/internal/models"
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"

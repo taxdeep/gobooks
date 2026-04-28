@@ -17,7 +17,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // seedH4Fixture flips receipt_required=true and seeds a GR/IR

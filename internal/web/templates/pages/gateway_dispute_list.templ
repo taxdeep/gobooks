@@ -2,9 +2,9 @@
 package pages
 
 import (
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // GatewayDisputeListVM is the view-model for the dispute list page.
@@ -15,7 +15,7 @@ type GatewayDisputeListVM struct {
 }
 
 templ GatewayDisputeList(vm GatewayDisputeListVM) {
-	@layout.Layout("GoBooks - Disputes", ui.SidebarVM{Active: "Gateway Disputes", HasCompany: vm.HasCompany}, bodyGatewayDisputeList(vm))
+	@layout.Layout("Balanciz - Disputes", ui.SidebarVM{Active: "Gateway Disputes", HasCompany: vm.HasCompany}, bodyGatewayDisputeList(vm))
 }
 
 templ bodyGatewayDisputeList(vm GatewayDisputeListVM) {

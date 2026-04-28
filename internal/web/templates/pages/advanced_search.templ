@@ -2,9 +2,9 @@
 package pages
 
 import (
-	"gobooks/internal/services/search_engine"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/services/search_engine"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // AdvancedSearch renders /advanced-search — the full-page filter view
@@ -14,7 +14,7 @@ import (
 // flat paginated results instead of the dropdown's per-family caps.
 templ AdvancedSearch(vm AdvancedSearchVM) {
 	@layout.Layout(
-		"GoBooks - Advanced search",
+		"Balanciz - Advanced search",
 		ui.SidebarVM{Active: "Advanced search", HasCompany: vm.HasCompany},
 		bodyAdvancedSearch(vm),
 	)

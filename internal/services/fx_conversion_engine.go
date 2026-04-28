@@ -32,7 +32,7 @@ type FXConversionResult struct {
 }
 
 // RoundBankMoney applies banker's rounding to 2 decimal places.
-// This is the standard rounding rule for all base-currency amounts in GoBooks.
+// This is the standard rounding rule for all base-currency amounts in Balanciz.
 func RoundBankMoney(amount decimal.Decimal) decimal.Decimal {
 	return amount.RoundBank(2)
 }

@@ -1,4 +1,4 @@
-// GoBooks number formatter (num-format.js v1)
+// Balanciz number formatter (num-format.js v1)
 //
 // Reformats raw server-side decimal values (e.g. "1234.56") into the user's
 // preferred display format. The format is injected server-side as the

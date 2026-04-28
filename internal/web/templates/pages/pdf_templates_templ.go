@@ -13,9 +13,9 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"fmt"
 
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // PDFTemplatesVM is the view-model for the Phase 3 (G6) management page at
@@ -52,7 +52,7 @@ func PDFTemplates(vm PDFTemplatesVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - PDF Templates",
+			"Balanciz - PDF Templates",
 			ui.SidebarVM{Active: "Settings", HasCompany: vm.HasCompany},
 			bodyPDFTemplates(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

@@ -3,9 +3,9 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 func poStatusBadgeClass(s models.POStatus) string {
@@ -30,7 +30,7 @@ func poStatusBadgeClass(s models.POStatus) string {
 
 templ PurchaseOrders(vm PurchaseOrdersVM) {
 	@layout.Layout(
-		"GoBooks - Purchase Orders",
+		"Balanciz - Purchase Orders",
 		ui.SidebarVM{Active: "Purchase Orders", HasCompany: vm.HasCompany},
 		bodyPurchaseOrders(vm),
 	)

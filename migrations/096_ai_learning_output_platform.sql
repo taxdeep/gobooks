@@ -1,4 +1,4 @@
--- GoBooks AI Learning & Output Platform V1.
+-- Balanciz AI Learning & Output Platform V1.
 -- Additive only: company-scoped report usage, dashboard suggestions/widgets,
 -- and Action Center task visibility. AI remains advisory.
 

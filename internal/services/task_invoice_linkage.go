@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 
 	"gorm.io/gorm"
 )

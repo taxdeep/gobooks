@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"

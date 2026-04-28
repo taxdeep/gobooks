@@ -7,8 +7,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services/pdf"
+	"balanciz/internal/models"
+	"balanciz/internal/services/pdf"
 )
 
 // quote_pdf_adapter.go — Quote → pdf.RenderInput. Shape mirrors

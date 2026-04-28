@@ -4,8 +4,8 @@ package admin
 import (
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/admintmpl"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/admintmpl"
 )
 
 // buildCompanyNameMap builds a companyID→name lookup from a slice of AuditLog rows.

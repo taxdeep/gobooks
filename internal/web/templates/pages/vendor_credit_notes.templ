@@ -3,9 +3,9 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 func vcnStatusBadgeClass(s models.VendorCreditNoteStatus) string {
@@ -28,7 +28,7 @@ func vcnStatusBadgeClass(s models.VendorCreditNoteStatus) string {
 
 templ VendorCreditNotes(vm VendorCreditNotesVM) {
 	@layout.Layout(
-		"GoBooks - Vendor Credit Notes",
+		"Balanciz - Vendor Credit Notes",
 		ui.SidebarVM{Active: "Vendor Credit Notes", HasCompany: vm.HasCompany},
 		bodyVendorCreditNotes(vm),
 	)

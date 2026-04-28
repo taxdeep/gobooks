@@ -4,7 +4,7 @@ package pages
 import (
 	"encoding/json"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // AccountsVM is the view-model for the Chart of Accounts page.

@@ -17,7 +17,7 @@ templ AdminLogin(vm AdminLoginVM) {
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<title>System sign in — GoBooks</title>
+			<title>System sign in — Balanciz</title>
 			<link rel="stylesheet" href="/static/app.css?v=3"/>
 			<script>
 				(function () {
@@ -33,7 +33,7 @@ templ AdminLogin(vm AdminLoginVM) {
 						const form = event.target;
 						if (!(form instanceof HTMLFormElement)) return;
 						if ((form.method || "get").toLowerCase() === "get") return;
-						const token = readCookie("gobooks_csrf");
+						const token = readCookie("balanciz_csrf");
 						if (!token) return;
 						let input = form.querySelector('input[name="_csrf"]');
 						if (!input) {
@@ -52,7 +52,7 @@ templ AdminLogin(vm AdminLoginVM) {
 				<div class="w-full max-w-sm">
 					<div class="mb-8 text-center">
 						<div class="mb-3 flex justify-center">
-							<span class="rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-text-muted3">GoBooks · System</span>
+							<span class="rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-text-muted3">Balanciz · System</span>
 						</div>
 						if vm.IsBootstrap {
 							<h1 class="text-title font-semibold text-text">Create first SysAdmin</h1>

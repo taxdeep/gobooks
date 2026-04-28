@@ -7,8 +7,8 @@ import (
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
-	"gobooks/internal/models"
-	"gobooks/internal/services"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
 )
 
 // handleInvoiceTemplatesList retrieves and displays all templates for a company.

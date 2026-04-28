@@ -3,13 +3,13 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ PayBills(vm PayBillsVM) {
 	@layout.Layout(
-		"GoBooks - Pay Bills",
+		"Balanciz - Pay Bills",
 		ui.SidebarVM{Active: "Pay Bills", HasCompany: vm.HasCompany},
 		bodyPayBills(vm),
 	)

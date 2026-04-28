@@ -1,14 +1,14 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 // SettingsHub — top-level /settings landing. Tile grid for all company-scoped
 // configuration areas. Each tile navigates to the dedicated settings sub-page.
 templ SettingsHub(vm SettingsHubVM) {
 	@layout.Layout(
-		"GoBooks - Settings",
+		"Balanciz - Settings",
 		ui.SidebarVM{Active: "Settings Hub", HasCompany: vm.HasCompany},
 		bodySettingsHub(vm),
 	)

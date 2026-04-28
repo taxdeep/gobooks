@@ -11,9 +11,9 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // GatewaySelectItem is a minimal read-model for gateway account dropdowns.
@@ -58,7 +58,7 @@ func GatewayPayoutNew(vm GatewayPayoutNewVM) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = layout.Layout("GoBooks - New Gateway Payout", ui.SidebarVM{Active: "Gateway Payouts", HasCompany: vm.HasCompany}, bodyGatewayPayoutNew(vm)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout.Layout("Balanciz - New Gateway Payout", ui.SidebarVM{Active: "Gateway Payouts", HasCompany: vm.HasCompany}, bodyGatewayPayoutNew(vm)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

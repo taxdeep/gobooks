@@ -43,7 +43,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // reviewTestDB creates an in-memory SQLite DB with all necessary tables.

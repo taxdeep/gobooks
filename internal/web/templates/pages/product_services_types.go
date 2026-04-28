@@ -1,7 +1,7 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/models"
+import "balanciz/internal/models"
 
 // ProductServicesVM is the view-model for the Products & Services page.
 type ProductServicesVM struct {

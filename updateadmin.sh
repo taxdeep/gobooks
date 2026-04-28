@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# updateadmin.sh — 创建或重置 GoBooks 系统管理员账号
+# updateadmin.sh — 创建或重置 Balanciz 系统管理员账号
 #
 # 用法：
 #   sudo bash updateadmin.sh                    # 自动搜索 .env
-#   sudo bash updateadmin.sh /opt/gobooks/.env  # 指定 .env 路径
+#   sudo bash updateadmin.sh /opt/balanciz/.env  # 指定 .env 路径
 
 set -euo pipefail
 
@@ -14,9 +14,13 @@ if [[ $# -ge 1 && -f "$1" ]]; then
   ENV_FILE="$1"
 else
   for candidate in \
+    /opt/balanciz/.env \
     /opt/gobooks/.env \
+    /home/balanciz/.env \
     /home/gobooks/.env \
+    /srv/balanciz/.env \
     /srv/gobooks/.env \
+    /var/www/balanciz/.env \
     /var/www/gobooks/.env \
     "$(dirname "$0")/.env" \
     "$HOME/.env"
@@ -32,14 +36,14 @@ if [[ -z "$ENV_FILE" ]]; then
   echo "找不到 .env，请手动输入数据库连接信息："
   read -rp  "DB_HOST [localhost]: " DB_HOST;     DB_HOST="${DB_HOST:-localhost}"
   read -rp  "DB_PORT [5432]: "     DB_PORT;     DB_PORT="${DB_PORT:-5432}"
-  read -rp  "DB_USER [gobooks]: "  DB_USER;     DB_USER="${DB_USER:-gobooks}"
+  read -rp  "DB_USER [balanciz]: "  DB_USER;     DB_USER="${DB_USER:-balanciz}"
   read -rsp "DB_PASSWORD: "        DB_PASSWORD; echo
-  read -rp  "DB_NAME [gobooks]: "  DB_NAME;     DB_NAME="${DB_NAME:-gobooks}"
+  read -rp  "DB_NAME [balanciz]: "  DB_NAME;     DB_NAME="${DB_NAME:-balanciz}"
   DB_SSLMODE="disable"
 else
   echo "使用配置文件：$ENV_FILE"
-  DB_HOST="localhost"; DB_PORT="5432"; DB_USER="gobooks"
-  DB_PASSWORD=""; DB_NAME="gobooks"; DB_SSLMODE="disable"
+  DB_HOST="localhost"; DB_PORT="5432"; DB_USER="balanciz"
+  DB_PASSWORD=""; DB_NAME="balanciz"; DB_SSLMODE="disable"
 
   while IFS='=' read -r key value; do
     [[ "$key" =~ ^[[:space:]]*# || -z "${key// }" ]] && continue

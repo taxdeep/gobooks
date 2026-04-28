@@ -23,8 +23,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/pages"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/pages"
 )
 
 // handleGatewayDisputeList renders the list of all disputes for the company.

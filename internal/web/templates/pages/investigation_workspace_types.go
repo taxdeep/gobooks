@@ -1,7 +1,7 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/services"
+import "balanciz/internal/services"
 
 // WorkspaceTypeOption is a single item in the workspace type dropdown.
 type WorkspaceTypeOption struct {

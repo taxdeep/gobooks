@@ -2,8 +2,8 @@
 package layout
 
 import (
-	"gobooks/internal/version"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/version"
+	"balanciz/internal/web/templates/ui"
 	"strconv"
 	"time"
 )
@@ -17,19 +17,19 @@ templ Layout(title string, sidebar ui.SidebarVM, content templ.Component) {
 			<title>{ title }</title>
 			<link rel="stylesheet" href="/static/app.css?v=4"/>
 			<!-- Theme init: runs synchronously before first paint to avoid FOUC.
-			     Reads localStorage("gobooks-theme"): "dark" | "light" | "system" (default).
+			     Reads localStorage("balanciz-theme"): "dark" | "light" | "system" (default).
 			     Applies .dark class to <html> when appropriate. -->
 			<script>
 				(function () {
-					var t = localStorage.getItem("gobooks-theme") || "system";
+					var t = localStorage.getItem("balanciz-theme") || "system";
 					var dark = t === "dark" || (t === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 					if (dark) document.documentElement.classList.add("dark");
 
 					// Expose theme helpers used by the toggle button and future Settings page.
 					window.gbTheme = {
-						get: function () { return localStorage.getItem("gobooks-theme") || "system"; },
+						get: function () { return localStorage.getItem("balanciz-theme") || "system"; },
 						set: function (val) {
-							localStorage.setItem("gobooks-theme", val);
+							localStorage.setItem("balanciz-theme", val);
 							var isDark = val === "dark" || (val === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 							document.documentElement.classList.toggle("dark", isDark);
 							window.gbTheme._updateBtn();
@@ -61,7 +61,7 @@ templ Layout(title string, sidebar ui.SidebarVM, content templ.Component) {
 
 					// Respond to OS-level preference changes when in "system" mode.
 					window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function (e) {
-						if ((localStorage.getItem("gobooks-theme") || "system") === "system") {
+						if ((localStorage.getItem("balanciz-theme") || "system") === "system") {
 							document.documentElement.classList.toggle("dark", e.matches);
 						}
 					});
@@ -87,7 +87,7 @@ templ Layout(title string, sidebar ui.SidebarVM, content templ.Component) {
 					}
 
 					function csrfToken() {
-						return readCookie("gobooks_csrf");
+						return readCookie("balanciz_csrf");
 					}
 
 					document.addEventListener("submit", function (event) {
@@ -115,11 +115,11 @@ templ Layout(title string, sidebar ui.SidebarVM, content templ.Component) {
 						}
 					});
 
-					// gobooksFetch — CSRF-safe wrapper around window.fetch.
+					// balancizFetch — CSRF-safe wrapper around window.fetch.
 					// All Alpine / JS code must use this for non-GET requests so that
 					// the X-CSRF-Token header is automatically injected from the cookie.
-					// Usage: gobooksFetch("/api/some-endpoint", { method: "POST", body: ... })
-					window.gobooksFetch = function (url, options) {
+					// Usage: balancizFetch("/api/some-endpoint", { method: "POST", body: ... })
+					window.balancizFetch = function (url, options) {
 						const opts = Object.assign({ credentials: "same-origin" }, options);
 						opts.headers = Object.assign({}, opts.headers || {});
 						const method = (opts.method || "GET").toUpperCase();
@@ -218,7 +218,7 @@ templ Layout(title string, sidebar ui.SidebarVM, content templ.Component) {
 								</svg>
 							</button>
 							<div class="flex items-center gap-2">
-								<div class="text-title font-semibold text-text">GoBooks</div>
+								<div class="text-title font-semibold text-text">Balanciz</div>
 								<span class="hidden md:inline rounded bg-background px-1.5 py-0.5 text-[11px] font-mono text-text-muted3 border border-border">
 									v{ version.Version }
 								</span>
@@ -436,7 +436,7 @@ templ Layout(title string, sidebar ui.SidebarVM, content templ.Component) {
 						rel="noopener noreferrer"
 						class="font-medium text-text-muted hover:text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus rounded"
 					>Taxdeep Corp.</a>
-					{ " " } All rights reserved. · GoBooks { version.Version }
+					{ " " } All rights reserved. · Balanciz { version.Version }
 				</footer>
 			</div>
 		</body>
@@ -456,7 +456,7 @@ templ LayoutAuth(title string, content templ.Component) {
 			<!-- Theme init (same as Layout — no FOUC on auth pages either) -->
 			<script>
 				(function () {
-					var t = localStorage.getItem("gobooks-theme") || "system";
+					var t = localStorage.getItem("balanciz-theme") || "system";
 					var dark = t === "dark" || (t === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 					if (dark) document.documentElement.classList.add("dark");
 				})();
@@ -478,7 +478,7 @@ templ LayoutAuth(title string, content templ.Component) {
 						const form = event.target;
 						if (!(form instanceof HTMLFormElement)) return;
 						if ((form.method || "get").toLowerCase() === "get") return;
-						const token = readCookie("gobooks_csrf");
+						const token = readCookie("balanciz_csrf");
 						if (!token) return;
 						let input = form.querySelector('input[name="_csrf"]');
 						if (!input) {
@@ -489,12 +489,12 @@ templ LayoutAuth(title string, content templ.Component) {
 						}
 						input.value = token;
 					});
-					window.gobooksFetch = function (url, options) {
+					window.balancizFetch = function (url, options) {
 						const opts = Object.assign({ credentials: "same-origin" }, options);
 						opts.headers = Object.assign({}, opts.headers || {});
 						const method = (opts.method || "GET").toUpperCase();
 						if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
-							const tok = readCookie("gobooks_csrf");
+							const tok = readCookie("balanciz_csrf");
 							if (tok) opts.headers["X-CSRF-Token"] = tok;
 						}
 						return fetch(url, opts);
@@ -506,7 +506,7 @@ templ LayoutAuth(title string, content templ.Component) {
 			<div class="flex min-h-screen flex-col">
 				<!-- Top bar: logo only -->
 				<header class="h-16 border-b border-border bg-surface px-6 flex items-center">
-					<span class="text-title font-semibold text-text">GoBooks</span>
+					<span class="text-title font-semibold text-text">Balanciz</span>
 				</header>
 
 				<!-- Centered content -->
@@ -531,7 +531,7 @@ templ LayoutAuth(title string, content templ.Component) {
 }
 
 // globalSearchDropdown is the topbar search input + Alpine-driven
-// results panel. Wired to /api/global-search via the gobooksGlobalSearch
+// results panel. Wired to /api/global-search via the balancizGlobalSearch
 // Alpine factory in static/global_search.js.
 //
 // Layout: input is the always-visible click target; the panel is
@@ -539,7 +539,7 @@ templ LayoutAuth(title string, content templ.Component) {
 // on screens narrower than md to preserve mobile chrome density.
 templ globalSearchDropdown() {
 	// Alpine auto-invokes init() on x-data components; no x-init needed.
-	<div class="hidden md:block relative" x-data="gobooksGlobalSearch()" @click.outside="close()">
+	<div class="hidden md:block relative" x-data="balancizGlobalSearch()" @click.outside="close()">
 		<input
 			x-ref="input"
 			type="text"

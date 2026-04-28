@@ -10,10 +10,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
-	"gobooks/internal/searchprojection/producers"
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/pages"
+	"balanciz/internal/models"
+	"balanciz/internal/searchprojection/producers"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/pages"
 )
 
 // ── List ─────────────────────────────────────────────────────────────────────

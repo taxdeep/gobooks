@@ -1,4 +1,4 @@
-# Gobooks Execution Summary v1
+# Balanciz Execution Summary v1
 
 ## For Claude / Cursor / Codex
 
@@ -6,7 +6,7 @@
 
 This document is the short execution companion to the Project Guide.
 
-Use it when implementing, reviewing, or refactoring Gobooks features.
+Use it when implementing, reviewing, or refactoring Balanciz features.
 
 Priority order:
 
@@ -18,7 +18,7 @@ This summary does not replace the Project Guide. It compresses the most importan
 
 # 1. Product Identity
 
-Gobooks is:
+Balanciz is:
 
 * a strictly isolated multi-company accounting system
 * a correctness-first accounting engine
@@ -26,7 +26,7 @@ Gobooks is:
 * a modular, engine-centric business platform
 * an AI suggestion system, not an AI execution system
 
-Do not treat Gobooks as a loose CRUD app or a feature pile.
+Do not treat Balanciz as a loose CRUD app or a feature pile.
 
 ---
 
@@ -523,7 +523,7 @@ Before merge, verify all of the following:
 
 # 16. Final Summary
 
-Gobooks is a strictly isolated, correctness-first, engine-centered accounting platform.
+Balanciz is a strictly isolated, correctness-first, engine-centered accounting platform.
 
 When implementing any feature:
 

@@ -2,8 +2,8 @@
 package pages
 
 import (
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // ReportsHubVM drives the categorized Reports landing page. Categories
@@ -42,7 +42,7 @@ type ReportsHubItemVM struct {
 
 templ ReportsHub(vm ReportsHubVM) {
 	@layout.Layout(
-		"GoBooks - Reports",
+		"Balanciz - Reports",
 		ui.SidebarVM{Active: "Reports", HasCompany: vm.HasCompany},
 		bodyReportsHub(vm),
 	)

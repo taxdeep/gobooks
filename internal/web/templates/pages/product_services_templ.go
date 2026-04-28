@@ -10,9 +10,9 @@ package pages
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "gobooks/internal/models"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/models"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 import "fmt"
 
 func ProductServices(vm ProductServicesVM) templ.Component {
@@ -37,7 +37,7 @@ func ProductServices(vm ProductServicesVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Products & Services",
+			"Balanciz - Products & Services",
 			ui.SidebarVM{Active: "Products & Services", HasCompany: vm.HasCompany},
 			bodyProductServices(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

@@ -3,7 +3,7 @@ package services
 import (
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 type InvoicePaymentState string

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"gobooks/internal/config"
+	"balanciz/internal/config"
 )
 
 type TaskType string

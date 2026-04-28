@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func TestIsInvoiceOverdueAsOf(t *testing.T) {

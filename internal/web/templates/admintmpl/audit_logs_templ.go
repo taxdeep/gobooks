@@ -10,7 +10,7 @@ package admintmpl
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "gobooks/internal/models"
+import "balanciz/internal/models"
 
 // AdminAuditLogVM is the cross-tenant audit log page view model.
 type AdminAuditLogVM struct {

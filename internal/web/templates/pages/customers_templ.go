@@ -14,8 +14,8 @@ import (
 	"fmt"
 	"net/url"
 
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 func Customers(vm CustomersVM) templ.Component {
@@ -40,7 +40,7 @@ func Customers(vm CustomersVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Customers",
+			"Balanciz - Customers",
 			ui.SidebarVM{Active: "Customers", HasCompany: vm.HasCompany},
 			bodyCustomers(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

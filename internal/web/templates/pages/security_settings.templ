@@ -1,12 +1,12 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ CompanySecuritySettings(vm CompanySecuritySettingsVM) {
 	@layout.Layout(
-		"GoBooks - Security",
+		"Balanciz - Security",
 		ui.SidebarVM{Active: "Company Hub", HasCompany: vm.HasCompany},
 		bodyCompanySecuritySettings(vm),
 	)

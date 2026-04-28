@@ -12,9 +12,9 @@ import (
 	entsql "entgo.io/ent/dialect/sql"
 	_ "github.com/glebarez/go-sqlite"
 
-	"gobooks/ent"
-	"gobooks/ent/migrate"
-	"gobooks/internal/searchprojection"
+	"balanciz/ent"
+	"balanciz/ent/migrate"
+	"balanciz/internal/searchprojection"
 )
 
 // newTestClient spins up an in-memory sqlite-backed ent.Client with the
@@ -24,7 +24,7 @@ import (
 // dialects — so unit tests run correctness checks without a Postgres
 // fixture. Opens the driver directly (not via enttest) because
 // enttest.Open hard-codes the "sqlite3" driver name, which conflicts
-// with gobooks' pure-Go glebarez driver registered as "sqlite".
+// with balanciz' pure-Go glebarez driver registered as "sqlite".
 func newTestClient(t *testing.T) *ent.Client {
 	t.Helper()
 	dsn := "file:searchengine_" + t.Name() + "?mode=memory&cache=shared&_pragma=foreign_keys(1)"

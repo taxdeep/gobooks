@@ -11,9 +11,9 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // CashFlowVM is the view model for the Cash Flow Summary report.
@@ -48,7 +48,7 @@ func CashFlow(vm CashFlowVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Cash Flow Summary",
+			"Balanciz - Cash Flow Summary",
 			ui.SidebarVM{Active: "Reports", HasCompany: vm.HasCompany},
 			bodyCashFlow(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

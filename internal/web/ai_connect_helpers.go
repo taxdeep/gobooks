@@ -7,7 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/services"
+	"balanciz/internal/services"
 )
 
 // AIConnectEditableFromCtx 返回当前成员是否有权修改 AI Connect 设置。
@@ -23,7 +23,7 @@ func aiConnectSaveErrorMessage(err error) string {
 	}
 	if errors.Is(err, services.ErrAISecretKeyNotConfigured) {
 		return "Could not save the API key: the server has no AI_SECRET_KEY. " +
-			"Add a base64-encoded 32-byte key to your environment, restart GoBooks, then save again."
+			"Add a base64-encoded 32-byte key to your environment, restart Balanciz, then save again."
 	}
 	msg := err.Error()
 	switch {

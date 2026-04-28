@@ -2,9 +2,9 @@
 package pages
 
 import (
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // CompanyExchangeRatesVM is the view-model for the exchange rates maintenance page.
@@ -29,7 +29,7 @@ type CompanyExchangeRatesVM struct {
 
 templ CompanyExchangeRates(vm CompanyExchangeRatesVM) {
 	@layout.Layout(
-		"GoBooks - Exchange Rates",
+		"Balanciz - Exchange Rates",
 		ui.SidebarVM{Active: "Company Currency", HasCompany: vm.HasCompany},
 		bodyCompanyExchangeRates(vm),
 	)

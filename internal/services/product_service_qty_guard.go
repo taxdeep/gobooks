@@ -17,7 +17,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // validateStockItemQty enforces the integer-only rule for a single line.

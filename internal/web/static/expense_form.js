@@ -12,7 +12,7 @@
 //                                    amount, tax_code_id, line_tax, line_total, task_id,
 //                                    is_billable, error}]
 //
-function gobooksExpenseForm() {
+function balancizExpenseForm() {
   return {
     // ── Config ───────────────────────────────────────────────────────────────
     baseCurrency:  "",

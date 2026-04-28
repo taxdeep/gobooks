@@ -11,9 +11,9 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // GeneralLedgerVM is the view model for the GL report. Sections are
@@ -50,7 +50,7 @@ func GeneralLedger(vm GeneralLedgerVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - General Ledger",
+			"Balanciz - General Ledger",
 			ui.SidebarVM{Active: "Reports", HasCompany: vm.HasCompany},
 			bodyGeneralLedger(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

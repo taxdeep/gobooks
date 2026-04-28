@@ -2,14 +2,14 @@
 package pages
 
 import (
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ IncomeStatement(vm IncomeStatementVM) {
 	@layout.Layout(
-		"GoBooks - Income Statement",
+		"Balanciz - Income Statement",
 		ui.SidebarVM{Active: "Reports", HasCompany: vm.HasCompany},
 		bodyIncomeStatement(vm),
 	)

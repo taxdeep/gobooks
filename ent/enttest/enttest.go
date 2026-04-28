@@ -5,11 +5,11 @@ package enttest
 import (
 	"context"
 
-	"gobooks/ent"
+	"balanciz/ent"
 	// required by schema hooks.
-	_ "gobooks/ent/runtime"
+	_ "balanciz/ent/runtime"
 
-	"gobooks/ent/migrate"
+	"balanciz/ent/migrate"
 
 	"entgo.io/ent/dialect/sql/schema"
 )

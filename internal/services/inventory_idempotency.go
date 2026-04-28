@@ -31,7 +31,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // keyVersionSuffix pulls the trailing ":v<n>" off an idempotency key. Keys

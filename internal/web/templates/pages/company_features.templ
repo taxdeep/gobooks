@@ -2,12 +2,12 @@
 package pages
 
 import "fmt"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ CompanyFeatures(vm CompanyFeaturesVM) {
 	@layout.Layout(
-		"GoBooks - Features",
+		"Balanciz - Features",
 		ui.SidebarVM{Active: "Company Features", HasCompany: vm.HasCompany},
 		bodyCompanyFeatures(vm),
 	)

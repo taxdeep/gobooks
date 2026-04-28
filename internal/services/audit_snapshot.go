@@ -2,7 +2,7 @@
 package services
 
 import (
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // CompanyAuditSnapshot returns a non-sensitive map of company profile fields for audit before/after.

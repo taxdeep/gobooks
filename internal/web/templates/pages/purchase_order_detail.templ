@@ -3,14 +3,14 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ PurchaseOrderDetail(vm PurchaseOrderDetailVM) {
 	@layout.Layout(
-		"GoBooks - "+poDetailTitle(vm),
+		"Balanciz - "+poDetailTitle(vm),
 		ui.SidebarVM{Active: "Purchase Orders", HasCompany: vm.HasCompany},
 		bodyPODetail(vm),
 	)
@@ -51,7 +51,7 @@ templ poEditorContent(vm PurchaseOrderDetailVM) {
 		action="/purchase-orders/save"
 		class="space-y-6"
 		x-data="docTransactionEditor()"
-		@gobooks-item-picker-select="onProductChange($event.detail.idx, $event.detail.id)"
+		@balanciz-item-picker-select="onProductChange($event.detail.idx, $event.detail.id)"
 		data-products={ poProductsJSON(vm.Products) }
 		data-tax-codes={ poTaxCodesJSON(vm.TaxCodes) }
 		data-initial-lines={ poInitialLinesJSON(vm.PurchaseOrder.Lines) }
@@ -172,7 +172,7 @@ templ poHeaderRight(vm PurchaseOrderDetailVM) {
 // items used in past purchase orders.
 templ poLineItemPicker() {
 	<div
-		x-data="gobooksItemPicker(line, idx, { context: 'po_line_item' })"
+		x-data="balancizItemPicker(line, idx, { context: 'po_line_item' })"
 		class="relative"
 		@click.outside="close()"
 		@keydown="onKeydown($event)"
@@ -435,7 +435,7 @@ templ poReadOnlyBody(vm PurchaseOrderDetailVM) {
 
 // poLineItemOptionLabel formats a product option label as
 // "<SKU — ><name> · <kind>" where kind is "stock" or "service".
-// Kept exported even though the migrated editor uses gobooksItemPicker
+// Kept exported even though the migrated editor uses balancizItemPicker
 // instead of a native <select>: PDF templates and other consumers may
 // reuse the helper.
 func poLineItemOptionLabel(p models.ProductService) string {

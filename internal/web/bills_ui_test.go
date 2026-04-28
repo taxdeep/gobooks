@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"gobooks/internal/web/templates/pages"
+	"balanciz/internal/web/templates/pages"
 )
 
 // TestBills_FilterBarWiresNativeDateInputs locks the new (post-Sales-Orders

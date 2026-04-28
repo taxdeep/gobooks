@@ -1,12 +1,12 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ InvoiceEditor(vm InvoiceEditorVM) {
 	@layout.Layout(
-		"GoBooks - "+InvoiceEditorTitle(vm),
+		"Balanciz - "+InvoiceEditorTitle(vm),
 		ui.SidebarVM{Active: "Invoices", HasCompany: vm.HasCompany},
 		bodyInvoiceEditor(vm),
 	)
@@ -23,7 +23,7 @@ templ invoiceEditorContent(vm InvoiceEditorVM) {
 		class="space-y-6"
 		x-data="invoiceEditor()"
 		@submit="onFormSubmit($event)"
-		@gobooks-item-picker-select="onProductChange($event.detail.idx, $event.detail.id)"
+		@balanciz-item-picker-select="onProductChange($event.detail.idx, $event.detail.id)"
 		data-products={ vm.ProductsJSON }
 		data-tax-codes={ vm.TaxCodesJSON }
 		data-initial-lines={ vm.InitialLinesJSON }
@@ -118,7 +118,7 @@ templ invoiceEditorContent(vm InvoiceEditorVM) {
 // ship_to_label form inputs (customer_email is derived from line 1 of
 // bill_to on submit — see invoice_editor.js onFormSubmit).
 templ invoiceHeaderLeft(vm InvoiceEditorVM) {
-	<div @gobooks-picker-select="onContactChange($event.detail.id, $event.detail.payload)">
+	<div @balanciz-picker-select="onContactChange($event.detail.id, $event.detail.payload)">
 		@ui.SmartPicker(ui.SmartPickerVM{
 			Label:         "Customer *",
 			FieldName:     "customer_id",
@@ -324,13 +324,13 @@ templ invoiceHeaderRight(vm InvoiceEditorVM) {
 }
 
 // invoiceLineItemPicker is the per-row product/service picker rendered inside
-// the DocLineItems x-for scope. Uses the gobooksItemPicker() Alpine factory
+// the DocLineItems x-for scope. Uses the balancizItemPicker() Alpine factory
 // (which captures `line` + `idx` from the surrounding scope at construction)
 // so each row has its own search / dropdown state. Hidden input submits
 // line_product_service_id[idx] alongside the normal form fields.
 templ invoiceLineItemPicker() {
 	<div
-		x-data="gobooksItemPicker(line, idx, { context: 'invoice_line_item' })"
+		x-data="balancizItemPicker(line, idx, { context: 'invoice_line_item' })"
 		class="relative"
 		@click.outside="close()"
 		@keydown="onKeydown($event)"
@@ -656,12 +656,12 @@ templ invoiceAddressParserDialog() {
 }
 
 // invoiceCustomerQuickCreateDrawer is a slide-over that the Customer SmartPicker
-// opens (via gobooks-picker-create) when the user clicks "+ Add new".
+// opens (via balanciz-picker-create) when the user clicks "+ Add new".
 templ invoiceCustomerQuickCreateDrawer(vm InvoiceEditorVM) {
 	<div
-		x-data="gobooksCustomerQuickCreate()"
+		x-data="balancizCustomerQuickCreate()"
 		data-currencies={ vm.QuickCreateCurrenciesJSON }
-		@gobooks-picker-create.window="onPickerCreate($event)"
+		@balanciz-picker-create.window="onPickerCreate($event)"
 		@keydown.escape.window="if (drawerOpen) { cancel() }"
 	>
 		@ui.RightDrawerBackdrop()

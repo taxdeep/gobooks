@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 const aiChatHTTPTimeout = 45 * time.Second

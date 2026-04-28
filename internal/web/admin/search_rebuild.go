@@ -8,9 +8,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/logging"
-	"gobooks/internal/searchprojection/backfill"
-	"gobooks/internal/services"
+	"balanciz/internal/logging"
+	"balanciz/internal/searchprojection/backfill"
+	"balanciz/internal/services"
 )
 
 // rebuildState is the single in-process tracker for the "Rebuild search

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func TestRenderHTMLEmptySchemaProducesValidShell(t *testing.T) {

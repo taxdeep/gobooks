@@ -4,7 +4,7 @@ package ent
 
 import (
 	"fmt"
-	"gobooks/ent/searchrecentquery"
+	"balanciz/ent/searchrecentquery"
 	"strings"
 	"time"
 

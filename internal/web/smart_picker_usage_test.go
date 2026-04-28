@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func TestSmartPickerUsage_PersistsSelectionEvent(t *testing.T) {

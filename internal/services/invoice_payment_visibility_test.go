@@ -5,7 +5,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func TestBuildInvoicePaymentVisibility_DerivesStateAndAmounts(t *testing.T) {

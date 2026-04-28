@@ -1,12 +1,12 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ CompanyNotificationSettings(vm CompanyNotificationSettingsVM) {
 	@layout.Layout(
-		"GoBooks - Notifications",
+		"Balanciz - Notifications",
 		ui.SidebarVM{Active: "Company Hub", HasCompany: vm.HasCompany},
 		bodyCompanyNotificationSettings(vm),
 	)
@@ -113,7 +113,7 @@ templ bodyCompanyNotificationSettings(vm CompanyNotificationSettingsVM) {
 					</div>
 
 					@notifTextField("From Email", "smtp_from_email", vm.SMTPFromEmail, "no-reply@example.com")
-					@notifTextField("From Name", "smtp_from_name", vm.SMTPFromName, "GoBooks")
+					@notifTextField("From Name", "smtp_from_name", vm.SMTPFromName, "Balanciz")
 
 					<div>
 						<label class="block text-body font-medium text-text">Encryption</label>
@@ -205,7 +205,7 @@ templ bodyCompanyNotificationSettings(vm CompanyNotificationSettingsVM) {
 						}
 					</div>
 
-					@notifTextField("Sender ID / From Number", "sms_sender_id", vm.SMSSenderID, "e.g. +1 555-000-0000 or GoBooks")
+					@notifTextField("Sender ID / From Number", "sms_sender_id", vm.SMSSenderID, "e.g. +1 555-000-0000 or Balanciz")
 				</div>
 			</div>
 

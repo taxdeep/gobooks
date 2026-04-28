@@ -11,9 +11,9 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // GatewaySettlementReviewVM is the view-model for the settlement review list page.
@@ -56,7 +56,7 @@ func GatewaySettlementReview(vm GatewaySettlementReviewVM) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = layout.Layout("GoBooks - Gateway Settlement Review", ui.SidebarVM{Active: "Gateway Settlement Review", HasCompany: vm.HasCompany}, bodyGatewaySettlementReview(vm)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout.Layout("Balanciz - Gateway Settlement Review", ui.SidebarVM{Active: "Gateway Settlement Review", HasCompany: vm.HasCompany}, bodyGatewaySettlementReview(vm)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

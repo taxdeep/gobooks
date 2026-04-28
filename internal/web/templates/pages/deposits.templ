@@ -3,9 +3,9 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 func depositStatusBadgeClass(s models.CustomerDepositStatus) string {
@@ -28,7 +28,7 @@ func depositStatusBadgeClass(s models.CustomerDepositStatus) string {
 
 templ Deposits(vm DepositsVM) {
 	@layout.Layout(
-		"GoBooks - Customer Deposits",
+		"Balanciz - Customer Deposits",
 		ui.SidebarVM{Active: "Customer Deposits", HasCompany: vm.HasCompany},
 		bodyDeposits(vm),
 	)

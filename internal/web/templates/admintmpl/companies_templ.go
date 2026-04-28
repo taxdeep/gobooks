@@ -10,7 +10,7 @@ package admintmpl
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "gobooks/internal/models"
+import "balanciz/internal/models"
 
 // AdminCompanyRow is one row in the company list.
 type AdminCompanyRow struct {

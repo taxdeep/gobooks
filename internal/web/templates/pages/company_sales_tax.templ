@@ -4,14 +4,14 @@ package pages
 import (
 	"fmt"
 	"github.com/shopspring/decimal"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ CompanySalesTax(vm SalesTaxVM) {
 	@layout.Layout(
-		"GoBooks - Sales Tax",
+		"Balanciz - Sales Tax",
 		ui.SidebarVM{Active: "Company Sales Tax", HasCompany: vm.HasCompany},
 		bodyCompanySalesTax(vm),
 	)

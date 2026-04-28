@@ -38,7 +38,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ErrInvoiceNotVoidable is returned when voiding is attempted on an invoice

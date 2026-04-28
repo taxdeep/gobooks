@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	"github.com/gofiber/fiber/v2"
-	"gobooks/internal/logging"
-	"gobooks/internal/services"
+	"balanciz/internal/logging"
+	"balanciz/internal/services"
 )
 
 // handleHostedInvoice serves the customer-facing hosted invoice page.

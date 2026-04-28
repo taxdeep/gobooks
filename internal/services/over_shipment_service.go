@@ -22,7 +22,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ResolveOverShipmentPolicy returns the effective over-shipment policy for

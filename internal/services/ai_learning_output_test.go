@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 
 	"github.com/glebarez/sqlite"
 	"github.com/google/uuid"

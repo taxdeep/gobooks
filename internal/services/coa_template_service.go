@@ -4,7 +4,7 @@ package services
 import (
 	"fmt"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 
 	"gorm.io/gorm"
 )
@@ -86,7 +86,7 @@ const defaultTemplateName = "Canadian Default"
 
 // SeedDefaultCOATemplate ensures the default COA template exists in the database.
 // Idempotent: if a template with is_default=true already exists, it is a no-op.
-// Called once at startup from cmd/gobooks/main.go after db.Migrate.
+// Called once at startup from cmd/balanciz/main.go after db.Migrate.
 func SeedDefaultCOATemplate(db *gorm.DB) error {
 	var count int64
 	if err := db.Model(&models.COATemplate{}).Where("is_default = ?", true).Count(&count).Error; err != nil {

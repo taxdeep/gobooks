@@ -5,7 +5,7 @@
 
 ## ⚠️ Authority
 
-This template is the standard task wrapper for using Codex on Gobooks.
+This template is the standard task wrapper for using Codex on Balanciz.
 
 Priority order:
 
@@ -18,7 +18,7 @@ It standardizes how implementation, bug-fix, and review tasks should be given to
 
 # 1. Purpose
 
-Gobooks is not a generic CRUD app.
+Balanciz is not a generic CRUD app.
 
 It is:
 
@@ -41,7 +41,7 @@ Therefore, every Codex task must be:
 
 # 2. Universal Instructions for Codex
 
-Use these rules for every Gobooks task.
+Use these rules for every Balanciz task.
 
 ## 2.1 Core Rules
 
@@ -102,8 +102,8 @@ Every Codex task must return this structure unless explicitly told otherwise:
 
 Use this block in every task.
 
-## Gobooks Context
-- Gobooks is a strictly isolated multi-company accounting system
+## Balanciz Context
+- Balanciz is a strictly isolated multi-company accounting system
 - Backend is the accounting truth
 - Posting goes through the Posting Engine
 - FX is governed by snapshot semantics
@@ -135,11 +135,11 @@ Use this when implementing a feature or module that does not yet exist.
 
 ### Prompt Template
 
-You are implementing a new Gobooks feature in full-stack mode.
+You are implementing a new Balanciz feature in full-stack mode.
 
 This is a feature implementation task, not a cleanup task.
 
-Use the Gobooks Project Guide, Execution Summary, and Bug Fix Protocol as governing rules.
+Use the Balanciz Project Guide, Execution Summary, and Bug Fix Protocol as governing rules.
 
 ### Task
 [Describe the feature clearly]
@@ -180,7 +180,7 @@ Return:
 7. Tests to add
 8. Risks / fallbacks
 9. Code changes or patch output
-10. Final self-audit against Gobooks principles
+10. Final self-audit against Balanciz principles
 
 ### Completion gate
 Do not declare completion unless:
@@ -199,7 +199,7 @@ Use this when fixing a bug with the smallest safe change.
 
 ### Prompt Template
 
-You are fixing a Gobooks bug in surgical-fix mode.
+You are fixing a Balanciz bug in surgical-fix mode.
 
 This is NOT a refactor task.
 This is NOT a cleanup task.
@@ -269,7 +269,7 @@ Use this when most work is done and only a few known blockers remain.
 
 ### Prompt Template
 
-You are closing the remaining blockers for a Gobooks feature.
+You are closing the remaining blockers for a Balanciz feature.
 
 Do NOT redesign the whole feature again.
 Do NOT reopen already-fixed areas unless code directly contradicts the prior conclusion.
@@ -320,9 +320,9 @@ Use this when Codex is reviewing an implementation rather than writing one.
 
 ### Prompt Template
 
-You are the Gobooks implementation auditor.
+You are the Balanciz implementation auditor.
 
-Your job is to verify whether an implementation truly satisfies Gobooks rules.
+Your job is to verify whether an implementation truly satisfies Balanciz rules.
 
 Do not be lenient.
 Do not confuse “directionally correct” with “safe to merge”.
@@ -458,7 +458,7 @@ When giving a task to Codex, always attach this short repo context:
 - `PROJECT_GUIDE.md` is the supreme authority
 - `PROJECT_GUIDE_EXEC_SUMMARY.md` is the short execution companion
 - `BUG_FIX_PROTOCOL.md` governs bug safety
-- This task must follow the Gobooks principles:
+- This task must follow the Balanciz principles:
   - backend truth
   - company isolation
   - historical honesty

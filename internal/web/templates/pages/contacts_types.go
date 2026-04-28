@@ -3,8 +3,8 @@ package pages
 
 import (
 	"github.com/shopspring/decimal"
-	"gobooks/internal/models"
-	"gobooks/internal/services"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
 )
 
 type CustomersVM struct {

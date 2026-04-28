@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"gobooks/internal/models"
-	"gobooks/internal/services"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
 )
 
 func TestCustomersPageShowsBillableSummary(t *testing.T) {

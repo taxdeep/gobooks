@@ -3,9 +3,9 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 func returnStatusBadgeClass(s models.ARReturnStatus) string {
@@ -30,7 +30,7 @@ func returnStatusBadgeClass(s models.ARReturnStatus) string {
 
 templ Returns(vm ReturnsVM) {
 	@layout.Layout(
-		"GoBooks - AR Returns",
+		"Balanciz - AR Returns",
 		ui.SidebarVM{Active: "AR Returns", HasCompany: vm.HasCompany},
 		bodyReturns(vm),
 	)

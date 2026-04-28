@@ -30,7 +30,7 @@ const (
 
 // FXQuoteBasis indicates whether the rate expresses units of the quote currency
 // per unit of the base currency (direct) or the inverse (indirect).
-// GoBooks always stores rates as direct (1 foreign unit = X base units).
+// Balanciz always stores rates as direct (1 foreign unit = X base units).
 type FXQuoteBasis string
 
 const (
@@ -38,7 +38,7 @@ const (
 	FXQuoteBasisDirect FXQuoteBasis = "direct"
 
 	// FXQuoteBasisIndirect: rate = foreign units per 1 base unit (e.g. 1 CAD = 0.74 USD).
-	// Reserved; GoBooks normalises all rates to direct on ingestion.
+	// Reserved; Balanciz normalises all rates to direct on ingestion.
 	FXQuoteBasisIndirect FXQuoteBasis = "indirect"
 )
 

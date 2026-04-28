@@ -17,7 +17,7 @@ import (
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ── DB helper ─────────────────────────────────────────────────────────────────

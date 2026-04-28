@@ -9,12 +9,12 @@
 // work inside x-for).
 //
 // Usage in templ:
-//   x-data="gobooksItemPicker(line, idx, { context: 'invoice_line_item' })"
+//   x-data="balancizItemPicker(line, idx, { context: 'invoice_line_item' })"
 //
-// On select: writes to line, then dispatches "gobooks-item-picker-select"
+// On select: writes to line, then dispatches "balanciz-item-picker-select"
 // up so the parent editor can auto-fill description / unit price / tax code
 // via its existing onProductChange(idx, id, payload) logic.
-function gobooksItemPicker(line, idx, opts) {
+function balancizItemPicker(line, idx, opts) {
   opts = opts || {};
   return {
     line:        line,
@@ -61,7 +61,7 @@ function gobooksItemPicker(line, idx, opts) {
         const q = encodeURIComponent(this.query);
         const url = "/api/smart-picker/search?entity=" + encodeURIComponent(this.entity) +
                     "&context=" + encodeURIComponent(this.context) + "&q=" + q + "&limit=20";
-        const fetchFn = window.gobooksFetch || fetch;
+        const fetchFn = window.balancizFetch || fetch;
         const resp = await fetchFn(url);
         const data = await resp.json();
         if (seq !== this._fetchSeq) return;
@@ -104,7 +104,7 @@ function gobooksItemPicker(line, idx, opts) {
       this.highlighted = -1;
       // Bubble up so the parent editor can pre-fill description /
       // unit_price / tax_code from the chosen ProductService.
-      this.$dispatch("gobooks-item-picker-select", {
+      this.$dispatch("balanciz-item-picker-select", {
         idx:     this.idx,
         id:      String(item.id),
         payload: item.payload || {},
@@ -116,7 +116,7 @@ function gobooksItemPicker(line, idx, opts) {
       this.line.product_service_label = "";
       this.query = "";
       this.open  = false;
-      this.$dispatch("gobooks-item-picker-select", { idx: this.idx, id: "", payload: {} });
+      this.$dispatch("balanciz-item-picker-select", { idx: this.idx, id: "", payload: {} });
     },
 
     close() {

@@ -95,8 +95,8 @@ jobs:
 
       - name: Commit and push
         run: |
-          git config user.name  "GoBooks CI"
-          git config user.email "ci@gobooks.local"
+          git config user.name  "Balanciz CI"
+          git config user.email "ci@balanciz.local"
           git add internal/version/version.go
           # Only commit if there is an actual change
           if git diff --staged --quiet; then

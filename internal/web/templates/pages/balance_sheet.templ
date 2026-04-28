@@ -4,14 +4,14 @@ package pages
 import (
 	"time"
 
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ BalanceSheet(vm BalanceSheetVM) {
 	@layout.Layout(
-		"GoBooks - Balance Sheet",
+		"Balanciz - Balance Sheet",
 		ui.SidebarVM{Active: "Reports", HasCompany: vm.HasCompany},
 		bodyBalanceSheet(vm),
 	)

@@ -8,7 +8,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func TestQuoteReadOnlyLineItemsShowProductService(t *testing.T) {

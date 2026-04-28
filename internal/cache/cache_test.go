@@ -114,14 +114,14 @@ func TestTTLCache_PointerValues(t *testing.T) {
 	c := New[uint, *payload](1 * time.Minute)
 	defer c.Close()
 
-	p := &payload{Name: "GoBooks"}
+	p := &payload{Name: "Balanciz"}
 	c.Set(42, p)
 
 	got, ok := c.Get(42)
 	if !ok {
 		t.Fatal("expected pointer to be stored")
 	}
-	if got.Name != "GoBooks" {
+	if got.Name != "Balanciz" {
 		t.Fatalf("unexpected name %q", got.Name)
 	}
 }

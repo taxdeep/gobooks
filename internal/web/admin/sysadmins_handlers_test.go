@@ -14,8 +14,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
-	"gobooks/internal/config"
-	"gobooks/internal/models"
+	"balanciz/internal/config"
+	"balanciz/internal/models"
 )
 
 func testAdminDB(t *testing.T) *gorm.DB {

@@ -3,9 +3,9 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 	"github.com/shopspring/decimal"
 )
 
@@ -31,7 +31,7 @@ type GatewayPayoutDetailVM struct {
 }
 
 templ GatewayPayoutDetail(vm GatewayPayoutDetailVM) {
-	@layout.Layout("GoBooks - Payout Detail", ui.SidebarVM{Active: "Gateway Payouts", HasCompany: vm.HasCompany}, bodyGatewayPayoutDetail(vm))
+	@layout.Layout("Balanciz - Payout Detail", ui.SidebarVM{Active: "Gateway Payouts", HasCompany: vm.HasCompany}, bodyGatewayPayoutDetail(vm))
 }
 
 templ bodyGatewayPayoutDetail(vm GatewayPayoutDetailVM) {

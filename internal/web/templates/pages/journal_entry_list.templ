@@ -1,12 +1,12 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ JournalEntryList(vm JournalEntryListVM) {
 	@layout.Layout(
-		"GoBooks - Journal Entries",
+		"Balanciz - Journal Entries",
 		ui.SidebarVM{Active: "Journal Entry", HasCompany: vm.HasCompany},
 		bodyJournalList(vm),
 	)

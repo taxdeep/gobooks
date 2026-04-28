@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/web/templates/ui"
 )
 
 // compactLabelClass is the small uppercase label style for the QuickBooks-

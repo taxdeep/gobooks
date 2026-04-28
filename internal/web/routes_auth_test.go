@@ -14,9 +14,9 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"gobooks/internal/config"
-	"gobooks/internal/models"
-	"gobooks/internal/services"
+	"balanciz/internal/config"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
 )
 
 func testRouteDB(t *testing.T) *gorm.DB {

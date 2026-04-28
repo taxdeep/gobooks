@@ -39,7 +39,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ErrSourceTypeNotSupported is returned when a VoidDocument or ReverseDocument

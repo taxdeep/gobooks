@@ -2,9 +2,9 @@
 package pages
 
 import (
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // CashFlowVM is the view model for the Cash Flow Summary report.
@@ -19,7 +19,7 @@ type CashFlowVM struct {
 
 templ CashFlow(vm CashFlowVM) {
 	@layout.Layout(
-		"GoBooks - Cash Flow Summary",
+		"Balanciz - Cash Flow Summary",
 		ui.SidebarVM{Active: "Reports", HasCompany: vm.HasCompany},
 		bodyCashFlow(vm),
 	)

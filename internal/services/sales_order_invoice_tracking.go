@@ -69,7 +69,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // MatchInvoiceLinesToSalesOrder populates invoice_lines.sales_order_line_id

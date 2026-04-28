@@ -12,7 +12,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/xuri/excelize/v2"
 
-	"gobooks/internal/services/pdf"
+	"balanciz/internal/services/pdf"
 )
 
 // AccountTransactionsExportFilename returns an ASCII-safe filename for report exports.

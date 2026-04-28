@@ -219,7 +219,7 @@ function billEditor() {
           limit: "20",
           request_id: requestID,
         });
-        const fetchFn = window.gobooksFetch || fetch;
+        const fetchFn = window.balancizFetch || fetch;
         const resp = await fetchFn("/api/smart-picker/search?" + params.toString());
         const data = await resp.json();
         if (seq !== line.category_fetch_seq) return;
@@ -474,7 +474,7 @@ function billEditor() {
     },
 
     _sendCategoryUsage(eventType, extra) {
-      const fetchFn = window.gobooksFetch || fetch;
+      const fetchFn = window.balancizFetch || fetch;
       const payload = Object.assign({
         entity: "account",
         entity_type: "account",
@@ -640,7 +640,7 @@ function billEditor() {
   };
 }
 
-function gobooksVendorQuickCreate() {
+function balancizVendorQuickCreate() {
   return {
     drawerOpen: false,
     name: "",
@@ -708,7 +708,7 @@ function gobooksVendorQuickCreate() {
       if (hasErr) return;
       this.saving = true;
       try {
-        const fetchFn = window.gobooksFetch || fetch;
+        const fetchFn = window.balancizFetch || fetch;
         const body = {
           name,
           email: this.email.trim(),
@@ -732,7 +732,7 @@ function gobooksVendorQuickCreate() {
         }
         const pickerEl = document.querySelector('[data-context="bill.vendor_picker"]');
         if (pickerEl) {
-          pickerEl.dispatchEvent(new CustomEvent("gobooks-picker-set-value", {
+          pickerEl.dispatchEvent(new CustomEvent("balanciz-picker-set-value", {
             detail: {
               id: String(data.id),
               label: data.name,

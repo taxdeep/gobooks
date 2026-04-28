@@ -1,7 +1,7 @@
 // 遵循project_guide.md
 package admintmpl
 
-import "gobooks/internal/web/templates/pages"
+import "balanciz/internal/web/templates/pages"
 
 templ AdminSecurity(vm pages.SystemSecuritySettingsVM) {
 	@adminLayout("Security", vm.AdminEmail, "settings-security", vm.MaintenanceMode, bodyAdminSecurity(vm))

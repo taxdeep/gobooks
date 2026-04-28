@@ -1,6 +1,8 @@
-# GoBooks
+# Balanciz
 
 A structured, multi-company accounting system built with Go.
+
+Repository note: the canonical GitHub repository has moved to `https://github.com/taxdeep/Balanciz.git`. Older `balanciz` URLs may still redirect for now, but new clones and upgrade source trees should use `Balanciz.git`.
 
 Designed around a single principle: **correctness before convenience**. The posting engine enforces double-entry bookkeeping, the tax engine handles recoverability at the line level, and the reconciliation engine produces auditable suggestions — the user always has final authority.
 
@@ -42,7 +44,7 @@ See `RELEASE_NOTES_0.00.016.md` for the implementation record.
 
 ## AI Product Architecture
 
-GoBooks AI is governed by `AI_PRODUCT_ARCHITECTURE.md`.
+Balanciz AI is governed by `AI_PRODUCT_ARCHITECTURE.md`.
 
 The architecture separates four layers:
 
@@ -51,7 +53,7 @@ The architecture separates four layers:
 - AI Output Module: turns learning into recommendations, dashboard suggestions, tasks, insights, OCR output, and reviewable drafts.
 - AI Infrastructure Layer: owns AI Gateway, model routing, prompts, job runs, request logs, validation, traces, cost controls, and feature flags.
 
-Core rule: AI can assist, but GoBooks backend engines remain the accountant of record.
+Core rule: AI can assist, but Balanciz backend engines remain the accountant of record.
 
 ---
 
@@ -123,7 +125,7 @@ docker compose up --build
 
 Docker automatically:
 1. Waits for PostgreSQL to pass its health check
-2. Runs `gobooks-migrate` (GORM AutoMigrate + all SQL migrations) to completion
+2. Runs `balanciz-migrate` (GORM AutoMigrate + all SQL migrations) to completion
 3. Starts the application
 
 Open: [http://localhost:6768](http://localhost:6768)
@@ -165,7 +167,7 @@ npm run dev:css
 **4. Run migrations**
 
 ```bash
-go run ./cmd/gobooks-migrate
+go run ./cmd/balanciz-migrate
 ```
 
 Applies both GORM AutoMigrate and all SQL files in `migrations/`. Idempotent — safe to run repeatedly.
@@ -173,7 +175,7 @@ Applies both GORM AutoMigrate and all SQL files in `migrations/`. Idempotent —
 **5. Run the application**
 
 ```bash
-go run ./cmd/gobooks
+go run ./cmd/balanciz
 ```
 
 Open: [http://localhost:6768](http://localhost:6768)
@@ -186,19 +188,19 @@ Always run the migration binary before the application binary:
 
 ```bash
 # Step 1 — apply all migrations (exits 0 on success)
-./gobooks-migrate
+./balanciz-migrate
 
 # Step 2 — start the application
-./gobooks
+./balanciz
 ```
 
-With Kubernetes or a process manager, use `gobooks-migrate` as an init container or pre-start hook.
+With Kubernetes or a process manager, use `balanciz-migrate` as an init container or pre-start hook.
 
 ---
 
 ## Deploy on Ubuntu 24.04 (Bare Metal / VPS)
 
-A step-by-step guide for deploying GoBooks on a fresh Ubuntu 24.04 LTS server. Covers two paths:
+A step-by-step guide for deploying Balanciz on a fresh Ubuntu 24.04 LTS server. Covers two paths:
 - **Option A — Docker (recommended):** simplest setup, handles all dependencies
 - **Option B — Native build:** compile from source, run as systemd service
 
@@ -216,7 +218,7 @@ sudo apt install -y curl git ufw rsync
 
 ```bash
 sudo ufw allow OpenSSH
-sudo ufw allow 6768/tcp     # GoBooks port (or 80/443 if using reverse proxy)
+sudo ufw allow 6768/tcp     # Balanciz port (or 80/443 if using reverse proxy)
 sudo ufw enable
 ```
 
@@ -251,9 +253,9 @@ newgrp docker
 
 ```bash
 cd /opt
-sudo git clone https://github.com/your-org/gobooks.git
-sudo chown -R $USER:$USER /opt/gobooks
-cd /opt/gobooks
+sudo git clone https://github.com/taxdeep/Balanciz.git
+sudo chown -R $USER:$USER /opt/balanciz
+cd /opt/balanciz
 
 cp .env.example .env
 ```
@@ -265,9 +267,9 @@ APP_ENV=prod
 APP_ADDR=:6768
 DB_HOST=db
 DB_PORT=5432
-DB_USER=gobooks
+DB_USER=balanciz
 DB_PASSWORD=<strong-random-password>
-DB_NAME=gobooks
+DB_NAME=balanciz
 DB_SSLMODE=disable
 AI_SECRET_KEY=<base64-encoded-32-byte-key>   # optional, for AI features
 ```
@@ -280,8 +282,8 @@ docker compose up -d --build
 
 Docker will:
 1. Start PostgreSQL 16 and wait for health check
-2. Run `gobooks-migrate` (schema + SQL migrations)
-3. Start the GoBooks application
+2. Run `balanciz-migrate` (schema + SQL migrations)
+3. Start the Balanciz application
 
 Verify:
 
@@ -298,21 +300,21 @@ docker compose down              # Stop all services
 docker compose up -d             # Start (no rebuild)
 docker compose up -d --build     # Rebuild and start
 docker compose logs -f app       # Follow application logs
-docker compose exec db psql -U gobooks gobooks   # Database shell
+docker compose exec db psql -U balanciz balanciz   # Database shell
 ```
 
 **5. Data persistence**
 
-PostgreSQL data is stored in a Docker volume (`gobooks_pgdata`). To back up:
+PostgreSQL data is stored in a Docker volume (`balanciz_pgdata`). To back up:
 
 ```bash
-docker compose exec db pg_dump -U gobooks gobooks > backup_$(date +%Y%m%d).sql
+docker compose exec db pg_dump -U balanciz balanciz > backup_$(date +%Y%m%d).sql
 ```
 
 To restore:
 
 ```bash
-cat backup_20260330.sql | docker compose exec -T db psql -U gobooks gobooks
+cat backup_20260330.sql | docker compose exec -T db psql -U balanciz balanciz
 ```
 
 ---
@@ -323,8 +325,8 @@ cat backup_20260330.sql | docker compose exec -T db psql -U gobooks gobooks
 
 ```bash
 cd /opt
-sudo git clone https://github.com/imlei/gobooks.git
-cd /opt/gobooks
+sudo git clone https://github.com/taxdeep/Balanciz.git
+cd /opt/balanciz
 chmod +x install.sh
 # Interactive install
 sudo bash ./install.sh
@@ -335,25 +337,25 @@ sudo bash ./install.sh --defaults
 
 The install script will:
 1. Install Go, Node.js 20, PostgreSQL, Nginx, wkhtmltopdf, `rsync`, and other system dependencies
-2. Create the `gobooks` system user
+2. Create the `balanciz` system user
 3. Create the PostgreSQL role and database
 4. Build the Go binaries and Tailwind CSS bundle
-5. Write `/opt/gobooks/.env`
+5. Write `/opt/balanciz/.env`
 6. Run database migrations
-7. Install the `gobooks` systemd service
+7. Install the `balanciz` systemd service
 8. Configure Nginx on port 80
-9. Create a daily PostgreSQL backup cron job in `/var/backups/gobooks`
+9. Create a daily PostgreSQL backup cron job in `/var/backups/balanciz`
 
-For upgrades after that, use a freshly pulled source tree. Do not run upgrades from `/opt/gobooks` in place: `upgrade.sh` rebuilds whatever source tree you point it at, and it does not run `git pull` by itself.
+For upgrades after that, use a freshly pulled source tree. Do not run upgrades from `/opt/balanciz` in place: `upgrade.sh` rebuilds whatever source tree you point it at, and it does not run `git pull` by itself.
 
 ```bash
 cd /tmp
-rm -rf gobooks-latest
-git clone https://github.com/imlei/gobooks.git gobooks-latest
-cd /tmp/gobooks-latest
+rm -rf balanciz-latest
+git clone https://github.com/taxdeep/Balanciz.git balanciz-latest
+cd /tmp/balanciz-latest
 git checkout main
 git pull origin main
-sudo bash ./upgrade.sh /tmp/gobooks-latest
+sudo bash ./upgrade.sh /tmp/balanciz-latest
 ```
 
 During the upgrade, confirm the script prints both of these lines and that `Upgrade src` matches the version you expect:
@@ -390,13 +392,13 @@ sudo apt install -y postgresql postgresql-contrib
 
 # Create database and user
 sudo -u postgres psql <<SQL
-CREATE USER gobooks WITH PASSWORD '<strong-random-password>';
-CREATE DATABASE gobooks OWNER gobooks;
-GRANT ALL PRIVILEGES ON DATABASE gobooks TO gobooks;
+CREATE USER balanciz WITH PASSWORD '<strong-random-password>';
+CREATE DATABASE balanciz OWNER balanciz;
+GRANT ALL PRIVILEGES ON DATABASE balanciz TO balanciz;
 SQL
 
 # Verify connection
-psql -h localhost -U gobooks -d gobooks -c "SELECT 1;"
+psql -h localhost -U balanciz -d balanciz -c "SELECT 1;"
 ```
 
 **4. Install wkhtmltopdf (for PDF generation)**
@@ -410,17 +412,17 @@ wkhtmltopdf --version   # Should print 0.12.x
 
 ```bash
 cd /opt
-sudo git clone https://github.com/your-org/gobooks.git
-sudo chown -R $USER:$USER /opt/gobooks
-cd /opt/gobooks
+sudo git clone https://github.com/taxdeep/Balanciz.git
+sudo chown -R $USER:$USER /opt/balanciz
+cd /opt/balanciz
 
 # Install frontend dependencies and build CSS
 npm install
 npm run build:css
 
 # Build Go binaries
-CGO_ENABLED=0 go build -o ./bin/gobooks         ./cmd/gobooks
-CGO_ENABLED=0 go build -o ./bin/gobooks-migrate  ./cmd/gobooks-migrate
+CGO_ENABLED=0 go build -o ./bin/balanciz         ./cmd/balanciz
+CGO_ENABLED=0 go build -o ./bin/balanciz-migrate  ./cmd/balanciz-migrate
 ```
 
 **6. Configure environment**
@@ -436,35 +438,35 @@ APP_ENV=prod
 APP_ADDR=:6768
 DB_HOST=localhost
 DB_PORT=5432
-DB_USER=gobooks
+DB_USER=balanciz
 DB_PASSWORD=<strong-random-password>
-DB_NAME=gobooks
+DB_NAME=balanciz
 DB_SSLMODE=disable
 ```
 
 **7. Run migrations**
 
 ```bash
-./bin/gobooks-migrate
+./bin/balanciz-migrate
 ```
 
 **8. Create systemd service**
 
 ```bash
-sudo tee /etc/systemd/system/gobooks.service > /dev/null <<EOF
+sudo tee /etc/systemd/system/balanciz.service > /dev/null <<EOF
 [Unit]
-Description=GoBooks Accounting System
+Description=Balanciz Accounting System
 After=network.target postgresql.service
 Requires=postgresql.service
 
 [Service]
 Type=simple
-User=gobooks
-Group=gobooks
-WorkingDirectory=/opt/gobooks
-EnvironmentFile=/opt/gobooks/.env
-ExecStartPre=/opt/gobooks/bin/gobooks-migrate
-ExecStart=/opt/gobooks/bin/gobooks
+User=balanciz
+Group=balanciz
+WorkingDirectory=/opt/balanciz
+EnvironmentFile=/opt/balanciz/.env
+ExecStartPre=/opt/balanciz/bin/balanciz-migrate
+ExecStart=/opt/balanciz/bin/balanciz
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
@@ -474,7 +476,7 @@ StandardError=journal
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/gobooks/data
+ReadWritePaths=/opt/balanciz/data
 PrivateTmp=true
 
 [Install]
@@ -485,21 +487,21 @@ EOF
 Set ownership and create data directory:
 
 ```bash
-sudo mkdir -p /opt/gobooks/data
-sudo id gobooks >/dev/null 2>&1 || sudo useradd --system --no-create-home --shell /usr/sbin/nologin gobooks
-sudo chown -R gobooks:gobooks /opt/gobooks
+sudo mkdir -p /opt/balanciz/data
+sudo id balanciz >/dev/null 2>&1 || sudo useradd --system --no-create-home --shell /usr/sbin/nologin balanciz
+sudo chown -R balanciz:balanciz /opt/balanciz
 ```
 
 Enable and start:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable gobooks
-sudo systemctl start gobooks
+sudo systemctl enable balanciz
+sudo systemctl start balanciz
 
 # Check status
-sudo systemctl status gobooks
-sudo journalctl -u gobooks -f   # Follow logs
+sudo systemctl status balanciz
+sudo journalctl -u balanciz -f   # Follow logs
 ```
 
 ---
@@ -513,7 +515,7 @@ sudo apt install -y nginx
 Create site config:
 
 ```bash
-sudo tee /etc/nginx/sites-available/gobooks > /dev/null <<'EOF'
+sudo tee /etc/nginx/sites-available/balanciz > /dev/null <<'EOF'
 server {
     listen 80;
     server_name your-domain.com;
@@ -530,7 +532,7 @@ server {
 }
 EOF
 
-sudo ln -s /etc/nginx/sites-available/gobooks /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/balanciz /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 ```
@@ -563,31 +565,31 @@ Certbot will auto-configure Nginx for HTTPS and set up auto-renewal.
 **Automated daily backup (cron):**
 
 ```bash
-sudo tee /etc/cron.d/gobooks-backup > /dev/null <<EOF
-0 2 * * * postgres pg_dump gobooks | gzip > /var/backups/gobooks/gobooks_\$(date +\%Y\%m\%d).sql.gz
+sudo tee /etc/cron.d/balanciz-backup > /dev/null <<EOF
+0 2 * * * postgres pg_dump balanciz | gzip > /var/backups/balanciz/balanciz_\$(date +\%Y\%m\%d).sql.gz
 EOF
 
-sudo mkdir -p /var/backups/gobooks
-sudo chown postgres:postgres /var/backups/gobooks
+sudo mkdir -p /var/backups/balanciz
+sudo chown postgres:postgres /var/backups/balanciz
 ```
 
 **Restore from backup:**
 
 ```bash
-gunzip -c /var/backups/gobooks/gobooks_20260330.sql.gz | sudo -u postgres psql gobooks
+gunzip -c /var/backups/balanciz/balanciz_20260330.sql.gz | sudo -u postgres psql balanciz
 ```
 
 ### Upgrading
 
 ```bash
-# Native deployment: upgrade from a fresh source tree, not from /opt/gobooks
+# Native deployment: upgrade from a fresh source tree, not from /opt/balanciz
 cd /tmp
-rm -rf gobooks-latest
-git clone https://github.com/imlei/gobooks.git gobooks-latest
-cd /tmp/gobooks-latest
+rm -rf balanciz-latest
+git clone https://github.com/taxdeep/Balanciz.git balanciz-latest
+cd /tmp/balanciz-latest
 git checkout main
 git pull origin main
-sudo bash ./upgrade.sh /tmp/gobooks-latest
+sudo bash ./upgrade.sh /tmp/balanciz-latest
 
 # Docker deployment: rebuild from the latest checked-out repo
 docker compose up -d --build
@@ -599,14 +601,14 @@ docker compose up -d --build
 
 ## Migration Strategy
 
-GoBooks uses a two-phase explicit migration model:
+Balanciz uses a two-phase explicit migration model:
 
 | Phase | Tool | What it does |
 |-------|------|-------------|
 | 1 — GORM AutoMigrate | `db.Migrate()` | Creates/alters tables based on model structs (never drops columns) |
 | 2 — SQL file migrations | `db.ApplySQLMigrations()` | Applies `migrations/*.sql` files tracked in `schema_migrations` |
 
-`cmd/gobooks-migrate` runs both phases in order and is the canonical migration entry point. The app server runs Phase 1 only on startup as a local-dev safety net; SQL migrations must be applied separately in production.
+`cmd/balanciz-migrate` runs both phases in order and is the canonical migration entry point. The app server runs Phase 1 only on startup as a local-dev safety net; SQL migrations must be applied separately in production.
 
 ---
 
@@ -617,11 +619,11 @@ GoBooks uses a two-phase explicit migration model:
 | Start full stack (Docker) | `docker compose up --build` |
 | Stop stack | `docker compose down` |
 | Run migrations only (Docker) | `docker compose run --rm migrate` |
-| Run migrations (local) | `go run ./cmd/gobooks-migrate` |
-| Run app (local) | `go run ./cmd/gobooks` |
+| Run migrations (local) | `go run ./cmd/balanciz-migrate` |
+| Run app (local) | `go run ./cmd/balanciz` |
 | Build CSS once | `npm run build:css` |
 | Watch CSS | `npm run dev:css` |
-| Reset dev DB | `go run ./cmd/gobooks-reset` |
+| Reset dev DB | `go run ./cmd/balanciz-reset` |
 
 ---
 
@@ -635,7 +637,7 @@ GoBooks uses a two-phase explicit migration model:
 
 **Page has no styles** — Run `npm run build:css`.
 
-**Migration error on startup** — Run `go run ./cmd/gobooks-migrate` manually and inspect the output. The app server only runs Phase 1; SQL migrations may be pending.
+**Migration error on startup** — Run `go run ./cmd/balanciz-migrate` manually and inspect the output. The app server only runs Phase 1; SQL migrations may be pending.
 
 ---
 
@@ -643,10 +645,10 @@ GoBooks uses a two-phase explicit migration model:
 
 **SPDX-License-Identifier: AGPL-3.0-only**
 
-GoBooks is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See [`LICENSE.md`](LICENSE.md) for the full text.
+Balanciz is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See [`LICENSE.md`](LICENSE.md) for the full text.
 
 - You are free to use, modify, and distribute this software.
-- If you run a modified version of GoBooks as a network service, you must make the source code of your modifications available to users.
+- If you run a modified version of Balanciz as a network service, you must make the source code of your modifications available to users.
 
 ### Commercial License
 

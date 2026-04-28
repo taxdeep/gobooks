@@ -10,7 +10,7 @@ package admintmpl
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "gobooks/internal/web/templates/pages"
+import "balanciz/internal/web/templates/pages"
 
 func AdminSecurity(vm pages.SystemSecuritySettingsVM) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {

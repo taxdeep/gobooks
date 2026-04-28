@@ -7,8 +7,8 @@ import (
 	"log"
 	"os"
 
-	"gobooks/internal/config"
-	"gobooks/internal/db"
+	"balanciz/internal/config"
+	"balanciz/internal/db"
 )
 
 func main() {

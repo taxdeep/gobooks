@@ -57,7 +57,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ErrBillNotDraft is returned when posting is attempted on a non-draft bill.

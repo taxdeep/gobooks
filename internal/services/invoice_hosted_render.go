@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/shopspring/decimal"
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // HostedPageMeta carries runtime metadata for the customer-facing hosted invoice page.

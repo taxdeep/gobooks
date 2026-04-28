@@ -7,7 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/services/search_engine"
+	"balanciz/internal/services/search_engine"
 )
 
 // globalSearchResponse is the JSON shape returned from /api/global-search.

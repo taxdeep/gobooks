@@ -42,8 +42,8 @@ import (
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
 )
 
 // ── DB helper ─────────────────────────────────────────────────────────────────

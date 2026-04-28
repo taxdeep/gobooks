@@ -10,8 +10,8 @@ package pages
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 func CompanyNotificationSettings(vm CompanyNotificationSettingsVM) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -35,7 +35,7 @@ func CompanyNotificationSettings(vm CompanyNotificationSettingsVM) templ.Compone
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Notifications",
+			"Balanciz - Notifications",
 			ui.SidebarVM{Active: "Company Hub", HasCompany: vm.HasCompany},
 			bodyCompanyNotificationSettings(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -262,7 +262,7 @@ func bodyCompanyNotificationSettings(vm CompanyNotificationSettingsVM) templ.Com
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = notifTextField("From Name", "smtp_from_name", vm.SMTPFromName, "GoBooks").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = notifTextField("From Name", "smtp_from_name", vm.SMTPFromName, "Balanciz").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -384,7 +384,7 @@ func bodyCompanyNotificationSettings(vm CompanyNotificationSettingsVM) templ.Com
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = notifTextField("Sender ID / From Number", "sms_sender_id", vm.SMSSenderID, "e.g. +1 555-000-0000 or GoBooks").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = notifTextField("Sender ID / From Number", "sms_sender_id", vm.SMSSenderID, "e.g. +1 555-000-0000 or Balanciz").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

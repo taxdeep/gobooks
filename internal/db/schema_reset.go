@@ -57,7 +57,7 @@ DROP TABLE IF EXISTS
 CASCADE;
 `
 
-// DropAllApplicationObjects removes all GoBooks-owned tables in the current schema, then drops the
+// DropAllApplicationObjects removes all Balanciz-owned tables in the current schema, then drops the
 // Phase-1 enum company_role if present. Intended for development DBs when AutoMigrate must recreate
 // a clean schema (no UI changes; same connection as the app).
 func DropAllApplicationObjects(db *gorm.DB) error {

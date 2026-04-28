@@ -3,7 +3,7 @@ package pages
 
 import (
 	"github.com/shopspring/decimal"
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ── Payout reconciliation overview VM ────────────────────────────────────────

@@ -1,12 +1,12 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ Bootstrap(vm BootstrapViewModel) {
 	@layout.Layout(
-		"GoBooks - Bootstrap",
+		"Balanciz - Bootstrap",
 		ui.SidebarVM{Active: "Setup", HasCompany: false},
 		bodyBootstrap(vm),
 	)
@@ -15,7 +15,7 @@ templ Bootstrap(vm BootstrapViewModel) {
 templ bodyBootstrap(vm BootstrapViewModel) {
 	@setupFormScripts()
 	<div class="max-w-[95%]">
-		<h1 class="text-title font-semibold">Bootstrap GoBooks</h1>
+		<h1 class="text-title font-semibold">Bootstrap Balanciz</h1>
 		<p class="mt-2 text-text-muted2">
 			Create the first owner account and company. This page is only available on an empty database.
 		</p>

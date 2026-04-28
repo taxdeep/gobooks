@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/shopspring/decimal"
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func testRenderData() InvoiceRenderData {
@@ -17,7 +17,7 @@ func testRenderData() InvoiceRenderData {
 		CustomerName:    "ACME Corp",
 		CustomerEmail:   "billing@acme.com",
 		CustomerAddress: "123 Main St, Toronto, ON",
-		CompanyName:     "GoBooks Inc",
+		CompanyName:     "Balanciz Inc",
 		CompanyAddress:  "456 Bay St\nToronto, ON M5J 2T3",
 		Lines: []InvoiceLineRender{
 			{
@@ -49,7 +49,7 @@ func TestRenderInvoiceToHTML_ClassicTemplate(t *testing.T) {
 	checks := []string{
 		"INV-001",
 		"ACME Corp",
-		"GoBooks Inc",
+		"Balanciz Inc",
 		"Consulting Services",
 		"$2,100.00", // Nope, our format is $2100.00
 		"INVOICE",
@@ -60,7 +60,7 @@ func TestRenderInvoiceToHTML_ClassicTemplate(t *testing.T) {
 	checks = []string{
 		"INV-001",
 		"ACME Corp",
-		"GoBooks Inc",
+		"Balanciz Inc",
 		"Consulting Services",
 		"$2100.00",
 		"INVOICE",

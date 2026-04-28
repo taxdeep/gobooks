@@ -11,9 +11,9 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 func SalesTransactions(vm SalesTxVM) templ.Component {
@@ -38,7 +38,7 @@ func SalesTransactions(vm SalesTxVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Sales Transactions",
+			"Balanciz - Sales Transactions",
 			ui.SidebarVM{Active: "Sales Transactions", HasCompany: vm.HasCompany},
 			bodySalesTransactions(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

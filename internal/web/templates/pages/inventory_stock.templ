@@ -3,15 +3,15 @@ package pages
 
 import (
 	"github.com/shopspring/decimal"
-	"gobooks/internal/models"
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ InventoryStock(vm StockReportVM) {
 	@layout.Layout(
-		"GoBooks - Stock Report",
+		"Balanciz - Stock Report",
 		ui.SidebarVM{Active: "Stock Report", HasCompany: vm.HasCompany},
 		bodyInventoryStock(vm),
 	)

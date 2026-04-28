@@ -10,7 +10,7 @@ package pages
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/ui"
 
 // fieldError renders the standard inline error message under a form field.
 // Empty string is a no-op so callers can pass through VM error fields without

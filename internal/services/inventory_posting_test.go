@@ -12,8 +12,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services/inventory"
+	"balanciz/internal/models"
+	"balanciz/internal/services/inventory"
 )
 
 func testInventoryPostingDB(t *testing.T) *gorm.DB {

@@ -1,7 +1,7 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/models"
+import "balanciz/internal/models"
 
 // AccountingMappingsVM is the view-model for the channel accounting mappings page.
 type AccountingMappingsVM struct {

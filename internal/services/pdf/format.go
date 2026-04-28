@@ -5,7 +5,7 @@ import (
 	"html"
 	"strings"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // format.go — string formatters used by the renderer when expanding

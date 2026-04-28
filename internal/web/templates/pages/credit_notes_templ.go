@@ -11,10 +11,10 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
 	"time"
 )
 
@@ -62,7 +62,7 @@ func CreditNotesList(vm CreditNotesListVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Credit Notes",
+			"Balanciz - Credit Notes",
 			ui.SidebarVM{Active: "Credit Notes", HasCompany: vm.HasCompany},
 			bodyCreditNotesList(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -237,7 +237,7 @@ func CreditNoteDetail(vm CreditNoteDetailVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Credit Note",
+			"Balanciz - Credit Note",
 			ui.SidebarVM{Active: "Credit Notes", HasCompany: vm.HasCompany},
 			bodyCreditNoteDetail(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -920,7 +920,7 @@ func CreditNoteForm(vm CreditNoteFormVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - New Credit Note",
+			"Balanciz - New Credit Note",
 			ui.SidebarVM{Active: "Credit Notes", HasCompany: vm.HasCompany},
 			bodyCreditNoteForm(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

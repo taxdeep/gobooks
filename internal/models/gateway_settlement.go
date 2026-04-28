@@ -30,7 +30,7 @@ import (
 )
 
 // GatewaySettlement is the bridge record that links a verified hosted payment
-// (gateway-side truth) to its accounting settlement (Gobooks-side truth).
+// (gateway-side truth) to its accounting settlement (Balanciz-side truth).
 //
 // Created atomically alongside the journal entry and invoice balance update.
 // One row per HostedPaymentAttempt (enforced by uniqueIndex:uq_gw_settle_attempt).

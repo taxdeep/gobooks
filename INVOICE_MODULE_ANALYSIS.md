@@ -1,4 +1,4 @@
-# Gobooks Invoice Module — 深度分析 & Implementation Plan
+# Balanciz Invoice Module — 深度分析 & Implementation Plan
 
 **日期**: 2026-03-30  
 **范围**: 完整 Invoice 模块（从已有代码出发，非从零开始）  
@@ -681,7 +681,7 @@ Week 2 (Phase 3 + 4):
 
 ## 🎯 总结
 
-**Gobooks Invoice 模块是可以在满足以下条件下完全实现的**:
+**Balanciz Invoice 模块是可以在满足以下条件下完全实现的**:
 
 1. ✅ **已有强大的 posting 引擎** → 不需重写 JE 逻辑
 2. ✅ **已有 company 隔离** → 数据安全 OK

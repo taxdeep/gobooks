@@ -6,7 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/services"
+	"balanciz/internal/services"
 )
 
 // handleAccountRecommendations POST /api/accounts/recommendations — unified account recommendations (rule-only by default; set "enhance": true for optional AI).

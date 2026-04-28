@@ -35,7 +35,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func TestIssueVendorReturn_HappyPath_TracedCostNotAverage(t *testing.T) {

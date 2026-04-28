@@ -3,16 +3,16 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // VendorCredits — the AP-side mirror of CustomerCredits. Consolidated view
 // of every open credit note + refund history for a single vendor.
 templ VendorCredits(vm VendorCreditsVM) {
 	@layout.Layout(
-		"GoBooks - Vendor Credits",
+		"Balanciz - Vendor Credits",
 		ui.SidebarVM{Active: "Vendors", HasCompany: vm.HasCompany},
 		bodyVendorCredits(vm),
 	)

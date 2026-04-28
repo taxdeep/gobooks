@@ -11,9 +11,9 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // ── Exception list page ───────────────────────────────────────────────────────
@@ -38,7 +38,7 @@ func ReconciliationExceptionList(vm ReconciliationExceptionListVM) templ.Compone
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = layout.Layout("GoBooks - Reconciliation Exceptions", ui.SidebarVM{Active: "Recon Exceptions", HasCompany: vm.HasCompany}, bodyReconciliationExceptionList(vm)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout.Layout("Balanciz - Reconciliation Exceptions", ui.SidebarVM{Active: "Recon Exceptions", HasCompany: vm.HasCompany}, bodyReconciliationExceptionList(vm)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -216,7 +216,7 @@ func ReconciliationExceptionDetail(vm ReconciliationExceptionDetailVM) templ.Com
 			templ_7745c5c3_Var8 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = layout.Layout("GoBooks - Exception Detail", ui.SidebarVM{Active: "Recon Exceptions", HasCompany: vm.HasCompany}, bodyReconciliationExceptionDetail(vm)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout.Layout("Balanciz - Exception Detail", ui.SidebarVM{Active: "Recon Exceptions", HasCompany: vm.HasCompany}, bodyReconciliationExceptionDetail(vm)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1051,7 +1051,7 @@ func ReconciliationExceptionNew(vm ReconciliationExceptionNewVM) templ.Component
 			templ_7745c5c3_Var50 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = layout.Layout("GoBooks - File Exception", ui.SidebarVM{Active: "Recon Exceptions", HasCompany: vm.HasCompany}, bodyReconciliationExceptionNew(vm)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout.Layout("Balanciz - File Exception", ui.SidebarVM{Active: "Recon Exceptions", HasCompany: vm.HasCompany}, bodyReconciliationExceptionNew(vm)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

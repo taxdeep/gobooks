@@ -6,8 +6,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/web/admin"
-	"gobooks/internal/web/setup"
+	"balanciz/internal/web/admin"
+	"balanciz/internal/web/setup"
 )
 
 func (s *Server) registerMiddleware(app *fiber.App) {
@@ -42,7 +42,7 @@ func (s *Server) registerMiddleware(app *fiber.App) {
 			return c.Next()
 		}
 		c.Status(fiber.StatusServiceUnavailable)
-		return c.SendString("GoBooks is currently under maintenance. Please check back shortly.")
+		return c.SendString("Balanciz is currently under maintenance. Please check back shortly.")
 	})
 
 	// Force first-time setup if no company exists yet.

@@ -22,7 +22,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // mustTime parses a "2006-01-02" date string; fatal on error.

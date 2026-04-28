@@ -6,7 +6,7 @@
 // groups; Enter navigates; Esc closes; Cmd/Ctrl-K focuses from anywhere.
 //
 // Wiring:
-//   <input x-data="gobooksGlobalSearch()" ... />
+//   <input x-data="balancizGlobalSearch()" ... />
 // (See layout.templ for the canonical markup.)
 //
 // Backend contract (see internal/web/global_search_handler.go):
@@ -15,7 +15,7 @@
 //                   action_kind, url, entity_type, payload}, ...],
 //     source: "ranked" | "recent" | "legacy_empty",
 //     mode:   "ent" | "legacy" | "dual" }
-function gobooksGlobalSearch() {
+function balancizGlobalSearch() {
   return {
     query: "",
     open: false,
@@ -87,7 +87,7 @@ function gobooksGlobalSearch() {
       try {
         const q = encodeURIComponent(this.query);
         const url = "/api/global-search?q=" + q + "&limit=20";
-        const fetchFn = window.gobooksFetch || fetch;
+        const fetchFn = window.balancizFetch || fetch;
         const resp = await fetchFn(url);
         const data = await resp.json();
         // Last-write-wins guard: drop stale responses.

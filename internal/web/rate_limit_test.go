@@ -12,8 +12,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services/search_engine"
+	"balanciz/internal/models"
+	"balanciz/internal/services/search_engine"
 )
 
 // newGlobalSearchLimiterApp wires an app with the limiter middleware +

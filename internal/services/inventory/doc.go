@@ -1,6 +1,6 @@
 // 遵循project_guide.md
 //
-// Package inventory is GoBooks' inventory bounded context.
+// Package inventory is Balanciz' inventory bounded context.
 //
 // The package is the single writer and authoritative reader for stock
 // quantities and costs. Other modules (AP / AR / GL) do not touch

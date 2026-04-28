@@ -11,10 +11,10 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
 )
 
 func CompanyPaymentTerms(vm PaymentTermsVM) templ.Component {
@@ -39,7 +39,7 @@ func CompanyPaymentTerms(vm PaymentTermsVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Payment Terms",
+			"Balanciz - Payment Terms",
 			ui.SidebarVM{Active: "Company Payment Terms", HasCompany: vm.HasCompany},
 			bodyCompanyPaymentTerms(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

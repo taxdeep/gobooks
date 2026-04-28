@@ -1,8 +1,8 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 // customerNewCurrencyOptions converts the VM currency list to SelectOption slice.
 func customerNewCurrencyOptions(vm CustomerNewVM) []ui.SelectOption {
@@ -15,7 +15,7 @@ func customerNewCurrencyOptions(vm CustomerNewVM) []ui.SelectOption {
 
 templ CustomerNew(vm CustomerNewVM) {
 	@layout.Layout(
-		"GoBooks - New Customer",
+		"Balanciz - New Customer",
 		ui.SidebarVM{Active: "Customers", HasCompany: vm.HasCompany},
 		bodyCustomerNew(vm),
 	)

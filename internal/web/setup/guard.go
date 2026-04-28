@@ -4,7 +4,7 @@ package setup
 import (
 	"strings"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"

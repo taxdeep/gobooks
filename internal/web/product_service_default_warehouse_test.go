@@ -16,7 +16,7 @@ import (
 	"net/url"
 	"testing"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // TestProductServiceCreate_PS1_AutoCreatesDefaultWarehouse_OnStockItem

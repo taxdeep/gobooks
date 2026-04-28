@@ -2,16 +2,16 @@
 package pages
 
 import (
-	"gobooks/internal/models"
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // ── Exception list page ───────────────────────────────────────────────────────
 
 templ PaymentReverseExceptionList(vm PaymentReverseExceptionListVM) {
-	@layout.Layout("GoBooks - Payment Reverse Exceptions", ui.SidebarVM{Active: "Payment Gateways", HasCompany: vm.HasCompany}, bodyPaymentReverseExceptionList(vm))
+	@layout.Layout("Balanciz - Payment Reverse Exceptions", ui.SidebarVM{Active: "Payment Gateways", HasCompany: vm.HasCompany}, bodyPaymentReverseExceptionList(vm))
 }
 
 templ bodyPaymentReverseExceptionList(vm PaymentReverseExceptionListVM) {
@@ -89,7 +89,7 @@ templ bodyPaymentReverseExceptionList(vm PaymentReverseExceptionListVM) {
 // ── Exception detail page ─────────────────────────────────────────────────────
 
 templ PaymentReverseExceptionDetail(vm PaymentReverseExceptionDetailVM) {
-	@layout.Layout("GoBooks - Reverse Exception Detail", ui.SidebarVM{Active: "Payment Gateways", HasCompany: vm.HasCompany}, bodyPaymentReverseExceptionDetail(vm))
+	@layout.Layout("Balanciz - Reverse Exception Detail", ui.SidebarVM{Active: "Payment Gateways", HasCompany: vm.HasCompany}, bodyPaymentReverseExceptionDetail(vm))
 }
 
 templ bodyPaymentReverseExceptionDetail(vm PaymentReverseExceptionDetailVM) {

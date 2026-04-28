@@ -6,7 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/services"
+	"balanciz/internal/services"
 )
 
 // handleAIRecommendAccount POST /api/ai/recommend/account — deprecated alias: same as POST /api/accounts/recommendations with "enhance": true.

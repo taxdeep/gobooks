@@ -39,7 +39,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ErrCreditNoteNotDraft is returned when posting is attempted on a non-draft credit note.

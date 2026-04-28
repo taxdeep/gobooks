@@ -12,7 +12,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // A tracked TransferStock fails at the IssueStock leg because the

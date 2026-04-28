@@ -11,10 +11,10 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
 )
 
 func vpStatusBadgeClass(s models.VendorPrepaymentStatus) string {
@@ -55,7 +55,7 @@ func VendorPrepayments(vm VendorPrepaymentsVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Vendor Prepayments",
+			"Balanciz - Vendor Prepayments",
 			ui.SidebarVM{Active: "Vendor Prepayments", HasCompany: vm.HasCompany},
 			bodyVendorPrepayments(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

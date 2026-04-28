@@ -3,7 +3,7 @@ package services
 import (
 	"time"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 type InvoiceAgingBucket string

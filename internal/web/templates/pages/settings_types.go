@@ -1,7 +1,7 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/models"
+import "balanciz/internal/models"
 
 // SettingsBreadcrumbPart is a segment for settings sub-pages (Settings / Company / …).
 type SettingsBreadcrumbPart struct {

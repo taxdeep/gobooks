@@ -66,7 +66,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // Rule4DocumentType is a string literal naming the source_type this

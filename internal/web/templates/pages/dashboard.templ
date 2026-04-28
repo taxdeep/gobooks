@@ -1,12 +1,12 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ Dashboard(vm DashboardVM) {
 	@layout.Layout(
-		"GoBooks - Dashboard",
+		"Balanciz - Dashboard",
 		ui.SidebarVM{Active: "Dashboard", HasCompany: vm.HasCompany},
 		bodyDashboard(vm),
 	)

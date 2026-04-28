@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	"gobooks/internal/logging"
+	"balanciz/internal/logging"
 
 	"github.com/gofiber/fiber/v2"
 )

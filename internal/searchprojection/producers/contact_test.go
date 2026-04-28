@@ -11,8 +11,8 @@ import (
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
-	"gobooks/internal/searchprojection"
+	"balanciz/internal/models"
+	"balanciz/internal/searchprojection"
 )
 
 // recordingProjector captures every Upsert / Delete call so tests can

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"gobooks/internal/searchprojection"
+	"balanciz/internal/searchprojection"
 )
 
 // TestAllFamilies_Coverage locks the 19-entity family set so a future

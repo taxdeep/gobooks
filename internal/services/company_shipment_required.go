@@ -31,7 +31,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ChangeCompanyShipmentRequiredInput is the input to the rail flip.

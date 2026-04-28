@@ -30,7 +30,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ── Confidence tiers ──────────────────────────────────────────────────────────

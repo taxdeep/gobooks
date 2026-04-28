@@ -15,9 +15,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // ── View models ──────────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ type ARReturnReceiptFormVM struct {
 
 templ ARReturnReceiptsList(vm ARReturnReceiptsListVM) {
 	@layout.Layout(
-		"GoBooks - Return Receipts",
+		"Balanciz - Return Receipts",
 		ui.SidebarVM{Active: "Return Receipts", HasCompany: vm.HasCompany},
 		bodyARReturnReceiptsList(vm),
 	)
@@ -148,7 +148,7 @@ templ bodyARReturnReceiptsList(vm ARReturnReceiptsListVM) {
 
 templ ARReturnReceiptDetail(vm ARReturnReceiptDetailVM) {
 	@layout.Layout(
-		"GoBooks - Return Receipt",
+		"Balanciz - Return Receipt",
 		ui.SidebarVM{Active: "Return Receipts", HasCompany: vm.HasCompany},
 		bodyARReturnReceiptDetail(vm),
 	)
@@ -316,7 +316,7 @@ templ bodyARReturnReceiptDetail(vm ARReturnReceiptDetailVM) {
 
 templ ARReturnReceiptForm(vm ARReturnReceiptFormVM) {
 	@layout.Layout(
-		"GoBooks - New Return Receipt",
+		"Balanciz - New Return Receipt",
 		ui.SidebarVM{Active: "Return Receipts", HasCompany: vm.HasCompany},
 		bodyARReturnReceiptForm(vm),
 	)

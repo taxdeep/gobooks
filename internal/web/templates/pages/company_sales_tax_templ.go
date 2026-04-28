@@ -11,11 +11,11 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 	"fmt"
 	"github.com/shopspring/decimal"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
 )
 
 func CompanySalesTax(vm SalesTaxVM) templ.Component {
@@ -40,7 +40,7 @@ func CompanySalesTax(vm SalesTaxVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Sales Tax",
+			"Balanciz - Sales Tax",
 			ui.SidebarVM{Active: "Company Sales Tax", HasCompany: vm.HasCompany},
 			bodyCompanySalesTax(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

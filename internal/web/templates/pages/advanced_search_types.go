@@ -2,7 +2,7 @@
 package pages
 
 import (
-	"gobooks/internal/services/search_engine"
+	"balanciz/internal/services/search_engine"
 )
 
 // AdvancedSearchVM is the view model for the /advanced-search page.

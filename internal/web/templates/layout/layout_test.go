@@ -8,7 +8,7 @@ import (
 
 	"github.com/a-h/templ"
 
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/web/templates/ui"
 )
 
 type fakeUserValueContext struct {
@@ -46,8 +46,8 @@ func TestLayout_UsesSmartPickerV8(t *testing.T) {
 	if !strings.Contains(html, `/static/smart_picker.js?v=9`) {
 		t.Fatalf("expected main layout to reference smart_picker.js?v=9, got %q", html)
 	}
-	if !strings.Contains(html, `window.gobooksFetch`) {
-		t.Fatalf("expected main layout to expose gobooksFetch, got %q", html)
+	if !strings.Contains(html, `window.balancizFetch`) {
+		t.Fatalf("expected main layout to expose balancizFetch, got %q", html)
 	}
 }
 
@@ -56,8 +56,8 @@ func TestLayoutAuth_UsesSmartPickerV8(t *testing.T) {
 	if !strings.Contains(html, `/static/smart_picker.js?v=9`) {
 		t.Fatalf("expected auth layout to reference smart_picker.js?v=9, got %q", html)
 	}
-	if !strings.Contains(html, `window.gobooksFetch`) {
-		t.Fatalf("expected auth layout to expose gobooksFetch, got %q", html)
+	if !strings.Contains(html, `window.balancizFetch`) {
+		t.Fatalf("expected auth layout to expose balancizFetch, got %q", html)
 	}
 }
 

@@ -46,7 +46,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ReconcileReport describes one (company, item, warehouse) cell's FIFO

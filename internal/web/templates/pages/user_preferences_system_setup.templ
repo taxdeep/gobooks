@@ -2,14 +2,14 @@
 package pages
 
 import (
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ UserPrefSystemSetup(vm UserPrefSystemSetupVM) {
 	@layout.Layout(
-		"GoBooks - System Setup",
+		"Balanciz - System Setup",
 		ui.SidebarVM{Active: "User Preferences System Setup", HasCompany: vm.HasCompany},
 		bodyUserPrefSystemSetup(vm),
 	)

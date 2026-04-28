@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"gobooks/internal/services"
+	"balanciz/internal/services"
 )
 
 func csvFilename(reportType string) string {
-	return fmt.Sprintf("gobooks_%s_%s.csv", reportType, time.Now().Format("20060102_150405"))
+	return fmt.Sprintf("balanciz_%s_%s.csv", reportType, time.Now().Format("20060102_150405"))
 }
 
 func setCsvHeaders(c *fiber.Ctx, filename string) {

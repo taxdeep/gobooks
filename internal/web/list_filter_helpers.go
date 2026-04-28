@@ -7,7 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // normaliseStockLevel is the validation guard for the Products &

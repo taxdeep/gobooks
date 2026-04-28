@@ -13,7 +13,7 @@
 // spread operator and layers editor-specific state + methods on top:
 //
 //   function invoiceEditor() {
-//     return Object.assign(gobooksLineItems({
+//     return Object.assign(balancizLineItems({
 //       defaults: { product_service_id: "", description: "", qty: "1", ... },
 //       isLineComplete: (l) => l.product_service_id && l.qty && l.unit_price,
 //     }), {
@@ -30,7 +30,7 @@
 //
 // Callers that need custom post-remove behaviour (e.g. clearing related state
 // when the last row is removed) should override _onRemove(idx, removed).
-function gobooksLineItems(config) {
+function balancizLineItems(config) {
   config = config || {};
   return {
     lines: [],

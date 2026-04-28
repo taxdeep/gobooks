@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ── Tests: Email Body Templates ────────────────────────────────────────────────

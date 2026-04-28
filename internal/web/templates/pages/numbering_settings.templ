@@ -1,13 +1,13 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/numbering"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/numbering"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ NumberingSettings(vm NumberingSettingsVM) {
 	@layout.Layout(
-		"GoBooks - Numbering",
+		"Balanciz - Numbering",
 		ui.SidebarVM{Active: "Company Numbering", HasCompany: vm.HasCompany},
 		bodyNumberingSettings(vm),
 	)
@@ -72,7 +72,7 @@ templ bodyNumberingSettings(vm NumberingSettingsVM) {
 											value={ r.Prefix }
 											autocomplete="off"
 											class="w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
-											oninput="window.gobooksNumberingPreviewRow(this.closest('tr'))"
+											oninput="window.balancizNumberingPreviewRow(this.closest('tr'))"
 										/>
 									</td>
 									<td class="py-4 pr-4">
@@ -83,7 +83,7 @@ templ bodyNumberingSettings(vm NumberingSettingsVM) {
 											min="0"
 											step="1"
 											class="w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
-											oninput="window.gobooksNumberingPreviewRow(this.closest('tr'))"
+											oninput="window.balancizNumberingPreviewRow(this.closest('tr'))"
 										/>
 									</td>
 									<td class="py-4 pr-4">
@@ -95,7 +95,7 @@ templ bodyNumberingSettings(vm NumberingSettingsVM) {
 											max="20"
 											step="1"
 											class="w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus"
-											oninput="window.gobooksNumberingPreviewRow(this.closest('tr'))"
+											oninput="window.balancizNumberingPreviewRow(this.closest('tr'))"
 										/>
 									</td>
 									<td class="py-4 pr-4">
@@ -135,14 +135,14 @@ templ bodyNumberingSettings(vm NumberingSettingsVM) {
 		</form>
 
 		<script>
-			function gobooksPadNumber(n, pad) {
+			function balancizPadNumber(n, pad) {
 				const i = parseInt(n, 10);
 				if (Number.isNaN(i) || i < 0) return "0";
 				const p = Math.max(0, Math.min(20, parseInt(pad, 10) || 0));
 				if (p <= 0) return String(i);
 				return String(i).padStart(p, "0");
 			}
-			window.gobooksNumberingPreviewRow = function (tr) {
+			window.balancizNumberingPreviewRow = function (tr) {
 				if (!tr) return;
 				const key = tr.getAttribute("data-module-key");
 				if (!key) return;
@@ -152,11 +152,11 @@ templ bodyNumberingSettings(vm NumberingSettingsVM) {
 				const out = tr.querySelector(".js-numbering-preview");
 				if (!p || !n || !pad || !out) return;
 				const prefix = (p.value || "");
-				const num = gobooksPadNumber(n.value, pad.value);
+				const num = balancizPadNumber(n.value, pad.value);
 				out.textContent = prefix + num;
 			};
 			document.querySelectorAll("tr.numbering-row").forEach(function (tr) {
-				window.gobooksNumberingPreviewRow(tr);
+				window.balancizNumberingPreviewRow(tr);
 			});
 		</script>
 	</div>

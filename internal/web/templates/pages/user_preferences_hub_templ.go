@@ -11,8 +11,8 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 func UserPreferencesHub(vm UserPreferencesHubVM) templ.Component {
@@ -37,7 +37,7 @@ func UserPreferencesHub(vm UserPreferencesHubVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - User Preferences",
+			"Balanciz - User Preferences",
 			ui.SidebarVM{Active: "User Preferences Hub", HasCompany: vm.HasCompany},
 			bodyUserPreferencesHub(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -77,7 +77,7 @@ func bodyUserPreferencesHub(vm UserPreferencesHubVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<h1 class=\"text-title font-semibold\">User Preferences</h1><p class=\"mt-2 max-w-3xl text-text-muted2\">Personalise how GoBooks looks and behaves for your account. These settings apply only to you and do not affect other members.</p><div class=\"mt-8 grid grid-cols-1 gap-4 md:grid-cols-2\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<h1 class=\"text-title font-semibold\">User Preferences</h1><p class=\"mt-2 max-w-3xl text-text-muted2\">Personalise how Balanciz looks and behaves for your account. These settings apply only to you and do not affect other members.</p><div class=\"mt-8 grid grid-cols-1 gap-4 md:grid-cols-2\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

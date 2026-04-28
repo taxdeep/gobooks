@@ -1,7 +1,7 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/models"
+import "balanciz/internal/models"
 
 // CompanySettingsVM is used by the company profile (Settings > Company > Profile) page.
 type CompanySettingsVM struct {

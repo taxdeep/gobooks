@@ -11,9 +11,9 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // CounterpartySummaryVM powers both Sales by Customer + Expense by
@@ -63,7 +63,7 @@ func CounterpartySummary(vm CounterpartySummaryVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - "+vm.PageTitle,
+			"Balanciz - "+vm.PageTitle,
 			ui.SidebarVM{Active: "Reports", HasCompany: vm.HasCompany},
 			bodyCounterpartySummary(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

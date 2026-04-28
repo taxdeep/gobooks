@@ -1,4 +1,4 @@
-function gobooksEmailAssist() {
+function balancizEmailAssist() {
   return {
     invoiceId: 0,
     emailAssist: { loading: false, visible: false, suggestion: "", error: "", empty: false },
@@ -76,7 +76,7 @@ function gobooksEmailAssist() {
       this.emailAssist.error = "";
       this.emailAssist.empty = false;
 
-      const fetchFn = window.gobooksFetch || fetch;
+      const fetchFn = window.balancizFetch || fetch;
       try {
         const resp = await fetchFn("/api/ai/invoice-email-assist", {
           method: "POST",

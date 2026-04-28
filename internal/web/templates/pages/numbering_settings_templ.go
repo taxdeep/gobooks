@@ -10,9 +10,9 @@ package pages
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "gobooks/internal/numbering"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/numbering"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 func NumberingSettings(vm NumberingSettingsVM) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -36,7 +36,7 @@ func NumberingSettings(vm NumberingSettingsVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Numbering",
+			"Balanciz - Numbering",
 			ui.SidebarVM{Active: "Company Numbering", HasCompany: vm.HasCompany},
 			bodyNumberingSettings(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -175,7 +175,7 @@ func bodyNumberingSettings(vm NumberingSettingsVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\" autocomplete=\"off\" class=\"w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus\" oninput=\"window.gobooksNumberingPreviewRow(this.closest('tr'))\"></td><td class=\"py-4 pr-4\"><input type=\"number\" name=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\" autocomplete=\"off\" class=\"w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus\" oninput=\"window.balancizNumberingPreviewRow(this.closest('tr'))\"></td><td class=\"py-4 pr-4\"><input type=\"number\" name=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -201,7 +201,7 @@ func bodyNumberingSettings(vm NumberingSettingsVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\" min=\"0\" step=\"1\" class=\"w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus\" oninput=\"window.gobooksNumberingPreviewRow(this.closest('tr'))\"></td><td class=\"py-4 pr-4\"><input type=\"number\" name=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\" min=\"0\" step=\"1\" class=\"w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus\" oninput=\"window.balancizNumberingPreviewRow(this.closest('tr'))\"></td><td class=\"py-4 pr-4\"><input type=\"number\" name=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -227,7 +227,7 @@ func bodyNumberingSettings(vm NumberingSettingsVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\" min=\"0\" max=\"20\" step=\"1\" class=\"w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus\" oninput=\"window.gobooksNumberingPreviewRow(this.closest('tr'))\"></td><td class=\"py-4 pr-4\"><div class=\"rounded-md border border-border-input bg-background px-3 py-2 font-mono text-body text-text js-numbering-preview\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\" min=\"0\" max=\"20\" step=\"1\" class=\"w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus\" oninput=\"window.balancizNumberingPreviewRow(this.closest('tr'))\"></td><td class=\"py-4 pr-4\"><div class=\"rounded-md border border-border-input bg-background px-3 py-2 font-mono text-body text-text js-numbering-preview\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -276,7 +276,7 @@ func bodyNumberingSettings(vm NumberingSettingsVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</div></form><script>\n\t\t\tfunction gobooksPadNumber(n, pad) {\n\t\t\t\tconst i = parseInt(n, 10);\n\t\t\t\tif (Number.isNaN(i) || i < 0) return \"0\";\n\t\t\t\tconst p = Math.max(0, Math.min(20, parseInt(pad, 10) || 0));\n\t\t\t\tif (p <= 0) return String(i);\n\t\t\t\treturn String(i).padStart(p, \"0\");\n\t\t\t}\n\t\t\twindow.gobooksNumberingPreviewRow = function (tr) {\n\t\t\t\tif (!tr) return;\n\t\t\t\tconst key = tr.getAttribute(\"data-module-key\");\n\t\t\t\tif (!key) return;\n\t\t\t\tconst p = tr.querySelector('input[name=\"rules[' + key + '][prefix]\"]');\n\t\t\t\tconst n = tr.querySelector('input[name=\"rules[' + key + '][next_number]\"]');\n\t\t\t\tconst pad = tr.querySelector('input[name=\"rules[' + key + '][padding_length]\"]');\n\t\t\t\tconst out = tr.querySelector(\".js-numbering-preview\");\n\t\t\t\tif (!p || !n || !pad || !out) return;\n\t\t\t\tconst prefix = (p.value || \"\");\n\t\t\t\tconst num = gobooksPadNumber(n.value, pad.value);\n\t\t\t\tout.textContent = prefix + num;\n\t\t\t};\n\t\t\tdocument.querySelectorAll(\"tr.numbering-row\").forEach(function (tr) {\n\t\t\t\twindow.gobooksNumberingPreviewRow(tr);\n\t\t\t});\n\t\t</script></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</div></form><script>\n\t\t\tfunction balancizPadNumber(n, pad) {\n\t\t\t\tconst i = parseInt(n, 10);\n\t\t\t\tif (Number.isNaN(i) || i < 0) return \"0\";\n\t\t\t\tconst p = Math.max(0, Math.min(20, parseInt(pad, 10) || 0));\n\t\t\t\tif (p <= 0) return String(i);\n\t\t\t\treturn String(i).padStart(p, \"0\");\n\t\t\t}\n\t\t\twindow.balancizNumberingPreviewRow = function (tr) {\n\t\t\t\tif (!tr) return;\n\t\t\t\tconst key = tr.getAttribute(\"data-module-key\");\n\t\t\t\tif (!key) return;\n\t\t\t\tconst p = tr.querySelector('input[name=\"rules[' + key + '][prefix]\"]');\n\t\t\t\tconst n = tr.querySelector('input[name=\"rules[' + key + '][next_number]\"]');\n\t\t\t\tconst pad = tr.querySelector('input[name=\"rules[' + key + '][padding_length]\"]');\n\t\t\t\tconst out = tr.querySelector(\".js-numbering-preview\");\n\t\t\t\tif (!p || !n || !pad || !out) return;\n\t\t\t\tconst prefix = (p.value || \"\");\n\t\t\t\tconst num = balancizPadNumber(n.value, pad.value);\n\t\t\t\tout.textContent = prefix + num;\n\t\t\t};\n\t\t\tdocument.querySelectorAll(\"tr.numbering-row\").forEach(function (tr) {\n\t\t\t\twindow.balancizNumberingPreviewRow(tr);\n\t\t\t});\n\t\t</script></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

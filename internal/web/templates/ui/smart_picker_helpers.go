@@ -41,7 +41,7 @@ type SmartPickerVM struct {
 	Required bool
 	// AllowCreate, when true, shows a persistent "+ Add new [query]" row at the
 	// top of every dropdown (not just the empty state). Clicking it dispatches
-	// gobooks-picker-create so the host page can open an inline creation panel
+	// balanciz-picker-create so the host page can open an inline creation panel
 	// without navigating away. Leave false (default) for read-only pickers.
 	AllowCreate bool
 	// CreateURL, if non-empty, shows an "Add new" link in the empty-results state.

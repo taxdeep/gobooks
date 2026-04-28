@@ -28,9 +28,9 @@ package web
 import (
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/models"
-	"gobooks/internal/repository"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/repository"
+	"balanciz/internal/web/templates/ui"
 )
 
 // RequirePermission 允许请求继续，当且仅当当前成员角色能执行指定操作（依据 permissions.go 定义）。
@@ -50,10 +50,10 @@ func (s *Server) RequirePermission(action string) fiber.Handler {
 
 // Locals keys for Fiber c.Locals (auth pipeline).
 const (
-	LocalsSession           = "gobooks_auth_session"
-	LocalsUser              = "gobooks_auth_user"
-	LocalsActiveCompanyID   = "gobooks_auth_active_company_id"
-	LocalsCompanyMembership = "gobooks_auth_company_membership"
+	LocalsSession           = "balanciz_auth_session"
+	LocalsUser              = "balanciz_auth_user"
+	LocalsActiveCompanyID   = "balanciz_auth_active_company_id"
+	LocalsCompanyMembership = "balanciz_auth_company_membership"
 )
 
 // --- Context helpers (for use in handlers after middleware) ---

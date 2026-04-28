@@ -1,14 +1,14 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/models"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/models"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 import "fmt"
 
 templ Settlements(vm SettlementsVM) {
 	@layout.Layout(
-		"GoBooks - Settlements",
+		"Balanciz - Settlements",
 		ui.SidebarVM{Active: "Channels", HasCompany: vm.HasCompany},
 		bodySettlements(vm),
 	)
@@ -163,7 +163,7 @@ templ settlementRows(vm SettlementsVM) {
 
 templ SettlementDetail(vm SettlementDetailVM) {
 	@layout.Layout(
-		"GoBooks - Settlement Detail",
+		"Balanciz - Settlement Detail",
 		ui.SidebarVM{Active: "Channels", HasCompany: vm.HasCompany},
 		bodySettlementDetail(vm),
 	)

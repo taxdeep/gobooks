@@ -9,10 +9,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
 
-	"gobooks/internal/models"
-	"gobooks/internal/repository"
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/admintmpl"
+	"balanciz/internal/models"
+	"balanciz/internal/repository"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/admintmpl"
 )
 
 // ── SysAdmin 账户管理（/admin/sysadmins）────────────────────────────────────────

@@ -3,7 +3,7 @@
 package searchrecentquery
 
 import (
-	"gobooks/ent/predicate"
+	"balanciz/ent/predicate"
 	"time"
 
 	"entgo.io/ent/dialect/sql"

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ── Customer detail header helpers ─────────────────────────────────────────

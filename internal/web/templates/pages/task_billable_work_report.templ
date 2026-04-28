@@ -1,12 +1,12 @@
 package pages
 
-import "gobooks/internal/models"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/models"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ TaskBillableWorkReport(vm BillableWorkReportVM) {
 	@layout.Layout(
-		"GoBooks - Billable Work Report",
+		"Balanciz - Billable Work Report",
 		ui.SidebarVM{Active: "Tasks", HasCompany: vm.HasCompany},
 		bodyTaskBillableWorkReport(vm),
 	)

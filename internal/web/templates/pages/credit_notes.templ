@@ -4,9 +4,9 @@ package pages
 import (
 	"fmt"
 	"time"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 
@@ -35,7 +35,7 @@ type CreditNoteDetailVM struct {
 
 templ CreditNotesList(vm CreditNotesListVM) {
 	@layout.Layout(
-		"GoBooks - Credit Notes",
+		"Balanciz - Credit Notes",
 		ui.SidebarVM{Active: "Credit Notes", HasCompany: vm.HasCompany},
 		bodyCreditNotesList(vm),
 	)
@@ -95,7 +95,7 @@ templ bodyCreditNotesList(vm CreditNotesListVM) {
 
 templ CreditNoteDetail(vm CreditNoteDetailVM) {
 	@layout.Layout(
-		"GoBooks - Credit Note",
+		"Balanciz - Credit Note",
 		ui.SidebarVM{Active: "Credit Notes", HasCompany: vm.HasCompany},
 		bodyCreditNoteDetail(vm),
 	)
@@ -334,7 +334,7 @@ templ creditNoteApplyDrawer(vm CreditNoteDetailVM) {
 
 templ CreditNoteForm(vm CreditNoteFormVM) {
 	@layout.Layout(
-		"GoBooks - New Credit Note",
+		"Balanciz - New Credit Note",
 		ui.SidebarVM{Active: "Credit Notes", HasCompany: vm.HasCompany},
 		bodyCreditNoteForm(vm),
 	)

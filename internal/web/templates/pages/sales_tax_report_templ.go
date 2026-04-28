@@ -11,9 +11,9 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 	"fmt"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
 )
 
 // ── Sales Tax Report ──────────────────────────────────────────────────────────
@@ -39,7 +39,7 @@ func SalesTaxReport(vm SalesTaxReportVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Sales Tax Report",
+			"Balanciz - Sales Tax Report",
 			ui.SidebarVM{Active: "Reports", HasCompany: vm.HasCompany},
 			bodySalesTaxReport(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -560,7 +560,7 @@ func AccountTransactions(vm AccountTransactionsVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Account Transactions",
+			"Balanciz - Account Transactions",
 			ui.SidebarVM{Active: "Reports", HasCompany: vm.HasCompany},
 			bodyAccountTransactions(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

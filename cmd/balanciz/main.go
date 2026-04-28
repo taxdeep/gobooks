@@ -5,13 +5,13 @@ import (
 	"log"
 	"time"
 
-	"gobooks/internal/config"
-	"gobooks/internal/db"
-	"gobooks/internal/logging"
-	"gobooks/internal/services"
-	_ "gobooks/internal/services/pdf" // init() registers the system-template seeder with db.Migrate
-	"gobooks/internal/version"
-	"gobooks/internal/web"
+	"balanciz/internal/config"
+	"balanciz/internal/db"
+	"balanciz/internal/logging"
+	"balanciz/internal/services"
+	_ "balanciz/internal/services/pdf" // init() registers the system-template seeder with db.Migrate
+	"balanciz/internal/version"
+	"balanciz/internal/web"
 )
 
 func main() {
@@ -39,7 +39,7 @@ func main() {
 
 	// Run GORM AutoMigrate: safe schema additions (idempotent, never drops columns).
 	// SQL file migrations (migrations/*.sql) must be applied separately via:
-	//   go run ./cmd/gobooks-migrate
+	//   go run ./cmd/balanciz-migrate
 	// In Docker, the migrate service handles both phases before the app starts.
 	if err := db.Migrate(gormDB); err != nil {
 		log.Fatalf("db migrate failed: %v", err)

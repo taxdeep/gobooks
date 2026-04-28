@@ -1,7 +1,7 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/models"
+import "balanciz/internal/models"
 
 // pdfTemplatesForDoc filters the full template list down to one doc type.
 // Used by the per-doc-type group renderer on the management page.

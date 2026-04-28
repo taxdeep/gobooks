@@ -10,10 +10,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 
-	"gobooks/internal/config"
-	"gobooks/internal/models"
-	"gobooks/internal/searchprojection"
-	"gobooks/internal/searchprojection/backfill"
+	"balanciz/internal/config"
+	"balanciz/internal/models"
+	"balanciz/internal/searchprojection"
+	"balanciz/internal/searchprojection/backfill"
 )
 
 // testRebuildDB returns a sqlite store with just the audit-log tables —

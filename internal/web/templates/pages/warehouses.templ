@@ -3,9 +3,9 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // warehouseStatusBadge returns a badge class for the warehouse's active state.
@@ -31,7 +31,7 @@ func warehouseStatusLabel(w models.Warehouse) string {
 
 templ Warehouses(vm WarehousesVM) {
 	@layout.Layout(
-		"GoBooks - Warehouses",
+		"Balanciz - Warehouses",
 		ui.SidebarVM{Active: "Warehouses", HasCompany: vm.HasCompany},
 		bodyWarehouses(vm),
 	)

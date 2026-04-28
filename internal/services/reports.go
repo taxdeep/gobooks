@@ -1,7 +1,7 @@
 // 遵循project_guide.md
 package services
 
-// reports.go — Reporting Layer for GoBooks.
+// reports.go — Reporting Layer for Balanciz.
 //
 // Architecture:
 //   All accounting reports are built on a single parameterized account-balance
@@ -22,7 +22,7 @@ package services
 import (
 	"time"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"

@@ -8,7 +8,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // EnableMultiCurrency sets multi_currency_enabled = true on the company.

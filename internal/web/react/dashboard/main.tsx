@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 
 declare global {
   interface Window {
-    gobooksFetch?: (url: string, options?: RequestInit) => Promise<Response>;
+    balancizFetch?: (url: string, options?: RequestInit) => Promise<Response>;
   }
 }
 
@@ -92,7 +92,7 @@ function fetchJSON(url: string): Promise<DashboardOverview> {
 }
 
 async function postJSON(url: string) {
-  const fetchFn = window.gobooksFetch || fetch;
+  const fetchFn = window.balancizFetch || fetch;
   const response = await fetchFn(url, {
     method: "POST",
     credentials: "same-origin",

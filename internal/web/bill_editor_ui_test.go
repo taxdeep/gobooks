@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"gobooks/internal/web/templates/pages"
+	"balanciz/internal/web/templates/pages"
 )
 
 func TestBillEditor_UsesDarkSurfaceInputsAndSingleInit(t *testing.T) {
@@ -41,7 +41,7 @@ func TestBillEditor_UsesDarkSurfaceInputsAndSingleInit(t *testing.T) {
 		`data-entity="vendor"`,
 		`data-context="bill.vendor_picker"`,
 		`data-field-name="vendor_id"`,
-		`@gobooks-picker-create.window="onPickerCreate($event)"`,
+		`@balanciz-picker-create.window="onPickerCreate($event)"`,
 		`:name="'line_expense_account_id[' + idx + ']'" :value="line.expense_account_id || ''"`,
 		`@input="onCategoryInput(idx)"`,
 		`role="combobox"`,

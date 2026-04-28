@@ -8,8 +8,8 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/pages"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/pages"
 )
 
 func testTaxCodeValidationDB(t *testing.T) *gorm.DB {

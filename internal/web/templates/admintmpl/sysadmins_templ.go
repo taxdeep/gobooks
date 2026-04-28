@@ -10,7 +10,7 @@ package admintmpl
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "gobooks/internal/models"
+import "balanciz/internal/models"
 
 // AdminSysadminRow 是系统管理员列表中的单行数据。
 type AdminSysadminRow struct {

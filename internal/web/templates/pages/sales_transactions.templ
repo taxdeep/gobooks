@@ -2,14 +2,14 @@
 package pages
 
 import (
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ SalesTransactions(vm SalesTxVM) {
 	@layout.Layout(
-		"GoBooks - Sales Transactions",
+		"Balanciz - Sales Transactions",
 		ui.SidebarVM{Active: "Sales Transactions", HasCompany: vm.HasCompany},
 		bodySalesTransactions(vm),
 	)

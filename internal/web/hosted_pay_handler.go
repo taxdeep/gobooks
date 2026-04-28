@@ -5,9 +5,9 @@ import (
 	"errors"
 
 	"github.com/gofiber/fiber/v2"
-	"gobooks/internal/logging"
-	"gobooks/internal/models"
-	"gobooks/internal/services"
+	"balanciz/internal/logging"
+	"balanciz/internal/models"
+	"balanciz/internal/services"
 )
 
 // handleHostedPay initiates a payment session for a hosted invoice.

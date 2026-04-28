@@ -4,12 +4,12 @@ package main
 import (
 	"log"
 
-	"gobooks/internal/config"
-	"gobooks/internal/db"
-	"gobooks/internal/logging"
+	"balanciz/internal/config"
+	"balanciz/internal/db"
+	"balanciz/internal/logging"
 )
 
-// gobooks-migrate is the canonical migration entry point.
+// balanciz-migrate is the canonical migration entry point.
 //
 // It runs two phases in order, both idempotent:
 //
@@ -19,8 +19,8 @@ import (
 //
 // Run this before starting the application in any environment:
 //
-//	go run ./cmd/gobooks-migrate          # local
-//	./gobooks-migrate                     # binary
+//	go run ./cmd/balanciz-migrate          # local
+//	./balanciz-migrate                     # binary
 //	docker compose run --rm migrate       # docker
 func main() {
 	logging.Init()

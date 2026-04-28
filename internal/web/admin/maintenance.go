@@ -7,8 +7,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"gobooks/internal/logging"
-	"gobooks/internal/models"
+	"balanciz/internal/logging"
+	"balanciz/internal/models"
 )
 
 // maintenanceMode 是内存缓存层（atomic 读，无锁，零 DB 开销）。

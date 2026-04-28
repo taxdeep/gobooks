@@ -13,9 +13,9 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"net/url"
 
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // ── Investigation workspace page ─────────────────────────────────────────────
@@ -40,7 +40,7 @@ func InvestigationWorkspace(vm InvestigationWorkspaceVM) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = layout.Layout("GoBooks - Investigation Workspace", ui.SidebarVM{Active: "Investigation Workspace", HasCompany: vm.HasCompany}, bodyInvestigationWorkspace(vm)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout.Layout("Balanciz - Investigation Workspace", ui.SidebarVM{Active: "Investigation Workspace", HasCompany: vm.HasCompany}, bodyInvestigationWorkspace(vm)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

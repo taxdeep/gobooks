@@ -7,12 +7,12 @@ import (
 
 	"github.com/a-h/templ"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // JournalAccountsJSONScript embeds account picker data for the journal entry combobox (trusted JSON from server).
 func JournalAccountsJSONScript(json string) templ.Component {
-	return templ.Raw(`<script type="application/json" id="gobooks-journal-accounts-data">` + json + `</script>`)
+	return templ.Raw(`<script type="application/json" id="balanciz-journal-accounts-data">` + json + `</script>`)
 }
 
 // JournalAccountsDataJSON returns a script-safe JSON array for the journal account combobox.

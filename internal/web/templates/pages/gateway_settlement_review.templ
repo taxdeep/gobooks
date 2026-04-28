@@ -2,9 +2,9 @@
 package pages
 
 import (
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // GatewaySettlementReviewVM is the view-model for the settlement review list page.
@@ -27,7 +27,7 @@ type GatewaySettlementReviewVM struct {
 }
 
 templ GatewaySettlementReview(vm GatewaySettlementReviewVM) {
-	@layout.Layout("GoBooks - Gateway Settlement Review", ui.SidebarVM{Active: "Gateway Settlement Review", HasCompany: vm.HasCompany}, bodyGatewaySettlementReview(vm))
+	@layout.Layout("Balanciz - Gateway Settlement Review", ui.SidebarVM{Active: "Gateway Settlement Review", HasCompany: vm.HasCompany}, bodyGatewaySettlementReview(vm))
 }
 
 templ bodyGatewaySettlementReview(vm GatewaySettlementReviewVM) {

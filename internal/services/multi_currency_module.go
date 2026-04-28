@@ -7,7 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // CompanyCurrencyContext is the reusable currency contract for transaction forms.

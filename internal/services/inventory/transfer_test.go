@@ -8,7 +8,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // Happy path: 10 units at $5 in source, transfer 4 to destination same-day.

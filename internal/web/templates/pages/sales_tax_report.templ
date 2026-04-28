@@ -3,15 +3,15 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // ── Sales Tax Report ──────────────────────────────────────────────────────────
 
 templ SalesTaxReport(vm SalesTaxReportVM) {
 	@layout.Layout(
-		"GoBooks - Sales Tax Report",
+		"Balanciz - Sales Tax Report",
 		ui.SidebarVM{Active: "Reports", HasCompany: vm.HasCompany},
 		bodySalesTaxReport(vm),
 	)
@@ -173,7 +173,7 @@ func salesTaxAccountLink(accountID uint, from, to string) string {
 
 templ AccountTransactions(vm AccountTransactionsVM) {
 	@layout.Layout(
-		"GoBooks - Account Transactions",
+		"Balanciz - Account Transactions",
 		ui.SidebarVM{Active: "Reports", HasCompany: vm.HasCompany},
 		bodyAccountTransactions(vm),
 	)

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // TestDefaultTemplateAccountsValidation verifies every account in the

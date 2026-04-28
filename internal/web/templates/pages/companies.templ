@@ -1,12 +1,12 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ Companies(vm CompaniesVM) {
 	@layout.Layout(
-		"My Companies — GoBooks",
+		"My Companies — Balanciz",
 		ui.SidebarVM{Active: "", HasCompany: len(vm.Rows) > 0},
 		bodyCompanies(vm),
 	)

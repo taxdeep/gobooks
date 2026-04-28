@@ -6,7 +6,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // TestQtyDisplay locks the integer-only rule for stock-tracked inventory

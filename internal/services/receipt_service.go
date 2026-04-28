@@ -47,7 +47,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // Error sentinels are prefixed `ErrInboundReceipt*` to namespace away

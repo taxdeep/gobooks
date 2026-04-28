@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"testing"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func TestBillProductLinkedAccountIDPrefersInventoryThenCOGS(t *testing.T) {

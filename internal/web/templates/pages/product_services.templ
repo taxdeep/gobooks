@@ -1,14 +1,14 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/models"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/models"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 import "fmt"
 
 templ ProductServices(vm ProductServicesVM) {
 	@layout.Layout(
-		"GoBooks - Products & Services",
+		"Balanciz - Products & Services",
 		ui.SidebarVM{Active: "Products & Services", HasCompany: vm.HasCompany},
 		bodyProductServices(vm),
 	)

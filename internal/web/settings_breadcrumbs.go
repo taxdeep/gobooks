@@ -1,7 +1,7 @@
 // 遵循project_guide.md
 package web
 
-import "gobooks/internal/web/templates/pages"
+import "balanciz/internal/web/templates/pages"
 
 func breadcrumbSettingsCompanyHub() []pages.SettingsBreadcrumbPart {
 	return []pages.SettingsBreadcrumbPart{

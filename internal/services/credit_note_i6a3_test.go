@@ -34,7 +34,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // postARRForCN helper — create + post an ARR for a given CN line at

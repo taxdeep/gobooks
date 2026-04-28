@@ -7,14 +7,14 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/models"
-	"gobooks/internal/repository"
+	"balanciz/internal/models"
+	"balanciz/internal/repository"
 )
 
 // Locals 键（仅在 /admin/* 中有效，不与业务用户 Locals 冲突）
 const (
-	LocalsAdminSession = "gobooks_admin_session_obj"
-	LocalsAdminUser    = "gobooks_admin_user_obj"
+	LocalsAdminSession = "balanciz_admin_session_obj"
+	LocalsAdminUser    = "balanciz_admin_user_obj"
 )
 
 // AdminSessionFromCtx 从请求上下文取出当前 SysAdmin 会话。

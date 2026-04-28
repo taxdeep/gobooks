@@ -1,6 +1,6 @@
 // Chart of Accounts drawer: POST /api/accounts/recommendations (enhance=false rule-only, enhance=true optional AI).
 // Assistive only—never auto-applies; save still runs full server validation. Hidden reco_* fields are analytics-only.
-function gobooksAccountDrawerSuggest() {
+function balancizAccountDrawerSuggest() {
   return {
     mode: "create",
     codeLen: 4,

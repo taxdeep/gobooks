@@ -1,13 +1,13 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/models"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/models"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ QuoteDetail(vm QuoteDetailVM) {
 	@layout.Layout(
-		"GoBooks - "+quoteDetailTitle(vm),
+		"Balanciz - "+quoteDetailTitle(vm),
 		ui.SidebarVM{Active: "Quotes", HasCompany: vm.HasCompany},
 		bodyQuoteDetail(vm),
 	)
@@ -29,7 +29,7 @@ templ bodyQuoteDetail(vm QuoteDetailVM) {
 }
 
 // quoteEditorContent is the form body (slot in DocEditorShell) for the
-// Quote draft editor. Loads the shared gobooksLineItems / item-picker
+// Quote draft editor. Loads the shared balancizLineItems / item-picker
 // stack via x-data="quoteEditor()" and populates products / taxCodes /
 // initialLines from data-* attributes.
 templ quoteEditorContent(vm QuoteDetailVM) {
@@ -38,7 +38,7 @@ templ quoteEditorContent(vm QuoteDetailVM) {
 		action="/quotes/save"
 		class="space-y-6"
 		x-data="docTransactionEditor()"
-		@gobooks-item-picker-select="onProductChange($event.detail.idx, $event.detail.id)"
+		@balanciz-item-picker-select="onProductChange($event.detail.idx, $event.detail.id)"
 		data-products={ quoteProductsJSON(vm.ProductServices) }
 		data-tax-codes={ quoteTaxCodesJSON(vm.TaxCodes) }
 		data-initial-lines={ quoteInitialLinesJSON(vm.Quote.Lines) }
@@ -213,7 +213,7 @@ templ quoteHeaderRight(vm QuoteDetailVM) {
 // favour items used in past quotes.
 templ quoteLineItemPicker() {
 	<div
-		x-data="gobooksItemPicker(line, idx, { context: 'quote_line_item' })"
+		x-data="balancizItemPicker(line, idx, { context: 'quote_line_item' })"
 		class="relative"
 		@click.outside="close()"
 		@keydown="onKeydown($event)"

@@ -25,10 +25,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"gobooks/internal/logging"
-	"gobooks/internal/models"
-	"gobooks/internal/searchprojection"
-	"gobooks/internal/searchprojection/producers"
+	"balanciz/internal/logging"
+	"balanciz/internal/models"
+	"balanciz/internal/searchprojection"
+	"balanciz/internal/searchprojection/producers"
 )
 
 // Family is the canonical key for a single backfill scope. Matches the

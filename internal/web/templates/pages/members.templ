@@ -1,13 +1,13 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/models"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/models"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ Members(vm MembersVM) {
 	@layout.Layout(
-		"GoBooks - Members",
+		"Balanciz - Members",
 		ui.SidebarVM{Active: vm.Active, HasCompany: vm.HasCompany},
 		bodyMembers(vm),
 	)

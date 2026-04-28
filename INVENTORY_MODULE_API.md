@@ -8,7 +8,7 @@
 
 ## 1. Architectural position
 
-GoBooks is a three-layer system. Each layer has a single job and an explicit
+Balanciz is a three-layer system. Each layer has a single job and an explicit
 contract to the layer(s) it depends on:
 
 ```

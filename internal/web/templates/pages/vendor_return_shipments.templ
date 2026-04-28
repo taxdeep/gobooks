@@ -15,9 +15,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // ── View models ──────────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ type VRSFormVM struct {
 
 templ VRSList(vm VRSListVM) {
 	@layout.Layout(
-		"GoBooks - Returns to Vendor",
+		"Balanciz - Returns to Vendor",
 		ui.SidebarVM{Active: "Returns to Vendor", HasCompany: vm.HasCompany},
 		bodyVRSList(vm),
 	)
@@ -144,7 +144,7 @@ templ bodyVRSList(vm VRSListVM) {
 
 templ VRSDetail(vm VRSDetailVM) {
 	@layout.Layout(
-		"GoBooks - Return to Vendor",
+		"Balanciz - Return to Vendor",
 		ui.SidebarVM{Active: "Returns to Vendor", HasCompany: vm.HasCompany},
 		bodyVRSDetail(vm),
 	)
@@ -309,7 +309,7 @@ templ bodyVRSDetail(vm VRSDetailVM) {
 
 templ VRSForm(vm VRSFormVM) {
 	@layout.Layout(
-		"GoBooks - New Return to Vendor",
+		"Balanciz - New Return to Vendor",
 		ui.SidebarVM{Active: "Returns to Vendor", HasCompany: vm.HasCompany},
 		bodyVRSForm(vm),
 	)

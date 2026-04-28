@@ -2,9 +2,9 @@
 package pages
 
 import (
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // GatewayPayoutsListVM is the view-model for the payout list page.
@@ -15,7 +15,7 @@ type GatewayPayoutsListVM struct {
 }
 
 templ GatewayPayoutsList(vm GatewayPayoutsListVM) {
-	@layout.Layout("GoBooks - Gateway Payouts", ui.SidebarVM{Active: "Gateway Payouts", HasCompany: vm.HasCompany}, bodyGatewayPayoutsList(vm))
+	@layout.Layout("Balanciz - Gateway Payouts", ui.SidebarVM{Active: "Gateway Payouts", HasCompany: vm.HasCompany}, bodyGatewayPayoutsList(vm))
 }
 
 templ bodyGatewayPayoutsList(vm GatewayPayoutsListVM) {

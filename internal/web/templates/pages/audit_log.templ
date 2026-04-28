@@ -1,12 +1,12 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ AuditLog(vm AuditLogVM) {
 	@layout.Layout(
-		"GoBooks - Audit Log",
+		"Balanciz - Audit Log",
 		ui.SidebarVM{Active: "Audit Log", HasCompany: true},
 		bodyAuditLog(vm),
 	)

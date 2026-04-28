@@ -2,15 +2,15 @@
 package pages
 
 import (
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 // ── Exception list page ───────────────────────────────────────────────────────
 
 templ ReconciliationExceptionList(vm ReconciliationExceptionListVM) {
-	@layout.Layout("GoBooks - Reconciliation Exceptions", ui.SidebarVM{Active: "Recon Exceptions", HasCompany: vm.HasCompany}, bodyReconciliationExceptionList(vm))
+	@layout.Layout("Balanciz - Reconciliation Exceptions", ui.SidebarVM{Active: "Recon Exceptions", HasCompany: vm.HasCompany}, bodyReconciliationExceptionList(vm))
 }
 
 templ bodyReconciliationExceptionList(vm ReconciliationExceptionListVM) {
@@ -92,7 +92,7 @@ templ bodyReconciliationExceptionList(vm ReconciliationExceptionListVM) {
 // ── Exception detail page ─────────────────────────────────────────────────────
 
 templ ReconciliationExceptionDetail(vm ReconciliationExceptionDetailVM) {
-	@layout.Layout("GoBooks - Exception Detail", ui.SidebarVM{Active: "Recon Exceptions", HasCompany: vm.HasCompany}, bodyReconciliationExceptionDetail(vm))
+	@layout.Layout("Balanciz - Exception Detail", ui.SidebarVM{Active: "Recon Exceptions", HasCompany: vm.HasCompany}, bodyReconciliationExceptionDetail(vm))
 }
 
 templ bodyReconciliationExceptionDetail(vm ReconciliationExceptionDetailVM) {
@@ -403,7 +403,7 @@ type ReconciliationExceptionNewVM struct {
 }
 
 templ ReconciliationExceptionNew(vm ReconciliationExceptionNewVM) {
-	@layout.Layout("GoBooks - File Exception", ui.SidebarVM{Active: "Recon Exceptions", HasCompany: vm.HasCompany}, bodyReconciliationExceptionNew(vm))
+	@layout.Layout("Balanciz - File Exception", ui.SidebarVM{Active: "Recon Exceptions", HasCompany: vm.HasCompany}, bodyReconciliationExceptionNew(vm))
 }
 
 templ bodyReconciliationExceptionNew(vm ReconciliationExceptionNewVM) {

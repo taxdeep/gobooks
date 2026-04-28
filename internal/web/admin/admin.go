@@ -2,7 +2,7 @@
 // Package admin implements the SysAdmin subsystem.
 //
 // 认证流程与业务用户完全隔离：
-//   - 独立的 cookie（gobooks_admin_session）
+//   - 独立的 cookie（balanciz_admin_session）
 //   - 独立的数据库表（sysadmin_users, sysadmin_sessions）
 //   - 独立的中间件（LoadAdminSession / RequireAdminAuth）
 //   - 独立的 Locals 键（不与业务用户 Locals 冲突）
@@ -11,8 +11,8 @@
 package admin
 
 import (
-	"gobooks/internal/config"
-	"gobooks/internal/searchprojection"
+	"balanciz/internal/config"
+	"balanciz/internal/searchprojection"
 
 	"gorm.io/gorm"
 )

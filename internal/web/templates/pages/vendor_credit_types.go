@@ -2,7 +2,7 @@
 package pages
 
 import (
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 
 	"github.com/shopspring/decimal"
 )

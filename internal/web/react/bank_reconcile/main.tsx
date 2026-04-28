@@ -1,9 +1,9 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 declare global {
   interface Window {
-    gobooksFetch?: (url: string, options?: RequestInit) => Promise<Response>;
+    balancizFetch?: (url: string, options?: RequestInit) => Promise<Response>;
     gbUnsavedWork?: {
       set: (key: string, state: "saving" | "unsaved" | "error", message?: string) => void;
       clear: (key: string) => void;
@@ -92,7 +92,7 @@ function compactDate(value: string): string {
 }
 
 async function saveDraft(payload: WorkspacePayload, selected: string[]) {
-  const fetchFn = window.gobooksFetch || fetch;
+  const fetchFn = window.balancizFetch || fetch;
   const response = await fetchFn(payload.save_draft_url, {
     method: "POST",
     credentials: "same-origin",

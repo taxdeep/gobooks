@@ -11,8 +11,8 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 func APAging(vm APAgingVM) templ.Component {
@@ -37,7 +37,7 @@ func APAging(vm APAgingVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - A/P Aging",
+			"Balanciz - A/P Aging",
 			ui.SidebarVM{Active: "AP Aging", HasCompany: vm.HasCompany},
 			bodyAPAging(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

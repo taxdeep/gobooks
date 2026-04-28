@@ -6,9 +6,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gobooks/ent/searchdocument"
-	"gobooks/ent/searchrecentquery"
-	"gobooks/ent/searchusagestat"
+	"balanciz/ent/searchdocument"
+	"balanciz/ent/searchrecentquery"
+	"balanciz/ent/searchusagestat"
 	"reflect"
 	"sync"
 

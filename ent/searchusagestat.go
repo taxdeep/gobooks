@@ -4,7 +4,7 @@ package ent
 
 import (
 	"fmt"
-	"gobooks/ent/searchusagestat"
+	"balanciz/ent/searchusagestat"
 	"strings"
 	"time"
 

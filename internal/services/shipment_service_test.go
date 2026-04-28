@@ -29,8 +29,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"gobooks/internal/models"
-	"gobooks/internal/services/inventory"
+	"balanciz/internal/models"
+	"balanciz/internal/services/inventory"
 )
 
 // testShipmentDocDB spins an in-memory DB with the full Phase I.2

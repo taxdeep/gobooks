@@ -90,7 +90,7 @@ func adminClassBadgeInactive() string {
 	return "inline-flex rounded-md border border-border bg-background px-2 py-0.5 text-small font-medium text-text-muted2"
 }
 
-// Primary / secondary / danger — align with main GoBooks CTA patterns.
+// Primary / secondary / danger — align with main Balanciz CTA patterns.
 func adminClassPrimaryButton() string {
 	return "inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary shadow-sm hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
 }

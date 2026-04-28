@@ -10,8 +10,8 @@ package pages
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 // SettingsHub — top-level /settings landing. Tile grid for all company-scoped
 // configuration areas. Each tile navigates to the dedicated settings sub-page.
@@ -37,7 +37,7 @@ func SettingsHub(vm SettingsHubVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Settings",
+			"Balanciz - Settings",
 			ui.SidebarVM{Active: "Settings Hub", HasCompany: vm.HasCompany},
 			bodySettingsHub(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

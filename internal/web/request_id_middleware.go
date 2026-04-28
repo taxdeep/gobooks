@@ -7,7 +7,7 @@ import (
 )
 
 // LocalsRequestID 是存储请求 ID 的 Fiber Locals 键。
-const LocalsRequestID = "gobooks_request_id"
+const LocalsRequestID = "balanciz_request_id"
 
 // RequestID 中间件：为每个请求生成唯一 ID 并存入 Locals。
 // 若请求头已携带 X-Request-ID，则复用（兼容反向代理下发的追踪 ID）。

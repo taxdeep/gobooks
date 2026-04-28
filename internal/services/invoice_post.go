@@ -52,7 +52,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // ErrInvoiceNotDraft is returned when posting is attempted on a non-draft invoice.

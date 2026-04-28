@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	"gobooks/internal/models"
-	"gobooks/internal/numbering"
+	"balanciz/internal/models"
+	"balanciz/internal/numbering"
 
 	"gorm.io/gorm"
 )

@@ -1,7 +1,7 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/models"
+import "balanciz/internal/models"
 
 // CreditNoteFormVM is the view-model for the /credit-notes/new form.
 type CreditNoteFormVM struct {

@@ -1,9 +1,9 @@
-// journal_entry_fx.js — GoBooks Journal Entry Alpine component.
+// journal_entry_fx.js — Balanciz Journal Entry Alpine component.
 // v=4
-function gobooksJournalEntryDraft() {
+function balancizJournalEntryDraft() {
   let accounts = [];
   try {
-    const el = document.getElementById("gobooks-journal-accounts-data");
+    const el = document.getElementById("balanciz-journal-accounts-data");
     if (el && el.textContent) {
       accounts = JSON.parse(el.textContent);
     }
@@ -13,7 +13,7 @@ function gobooksJournalEntryDraft() {
 
   let currencyOptions = [];
   try {
-    const el = document.getElementById("gobooks-journal-currency-options");
+    const el = document.getElementById("balanciz-journal-currency-options");
     if (el && el.textContent) {
       currencyOptions = JSON.parse(el.textContent);
     }
@@ -23,7 +23,7 @@ function gobooksJournalEntryDraft() {
 
   const RECENT_MAX = 8;
   const MAX_LINES = 50;
-  const RECENT_LS_PREFIX = "gobooks:journalRecentAccountIds:v1:";
+  const RECENT_LS_PREFIX = "balanciz:journalRecentAccountIds:v1:";
 
   function recentStorageKey(companyId) {
     const c = companyId && String(companyId).trim() !== "" ? String(companyId) : "0";
@@ -386,7 +386,7 @@ function gobooksJournalEntryDraft() {
     },
 
     draftStorageKey() {
-      return `gobooks:journalDraft:v2:${this.companyId}`;
+      return `balanciz:journalDraft:v2:${this.companyId}`;
     },
 
     persist() {

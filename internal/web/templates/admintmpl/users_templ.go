@@ -10,7 +10,7 @@ package admintmpl
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "gobooks/internal/models"
+import "balanciz/internal/models"
 
 // AdminUserRow is one row in the business user list.
 type AdminUserRow struct {

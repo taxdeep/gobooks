@@ -11,10 +11,10 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
 )
 
 // VendorCredits — the AP-side mirror of CustomerCredits. Consolidated view
@@ -41,7 +41,7 @@ func VendorCredits(vm VendorCreditsVM) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
-			"GoBooks - Vendor Credits",
+			"Balanciz - Vendor Credits",
 			ui.SidebarVM{Active: "Vendors", HasCompany: vm.HasCompany},
 			bodyVendorCredits(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)

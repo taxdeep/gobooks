@@ -3,14 +3,14 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ WarehouseTransfers(vm WarehouseTransfersVM) {
 	@layout.Layout(
-		"GoBooks - Warehouse Transfers",
+		"Balanciz - Warehouse Transfers",
 		ui.SidebarVM{Active: "Warehouse Transfers", HasCompany: vm.HasCompany},
 		bodyWarehouseTransfers(vm),
 	)

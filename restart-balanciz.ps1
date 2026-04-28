@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  One-click restart: stop whatever is listening on the GoBooks HTTP port, run templ generate, then start go run ./cmd/gobooks.
+  One-click restart: stop whatever is listening on the Balanciz HTTP port, run templ generate, then start go run ./cmd/balanciz.
 
 .DESCRIPTION
   - Reads APP_ADDR from .env in this folder (e.g. :6768) when -Port is omitted; default port is 6768.
@@ -10,10 +10,10 @@
   - Starts the app in a new PowerShell window so logs stay visible (use -NoNewWindow to block this shell).
 
 .EXAMPLE
-  .\restart-gobooks.ps1
+  .\restart-balanciz.ps1
 
 .EXAMPLE
-  .\restart-gobooks.ps1 -Port 8080 -SkipTempl
+  .\restart-balanciz.ps1 -Port 8080 -SkipTempl
 #>
 param(
     [int]$Port = 0,
@@ -78,7 +78,7 @@ function Stop-ListenerOnPort {
     }
 }
 
-Write-Host "GoBooks restart - project: $Root"
+Write-Host "Balanciz restart - project: $Root"
 Write-Host "Using port: $Port (from parameter, .env APP_ADDR, or default 6768)"
 Stop-ListenerOnPort -LocalPort $Port
 
@@ -99,12 +99,12 @@ if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
 }
 
 if ($NoNewWindow) {
-    Write-Host 'Starting go run ./cmd/gobooks (foreground, press Ctrl+C to stop)...'
-    & go run ./cmd/gobooks
+    Write-Host 'Starting go run ./cmd/balanciz (foreground, press Ctrl+C to stop)...'
+    & go run ./cmd/balanciz
     exit $LASTEXITCODE
 }
 
-Write-Host "Starting go run ./cmd/gobooks in a new window..."
-$childCmd = "Write-Host 'GoBooks http://127.0.0.1:$Port/'; go run ./cmd/gobooks"
+Write-Host "Starting go run ./cmd/balanciz in a new window..."
+$childCmd = "Write-Host 'Balanciz http://127.0.0.1:$Port/'; go run ./cmd/balanciz"
 Start-Process -FilePath "powershell.exe" -WorkingDirectory $Root -ArgumentList @('-NoExit', '-NoProfile', '-Command', $childCmd) | Out-Null
 Write-Host "Done. Check the new PowerShell window for logs. URL: http://127.0.0.1:$($Port)/"

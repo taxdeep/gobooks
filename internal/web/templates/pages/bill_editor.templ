@@ -1,12 +1,12 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ BillEditor(vm BillEditorVM) {
 	@layout.Layout(
-		"GoBooks - "+BillEditorTitle(vm),
+		"Balanciz - "+BillEditorTitle(vm),
 		ui.SidebarVM{Active: "Bills", HasCompany: vm.HasCompany},
 		bodyBillEditor(vm),
 	)
@@ -32,7 +32,7 @@ templ billEditorContent(vm BillEditorVM) {
 		data-initial-terms={ vm.TermCode }
 		data-initial-date={ vm.BillDate }
 		data-initial-due-date={ vm.DueDate }
-		@gobooks-picker-select="onPickerSelect($event)"
+		@balanciz-picker-select="onPickerSelect($event)"
 	>
 		if vm.IsEdit {
 			<input type="hidden" name="bill_id" value={ Uitoa(vm.EditingID) }/>
@@ -496,9 +496,9 @@ func billVendorSelectedLabel(vm BillEditorVM) string {
 // "+ Add new" row. It creates a minimal vendor and then selects it into the bill.
 templ billVendorQuickCreateDrawer(vm BillEditorVM) {
 	<div
-		x-data="gobooksVendorQuickCreate()"
+		x-data="balancizVendorQuickCreate()"
 		data-currencies={ vm.QuickCreateCurrenciesJSON }
-		@gobooks-picker-create.window="onPickerCreate($event)"
+		@balanciz-picker-create.window="onPickerCreate($event)"
 		@keydown.escape.window="if (drawerOpen) { cancel() }"
 	>
 		@ui.RightDrawerBackdrop()

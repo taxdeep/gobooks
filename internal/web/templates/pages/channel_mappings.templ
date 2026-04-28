@@ -1,13 +1,13 @@
 // 遵循project_guide.md
 package pages
 
-import "gobooks/internal/models"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/models"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ ChannelMappings(vm ChannelMappingsVM) {
 	@layout.Layout(
-		"GoBooks - SKU Mappings",
+		"Balanciz - SKU Mappings",
 		ui.SidebarVM{Active: "Channels", HasCompany: vm.HasCompany},
 		bodyChannelMappings(vm),
 	)
@@ -18,7 +18,7 @@ templ bodyChannelMappings(vm ChannelMappingsVM) {
 		<div class="flex items-start justify-between gap-4">
 			<div>
 				<h1 class="text-title font-semibold">SKU Mappings</h1>
-				<p class="mt-2 text-text-muted2">Map external platform SKUs to your Gobooks items. One item can have multiple mappings across platforms.</p>
+				<p class="mt-2 text-text-muted2">Map external platform SKUs to your Balanciz items. One item can have multiple mappings across platforms.</p>
 			</div>
 			<a href="/settings/channels" class="text-body text-primary hover:text-primary-hover">← Channels</a>
 		</div>
@@ -82,7 +82,7 @@ templ bodyChannelMappings(vm ChannelMappingsVM) {
 						<tr class="border-b border-border">
 							<th class="py-3 pr-4">Channel</th>
 							<th class="py-3 pr-4">External SKU</th>
-							<th class="py-3 pr-4">Gobooks Item</th>
+							<th class="py-3 pr-4">Balanciz Item</th>
 							<th class="py-3 pr-4">ASIN</th>
 							<th class="py-3 pr-0">Status</th>
 						</tr>

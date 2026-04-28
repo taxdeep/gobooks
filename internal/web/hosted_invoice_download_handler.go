@@ -3,8 +3,8 @@ package web
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"gobooks/internal/logging"
-	"gobooks/internal/services"
+	"balanciz/internal/logging"
+	"balanciz/internal/services"
 )
 
 // handleHostedInvoiceDownload generates and serves an invoice PDF for a hosted link.

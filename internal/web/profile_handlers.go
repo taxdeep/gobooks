@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
-	"gobooks/internal/services"
-	"gobooks/internal/web/templates/pages"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/pages"
 )
 
 // handleProfileGet renders GET /profile.
@@ -83,8 +83,8 @@ func (s *Server) handleRequestEmailChange(c *fiber.Ctx) error {
 		return c.Redirect("/profile?err=Could+not+create+verification+challenge.+Please+try+again.", fiber.StatusSeeOther)
 	}
 
-	subject := "GoBooks – email change verification"
-	body := "Your GoBooks email change verification code is: " + rawCode + "\n\nThis code expires in 15 minutes. If you did not request this change, you can safely ignore this email."
+	subject := "Balanciz – email change verification"
+	body := "Your Balanciz email change verification code is: " + rawCode + "\n\nThis code expires in 15 minutes. If you did not request this change, you can safely ignore this email."
 	if sendErr := services.SendEmail(smtpCfg, newEmail, subject, body); sendErr != nil {
 		return c.Redirect("/profile?err=Failed+to+send+verification+email.+Check+your+SMTP+settings.", fiber.StatusSeeOther)
 	}
@@ -159,8 +159,8 @@ func (s *Server) handleRequestPasswordChange(c *fiber.Ctx) error {
 		return c.Redirect("/profile?err=Could+not+create+verification+challenge.+Please+try+again.", fiber.StatusSeeOther)
 	}
 
-	subject := "GoBooks – password change verification"
-	body := "Your GoBooks password change verification code is: " + rawCode + "\n\nThis code expires in 15 minutes. If you did not request this change, please secure your account immediately."
+	subject := "Balanciz – password change verification"
+	body := "Your Balanciz password change verification code is: " + rawCode + "\n\nThis code expires in 15 minutes. If you did not request this change, please secure your account immediately."
 	if sendErr := services.SendEmail(smtpCfg, user.Email, subject, body); sendErr != nil {
 		return c.Redirect("/profile?err=Failed+to+send+verification+email.+Check+your+SMTP+settings.", fiber.StatusSeeOther)
 	}

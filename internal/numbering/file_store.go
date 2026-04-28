@@ -1,7 +1,7 @@
 // Package numbering: display rule defaults, merge/parse, and optional file helpers.
 //
 // Production persistence for numbering rules is DB-backed (numbering_settings.rules_json),
-// scoped by company_id via gobooks/internal/services.LoadMergedDisplayRules and SaveMergedDisplayRules.
+// scoped by company_id via balanciz/internal/services.LoadMergedDisplayRules and SaveMergedDisplayRules.
 // LoadMerged/Save on DefaultStorePath are retained for migration tooling or local experiments only.
 package numbering
 

@@ -2,13 +2,13 @@
 package pages
 
 import "fmt"
-import "gobooks/internal/models"
-import "gobooks/internal/web/templates/layout"
-import "gobooks/internal/web/templates/ui"
+import "balanciz/internal/models"
+import "balanciz/internal/web/templates/layout"
+import "balanciz/internal/web/templates/ui"
 
 templ InvoiceDetail(vm InvoiceDetailVM) {
 	@layout.Layout(
-		"GoBooks - Invoice "+vm.Invoice.InvoiceNumber,
+		"Balanciz - Invoice "+vm.Invoice.InvoiceNumber,
 		ui.SidebarVM{Active: "Invoices", HasCompany: vm.HasCompany},
 		bodyInvoiceDetail(vm),
 	)
@@ -875,7 +875,7 @@ templ bodyInvoiceDetail(vm InvoiceDetailVM) {
 					<form
 						method="post"
 						action={ "/invoices/" + Uitoa(vm.Invoice.ID) + "/send-email" }
-						x-data="gobooksEmailAssist()"
+						x-data="balancizEmailAssist()"
 						data-invoice-id={ Uitoa(vm.Invoice.ID) }
 					>
 						<input type="hidden" name="template_type" value="invoice"/>

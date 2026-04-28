@@ -3,14 +3,14 @@ package pages
 
 import (
 	"fmt"
-	"gobooks/internal/models"
-	"gobooks/internal/web/templates/layout"
-	"gobooks/internal/web/templates/ui"
+	"balanciz/internal/models"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
 )
 
 templ VendorCreditNoteDetail(vm VendorCreditNoteDetailVM) {
 	@layout.Layout(
-		"GoBooks - "+vcnDetailTitle(vm),
+		"Balanciz - "+vcnDetailTitle(vm),
 		ui.SidebarVM{Active: "Vendor Credit Notes", HasCompany: vm.HasCompany},
 		bodyVCNDetail(vm),
 	)

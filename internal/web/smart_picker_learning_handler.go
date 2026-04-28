@@ -5,7 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func (s *Server) handleSmartPickerLearningRun(c *fiber.Ctx) error {

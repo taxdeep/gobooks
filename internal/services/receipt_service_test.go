@@ -27,7 +27,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 // osReadDir / osReadFile are local aliases so the inventory import-
@@ -822,9 +822,9 @@ func TestInventoryPackage_DoesNotImportAccountingPackages(t *testing.T) {
 		t.Fatalf("read inventory package dir: %v", err)
 	}
 	forbidden := []string{
-		"gobooks/internal/services/accounts",
-		"gobooks/internal/accounting",
-		"gobooks/internal/ledger",
+		"balanciz/internal/services/accounts",
+		"balanciz/internal/accounting",
+		"balanciz/internal/ledger",
 	}
 	// Permitted within inventory: models (for InventoryMovement,
 	// InventoryBalance, InventoryCostLayer shapes), decimal, gorm.

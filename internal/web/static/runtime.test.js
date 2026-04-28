@@ -96,7 +96,7 @@ function testBillEditorInitializesWithSingleBlankLine() {
 
 async function testVendorSmartPickerRequestCarriesContext() {
   const fetchCalls = [];
-  const gobooksFetch = async (url, options) => {
+  const balancizFetch = async (url, options) => {
     fetchCalls.push({ url, options });
     return {
       ok: true,
@@ -111,9 +111,9 @@ async function testVendorSmartPickerRequestCarriesContext() {
   };
 
   const context = loadBrowserScript('smart_picker.js', {
-    fetch: gobooksFetch,
+    fetch: balancizFetch,
     window: {
-      gobooksFetch,
+      balancizFetch,
       crypto: {
         randomUUID() {
           return 'vendor-request-001';
@@ -123,7 +123,7 @@ async function testVendorSmartPickerRequestCarriesContext() {
   });
 
   const hiddenInput = { name: '' };
-  const picker = context.gobooksSmartPicker();
+  const picker = context.balancizSmartPicker();
   picker.$el = {
     dataset: {
       entity: 'vendor',
@@ -191,7 +191,7 @@ function testBillDateFilterInputSanitizesAndNormalizes() {
     },
   };
 
-  context.window.gobooksDateFilterInput.bindInput(input);
+  context.window.balancizDateFilterInput.bindInput(input);
 
   input.value = 'Abc2026/01-04##';
   inputListeners.input({ target: input });
@@ -209,11 +209,11 @@ function testBillDateFilterInputSanitizesAndNormalizes() {
   assert.equal(input.value, '2026-01-31');
 
   assert.equal(
-    context.window.gobooksDateFilterInput.normalizeDateInput('2026-01-04'),
+    context.window.balancizDateFilterInput.normalizeDateInput('2026-01-04'),
     '2026-01-04',
   );
   assert.equal(
-    context.window.gobooksDateFilterInput.normalizeDateInput('20260104'),
+    context.window.balancizDateFilterInput.normalizeDateInput('20260104'),
     '2026-01-04',
   );
   assert.ok(documentListeners.DOMContentLoaded, 'expected DOMContentLoaded hook to be registered');
@@ -259,10 +259,10 @@ async function testJournalEntryFXEditorBaseModeAndForeignFetch() {
     },
     document: {
       getElementById(id) {
-        if (id === 'gobooks-journal-accounts-data') {
+        if (id === 'balanciz-journal-accounts-data') {
           return { textContent: '[]' };
         }
-        if (id === 'gobooks-journal-currency-options') {
+        if (id === 'balanciz-journal-currency-options') {
           return { textContent: '["CAD","USD"]' };
         }
         return null;
@@ -281,7 +281,7 @@ async function testJournalEntryFXEditorBaseModeAndForeignFetch() {
     },
   });
 
-  const editor = context.gobooksJournalEntryDraft();
+  const editor = context.balancizJournalEntryDraft();
   editor.$el = {
     dataset: {
       companyId: '42',
@@ -341,10 +341,10 @@ async function testJournalEntryCurrencyChangeConfirmation() {
     },
     document: {
       getElementById(id) {
-        if (id === 'gobooks-journal-accounts-data') {
+        if (id === 'balanciz-journal-accounts-data') {
           return { textContent: '[]' };
         }
-        if (id === 'gobooks-journal-currency-options') {
+        if (id === 'balanciz-journal-currency-options') {
           return { textContent: '["CAD","USD"]' };
         }
         return null;
@@ -364,7 +364,7 @@ async function testJournalEntryCurrencyChangeConfirmation() {
     },
   });
 
-  const editor = context.gobooksJournalEntryDraft();
+  const editor = context.balancizJournalEntryDraft();
   editor.$el = {
     dataset: {
       companyId: '77',

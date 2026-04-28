@@ -3,7 +3,7 @@ package services
 import (
 	"testing"
 
-	"gobooks/internal/models"
+	"balanciz/internal/models"
 )
 
 func TestValidateInvoiceDeletable_draftOK(t *testing.T) {

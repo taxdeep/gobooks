@@ -5,17 +5,17 @@
 //   acctQuery    — visible text: search while editing; after blur/close, synced to selected label or cleared.
 //   acctOpen     — dropdown open/closed.
 //   acctHi       — keyboard highlight index within filteredAccounts(line), or -1.
-// Global: accounts[] from #gobooks-journal-accounts-data (active accounts only; server-built JSON).
+// Global: accounts[] from #balanciz-journal-accounts-data (active accounts only; server-built JSON).
 // Filtered list via filteredAccounts(line) — two modes only:
 //   • Empty query: MRU recent ids (localStorage, per company) resolved against current accounts first, then
 //     the rest in server order; missing/inactive ids skipped; duplicates deduped (seen set).
 //   • Non-empty query: relevance first (primaryTier 1–5), then MRU index as tie-break only (first occurrence
 //     if an id appears more than once in storage), then name/code. Non-matching accounts omitted.
 //
-function gobooksJournalEntryDraft() {
+function balancizJournalEntryDraft() {
   let accounts = [];
   try {
-    const el = document.getElementById("gobooks-journal-accounts-data");
+    const el = document.getElementById("balanciz-journal-accounts-data");
     if (el && el.textContent) {
       accounts = JSON.parse(el.textContent);
     }
@@ -24,7 +24,7 @@ function gobooksJournalEntryDraft() {
   }
 
   const RECENT_MAX = 8;
-  const RECENT_LS_PREFIX = "gobooks:journalRecentAccountIds:v1:";
+  const RECENT_LS_PREFIX = "balanciz:journalRecentAccountIds:v1:";
 
   function recentStorageKey(companyId) {
     const c = companyId && String(companyId).trim() !== "" ? String(companyId) : "0";
@@ -325,10 +325,10 @@ function gobooksJournalEntryDraft() {
       this.header.entry_date = today;
 
       if (new URLSearchParams(window.location.search).get("saved") === "1") {
-        localStorage.removeItem("gobooks:journalDraft:v1");
+        localStorage.removeItem("balanciz:journalDraft:v1");
       }
 
-      const raw = localStorage.getItem("gobooks:journalDraft:v1");
+      const raw = localStorage.getItem("balanciz:journalDraft:v1");
       if (raw) {
         try {
           const d = JSON.parse(raw);
@@ -361,7 +361,7 @@ function gobooksJournalEntryDraft() {
         party: l.party,
         errors: {},
       }));
-      localStorage.setItem("gobooks:journalDraft:v1", JSON.stringify({ header: this.header, lines: slim }));
+      localStorage.setItem("balanciz:journalDraft:v1", JSON.stringify({ header: this.header, lines: slim }));
     },
 
     newLine() {

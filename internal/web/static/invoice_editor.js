@@ -1,7 +1,7 @@
 // invoice_editor.js — Alpine component for the invoice line-items editor.
 // v=20
 //
-// Composes gobooksLineItems() for line-array management (addLine / removeLine /
+// Composes balancizLineItems() for line-array management (addLine / removeLine /
 // auto-grow) and layers Invoice-specific state on top: tax-code breakdown,
 // terms → due-date computation, AI memo assist, customer auto-fill via
 // SmartPicker payload, contact-block (email / bill-to / ship-to) overrides.
@@ -13,7 +13,7 @@
 // lines on every keystroke.
 function invoiceEditor() {
   return Object.assign(
-    gobooksLineItems({
+    balancizLineItems({
       defaults: {
         product_service_id:    "",
         product_service_label: "",
@@ -190,7 +190,7 @@ function invoiceEditor() {
         this._recalcTotals();
       },
 
-      // gobooksLineItems calls onLinesChange() after add/remove/clear;
+      // balancizLineItems calls onLinesChange() after add/remove/clear;
       // recompute everything so cached totals and breakdowns stay in sync.
       onLinesChange() {
         this._recalcAll();
@@ -677,7 +677,7 @@ function invoiceEditor() {
         this.memoAssist.error      = "";
         this.memoAssist.empty      = false;
 
-        const fetchFn = window.gobooksFetch || fetch;
+        const fetchFn = window.balancizFetch || fetch;
         try {
           const resp = await fetchFn("/api/ai/invoice-memo-assist", {
             method:  "POST",
@@ -717,7 +717,7 @@ function invoiceEditor() {
   );
 }
 
-// gobooksCustomerQuickCreate — Alpine component for the inline customer
+// balancizCustomerQuickCreate — Alpine component for the inline customer
 // creation slide-over panel on the invoice editor page.
 //
 // Uses `drawerOpen` (the state name ui.RightDrawerBackdrop + RightDrawerPanel
@@ -725,14 +725,14 @@ function invoiceEditor() {
 // drive visibility.
 //
 // Lifecycle:
-//   1. Listens for gobooks-picker-create (window-level) emitted by the Customer SmartPicker.
+//   1. Listens for balanciz-picker-create (window-level) emitted by the Customer SmartPicker.
 //   2. Opens a slide-over with the typed query pre-filled as the customer name.
 //      When multi-currency is enabled (data-currencies has >1 entry), shows a Currency
 //      dropdown so the user can set the customer's default invoice currency.
 //   3. On save, POSTs to /api/customers/quick-create (name + currency_code) and dispatches
-//      gobooks-picker-set-value to the SmartPicker's root element so it auto-selects
+//      balanciz-picker-set-value to the SmartPicker's root element so it auto-selects
 //      the newly created customer without reloading the page.
-function gobooksCustomerQuickCreate() {
+function balancizCustomerQuickCreate() {
   return {
     drawerOpen:    false,
     name:          "",
@@ -790,7 +790,7 @@ function gobooksCustomerQuickCreate() {
       if (hasErr) return;
       this.saving = true;
       try {
-        const fetchFn = window.gobooksFetch || fetch;
+        const fetchFn = window.balancizFetch || fetch;
         const body = { name };
         if (this.currency) {
           body.currency_code = this.currency;
@@ -810,7 +810,7 @@ function gobooksCustomerQuickCreate() {
         // the invoice's currency select.
         const pickerEl = document.querySelector('[data-context="invoice_editor_customer"]');
         if (pickerEl) {
-          pickerEl.dispatchEvent(new CustomEvent("gobooks-picker-set-value", {
+          pickerEl.dispatchEvent(new CustomEvent("balanciz-picker-set-value", {
             detail: {
               id:      String(data.id),
               label:   data.name,
@@ -829,6 +829,6 @@ function gobooksCustomerQuickCreate() {
   };
 }
 
-// gobooksItemPicker now lives in /static/doc_item_picker.js (loaded by the
+// balancizItemPicker now lives in /static/doc_item_picker.js (loaded by the
 // layout) so all six document editors share the same per-row factory.
 // Invoice's templ passes opts={ context: 'invoice_line_item' }.
