@@ -32,9 +32,11 @@ type ReportToolbarVM struct {
 	// CompanyName and ReportTitle appear in the print-only header.
 	CompanyName string
 	ReportTitle string
-	// CSVExportURL is the base URL for CSV export (without query params).
-	// Empty = Export CSV button is hidden.
-	CSVExportURL string
+	// Export URLs are base URLs without query params. Empty values are hidden.
+	// The toolbar appends the current date params plus HiddenInputs.
+	CSVExportURL   string
+	ExcelExportURL string
+	PDFExportURL   string
 	// FormAction is the GET action for the report form (e.g. "/reports/income-statement").
 	FormAction string
 	// HiddenInputs carries extra `<input type="hidden">` pairs that must

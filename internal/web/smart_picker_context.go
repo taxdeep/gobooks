@@ -27,6 +27,7 @@ func init() {
 		{Context: "invoice_editor_customer", ProviderContext: "invoice_editor_customer", EntityType: "customer", Description: "invoice customer"},
 		{Context: "invoice_customer", ProviderContext: "invoice_editor_customer", EntityType: "customer", Description: "invoice customer"},
 		{Context: "invoice.customer_picker", ProviderContext: "invoice_editor_customer", EntityType: "customer", Description: "invoice customer"},
+		{Context: "quote.customer_picker", ProviderContext: "quote.customer_picker", EntityType: "customer", Description: "quote customer"},
 		{Context: "task_form_customer", ProviderContext: "task_form_customer", EntityType: "customer", Description: "task customer"},
 		{Context: "task.customer_picker", ProviderContext: "task_form_customer", EntityType: "customer", Description: "task customer"},
 		{Context: "invoices_filter", ProviderContext: "invoices_filter", EntityType: "customer", Description: "invoice list customer filter"},

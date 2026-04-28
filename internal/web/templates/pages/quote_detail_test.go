@@ -47,3 +47,37 @@ func TestQuoteReadOnlyLineItemsShowProductService(t *testing.T) {
 		}
 	}
 }
+
+func TestQuoteEditorCustomerUsesSmartPicker(t *testing.T) {
+	customer := models.Customer{ID: 11, Name: "Smart Quote Customer", Email: "smart@example.com"}
+	var sb strings.Builder
+	vm := QuoteDetailVM{
+		HasCompany: true,
+		Quote: models.Quote{
+			Status:       models.QuoteStatusDraft,
+			QuoteDate:    time.Date(2026, 4, 28, 0, 0, 0, 0, time.UTC),
+			CurrencyCode: "CAD",
+			CustomerID:   customer.ID,
+			Customer:     customer,
+		},
+		Customers: []models.Customer{customer},
+	}
+
+	if err := QuoteDetail(vm).Render(context.Background(), &sb); err != nil {
+		t.Fatalf("render quote editor: %v", err)
+	}
+	html := sb.String()
+	for _, want := range []string{
+		`data-entity="customer"`,
+		`data-context="quote.customer_picker"`,
+		`data-field-name="customer_id"`,
+		`data-value="11"`,
+		`data-selected-label="Smart Quote Customer"`,
+		`name="customer_id"`,
+		`— Select Customer —`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("expected quote editor HTML to contain %q", want)
+		}
+	}
+}

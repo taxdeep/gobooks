@@ -59,7 +59,7 @@ templ bodyQuotes(vm QuotesVM) {
 				</div>
 				<div class="min-w-[160px]">
 					<label for="quotes-filter-status" class={ compactLabelClass() }>Status</label>
-					<select id="quotes-filter-status" name="status" class={ listFilterInputClass() }>
+					<select id="quotes-filter-status" name="status" class={ salesDocFilterInputClass() }>
 						<option value="" selected?={ vm.FilterStatus == "" }>-- All --</option>
 						for _, s := range models.AllQuoteStatuses() {
 							<option value={ string(s) } selected?={ string(s) == vm.FilterStatus }>{ models.QuoteStatusLabel(s) }</option>
@@ -68,15 +68,15 @@ templ bodyQuotes(vm QuotesVM) {
 				</div>
 				<div>
 					<label for="quotes-filter-from" class={ compactLabelClass() }>From</label>
-					<input id="quotes-filter-from" type="date" name="from" value={ vm.FilterDateFrom } class={ listFilterInputClass() }/>
+					<input id="quotes-filter-from" type="date" name="from" value={ vm.FilterDateFrom } class={ salesDocFilterInputClass() }/>
 				</div>
 				<div>
 					<label for="quotes-filter-to" class={ compactLabelClass() }>To</label>
-					<input id="quotes-filter-to" type="date" name="to" value={ vm.FilterDateTo } class={ listFilterInputClass() }/>
+					<input id="quotes-filter-to" type="date" name="to" value={ vm.FilterDateTo } class={ salesDocFilterInputClass() }/>
 				</div>
 				<div class="flex items-end gap-2">
-					<button type="submit" class="rounded-md bg-primary px-3 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover">Apply Filter</button>
-					<a href="/quotes" class="rounded-md border border-border-input px-3 py-1.5 text-small text-text-muted3 hover:bg-background hover:text-text">Reset</a>
+					<button type="submit" class={ salesDocFilterButtonClass(true) }>Apply Filter</button>
+					<a href="/quotes" class={ salesDocFilterButtonClass(false) }>Reset</a>
 				</div>
 			</div>
 		</form>

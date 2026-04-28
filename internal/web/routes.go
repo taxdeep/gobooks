@@ -539,6 +539,9 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Get("/reports/expense-by-vendor", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleExpenseByVendor)
 	app.Get("/reports/sales-tax", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleSalesTaxReport)
 	app.Get("/reports/account-transactions", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleAccountTransactions)
+	app.Get("/reports/account-transactions/export.csv", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleExportAccountTransactionsCSV)
+	app.Get("/reports/account-transactions/export.xlsx", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleExportAccountTransactionsXLSX)
+	app.Get("/reports/account-transactions/export.pdf", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleExportAccountTransactionsPDF)
 	app.Get("/reports/clearing", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionReportView), s.handleClearingReport)
 
 	// ── CSV Exports ──────────────────────────────────────────────────────────

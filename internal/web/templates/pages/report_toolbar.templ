@@ -1,13 +1,15 @@
 // 遵循project_guide.md
 package pages
 
+import "net/url"
+
 // ReportToolbar renders the unified report toolbar used by all financial
 // statement pages. It is an Alpine.js component that:
 //   - drives period preset selection (Last Month / YTD / Last Fiscal Year / Custom)
 //   - auto-fills From/To (or As Of) from the selected preset client-side
 //   - treats Balance Sheet presets as quick "As Of" date selectors, not range filters
 //   - switches back to "Custom" when the user edits dates manually
-//   - provides Print and Export CSV actions
+//   - provides Print and export actions
 //   - emits a print-only header with company name, report title, and period
 //
 // Initial state is seeded via data-* attributes; the Alpine component reads them
@@ -24,6 +26,9 @@ templ ReportToolbar(vm ReportToolbarVM) {
 		data-fy-end={ vm.FiscalYearEnd }
 		data-mode={ vm.Mode }
 		data-csv-base={ vm.CSVExportURL }
+		data-excel-base={ vm.ExcelExportURL }
+		data-pdf-base={ vm.PDFExportURL }
+		data-hidden-query={ reportToolbarHiddenQuery(vm.HiddenInputs) }
 		data-report-source={ vm.Source }
 		data-report-freshness={ vm.FreshnessLabel }
 	>
@@ -114,7 +119,7 @@ templ ReportToolbar(vm ReportToolbarVM) {
 					</button>
 				</div>
 
-				<!-- Secondary actions: Print + Export CSV -->
+				<!-- Secondary actions: Print + Export -->
 				<div class="ml-auto flex items-center gap-2">
 					<button
 						type="button"
@@ -123,13 +128,53 @@ templ ReportToolbar(vm ReportToolbarVM) {
 					>
 						Print
 					</button>
-					if vm.CSVExportURL != "" {
-						<a
-							:href="csvHref()"
-							class="rounded-md border border-border px-3 py-2 text-body font-semibold text-text hover:bg-background"
-						>
-							Export CSV
-						</a>
+					if reportToolbarExportCount(vm) > 0 {
+						<div class="relative">
+							<button
+								type="button"
+								@click="exportOpen = !exportOpen"
+								class="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-body font-semibold text-text hover:bg-background"
+							>
+								Export
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-text-muted2" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+									<path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"></path>
+								</svg>
+							</button>
+							<div
+								x-show="exportOpen"
+								x-cloak
+								@click.outside="exportOpen = false"
+								class="absolute right-0 z-50 mt-2 w-44 overflow-hidden rounded-md border border-border bg-surface shadow-lg"
+							>
+								if vm.CSVExportURL != "" {
+									<a
+										:href="exportHref(csvBase)"
+										@click="exportOpen = false"
+										class="block px-4 py-2 text-body text-text hover:bg-background"
+									>
+										Export CSV
+									</a>
+								}
+								if vm.ExcelExportURL != "" {
+									<a
+										:href="exportHref(excelBase)"
+										@click="exportOpen = false"
+										class="block px-4 py-2 text-body text-text hover:bg-background"
+									>
+										Export Excel
+									</a>
+								}
+								if vm.PDFExportURL != "" {
+									<a
+										:href="exportHref(pdfBase)"
+										@click="exportOpen = false"
+										class="block px-4 py-2 text-body text-text hover:bg-background"
+									>
+										Export PDF
+									</a>
+								}
+							</div>
+						</div>
 					}
 				</div>
 			</div>
@@ -199,6 +244,10 @@ templ ReportToolbar(vm ReportToolbarVM) {
 				fyEnd: '12-31',
 				mode: 'period',
 				csvBase: '',
+				excelBase: '',
+				pdfBase: '',
+				hiddenQuery: '',
+				exportOpen: false,
 
 				init(el) {
 					this.preset  = el.dataset.preset  || 'last_month';
@@ -208,6 +257,9 @@ templ ReportToolbar(vm ReportToolbarVM) {
 					this.fyEnd   = el.dataset.fyEnd   || '12-31';
 					this.mode    = el.dataset.mode    || 'period';
 					this.csvBase = el.dataset.csvBase || '';
+					this.excelBase = el.dataset.excelBase || '';
+					this.pdfBase = el.dataset.pdfBase || '';
+					this.hiddenQuery = el.dataset.hiddenQuery || '';
 				},
 
 				// Called when the preset select changes.
@@ -296,12 +348,24 @@ templ ReportToolbar(vm ReportToolbarVM) {
 					return start;
 				},
 
-				// Build the CSV export href with current date params.
+				// Build export hrefs with current date params and caller-supplied hidden inputs.
+				exportHref(base) {
+					if (!base) return '#';
+					const params = new URLSearchParams(this.hiddenQuery || '');
+					if (this.mode === 'asof') {
+						params.set('as_of', this.asOf);
+					} else {
+						params.set('from', this.from);
+						params.set('to', this.to);
+					}
+					const qs = params.toString();
+					if (!qs) return base;
+					return `${base}${base.includes('?') ? '&' : '?'}${qs}`;
+				},
+
+				// Back-compat helper used by older tests/call sites.
 				csvHref() {
-					if (!this.csvBase) return '#';
-					return this.mode === 'asof'
-						? `${this.csvBase}?as_of=${this.asOf}`
-						: `${this.csvBase}?from=${this.from}&to=${this.to}`;
+					return this.exportHref(this.csvBase);
 				},
 
 				// Label shown in the print-only header.
@@ -313,4 +377,29 @@ templ ReportToolbar(vm ReportToolbarVM) {
 			};
 		}
 	</script>
+}
+
+func reportToolbarExportCount(vm ReportToolbarVM) int {
+	count := 0
+	if vm.CSVExportURL != "" {
+		count++
+	}
+	if vm.ExcelExportURL != "" {
+		count++
+	}
+	if vm.PDFExportURL != "" {
+		count++
+	}
+	return count
+}
+
+func reportToolbarHiddenQuery(inputs []ReportToolbarHiddenInput) string {
+	values := url.Values{}
+	for _, h := range inputs {
+		if h.Name == "" {
+			continue
+		}
+		values.Add(h.Name, h.Value)
+	}
+	return values.Encode()
 }

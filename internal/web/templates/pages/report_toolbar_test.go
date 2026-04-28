@@ -75,3 +75,41 @@ func TestReportToolbar_NoHiddenInputs(t *testing.T) {
 		t.Error("toolbar rendered an unexpected account_id input when none was requested")
 	}
 }
+
+func TestReportToolbar_ExportDropdownCarriesHiddenQuery(t *testing.T) {
+	vm := ReportToolbarVM{
+		Preset:         "custom",
+		From:           "2026-01-01",
+		To:             "2026-03-31",
+		FormAction:     "/reports/account-transactions",
+		ReportTitle:    "Account Transactions",
+		CompanyName:    "Test Co",
+		Mode:           "period",
+		CSVExportURL:   "/reports/account-transactions/export.csv",
+		ExcelExportURL: "/reports/account-transactions/export.xlsx",
+		PDFExportURL:   "/reports/account-transactions/export.pdf",
+		HiddenInputs: []ReportToolbarHiddenInput{
+			{Name: "account_id", Value: "71"},
+		},
+	}
+
+	var sb strings.Builder
+	if err := ReportToolbar(vm).Render(context.Background(), &sb); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	html := sb.String()
+
+	for _, want := range []string{
+		`data-csv-base="/reports/account-transactions/export.csv"`,
+		`data-excel-base="/reports/account-transactions/export.xlsx"`,
+		`data-pdf-base="/reports/account-transactions/export.pdf"`,
+		`data-hidden-query="account_id=71"`,
+		"Export CSV",
+		"Export Excel",
+		"Export PDF",
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("expected toolbar to contain %q", want)
+		}
+	}
+}

@@ -46,8 +46,7 @@ type DocEditorShellVM struct {
 // DocEditorFooterVM — sticky bottom action bar configuration.
 //
 // Layout:
-//
-//	[Left cancel link]  [Secondary links, centered]  [Primary buttons, right]
+//   [Left cancel link]  [Secondary links, centered]  [Primary buttons, right]
 //
 // Any slot may be empty. Buttons with Style="display:none" are hidden but still
 // emitted (used by Invoice's review-mode toggle which JS flips client-side).

@@ -21,6 +21,11 @@ func setCsvHeaders(c *fiber.Ctx, filename string) {
 	c.Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 }
 
+func setExcelHeaders(c *fiber.Ctx, filename string) {
+	c.Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+}
+
 // ── Financial statement CSV exports ──────────────────────────────────────────
 
 func (s *Server) handleExportTrialBalanceCSV(c *fiber.Ctx) error {
@@ -119,6 +124,69 @@ func (s *Server) handleExportARAgingCSV(c *fiber.Ctx) error {
 	setCsvHeaders(c, csvFilename("ar_aging"))
 	_, err = c.Write(buf.Bytes())
 	return err
+}
+
+func (s *Server) handleExportAccountTransactionsCSV(c *fiber.Ctx) error {
+	report, fromDate, toDate, errStatus, errMsg := s.accountTransactionsExportReport(c)
+	if errMsg != "" {
+		return c.Status(errStatus).SendString(errMsg)
+	}
+	var buf bytes.Buffer
+	if err := services.ExportAccountTransactionsCSV(report, fromDate, toDate, &buf); err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
+	setCsvHeaders(c, services.AccountTransactionsExportFilename(report, "csv"))
+	_, err := c.Write(buf.Bytes())
+	return err
+}
+
+func (s *Server) handleExportAccountTransactionsXLSX(c *fiber.Ctx) error {
+	report, fromDate, toDate, errStatus, errMsg := s.accountTransactionsExportReport(c)
+	if errMsg != "" {
+		return c.Status(errStatus).SendString(errMsg)
+	}
+	var buf bytes.Buffer
+	if err := services.ExportAccountTransactionsXLSX(report, fromDate, toDate, &buf); err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
+	setExcelHeaders(c, services.AccountTransactionsExportFilename(report, "xlsx"))
+	_, err := c.Write(buf.Bytes())
+	return err
+}
+
+func (s *Server) handleExportAccountTransactionsPDF(c *fiber.Ctx) error {
+	report, fromDate, toDate, errStatus, errMsg := s.accountTransactionsExportReport(c)
+	if errMsg != "" {
+		return c.Status(errStatus).SendString(errMsg)
+	}
+	if !services.PDFGeneratorAvailable() {
+		return c.Status(fiber.StatusServiceUnavailable).SendString("PDF generation is not available")
+	}
+	pdfBytes, err := services.RenderAccountTransactionsPDF(c.Context(), report, fromDate, toDate)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).SendString("PDF generation failed: " + err.Error())
+	}
+	return sendPDFResponse(c, pdfBytes, services.AccountTransactionsExportFilename(report, "pdf"))
+}
+
+func (s *Server) accountTransactionsExportReport(c *fiber.Ctx) (*services.AccountTransactionsReport, time.Time, time.Time, int, string) {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return nil, time.Time{}, time.Time{}, fiber.StatusBadRequest, "company required"
+	}
+	accountID64, err := strconv.ParseUint(c.Query("account_id"), 10, 64)
+	if err != nil || accountID64 == 0 {
+		return nil, time.Time{}, time.Time{}, fiber.StatusBadRequest, "account_id query param required"
+	}
+	fromDate, toDate, _, _, errMsg := parseReportRange(c.Query("from"), c.Query("to"))
+	if errMsg != "" {
+		return nil, time.Time{}, time.Time{}, fiber.StatusBadRequest, errMsg
+	}
+	report, err := services.BuildAccountTransactionsReport(s.DB, companyID, uint(accountID64), fromDate, toDate)
+	if err != nil {
+		return nil, time.Time{}, time.Time{}, fiber.StatusInternalServerError, "could not run report"
+	}
+	return report, fromDate, toDate, 0, ""
 }
 
 func (s *Server) handleExportClearingSummary(c *fiber.Ctx) error {

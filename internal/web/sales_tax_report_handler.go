@@ -26,14 +26,17 @@ func (s *Server) handleSalesTaxReport(c *fiber.Ctx) error {
 	fromDate, toDate, fromStr, toStr, errMsg := parseReportRange(fromStr, toStr)
 
 	toolbar := pages.ReportToolbarVM{
-		Preset:        preset,
-		From:          fromStr,
-		To:            toStr,
-		FiscalYearEnd: co.FiscalYearEnd,
-		CompanyName:   co.Name,
-		ReportTitle:   "Sales Tax Report",
-		FormAction:    "/reports/sales-tax",
-		Mode:          "period",
+		Preset:         preset,
+		From:           fromStr,
+		To:             toStr,
+		FiscalYearEnd:  co.FiscalYearEnd,
+		CompanyName:    co.Name,
+		ReportTitle:    "Sales Tax Report",
+		FormAction:     "/reports/sales-tax",
+		Mode:           "period",
+		CSVExportURL:   "/reports/account-transactions/export.csv",
+		ExcelExportURL: "/reports/account-transactions/export.xlsx",
+		PDFExportURL:   "/reports/account-transactions/export.pdf",
 	}
 
 	vm := pages.SalesTaxReportVM{

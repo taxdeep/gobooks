@@ -107,16 +107,22 @@ templ quoteFlashBanners(vm QuoteDetailVM) {
 templ quoteHeaderLeft(vm QuoteDetailVM) {
 	<div>
 		<label class={ compactLabelClass() }>Customer *</label>
-		<select
-			name="customer_id"
-			required
-			class={ fieldClass(false) }
-		>
-			<option value="">— Select Customer —</option>
-			for _, c := range vm.Customers {
-				<option value={ Uitoa(c.ID) } selected?={ c.ID == vm.Quote.CustomerID }>{ c.Name }</option>
-			}
-		</select>
+		<!-- No-JS fallback: Alpine disables this select and removes its name
+		     on init, so only the SmartPicker hidden input submits when JS is
+		     active. Without JS the select retains name="customer_id". -->
+		<div x-data="{}" x-init="var s=$el.querySelector('select');if(s){s.removeAttribute('name');s.disabled=true;}$el.style.display='none';">
+			<select
+				name="customer_id"
+				required
+				class={ fieldClass(false) }
+			>
+				<option value="">— Select Customer —</option>
+				for _, c := range vm.Customers {
+					<option value={ Uitoa(c.ID) } selected?={ c.ID == vm.Quote.CustomerID }>{ c.Name }</option>
+				}
+			</select>
+		</div>
+		@ui.SmartPicker(quoteCustomerSmartPickerVM(vm))
 	</div>
 	<div>
 		<label class={ compactLabelClass() }>Notes (Customer Visible)</label>
@@ -126,6 +132,42 @@ templ quoteHeaderLeft(vm QuoteDetailVM) {
 			class={ fieldClass(false) }
 		>{ vm.Quote.Notes }</textarea>
 	</div>
+}
+
+func quoteCustomerSmartPickerVM(vm QuoteDetailVM) ui.SmartPickerVM {
+	return ui.SmartPickerVM{
+		Label:         "",
+		FieldName:     "customer_id",
+		Entity:        "customer",
+		Context:       "quote.customer_picker",
+		Value:         quoteCustomerIDValue(vm),
+		SelectedLabel: quoteCustomerSelectedLabel(vm),
+		Placeholder:   "Search customers...",
+		Required:      true,
+		Limit:         20,
+	}
+}
+
+func quoteCustomerIDValue(vm QuoteDetailVM) string {
+	if vm.Quote.CustomerID == 0 {
+		return ""
+	}
+	return Uitoa(vm.Quote.CustomerID)
+}
+
+func quoteCustomerSelectedLabel(vm QuoteDetailVM) string {
+	if vm.Quote.CustomerID == 0 {
+		return ""
+	}
+	if vm.Quote.Customer.Name != "" {
+		return vm.Quote.Customer.Name
+	}
+	for _, c := range vm.Customers {
+		if c.ID == vm.Quote.CustomerID {
+			return c.Name
+		}
+	}
+	return ""
 }
 
 templ quoteHeaderRight(vm QuoteDetailVM) {
