@@ -32,6 +32,9 @@ templ billEditorContent(vm BillEditorVM) {
 		data-initial-terms={ vm.TermCode }
 		data-initial-date={ vm.BillDate }
 		data-initial-due-date={ vm.DueDate }
+		data-base-currency={ vm.BaseCurrencyCode }
+		data-initial-currency={ vm.CurrencyCode }
+		data-initial-exchange-rate={ vm.ExchangeRate }
 		@balanciz-picker-select="onPickerSelect($event)"
 	>
 		if vm.IsEdit {
@@ -64,7 +67,7 @@ templ billEditorContent(vm BillEditorVM) {
 
 		@ui.DocEditorFooter(billEditorFooterVM(vm))
 
-		<script src="/static/bill_editor.js?v=9"></script>
+		<script src="/static/bill_editor.js?v=10"></script>
 		<script>
 			function beExitReview() {
 				var fieldset = document.getElementById('be-fields');
@@ -170,6 +173,8 @@ templ billHeaderRight(vm BillEditorVM) {
 				<label class={ compactLabelClass() }>Currency</label>
 				<select
 					name="currency_code"
+					x-model="currency"
+					@change="onCurrencyChange($event.target.value)"
 					class={ fieldClass(vm.CurrencyError != "") }
 				>
 					<option value="">{ vm.BaseCurrencyCode } (base)</option>
@@ -185,11 +190,14 @@ templ billHeaderRight(vm BillEditorVM) {
 					type="text"
 					name="exchange_rate"
 					value={ vm.ExchangeRate }
+					x-model="exchangeRate"
+					@input="onExchangeRateInput()"
 					placeholder="auto-lookup"
 					autocomplete="off"
 					inputmode="decimal"
 					class={ fieldClass(vm.ExchangeRateError != "") }
 				/>
+				<p x-cloak x-show="exchangeRateHint" x-text="exchangeRateHint" class={ compactHintClass() }></p>
 				@fieldError(vm.ExchangeRateError)
 			</div>
 		}

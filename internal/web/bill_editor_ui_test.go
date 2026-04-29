@@ -37,10 +37,12 @@ func TestBillEditor_UsesDarkSurfaceInputsAndSingleInit(t *testing.T) {
 		// that IN.1 introduced.
 		`placeholder="0.00" class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text text-right placeholder:text-text-muted2 outline-none focus:ring-2 focus:ring-primary-focus"`,
 		`class="w-24 rounded-md border border-border-input bg-surface px-2 py-0.5 text-right text-body text-text tabular-nums outline-none focus:ring-2 focus:ring-primary-focus"`,
-		`/static/bill_editor.js?v=9`,
+		`/static/bill_editor.js?v=10`,
 		`data-entity="vendor"`,
 		`data-context="bill.vendor_picker"`,
 		`data-field-name="vendor_id"`,
+		`data-base-currency="CAD"`,
+		`data-initial-currency=""`,
 		`@balanciz-picker-create.window="onPickerCreate($event)"`,
 		`:name="'line_expense_account_id[' + idx + ']'" :value="line.expense_account_id || ''"`,
 		`@input="onCategoryInput(idx)"`,
@@ -58,6 +60,8 @@ func TestBillEditor_UsesDarkSurfaceInputsAndSingleInit(t *testing.T) {
 		`name="bill_date"`,
 		`name="memo"`,
 		`name="exchange_rate"`,
+		`x-model="exchangeRate"`,
+		`@change="onCurrencyChange($event.target.value)"`,
 		`style="color-scheme: dark;"`,
 		// Header inputs now go through pages.fieldClass() (same dark-surface
 		// shape as Invoice / Quote / SO after the unified-shell migration).

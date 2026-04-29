@@ -130,6 +130,67 @@ function testBillEditorInitializesWithSingleBlankLine() {
   );
 }
 
+async function testBillEditorVendorCurrencyTriggersExchangeRateLookup() {
+  const fetchCalls = [];
+  const balancizFetch = async (url, options) => {
+    fetchCalls.push({ url, options });
+    return {
+      ok: true,
+      async json() {
+        return {
+          exchange_rate: '1.37000000',
+          exchange_rate_date: '2026-04-29',
+          exchange_rate_source: 'provider_fetched',
+          source_label: 'Provider fetched',
+        };
+      },
+    };
+  };
+  const context = loadBrowserScript('bill_editor.js', {
+    window: { balancizFetch },
+  });
+  const editor = context.billEditor();
+  const currencyField = {
+    value: '',
+    options: [{ value: '' }, { value: 'USD' }],
+  };
+
+  editor.$el = {
+    dataset: {
+      accounts: '[]',
+      taxCodes: '[]',
+      tasks: '[]',
+      paymentTerms: '[]',
+      contactTerms: '{}',
+      initialTerms: '',
+      initialDate: '2026-04-29',
+      initialDueDate: '',
+      initialLines: '[]',
+      baseCurrency: 'CAD',
+      initialCurrency: '',
+      initialExchangeRate: '',
+    },
+    querySelector(selector) {
+      if (selector === 'select[name="currency_code"]') return currencyField;
+      return null;
+    },
+  };
+
+  editor.init();
+  editor.onContactChange('7', { currency_code: 'USD' });
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  assert.equal(currencyField.value, 'USD');
+  assert.equal(editor.currency, 'USD');
+  assert.equal(editor.exchangeRate, '1.37000000');
+  assert.equal(fetchCalls.length, 1);
+  const requestURL = new URL(fetchCalls[0].url, 'https://example.test');
+  assert.equal(requestURL.pathname, '/api/exchange-rate');
+  assert.equal(requestURL.searchParams.get('transaction_currency_code'), 'USD');
+  assert.equal(requestURL.searchParams.get('date'), '2026-04-29');
+  assert.equal(requestURL.searchParams.get('allow_provider_fetch'), '1');
+}
+
 async function testVendorSmartPickerRequestCarriesContext() {
   const fetchCalls = [];
   const balancizFetch = async (url, options) => {
@@ -466,6 +527,10 @@ async function run() {
     {
       name: 'billEditor init creates exactly one blank line for a new bill',
       fn: testBillEditorInitializesWithSingleBlankLine,
+    },
+    {
+      name: 'bill editor vendor currency triggers exchange-rate lookup',
+      fn: testBillEditorVendorCurrencyTriggersExchangeRateLookup,
     },
     {
       name: 'vendor smart picker search request includes expense_form_vendor context',

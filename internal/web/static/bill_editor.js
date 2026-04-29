@@ -9,6 +9,12 @@ function billEditor() {
     products: [],       // [{id, sku, name, is_stock_item, inventory_account_id, cogs_account_id}]
     paymentTerms: [],   // [{code, netDays}]
     contactTerms: {},   // {"vendorId": "termCode", ...}
+    baseCurrency: "",
+    currency: "",
+    exchangeRate: "",
+    exchangeRateHint: "",
+    exchangeRateManual: false,
+    exchangeRateFetchSeq: 0,
     taxAdj: {},         // keyed by taxCodeId (string): { calc: "0.00", user: null }
     terms: "",
     billDate: "",
@@ -26,6 +32,10 @@ function billEditor() {
       this.terms        = el.dataset.initialTerms   || "";
       this.billDate     = el.dataset.initialDate    || "";
       this.dueDate      = el.dataset.initialDueDate || "";
+      this.baseCurrency = String(el.dataset.baseCurrency || "").trim().toUpperCase();
+      this.currency     = String(el.dataset.initialCurrency || "").trim().toUpperCase();
+      this.exchangeRate = String(el.dataset.initialExchangeRate || "").trim();
+      this.exchangeRateManual = this.exchangeRate !== "";
       this.dueDateEditable = this._isEditable(this.terms);
 
       const initial = JSON.parse(el.dataset.initialLines || "[]");
@@ -38,6 +48,7 @@ function billEditor() {
         this._syncItemCategory(i, { initializing: true });
       }
       this._recalcAll();
+      this.lookupExchangeRate();
     },
 
     // ── Line management ──────────────────────────────────────────────────────
@@ -598,7 +609,72 @@ function billEditor() {
         const sel = this.$el.querySelector('select[name="currency_code"]');
         if (sel && Array.from(sel.options).some(o => o.value === vendorCurrency)) {
           sel.value = vendorCurrency;
+          this.onCurrencyChange(vendorCurrency);
         }
+      }
+    },
+
+    onCurrencyChange(value) {
+      this.currency = String(value || "").trim().toUpperCase();
+      this.exchangeRateManual = false;
+      if (!this.isForeignCurrency()) {
+        this.exchangeRate = "";
+        this.exchangeRateHint = "";
+        return;
+      }
+      this.lookupExchangeRate({ force: true });
+    },
+
+    onExchangeRateInput() {
+      this.exchangeRateManual = String(this.exchangeRate || "").trim() !== "";
+      if (!this.exchangeRateManual && this.isForeignCurrency()) {
+        this.lookupExchangeRate({ force: true });
+      } else {
+        this.exchangeRateHint = "";
+      }
+    },
+
+    isForeignCurrency() {
+      const selected = this.effectiveCurrency();
+      return selected !== "" && this.baseCurrency !== "" && selected !== this.baseCurrency;
+    },
+
+    effectiveCurrency() {
+      return String(this.currency || this.baseCurrency || "").trim().toUpperCase();
+    },
+
+    async lookupExchangeRate(options) {
+      const opts = options || {};
+      if (!this.isForeignCurrency()) return;
+      if (this.exchangeRateManual && !opts.force) return;
+      const seq = ++this.exchangeRateFetchSeq;
+      const params = new URLSearchParams({
+        transaction_currency_code: this.effectiveCurrency(),
+        date: this.billDate || "",
+        allow_provider_fetch: "1",
+      });
+      this.exchangeRateHint = "Looking up rate...";
+      try {
+        const fetchFn = window.balancizFetch || fetch;
+        const resp = await fetchFn("/api/exchange-rate?" + params.toString(), {
+          credentials: "same-origin",
+          headers: { Accept: "application/json" },
+        });
+        const data = await resp.json();
+        if (seq !== this.exchangeRateFetchSeq) return;
+        if (!resp.ok) {
+          this.exchangeRate = "";
+          this.exchangeRateHint = data && data.error ? data.error : "No exchange rate found.";
+          return;
+        }
+        this.exchangeRate = String(data.exchange_rate || "");
+        const rateDate = data.exchange_rate_date ? " for " + data.exchange_rate_date : "";
+        const label = data.source_label || data.exchange_rate_source || "rate table";
+        this.exchangeRateHint = "Auto-filled from " + label + rateDate + ".";
+      } catch (_) {
+        if (seq !== this.exchangeRateFetchSeq) return;
+        this.exchangeRate = "";
+        this.exchangeRateHint = "Could not look up exchange rate.";
       }
     },
 
@@ -615,6 +691,7 @@ function billEditor() {
       if (!this.dueDateEditable) {
         this.dueDate = this._computeDueDate(val, this.terms);
       }
+      this.lookupExchangeRate();
     },
 
     // Due date is manually editable only when no payment term is selected.
