@@ -59,6 +59,13 @@ func customerCurrencyDisplay(vm CustomerDetailVM) string {
 	return vm.Customer.CurrencyCode
 }
 
+func customerDefaultTermsDisplay(vm CustomerDetailVM) string {
+	if vm.DefaultPaymentTermLabel == "" {
+		return "-"
+	}
+	return vm.DefaultPaymentTermLabel
+}
+
 // customerShippingSummary returns a short count sentence for the header
 // grid. "No shipping addresses" / "1 address" / "3 addresses". Clicks
 // on the link navigate to the Addresses tab via a nearby anchor; this

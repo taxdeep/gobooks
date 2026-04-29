@@ -19,7 +19,7 @@ templ CustomerDetail(vm CustomerDetailVM) {
 }
 
 // bodyCustomerDetail is the top-level two-row layout:
-//   1. Compact header card — avatar + contact grid + financial summary
+//   1. Compact header card — customer identity + details + financial summary
 //   2. Tab strip + active tab body
 //
 // All heavy tables (Transactions, Quotes & Orders, Addresses) live in
@@ -65,56 +65,44 @@ templ customerDetailFlashes(vm CustomerDetailVM) {
 	}
 }
 
-// ── Header (avatar + contact grid + financial summary) ──────────────────────
+// ── Header (customer identity + details + financial summary) ────────────────
 
 templ customerDetailHeader(vm CustomerDetailVM) {
+	<div class="mb-3">
+		<a href="/customers" class="text-small text-text-muted2 hover:text-text">← Back to Customers</a>
+	</div>
 	<div class="rounded-lg border border-border bg-surface p-5">
-		<div class="flex flex-wrap items-start gap-5">
-			<!-- Left column: avatar + name + contact grid (takes remaining width) -->
-			<div class="min-w-0 flex-1">
-				<div class="flex items-start gap-4">
-					<!-- Avatar: deterministic initials + colour derived from name -->
-					<div class={ "flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-body font-semibold", contactAvatarClass(vm.Customer.Name) }>
-						{ contactInitials(vm.Customer.Name) }
-					</div>
-					<div class="min-w-0 flex-1">
-						<div class="flex flex-wrap items-center gap-2">
-							<h1 class="text-title font-semibold text-text">{ vm.Customer.Name }</h1>
-							if !vm.Customer.IsActive {
-								<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-background border border-border text-text-muted">Inactive</span>
-							} else {
-								<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-primary-soft text-primary">Customer</span>
-							}
-						</div>
-						<div class="mt-1 text-small text-text-muted2">
-							<a href="/customers" class="hover:text-text">← Back to Customers</a>
-							if vm.DefaultPaymentTermLabel != "" {
-								<span class="mx-2">·</span>
-								<span>Default terms: <span class="text-text">{ vm.DefaultPaymentTermLabel }</span></span>
-							}
-						</div>
-
-						<!-- Contact grid: 2 columns, each field is either the value
-						     or a muted "Add X" link to the Details tab. -->
-						<dl class="mt-4 grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
-							@headerField("Email", vm.Customer.Email, customerDetailsHref(vm.Customer.ID, "email"))
-							@headerField("Billing address", customerBillingLine(vm.Customer), customerDetailsHref(vm.Customer.ID, "billing"))
-							@headerFieldStatic("Currency", customerCurrencyDisplay(vm))
-							@headerFieldStatic("Shipping addresses", customerShippingSummary(vm))
-						</dl>
+		<div class="space-y-5">
+			<!-- Outer row 1: customer name, intentionally unframed. -->
+			<div class="flex items-center gap-4">
+				<div class={ "flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-body font-semibold", contactAvatarClass(vm.Customer.Name) }>
+					{ contactInitials(vm.Customer.Name) }
+				</div>
+				<div class="min-w-0">
+					<div class="flex flex-wrap items-center gap-2">
+						<h1 class="text-title font-semibold text-text">{ vm.Customer.Name }</h1>
+						if !vm.Customer.IsActive {
+							<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-background border border-border text-text-muted">Inactive</span>
+						} else {
+							<span class="inline-block rounded px-2 py-0.5 text-small font-medium bg-primary-soft text-primary">Customer</span>
+						}
 					</div>
 				</div>
 			</div>
 
-			<!-- Right: financial summary card (sticky-looking) + action buttons -->
-			<div class="flex w-full shrink-0 flex-col gap-3 sm:w-96 xl:w-[30rem]">
-				@customerFinancialSummary(vm)
-				<div class="flex flex-wrap items-center gap-2">
-					<a href={ templ.SafeURL(fmt.Sprintf("/quotes/new?customer_id=%d", vm.Customer.ID)) } class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-small font-semibold text-text hover:bg-background hover:text-primary">New Quote</a>
-					<a href={ templ.SafeURL(fmt.Sprintf("/invoices/new?customer_id=%d", vm.Customer.ID)) } class="rounded-md bg-primary px-3 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover">New Invoice</a>
-					<a href={ templ.SafeURL(fmt.Sprintf("/banking/receive-payment?customer_id=%d", vm.Customer.ID)) } class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-small font-semibold text-text hover:bg-background hover:text-primary">Received Payment</a>
-					<a href={ templ.SafeURL(fmt.Sprintf("/customer-statement?customer_id=%d", vm.Customer.ID)) } class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-small font-semibold text-text hover:bg-background hover:text-primary">Statement</a>
+			<!-- Outer row 2: details left, financial summary right. -->
+			<div class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(21rem,26rem)]">
+				<div class="rounded-lg border border-border-subtle bg-background p-4">
+					<h2 class="text-section font-semibold text-text">Customer details</h2>
+					<dl class="mt-4 grid grid-cols-1 gap-x-8 gap-y-3 md:grid-cols-2">
+						@headerField("Email", vm.Customer.Email, customerDetailsHref(vm.Customer.ID, "email"))
+						@headerFieldStatic("Currency", customerCurrencyDisplay(vm))
+						@headerFieldStatic("Default terms", customerDefaultTermsDisplay(vm))
+						@headerField("Billing address", customerBillingLine(vm.Customer), customerDetailsHref(vm.Customer.ID, "billing"))
+						@headerFieldStatic("Shipping addresses", customerShippingSummary(vm))
+					</dl>
 				</div>
+				@customerFinancialSummary(vm)
 			</div>
 		</div>
 	</div>
@@ -166,6 +154,12 @@ templ customerFinancialSummary(vm CustomerDetailVM) {
 				</div>
 			}
 		</dl>
+		<div class="mt-4 flex flex-wrap items-center gap-2 border-t border-primary/20 pt-3">
+			<a href={ templ.SafeURL(fmt.Sprintf("/quotes/new?customer_id=%d", vm.Customer.ID)) } class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-small font-semibold text-text hover:bg-background hover:text-primary">New Quote</a>
+			<a href={ templ.SafeURL(fmt.Sprintf("/invoices/new?customer_id=%d", vm.Customer.ID)) } class="rounded-md bg-primary px-3 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover">New Invoice</a>
+			<a href={ templ.SafeURL(fmt.Sprintf("/banking/receive-payment?customer_id=%d", vm.Customer.ID)) } class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-small font-semibold text-text hover:bg-background hover:text-primary">Received Payment</a>
+			<a href={ templ.SafeURL(fmt.Sprintf("/customer-statement?customer_id=%d", vm.Customer.ID)) } class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-small font-semibold text-text hover:bg-background hover:text-primary">Statement</a>
+		</div>
 	</div>
 }
 

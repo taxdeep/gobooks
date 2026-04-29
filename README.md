@@ -2,7 +2,6 @@
 
 A structured, multi-company accounting system built with Go.
 
-Repository note: the canonical GitHub repository has moved to `https://github.com/taxdeep/Balanciz.git`. Older `balanciz` URLs may still redirect for now, but new clones and upgrade source trees should use `Balanciz.git`.
 
 Designed around a single principle: **correctness before convenience**. The posting engine enforces double-entry bookkeeping, the tax engine handles recoverability at the line level, and the reconciliation engine produces auditable suggestions — the user always has final authority.
 
@@ -13,7 +12,6 @@ Built on Go · Fiber · GORM · PostgreSQL · Templ · Alpine.js · Tailwind CSS
 ## Table of Contents
 
 - [AI Product Architecture](#ai-product-architecture)
-- [Quick Start — Docker](#quick-start--docker)
 - [Local Development](#local-development)
 - [Production Deployment](#production-deployment)
 - [Deploy on Ubuntu 24.04](#deploy-on-ubuntu-2404-bare-metal--vps)
@@ -40,11 +38,8 @@ Core rule: AI can assist, but Balanciz backend engines remain the accountant of 
 
 ---
 
-## What's new in 0.0.15
 
-This release is a major UX + reporting upgrade. Three themes:
-
-### 1. Global Search + Advanced Search (Phase 5)
+### 1. Global Search + Advanced Search
 
 Topbar search box backed by a dedicated **search projection** (`search_documents` table) covering all 19 entity families — invoices, bills, quotes, sales orders, purchase orders, receipts, expenses, journal entries, credit notes, returns, refunds, deposits, prepayments, customers, vendors, and product/services.
 
@@ -96,24 +91,6 @@ Architectural sediment from this work:
 - **`pages.MoneyCell{Amount, DrillURL}`** + **`services.AccountDrillURL()`** — single money-with-drill primitive.
 - **`services.AllReports()` registry** — adding a new report is one struct entry: hub auto-picks-it-up + favourites toggle works without glue.
 
----
-
-## Quick Start — Docker
-
-**Prerequisites:** Docker Desktop installed and running.
-
-```bash
-docker compose up --build
-```
-
-Docker automatically:
-1. Waits for PostgreSQL to pass its health check
-2. Runs `balanciz-migrate` (GORM AutoMigrate + all SQL migrations) to completion
-3. Starts the application
-
-Open: [http://localhost:6768](http://localhost:6768)
-
-On first run the Setup page appears to create the initial company and owner account.
 
 ---
 
@@ -207,102 +184,8 @@ sudo ufw enable
 
 ---
 
-### Option A — Docker Deployment (Recommended)
 
-**1. Install Docker Engine**
-
-```bash
-# Add Docker's official GPG key and repository
-sudo apt install -y ca-certificates gnupg
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-  https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-
-# Allow your user to run Docker without sudo
-sudo usermod -aG docker $USER
-newgrp docker
-```
-
-**2. Clone and configure**
-
-```bash
-cd /opt
-sudo git clone https://github.com/taxdeep/Balanciz.git
-sudo chown -R $USER:$USER /opt/balanciz
-cd /opt/balanciz
-
-cp .env.example .env
-```
-
-Edit `.env` for production:
-
-```bash
-APP_ENV=prod
-APP_ADDR=:6768
-DB_HOST=db
-DB_PORT=5432
-DB_USER=balanciz
-DB_PASSWORD=<strong-random-password>
-DB_NAME=balanciz
-DB_SSLMODE=disable
-AI_SECRET_KEY=<base64-encoded-32-byte-key>   # optional, for AI features
-```
-
-**3. Start the stack**
-
-```bash
-docker compose up -d --build
-```
-
-Docker will:
-1. Start PostgreSQL 16 and wait for health check
-2. Run `balanciz-migrate` (schema + SQL migrations)
-3. Start the Balanciz application
-
-Verify:
-
-```bash
-docker compose ps          # All services should be "running" or "exited (0)"
-docker compose logs app    # Check for startup errors
-curl -s http://localhost:6768 | head -5
-```
-
-**4. Manage the service**
-
-```bash
-docker compose down              # Stop all services
-docker compose up -d             # Start (no rebuild)
-docker compose up -d --build     # Rebuild and start
-docker compose logs -f app       # Follow application logs
-docker compose exec db psql -U balanciz balanciz   # Database shell
-```
-
-**5. Data persistence**
-
-PostgreSQL data is stored in a Docker volume (`balanciz_pgdata`). To back up:
-
-```bash
-docker compose exec db pg_dump -U balanciz balanciz > backup_$(date +%Y%m%d).sql
-```
-
-To restore:
-
-```bash
-cat backup_20260330.sql | docker compose exec -T db psql -U balanciz balanciz
-```
-
----
-
-### Option B — Native Build Deployment
+### Option A — Native Build Deployment
 
 **Fast path for a fresh VPS (recommended):**
 
