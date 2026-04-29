@@ -264,6 +264,10 @@ templ adminFlashBanner(flash string) {
 		<div class="mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success">
 			User has been reactivated.
 		</div>
+	} else if flash == "user_login_unlocked" {
+		<div class="mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success">
+			User login lock has been cleared. Failed-attempt counters were reset.
+		</div>
 	} else if flash == "cannot_self_deactivate" {
 		<div class="mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover">
 			You cannot deactivate your own account.

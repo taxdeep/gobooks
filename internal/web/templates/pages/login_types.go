@@ -5,6 +5,7 @@ package pages
 type LoginViewModel struct {
 	Email         string
 	FormError     string
+	FormSuccess   string
 	EmailError    string
 	PasswordError string
 }

@@ -9,10 +9,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/google/uuid"
 	"balanciz/internal/models"
 	"balanciz/internal/services"
 	"balanciz/internal/web/templates/admintmpl"
+	"github.com/google/uuid"
 )
 
 // handleAdminUsers 列出所有业务用户。
@@ -142,6 +142,31 @@ func (s *Server) handleAdminUserReactivate(c *fiber.Ctx) error {
 }
 
 // handleAdminUserResetPassword 重置指定业务用户密码。
+func (s *Server) handleAdminUserUnlockLogin(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Redirect("/admin/users?flash=invalid_id", fiber.StatusSeeOther)
+	}
+
+	var user models.User
+	_ = s.DB.Select("id, email").First(&user, id).Error
+
+	if err := services.UnlockUserLogin(s.DB, id); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "database error")
+	}
+
+	services.TryWriteAuditLog(s.DB, "admin.user.login_unlocked", "user", 0,
+		AdminUserFromCtx(c).Email,
+		map[string]any{
+			"user_id":    id.String(),
+			"user_email": user.Email,
+			"actor_type": "sysadmin",
+		},
+	)
+
+	return c.Redirect("/admin/users?flash=user_login_unlocked", fiber.StatusSeeOther)
+}
+
 func (s *Server) handleAdminUserResetPassword(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {

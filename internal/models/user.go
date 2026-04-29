@@ -15,6 +15,14 @@ type User struct {
 	DisplayName  string    `gorm:"not null;default:''"`
 	IsActive     bool      `gorm:"not null;default:true"`
 
+	// Login lockout state for repeated incorrect password attempts.
+	FailedLoginAttempts      int `gorm:"not null;default:0"`
+	LoginLockedUntil         *time.Time
+	LoginLockWindowStartedAt *time.Time
+	LoginLockCount           int `gorm:"not null;default:0"`
+	PermanentlyLockedAt      *time.Time
+	LoginLockReason          string `gorm:"not null;default:''"`
+
 	// PlanID references the UserPlan that governs this user's quotas.
 	// Default 1 = Starter plan (seeded in migration).
 	// SysAdmin users (SysadminUser) are never assigned a UserPlan.

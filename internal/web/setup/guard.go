@@ -45,7 +45,8 @@ func Guard(db *gorm.DB) fiber.Handler {
 		}
 
 		if companyCount == 0 {
-			if path == "/setup" || path == "/login" || path == "/logout" || path == "/select-company" {
+			if path == "/setup" || path == "/login" || path == "/logout" || path == "/select-company" ||
+				path == "/forgot-password" || path == "/forgot-password/reset" {
 				return c.Next()
 			}
 			return c.Redirect("/setup", fiber.StatusSeeOther)
@@ -54,4 +55,3 @@ func Guard(db *gorm.DB) fiber.Handler {
 		return c.Next()
 	}
 }
-

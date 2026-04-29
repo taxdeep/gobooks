@@ -38,6 +38,7 @@ func (s *Server) RegisterRoutes(app *fiber.App) {
 	app.Post("/admin/users/:id/reactivate", auth(s.handleAdminUserReactivate)...)
 	app.Post("/admin/users/:id/reset-password", auth(s.handleAdminUserResetPassword)...)
 	app.Post("/admin/users/:id/change-plan", auth(s.handleAdminUserChangePlan)...)
+	app.Post("/admin/users/:id/unlock-login", auth(s.handleAdminUserUnlockLogin)...)
 
 	// Plan 管理（subscription tier CRUD）
 	app.Get("/admin/plans", auth(s.handleAdminPlans)...)

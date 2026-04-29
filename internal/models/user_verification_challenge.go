@@ -13,6 +13,7 @@ type VerifyChallengeType string
 const (
 	VerifyChallengeTypeEmailChange    VerifyChallengeType = "email_change"
 	VerifyChallengeTypePasswordChange VerifyChallengeType = "password_change"
+	VerifyChallengeTypePasswordReset  VerifyChallengeType = "password_reset"
 )
 
 // UserVerificationChallenge is a single-use, time-limited challenge that

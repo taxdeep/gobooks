@@ -79,6 +79,14 @@ func CreateEmailChangeChallenge(db *gorm.DB, userID uuid.UUID, newEmail string) 
 // password change. The returned raw code must be sent to the user's current
 // email address by the caller.
 func CreatePasswordChangeChallenge(db *gorm.DB, userID uuid.UUID) (rawCode string, challengeID uuid.UUID, err error) {
+	return createPasswordChallenge(db, userID, models.VerifyChallengeTypePasswordChange)
+}
+
+func CreatePasswordResetChallenge(db *gorm.DB, userID uuid.UUID) (rawCode string, challengeID uuid.UUID, err error) {
+	return createPasswordChallenge(db, userID, models.VerifyChallengeTypePasswordReset)
+}
+
+func createPasswordChallenge(db *gorm.DB, userID uuid.UUID, challengeType models.VerifyChallengeType) (rawCode string, challengeID uuid.UUID, err error) {
 	rawCode, err = randVerifyCode()
 	if err != nil {
 		return "", uuid.Nil, err
@@ -90,7 +98,7 @@ func CreatePasswordChangeChallenge(db *gorm.DB, userID uuid.UUID) (rawCode strin
 	ch := models.UserVerificationChallenge{
 		ID:          uuid.New(),
 		UserID:      userID,
-		Type:        models.VerifyChallengeTypePasswordChange,
+		Type:        challengeType,
 		CodeHash:    string(hash),
 		ExpiresAt:   time.Now().UTC().Add(15 * time.Minute),
 		MaxAttempts: 5,

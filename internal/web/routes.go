@@ -23,6 +23,10 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	// ── 认证（邮箱 + 密码）───────────────────────────────────────────────────────
 	app.Get("/login", s.handleLoginForm)
 	app.Post("/login", s.handleLoginPost)
+	app.Get("/forgot-password", s.handleForgotPasswordGet)
+	app.Post("/forgot-password", s.handleForgotPasswordPost)
+	app.Get("/forgot-password/reset", s.handleForgotPasswordResetGet)
+	app.Post("/forgot-password/reset", s.handleForgotPasswordResetPost)
 	app.Post("/logout", s.handleLogoutPost)
 
 	// ── 公司选择（多公司成员）────────────────────────────────────────────────────

@@ -2,6 +2,7 @@
 package web
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,7 +40,11 @@ func (s *Server) handleLoginForm(c *fiber.Ctx) error {
 		return c.Redirect("/", fiber.StatusSeeOther)
 	}
 
-	return pages.Login(pages.LoginViewModel{}).Render(c.Context(), c)
+	vm := pages.LoginViewModel{}
+	if c.Query("reset") == "1" {
+		vm.FormSuccess = "Password reset successfully. Sign in with your new password."
+	}
+	return pages.Login(vm).Render(c.Context(), c)
 }
 
 func (s *Server) handleLoginPost(c *fiber.Ctx) error {
@@ -79,15 +84,6 @@ func (s *Server) handleLoginPost(c *fiber.Ctx) error {
 	if user != nil {
 		activeCompanyID = firstMembershipCompanyID(s.DB, user.ID)
 		userID = user.ID.String()
-		blocked, err = services.CheckLoginThrottle(s.DB, activeCompanyID, &userID, c.IP())
-		if err != nil {
-			return fiber.NewError(fiber.StatusInternalServerError, "database error")
-		}
-		if blocked.Blocked {
-			services.RecordBlockedLogin(s.DB, activeCompanyID, &userID, c.IP(), c.Get("User-Agent"))
-			vm.FormError = "Too many sign-in attempts. Try again in a few minutes."
-			return pages.Login(vm).Render(c.Context(), c)
-		}
 	}
 
 	if user == nil || !user.IsActive {
@@ -100,6 +96,16 @@ func (s *Server) handleLoginPost(c *fiber.Ctx) error {
 		return pages.Login(vm).Render(c.Context(), c)
 	}
 
+	lockout, err := services.CheckUserLoginLockout(s.DB, user, time.Now().UTC())
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "database error")
+	}
+	if lockout.Locked {
+		services.RecordBlockedLogin(s.DB, activeCompanyID, &userID, c.IP(), c.Get("User-Agent"))
+		vm.FormError = userLoginLockoutMessage(lockout)
+		return pages.Login(vm).Render(c.Context(), c)
+	}
+
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 		services.EvaluateLoginSecurity(s.DB, services.LoginSecurityContext{
 			CompanyID: activeCompanyID,
@@ -109,8 +115,16 @@ func (s *Server) handleLoginPost(c *fiber.Ctx) error {
 			UserAgent: c.Get("User-Agent"),
 			Success:   false,
 		})
-		vm.FormError = "Invalid email or password."
+		lockout, lockErr := services.RecordUserPasswordFailure(s.DB, user, time.Now().UTC())
+		if lockErr != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "database error")
+		}
+		vm.FormError = userPasswordFailureMessage(lockout)
 		return pages.Login(vm).Render(c.Context(), c)
+	}
+
+	if err := services.RecordUserPasswordSuccess(s.DB, user); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "database error")
 	}
 
 	cookieVal, tokenHash, err := NewOpaqueSessionToken()
@@ -169,6 +183,33 @@ func (s *Server) handleLogoutPost(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusNoContent)
 	}
 	return c.Redirect("/login", fiber.StatusSeeOther)
+}
+
+func userPasswordFailureMessage(state services.UserLoginLockoutState) string {
+	if state.Locked {
+		return userLoginLockoutMessage(state)
+	}
+	if state.RemainingAttempts > 0 {
+		return "Invalid email or password. " + strconv.Itoa(state.RemainingAttempts) + " attempt(s) remaining before this account is temporarily locked."
+	}
+	return "Invalid email or password."
+}
+
+func userLoginLockoutMessage(state services.UserLoginLockoutState) string {
+	if state.Permanent {
+		return "This account is permanently blocked because it reached the daily login lock limit. Contact a system administrator to unlock it."
+	}
+	if state.LockedUntil != nil {
+		return "Too many incorrect password attempts. This account is locked until " + state.LockedUntil.Local().Format("2006-01-02 15:04") + "."
+	}
+	if state.RetryAfter > 0 {
+		minutes := int(state.RetryAfter.Round(time.Minute) / time.Minute)
+		if minutes < 1 {
+			minutes = 1
+		}
+		return "Too many incorrect password attempts. Try again in " + strconv.Itoa(minutes) + " minute(s)."
+	}
+	return "Too many incorrect password attempts. Try again later."
 }
 
 func firstMembershipCompanyID(db *gorm.DB, userID uuid.UUID) *uint {

@@ -1,7 +1,11 @@
 // 遵循project_guide.md
 package admintmpl
 
-import "balanciz/internal/models"
+import (
+	"time"
+
+	"balanciz/internal/models"
+)
 
 // AdminUserRow is one row in the business user list.
 type AdminUserRow struct {
@@ -96,11 +100,16 @@ templ bodyAdminUsers(vm AdminUsersVM) {
 							</td>
 							<td class="py-2.5 pr-4 whitespace-nowrap text-small text-text-muted2">{ row.User.CreatedAt.Format("2006-01-02") }</td>
 							<td class="py-2.5 pr-4">
-								if row.User.IsActive {
+								if adminUserPermanentlyLocked(row.User) {
+									<span class="inline-flex rounded-md border border-danger-border bg-danger-soft px-2 py-0.5 text-small font-medium text-danger-hover">Blocked</span>
+								} else if adminUserTemporarilyLocked(row.User) {
+									<span class="inline-flex rounded-md border border-warning-border bg-warning-soft px-2 py-0.5 text-small font-medium text-warning">Locked</span>
+								} else if row.User.IsActive {
 									<span class={ adminClassBadgeActive() }>Active</span>
 								} else {
 									<span class={ adminClassBadgeInactive() }>Inactive</span>
 								}
+								<div class="mt-1 text-xs text-text-muted2">{ adminUserSecuritySummary(row.User) }</div>
 							</td>
 							<td class="py-2.5 pr-4 text-right">
 								<div class="flex flex-wrap items-center justify-end gap-2">
@@ -111,6 +120,11 @@ templ bodyAdminUsers(vm AdminUsersVM) {
 									} else {
 										<form method="post" action={ "/admin/users/" + row.User.ID.String() + "/reactivate" } class="inline" onsubmit="return confirm('Reactivate this user?');">
 											<button type="submit" class={ adminClassActionPositive() }>Reactivate</button>
+										</form>
+									}
+									if adminUserNeedsLoginUnlock(row.User) {
+										<form method="post" action={ "/admin/users/" + row.User.ID.String() + "/unlock-login" } class="inline" onsubmit="return confirm('Clear login lock and failed-attempt counters for this user?');">
+											<button type="submit" class={ adminClassActionPositive() }>Unlock login</button>
 										</form>
 									}
 									<details class="inline-block text-left">
@@ -142,4 +156,32 @@ func adminUserRowClass(u models.User) string {
 		return adminClassTableRowInactive()
 	}
 	return adminClassTableRow()
+}
+
+func adminUserPermanentlyLocked(u models.User) bool {
+	return u.PermanentlyLockedAt != nil
+}
+
+func adminUserTemporarilyLocked(u models.User) bool {
+	return u.LoginLockedUntil != nil && time.Now().UTC().Before(u.LoginLockedUntil.UTC())
+}
+
+func adminUserNeedsLoginUnlock(u models.User) bool {
+	return adminUserPermanentlyLocked(u) || adminUserTemporarilyLocked(u) || u.FailedLoginAttempts > 0 || u.LoginLockCount > 0
+}
+
+func adminUserSecuritySummary(u models.User) string {
+	if adminUserPermanentlyLocked(u) {
+		return "Login blocked until SysAdmin unlocks it"
+	}
+	if adminUserTemporarilyLocked(u) {
+		return "Locked until " + u.LoginLockedUntil.Local().Format("2006-01-02 15:04")
+	}
+	if u.FailedLoginAttempts > 0 {
+		return "Failed attempts: " + adminInt(u.FailedLoginAttempts) + "/5"
+	}
+	if u.LoginLockCount > 0 {
+		return "Locks in 24h: " + adminInt(u.LoginLockCount) + "/3"
+	}
+	return ""
 }
