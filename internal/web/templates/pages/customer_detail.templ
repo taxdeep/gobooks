@@ -41,7 +41,7 @@ templ bodyCustomerDetail(vm CustomerDetailVM) {
 			@media (min-width: 1024px) {
 				.customer-detail-panel-grid {
 					grid-template-columns: minmax(0, 2fr) minmax(22rem, 1fr);
-					align-items: start;
+					align-items: stretch;
 				}
 			}
 		</style>
@@ -142,32 +142,34 @@ templ headerFieldStatic(label, value string) {
 }
 
 templ customerFinancialSummary(vm CustomerDetailVM) {
-	<div class="h-fit rounded-lg border border-primary/30 bg-primary-soft/25 p-4 shadow-inner">
-		<div class="flex items-center gap-2 text-small font-semibold text-text">
-			<span>💰</span>
-			<span>Financial summary</span>
-		</div>
-		<dl class="mt-3 space-y-2 text-body">
-			<div class="flex items-center justify-between">
-				<dt class="text-small text-text-muted2">Open balance</dt>
-				<dd class="font-semibold tabular-nums text-text">{ currencyTotalsLabel(vm.ARSummary.OutstandingTotals) }</dd>
+	<div class="flex h-full flex-col rounded-lg border border-primary/30 bg-primary-soft/25 p-4 shadow-inner">
+		<div>
+			<div class="flex items-center gap-2 text-small font-semibold text-text">
+				<span>💰</span>
+				<span>Financial summary</span>
 			</div>
-			<div class="flex items-center justify-between">
-				<dt class="text-small text-text-muted2">Overdue</dt>
-				<dd class="font-semibold tabular-nums text-warning-hover">{ Itoa(vm.ARSummary.OverdueInvoiceCount) } invoice(s)</dd>
-			</div>
-			<div class="flex items-center justify-between">
-				<dt class="text-small text-text-muted2">Unbilled work</dt>
-				<dd class="font-semibold tabular-nums text-text">{ currencyTotalsLabel(vm.BillableSummary.TotalUnbilled) }</dd>
-			</div>
-			if !vm.CreditRemaining.IsZero() {
+			<dl class="mt-3 space-y-2 text-body">
 				<div class="flex items-center justify-between">
-					<dt class="text-small text-text-muted2">Credit on file</dt>
-					<dd class="font-semibold tabular-nums text-success-hover">{ Money(vm.CreditRemaining) }</dd>
+					<dt class="text-small text-text-muted2">Open balance</dt>
+					<dd class="font-semibold tabular-nums text-text">{ currencyTotalsLabel(vm.ARSummary.OutstandingTotals) }</dd>
 				</div>
-			}
-		</dl>
-		<div class="mt-4 flex flex-wrap items-center gap-2 border-t border-primary/20 pt-3">
+				<div class="flex items-center justify-between">
+					<dt class="text-small text-text-muted2">Overdue</dt>
+					<dd class="font-semibold tabular-nums text-warning-hover">{ Itoa(vm.ARSummary.OverdueInvoiceCount) } invoice(s)</dd>
+				</div>
+				<div class="flex items-center justify-between">
+					<dt class="text-small text-text-muted2">Unbilled work</dt>
+					<dd class="font-semibold tabular-nums text-text">{ currencyTotalsLabel(vm.BillableSummary.TotalUnbilled) }</dd>
+				</div>
+				if !vm.CreditRemaining.IsZero() {
+					<div class="flex items-center justify-between">
+						<dt class="text-small text-text-muted2">Credit on file</dt>
+						<dd class="font-semibold tabular-nums text-success-hover">{ Money(vm.CreditRemaining) }</dd>
+					</div>
+				}
+			</dl>
+		</div>
+		<div class="mt-auto flex flex-wrap items-center gap-2 border-t border-primary/20 pt-3">
 			<a href={ templ.SafeURL(fmt.Sprintf("/quotes/new?customer_id=%d", vm.Customer.ID)) } class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-small font-semibold text-text hover:bg-background hover:text-primary">New Quote</a>
 			<a href={ templ.SafeURL(fmt.Sprintf("/invoices/new?customer_id=%d", vm.Customer.ID)) } class="rounded-md bg-primary px-3 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover">New Invoice</a>
 			<a href={ templ.SafeURL(fmt.Sprintf("/banking/receive-payment?customer_id=%d", vm.Customer.ID)) } class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-small font-semibold text-text hover:bg-background hover:text-primary">Received Payment</a>
