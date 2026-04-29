@@ -91,8 +91,8 @@ templ customerDetailHeader(vm CustomerDetailVM) {
 			</div>
 
 			<!-- Outer row 2: details left, financial summary right. -->
-			<div class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(21rem,26rem)]">
-				<div class="rounded-lg border border-border-subtle bg-background p-4">
+			<div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
+				<div class="rounded-lg border border-border-subtle bg-background p-4 xl:col-span-2">
 					<h2 class="text-section font-semibold text-text">Customer details</h2>
 					<dl class="mt-4 grid grid-cols-1 gap-x-8 gap-y-3 md:grid-cols-2">
 						@headerField("Email", vm.Customer.Email, customerDetailsHref(vm.Customer.ID, "email"))
@@ -129,7 +129,7 @@ templ headerFieldStatic(label, value string) {
 }
 
 templ customerFinancialSummary(vm CustomerDetailVM) {
-	<div class="rounded-lg border border-primary/30 bg-primary-soft/25 p-4 shadow-inner">
+	<div class="h-fit rounded-lg border border-primary/30 bg-primary-soft/25 p-4 shadow-inner xl:col-span-1">
 		<div class="flex items-center gap-2 text-small font-semibold text-text">
 			<span>💰</span>
 			<span>Financial summary</span>

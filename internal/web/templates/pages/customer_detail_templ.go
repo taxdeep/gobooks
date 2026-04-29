@@ -281,7 +281,7 @@ func customerDetailHeader(vm CustomerDetailVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</div></div></div><!-- Outer row 2: details left, financial summary right. --><div class=\"grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(21rem,26rem)]\"><div class=\"rounded-lg border border-border-subtle bg-background p-4\"><h2 class=\"text-section font-semibold text-text\">Customer details</h2><dl class=\"mt-4 grid grid-cols-1 gap-x-8 gap-y-3 md:grid-cols-2\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</div></div></div><!-- Outer row 2: details left, financial summary right. --><div class=\"grid grid-cols-1 gap-4 xl:grid-cols-3\"><div class=\"rounded-lg border border-border-subtle bg-background p-4 xl:col-span-2\"><h2 class=\"text-section font-semibold text-text\">Customer details</h2><dl class=\"mt-4 grid grid-cols-1 gap-x-8 gap-y-3 md:grid-cols-2\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -493,7 +493,7 @@ func customerFinancialSummary(vm CustomerDetailVM) templ.Component {
 			templ_7745c5c3_Var19 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<div class=\"rounded-lg border border-primary/30 bg-primary-soft/25 p-4 shadow-inner\"><div class=\"flex items-center gap-2 text-small font-semibold text-text\"><span>💰</span> <span>Financial summary</span></div><dl class=\"mt-3 space-y-2 text-body\"><div class=\"flex items-center justify-between\"><dt class=\"text-small text-text-muted2\">Open balance</dt><dd class=\"font-semibold tabular-nums text-text\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<div class=\"h-fit rounded-lg border border-primary/30 bg-primary-soft/25 p-4 shadow-inner xl:col-span-1\"><div class=\"flex items-center gap-2 text-small font-semibold text-text\"><span>💰</span> <span>Financial summary</span></div><dl class=\"mt-3 space-y-2 text-body\"><div class=\"flex items-center justify-between\"><dt class=\"text-small text-text-muted2\">Open balance</dt><dd class=\"font-semibold tabular-nums text-text\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
