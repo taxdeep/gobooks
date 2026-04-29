@@ -1,0 +1,313 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"github.com/shopspring/decimal"
+
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
+)
+
+templ ExpenseOverview(vm ExpenseOverviewVM) {
+	@layout.Layout(
+		"Balanciz - Expense Overview",
+		ui.SidebarVM{Active: "Expense Overview", HasCompany: vm.HasCompany},
+		bodyExpenseOverview(vm),
+	)
+}
+
+templ bodyExpenseOverview(vm ExpenseOverviewVM) {
+	<style>
+		.expense-overview-top-grid {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.expense-overview-top-grid > * + * {
+			border-top: 1px solid rgb(var(--gb-border));
+		}
+		.expense-workflow-map {
+			position: relative;
+			margin-top: 1rem;
+			height: 30rem;
+			overflow: hidden;
+			border-radius: 0.375rem;
+			border: 1px solid rgb(var(--gb-border-subtle));
+			background: rgb(var(--gb-background) / 0.4);
+		}
+		.expense-workflow-svg {
+			position: absolute;
+			inset: 1.25rem 1.5rem;
+			height: calc(100% - 2.5rem);
+			width: calc(100% - 3rem);
+			overflow: visible;
+		}
+		.expense-workflow-path {
+			fill: none;
+			stroke: rgb(var(--gb-border-input));
+			stroke-width: 2;
+			stroke-linecap: round;
+			stroke-linejoin: round;
+			vector-effect: non-scaling-stroke;
+		}
+		.expense-workflow-path-soft {
+			opacity: 0.55;
+		}
+		.expense-workflow-node {
+			position: absolute;
+			display: flex;
+			width: 8rem;
+			transform: translate(-50%, -50%);
+			flex-direction: column;
+			align-items: center;
+			gap: 0.25rem;
+			border-radius: 0.375rem;
+			padding: 0.25rem 0.5rem;
+			text-align: center;
+			font-size: 0.75rem;
+			line-height: 1rem;
+			font-weight: 600;
+			color: rgb(var(--gb-text));
+			z-index: 1;
+		}
+		.expense-workflow-node:hover {
+			background: rgb(var(--gb-background));
+		}
+		.expense-workflow-icon {
+			display: flex;
+			height: 3rem;
+			width: 3rem;
+			align-items: center;
+			justify-content: center;
+			border-radius: 9999px;
+			border: 2px solid rgb(var(--gb-primary));
+			background: rgb(var(--gb-surface));
+			color: rgb(var(--gb-primary));
+			box-shadow: 0 8px 18px -14px rgb(0 0 0 / 0.8);
+		}
+		.expense-workflow-icon svg {
+			height: 1.5rem;
+			width: 1.5rem;
+		}
+		@media (min-width: 1024px) {
+			.expense-overview-top-grid {
+				grid-template-columns: minmax(0, 1.15fr) minmax(24rem, 0.85fr);
+			}
+			.expense-overview-top-grid > * + * {
+				border-top: 0;
+				border-left: 1px solid rgb(var(--gb-border));
+			}
+		}
+	</style>
+	<div class="max-w-[98%] space-y-5">
+		<div class="flex flex-wrap items-end justify-between gap-3">
+			<div>
+				<h1 class="text-title font-semibold">Expense Overview</h1>
+				<p class="mt-1 text-small text-text-muted2">Payables workflow, vendor balances, cash outflow, and expense trend in one view.</p>
+			</div>
+			<div class="text-small text-text-muted2">
+				Data updated { vm.Overview.DataUpdatedAt.Format("2006-01-02 15:04") }
+			</div>
+		</div>
+
+		if vm.FormError != "" {
+			<div class="rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover">
+				{ vm.FormError }
+			</div>
+		}
+
+		<section class="rounded-lg border border-border bg-surface shadow-sm">
+			<div class="expense-overview-top-grid">
+				<div class="expense-overview-workflow-panel p-5">
+					<div class="flex items-baseline justify-between gap-3">
+						<h2 class="text-section font-semibold text-text">Workflow</h2>
+						<a href="/bills" class="text-small font-medium text-primary hover:underline">View bills</a>
+					</div>
+					@expenseOverviewWorkflow()
+				</div>
+				<div class="expense-overview-vendor-panel p-5">
+					<div class="flex items-baseline justify-between gap-3">
+						<h2 class="text-section font-semibold text-text">Vendors</h2>
+						<a href="/vendors" class="text-small font-medium text-primary hover:underline">View all</a>
+					</div>
+					@expenseOverviewVendors(vm)
+				</div>
+			</div>
+		</section>
+
+		<section class="rounded-lg border border-border bg-surface p-5 shadow-sm">
+			<div class="flex flex-wrap items-baseline justify-between gap-3">
+				<div>
+					<h2 class="text-section font-semibold text-text">Cash Out</h2>
+					<p class="mt-1 text-small text-text-muted2">Past 10 months and this month use posted bill payments and expenses. Next 3 months are projected from open bill due dates.</p>
+				</div>
+				<span class="text-small font-medium text-text-muted2">{ vm.Overview.BaseCurrency }</span>
+			</div>
+			@expenseOverviewCashOut(vm)
+		</section>
+
+		<section class="rounded-lg border border-border bg-surface p-5 shadow-sm">
+			@expenseOverviewExpenseOverTime(vm)
+		</section>
+	</div>
+}
+
+templ expenseOverviewWorkflow() {
+	<div class="expense-workflow-map">
+		<svg class="expense-workflow-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+			<defs>
+				<marker id="expense-overview-arrow" markerWidth="5" markerHeight="5" refX="4.25" refY="2.5" orient="auto" markerUnits="strokeWidth">
+					<path d="M0,0 L5,2.5 L0,5 Z" fill="rgb(var(--gb-border-input))"></path>
+				</marker>
+			</defs>
+			<path class="expense-workflow-path expense-workflow-path-soft" d="M11 21 V36" marker-end="url(#expense-overview-arrow)"></path>
+			<path class="expense-workflow-path expense-workflow-path-soft" d="M39 21 V39 H16" marker-end="url(#expense-overview-arrow)"></path>
+			<path class="expense-workflow-path" d="M16 43 H50 V72" marker-end="url(#expense-overview-arrow)"></path>
+			<path class="expense-workflow-path" d="M16 80 H44" marker-end="url(#expense-overview-arrow)"></path>
+			<path class="expense-workflow-path" d="M74 80 H56" marker-end="url(#expense-overview-arrow)"></path>
+		</svg>
+		for _, node := range expenseOverviewWorkflowNodes() {
+			<a href={ templ.SafeURL(node.Href) } style={ expenseOverviewNodeStyle(node) } class={ expenseOverviewNodeClass(node) }>
+				<span class="expense-workflow-icon">
+					@expenseOverviewWorkflowIcon(node.Key)
+				</span>
+				<span>{ node.Label }</span>
+			</a>
+		}
+	</div>
+}
+
+templ expenseOverviewWorkflowIcon(key string) {
+	if key == "vendors" {
+		<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 20h16M6 20V8l6-4 6 4v12M9 20v-6h6v6M8 10h.01M12 10h.01M16 10h.01"/></svg>
+	} else if key == "purchase_orders" {
+		<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 6h8M8 10h8M8 14h5M6 3h12a1 1 0 011 1v17l-3-2-3 2-3-2-3 2-2-1.25V4a1 1 0 011-1z"/></svg>
+	} else if key == "bills" {
+		<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7 3h10a2 2 0 012 2v16l-3-2-3 2-3-2-3 2V5a2 2 0 012-2zM9 8h6M9 12h6M9 16h3"/></svg>
+	} else if key == "expenses" {
+		<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M6 7l1 13h10l1-13M9 11h6M10 15h4M9 4h6l1 3H8l1-3z"/></svg>
+	} else if key == "pay_bills" {
+		<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M5 10V7a2 2 0 012-2h10a2 2 0 012 2v3M6 14h4M6 18h2M15 17l2 2 4-4M5 10v9h8"/></svg>
+	} else {
+		<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h8M8 11h5M6 3h12a1 1 0 011 1v17l-3-2-3 2-3-2-3 2-2-1.25V4a1 1 0 011-1zM15 13l-4 4m0-4l4 4"/></svg>
+	}
+}
+
+templ expenseOverviewVendors(vm ExpenseOverviewVM) {
+	if len(vm.Overview.VendorBalances) == 0 {
+		<p class="mt-4 rounded-md border border-border-subtle bg-background p-4 text-body text-text-muted2">No active vendors yet.</p>
+	} else {
+		<div class="mt-4 overflow-hidden rounded-md border border-border-subtle">
+			<table class="w-full text-left text-small">
+				<thead class="border-b border-border-subtle bg-background text-[11px] uppercase tracking-wider text-text-muted">
+					<tr>
+						<th class="px-3 py-2">Vendor Name</th>
+						<th class="px-3 py-2 text-right">Balance</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, row := range vm.Overview.VendorBalances {
+						<tr class="border-b border-border-subtle last:border-0 hover:bg-background">
+							<td class="px-3 py-2">
+								<a href={ templ.SafeURL("/vendors/" + Uitoa(row.VendorID)) } class="font-medium text-primary hover:underline">{ row.VendorName }</a>
+							</td>
+							<td class="px-3 py-2 text-right tabular-nums text-text">{ expenseOverviewMoney(row.Balance, vm.Overview.BaseCurrency) }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	}
+}
+
+templ expenseOverviewCashOut(vm ExpenseOverviewVM) {
+	<div class="mt-4 overflow-x-auto rounded-md border border-border-subtle">
+		<table class="min-w-[72rem] w-full text-small">
+			<thead class="border-b border-border-subtle text-[11px] uppercase tracking-wider">
+				<tr>
+					<th class="sticky left-0 z-10 bg-surface px-3 py-2 text-left font-semibold text-text-muted">Cash Out</th>
+					for _, month := range vm.Overview.CashOutMonths {
+						<th class={ expenseOverviewCashOutHeaderClass(month.Kind) }>{ month.Label }</th>
+					}
+				</tr>
+			</thead>
+			<tbody class="text-text">
+				@expenseOverviewCashOutRow("Paid bills", "Vendor payments applied to bills", vm, "bills")
+				@expenseOverviewCashOutRow("Paid expenses", "Posted direct expenses", vm, "expenses")
+				@expenseOverviewCashOutRow("Projected bill payments", "Open bills by due date", vm, "projected")
+				@expenseOverviewCashOutRow("Total cash outflow", "", vm, "total")
+			</tbody>
+		</table>
+	</div>
+}
+
+templ expenseOverviewCashOutRow(label string, hint string, vm ExpenseOverviewVM, kind string) {
+	<tr class="border-b border-border-subtle last:border-0">
+		<th class="sticky left-0 z-10 bg-surface px-3 py-2 text-left font-medium">
+			<span>{ label }</span>
+			if hint != "" {
+				<span class="block text-[11px] font-normal text-text-muted2">{ hint }</span>
+			}
+		</th>
+		for _, month := range vm.Overview.CashOutMonths {
+			<td class="px-3 py-2 text-right tabular-nums">
+				if kind == "bills" {
+					{ MoneyBlankZero(month.PaidBills) }
+				} else if kind == "expenses" {
+					{ MoneyBlankZero(month.PaidExpenses) }
+				} else if kind == "projected" {
+					{ MoneyBlankZero(month.Projected) }
+				} else {
+					<span class="font-semibold">{ MoneyBlankZero(month.Total) }</span>
+				}
+			</td>
+		}
+	</tr>
+}
+
+templ expenseOverviewExpenseOverTime(vm ExpenseOverviewVM) {
+	<div class="flex flex-wrap items-start justify-between gap-4">
+		<div>
+			<div class="flex items-center gap-2">
+				<h2 class="text-section font-semibold uppercase tracking-wide text-text">Expense over time</h2>
+				<span class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border-input text-[11px] font-semibold text-text-muted2">i</span>
+			</div>
+			<p class="mt-1 text-small italic text-text-muted2">Data updated { vm.Overview.DataUpdatedAt.Format("15:04") }</p>
+			<div class="mt-5">
+				<p class="text-3xl font-semibold tabular-nums text-text">{ expenseOverviewMoney(vm.Overview.ExpenseThisMonth, vm.Overview.BaseCurrency) } <span class="text-body font-normal text-text-muted2">This month</span></p>
+				<p class={ "mt-2 text-body font-semibold " + expenseOverviewDeltaClass(vm.Overview.ExpenseDelta) }>
+					{ expenseOverviewDeltaLabel(vm.Overview.ExpenseDelta, vm.Overview.BaseCurrency, vm.Overview.PreviousMonthLabel) }
+				</p>
+			</div>
+		</div>
+		<div class="flex items-center gap-3 text-body text-text-muted2">
+			<span>Duration:</span>
+			<span class="font-medium text-text">Last 12 months</span>
+		</div>
+	</div>
+
+	<div class="mt-5 grid grid-cols-[3.5rem_minmax(0,1fr)] gap-3">
+		<div class="flex h-56 flex-col justify-between text-right text-small tabular-nums text-text-muted2">
+			<span>{ expenseOverviewMoney(vm.Overview.ExpenseSeriesMax, vm.Overview.BaseCurrency) }</span>
+			<span>{ expenseOverviewMoney(vm.Overview.ExpenseSeriesMax.Div(decimal.NewFromInt(2)), vm.Overview.BaseCurrency) }</span>
+			<span>{ expenseOverviewMoney(decimal.Zero, vm.Overview.BaseCurrency) }</span>
+		</div>
+		<div class="relative h-56 border-b border-border-input">
+			<div class="absolute inset-x-0 top-0 border-t border-border-subtle"></div>
+			<div class="absolute inset-x-0 top-1/2 border-t border-border-subtle"></div>
+			<div class="absolute inset-x-0 bottom-0 border-t border-border-subtle"></div>
+			<div class="absolute inset-x-0 bottom-0 flex h-full items-end justify-between gap-2 px-1">
+				for _, point := range vm.Overview.ExpenseSeries {
+					<div class="flex h-full min-w-0 flex-1 flex-col justify-end">
+						<div title={ expenseOverviewPointTitle(point, vm.Overview.BaseCurrency) } class="w-full rounded-t bg-warning/70 hover:bg-warning" style={ expenseOverviewPointHeight(point.Amount, vm.Overview.ExpenseSeriesMax) }></div>
+					</div>
+				}
+			</div>
+		</div>
+		<div></div>
+		<div class="flex justify-between gap-2 px-1 text-[11px] text-text-muted2">
+			for _, point := range vm.Overview.ExpenseSeries {
+				<span class="min-w-0 flex-1 text-center">{ point.Label }</span>
+			}
+		</div>
+	</div>
+}

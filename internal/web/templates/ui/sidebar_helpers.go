@@ -12,7 +12,7 @@ func SectionKeyForActivePage(active string) string {
 	case "Sales Overview", "Customers", "Sales Transactions", "Quotes", "Sales Orders", "Customer Deposits", "Customer Receipts",
 		"AR Returns", "AR Refunds", "AR Write-Offs", "Customer Statement", "Receive Payment", "Credit Notes":
 		return "sales"
-	case "Expenses", "Vendors", "Pay Bills",
+	case "Expense Overview", "Expenses", "Vendors", "Pay Bills",
 		"Purchase Orders", "Vendor Prepayments", "Vendor Returns", "Vendor Credit Notes", "Vendor Refunds", "AP Aging":
 		return "expenses"
 	case "Bank Reconcile", "Reports", "Accounts":
