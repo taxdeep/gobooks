@@ -15,7 +15,7 @@ You must obtain a commercial license.
 **TAXDEEP CORP.**  
 Email: [info@taxdeep.com](mailto:info@taxdeep.com)
 
-Source repository: https://github.com/imlei/balanciz
+Source repository: https://github.com/taxdeep/balanciz
 
 ## Notes
 

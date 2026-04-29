@@ -42,7 +42,7 @@ func adminLayout(title string, adminEmail string, activeNav string, maintenanceM
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/admintmpl/layout.templ`, Line: 13, Col: 17}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `.`, Line: 13, Col: 17}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -65,7 +65,7 @@ func adminLayout(title string, adminEmail string, activeNav string, maintenanceM
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(adminEmail)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/admintmpl/layout.templ`, Line: 83, Col: 26}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `.`, Line: 83, Col: 26}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
@@ -78,7 +78,7 @@ func adminLayout(title string, adminEmail string, activeNav string, maintenanceM
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(adminEmail)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/admintmpl/layout.templ`, Line: 85, Col: 20}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `.`, Line: 85, Col: 20}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -145,7 +145,7 @@ func adminNavItemWithIcon(href string, label string, navKey string, activeNav st
 			var templ_7745c5c3_Var6 templ.SafeURL
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinURLErrs(href)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/admintmpl/layout.templ`, Line: 140, Col: 16}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `.`, Line: 140, Col: 16}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -166,7 +166,7 @@ func adminNavItemWithIcon(href string, label string, navKey string, activeNav st
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/admintmpl/layout.templ`, Line: 142, Col: 16}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `.`, Line: 142, Col: 16}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -184,7 +184,7 @@ func adminNavItemWithIcon(href string, label string, navKey string, activeNav st
 			var templ_7745c5c3_Var8 templ.SafeURL
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs(href)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/admintmpl/layout.templ`, Line: 145, Col: 16}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `.`, Line: 145, Col: 16}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -205,7 +205,7 @@ func adminNavItemWithIcon(href string, label string, navKey string, activeNav st
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/admintmpl/layout.templ`, Line: 147, Col: 16}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `.`, Line: 147, Col: 16}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -362,108 +362,153 @@ func adminFlashBanner(flash string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
+		} else if flash == "db_backup_ok" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">Database backup created successfully. The newest file is available in Recent backups.</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else if flash == "db_backup_missing_tool" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<div class=\"mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover\">Database backup could not start because pg_dump is not installed on this server.</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else if flash == "db_backup_unsupported" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<div class=\"mb-4 rounded-md border border-warning-border bg-warning-soft px-4 py-3 text-body text-warning\">Database backup currently supports PostgreSQL only.</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else if flash == "db_backup_timeout" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<div class=\"mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover\">Database backup timed out before it finished. Check database size and server load.</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else if flash == "db_backup_err" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<div class=\"mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover\">Database backup failed. Check server logs for pg_dump output.</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else if flash == "db_optimize_ok" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">Database optimization completed successfully.</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else if flash == "db_optimize_unsupported" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<div class=\"mb-4 rounded-md border border-warning-border bg-warning-soft px-4 py-3 text-body text-warning\">Database optimization is available for PostgreSQL and SQLite only.</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else if flash == "db_optimize_timeout" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<div class=\"mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover\">Database optimization timed out before it finished. Try again during a quieter period.</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else if flash == "db_optimize_err" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "<div class=\"mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover\">Database optimization failed. Check server logs for details.</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		} else if flash == "created" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">Account created successfully.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">Account created successfully.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if flash == "user_deactivated" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<div class=\"mb-4 rounded-md border border-warning-border bg-warning-soft px-4 py-3 text-body text-warning\">User has been deactivated. All sessions revoked.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "<div class=\"mb-4 rounded-md border border-warning-border bg-warning-soft px-4 py-3 text-body text-warning\">User has been deactivated. All sessions revoked.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if flash == "user_reactivated" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">User has been reactivated.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">User has been reactivated.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if flash == "cannot_self_deactivate" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<div class=\"mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover\">You cannot deactivate your own account.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<div class=\"mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover\">You cannot deactivate your own account.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if flash == "last_admin" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<div class=\"mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover\">Cannot deactivate the last active SysAdmin account.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<div class=\"mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover\">Cannot deactivate the last active SysAdmin account.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if flash == "use_account_page" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<div class=\"mb-4 rounded-md border border-border bg-surface px-4 py-3 text-body text-text-muted2\">To change your own password, use the Account page.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<div class=\"mb-4 rounded-md border border-border bg-surface px-4 py-3 text-body text-text-muted2\">To change your own password, use the Account page.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if flash == "password_changed" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">Password changed successfully. All previous SysAdmin sessions have been revoked.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">Password changed successfully. All previous SysAdmin sessions have been revoked.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if flash == "settings_saved" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">Settings saved.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">Settings saved.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if flash == "test_email_ok" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">Test email submitted. (Stub — no actual email sent yet.)</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">Test email submitted. (Stub — no actual email sent yet.)</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if flash == "test_email_err" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<div class=\"mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover\">Test email failed. Check the SMTP configuration.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "<div class=\"mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover\">Test email failed. Check the SMTP configuration.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if flash == "test_sms_ok" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">Test SMS submitted. (Stub — no actual SMS sent yet.)</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">Test SMS submitted. (Stub — no actual SMS sent yet.)</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if flash == "test_sms_err" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<div class=\"mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover\">Test SMS failed. Check the SMS configuration.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "<div class=\"mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover\">Test SMS failed. Check the SMS configuration.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if flash == "plan_changed" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">User plan updated successfully.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">User plan updated successfully.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if flash == "invalid_plan" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<div class=\"mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover\">Invalid or inactive plan selected.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "<div class=\"mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover\">Invalid or inactive plan selected.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if flash == "password_reset" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">Password reset successfully. All sessions for that user have been revoked.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">Password reset successfully. All sessions for that user have been revoked.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if flash == "invalid_id" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "<div class=\"mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover\">The selected record could not be found or is invalid.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "<div class=\"mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover\">The selected record could not be found or is invalid.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if flash == "sysadmin_deactivated" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<div class=\"mb-4 rounded-md border border-warning-border bg-warning-soft px-4 py-3 text-body text-warning\">SysAdmin account has been deactivated. All sessions for that account have been revoked.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "<div class=\"mb-4 rounded-md border border-warning-border bg-warning-soft px-4 py-3 text-body text-warning\">SysAdmin account has been deactivated. All sessions for that account have been revoked.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if flash == "sysadmin_reactivated" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">SysAdmin account has been reactivated.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">SysAdmin account has been reactivated.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if flash == "search_rebuild_started" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">Search index rebuild started. The sweep runs in the background — refresh this page in a minute to see progress.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<div class=\"mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success\">Search index rebuild started. The sweep runs in the background — refresh this page in a minute to see progress.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if flash == "search_rebuild_already_running" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "<div class=\"mb-4 rounded-md border border-warning-border bg-warning-soft px-4 py-3 text-body text-warning\">A search index rebuild is already in progress. Wait for it to finish before triggering another.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "<div class=\"mb-4 rounded-md border border-warning-border bg-warning-soft px-4 py-3 text-body text-warning\">A search index rebuild is already in progress. Wait for it to finish before triggering another.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if flash == "search_rebuild_disabled" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "<div class=\"mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover\">Search projection is not initialised on this process. Check the server logs for ent client init errors.</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "<div class=\"mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover\">Search projection is not initialised on this process. Check the server logs for ent client init errors.</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -494,43 +539,43 @@ func adminPageHeader(title string, subtitle string) templ.Component {
 			templ_7745c5c3_Var12 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "<div class=\"mb-5 border-b border-border pb-4 sm:mb-6 sm:pb-5\"><h1 class=\"text-2xl font-semibold tracking-tight text-text sm:text-3xl\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "<div class=\"mb-5 border-b border-border pb-4 sm:mb-6 sm:pb-5\"><h1 class=\"text-2xl font-semibold tracking-tight text-text sm:text-3xl\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/admintmpl/layout.templ`, Line: 309, Col: 81}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `.`, Line: 345, Col: 81}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "</h1>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "</h1>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if subtitle != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "<p class=\"mt-2 max-w-3xl text-small leading-relaxed text-text-muted2 sm:text-body\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "<p class=\"mt-2 max-w-3xl text-small leading-relaxed text-text-muted2 sm:text-body\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var14 string
 			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(subtitle)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/admintmpl/layout.templ`, Line: 311, Col: 96}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `.`, Line: 347, Col: 96}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

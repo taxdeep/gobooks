@@ -18,6 +18,7 @@ func (s *Server) handleAdminSystem(c *fiber.Ctx) error {
 		AdminEmail:      AdminUserFromCtx(c).Email,
 		MaintenanceMode: IsMaintenanceMode(),
 		Flash:           c.Query("flash"),
+		Database:        s.adminDatabaseMaintenanceVM(),
 		SearchRebuild: admintmpl.AdminSearchRebuildVM{
 			Available:     s.SearchProjector != nil,
 			Running:       running,

@@ -73,6 +73,19 @@ func adminFmtDurationMs(ms int64) string {
 	return adminFmtDuration(time.Duration(ms) * time.Millisecond)
 }
 
+func adminFmtBytes(n int64) string {
+	if n < 1024 {
+		return fmt.Sprintf("%d B", n)
+	}
+	if n < 1024*1024 {
+		return fmt.Sprintf("%.1f KB", float64(n)/1024)
+	}
+	if n < 1024*1024*1024 {
+		return fmt.Sprintf("%.1f MB", float64(n)/(1024*1024))
+	}
+	return fmt.Sprintf("%.1f GB", float64(n)/(1024*1024*1024))
+}
+
 func adminClassActionLink() string {
 	return adminRowActionBase + "border-transparent bg-transparent text-primary shadow-none hover:bg-primary/5 hover:text-primary-hover"
 }

@@ -1,0 +1,228 @@
+// 遵循project_guide.md
+package pages
+
+import (
+	"github.com/shopspring/decimal"
+
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
+)
+
+templ SalesOverview(vm SalesOverviewVM) {
+	@layout.Layout(
+		"Balanciz - Sales Overview",
+		ui.SidebarVM{Active: "Sales Overview", HasCompany: vm.HasCompany},
+		bodySalesOverview(vm),
+	)
+}
+
+templ bodySalesOverview(vm SalesOverviewVM) {
+	<div class="max-w-[98%] space-y-5">
+		<div class="flex flex-wrap items-end justify-between gap-3">
+			<div>
+				<h1 class="text-title font-semibold">Sales Overview</h1>
+				<p class="mt-1 text-small text-text-muted2">Sales workflow, customer balances, cash flow, and income trend in one view.</p>
+			</div>
+			<div class="text-small text-text-muted2">
+				Data updated { vm.Overview.DataUpdatedAt.Format("2006-01-02 15:04") }
+			</div>
+		</div>
+
+		if vm.FormError != "" {
+			<div class="rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover">
+				{ vm.FormError }
+			</div>
+		}
+
+		<section class="rounded-lg border border-border bg-surface shadow-sm">
+			<div class="grid grid-cols-1 divide-y divide-border lg:grid-cols-[minmax(0,1.15fr)_minmax(24rem,0.85fr)] lg:divide-x lg:divide-y-0">
+				<div class="p-5">
+					<div class="flex items-baseline justify-between gap-3">
+						<h2 class="text-section font-semibold text-text">Workflow</h2>
+						<a href="/sales-transactions" class="text-small font-medium text-primary hover:underline">View transactions</a>
+					</div>
+					@salesOverviewWorkflow()
+				</div>
+				<div class="p-5">
+					<div class="flex items-baseline justify-between gap-3">
+						<h2 class="text-section font-semibold text-text">Customers</h2>
+						<a href="/customers" class="text-small font-medium text-primary hover:underline">View all</a>
+					</div>
+					@salesOverviewCustomers(vm)
+				</div>
+			</div>
+		</section>
+
+		<section class="rounded-lg border border-border bg-surface p-5 shadow-sm">
+			<div class="flex flex-wrap items-baseline justify-between gap-3">
+				<div>
+					<h2 class="text-section font-semibold text-text">Cash Flow</h2>
+					<p class="mt-1 text-small text-text-muted2">Past 10 months and this month use confirmed customer receipts. Next 3 months are projected from open invoice due dates.</p>
+				</div>
+				<span class="text-small font-medium text-text-muted2">{ vm.Overview.BaseCurrency }</span>
+			</div>
+			@salesOverviewCashFlow(vm)
+		</section>
+
+		<section class="rounded-lg border border-border bg-surface p-5 shadow-sm">
+			@salesOverviewIncome(vm)
+		</section>
+	</div>
+}
+
+templ salesOverviewWorkflow() {
+	<div class="relative mt-4 h-[22rem] overflow-hidden rounded-md border border-border-subtle bg-background/40">
+		<svg class="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+			<defs>
+				<marker id="sales-overview-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
+					<path d="M0,0 L6,3 L0,6 Z" fill="rgb(var(--gb-border-input))"></path>
+				</marker>
+			</defs>
+			<path d="M8 44 H46 V78 H78" fill="none" stroke="rgb(var(--gb-border-input))" stroke-width="1.3" marker-end="url(#sales-overview-arrow)"></path>
+			<path d="M8 78 H46" fill="none" stroke="rgb(var(--gb-border-input))" stroke-width="1.3" marker-end="url(#sales-overview-arrow)"></path>
+			<path d="M38 8 V44 H8" fill="none" stroke="rgb(var(--gb-border-input))" stroke-width="1.3" marker-end="url(#sales-overview-arrow)"></path>
+			<path d="M8 8 V44" fill="none" stroke="rgb(var(--gb-border-input))" stroke-width="1.3" marker-end="url(#sales-overview-arrow)"></path>
+		</svg>
+		for _, node := range salesOverviewWorkflowNodes() {
+			<a href={ templ.SafeURL(node.Href) } style={ salesOverviewNodeStyle(node) } class={ salesOverviewNodeClass(node) }>
+				<span class="flex h-12 w-12 items-center justify-center rounded-full border-2 border-primary bg-surface text-primary shadow-sm">
+					@salesOverviewWorkflowIcon(node.Key)
+				</span>
+				<span>{ node.Label }</span>
+			</a>
+		}
+	</div>
+}
+
+templ salesOverviewWorkflowIcon(key string) {
+	if key == "customers" {
+		<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+	} else if key == "quotes" {
+		<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6M9 11h6M9 15h3M5 3h14v18l-3-2-3 2-3-2-3 2-2-1.33V3z"/></svg>
+	} else if key == "orders" {
+		<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5h6m-8 4h10M7 13h10M7 17h6M5 3h14a1 1 0 011 1v16l-3-2-3 2-3-2-3 2-3-2-3 2V4a1 1 0 011-1z"/></svg>
+	} else if key == "tasks" {
+		<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+	} else if key == "invoices" {
+		<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.5L19 9.5V19a2 2 0 01-2 2z"/></svg>
+	} else {
+		<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14l2 2 4-4M7 4h10a2 2 0 012 2v14l-3-2-3 2-3-2-3 2V6a2 2 0 012-2z"/></svg>
+	}
+}
+
+templ salesOverviewCustomers(vm SalesOverviewVM) {
+	if len(vm.Overview.CustomerBalances) == 0 {
+		<p class="mt-4 rounded-md border border-border-subtle bg-background p-4 text-body text-text-muted2">No active customers yet.</p>
+	} else {
+		<div class="mt-4 overflow-hidden rounded-md border border-border-subtle">
+			<table class="w-full text-left text-small">
+				<thead class="border-b border-border-subtle bg-background text-[11px] uppercase tracking-wider text-text-muted">
+					<tr>
+						<th class="px-3 py-2">Customer Name</th>
+						<th class="px-3 py-2 text-right">Balance</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, row := range vm.Overview.CustomerBalances {
+						<tr class="border-b border-border-subtle last:border-0 hover:bg-background">
+							<td class="px-3 py-2">
+								<a href={ templ.SafeURL("/customers/" + Uitoa(row.CustomerID)) } class="font-medium text-primary hover:underline">{ row.CustomerName }</a>
+							</td>
+							<td class="px-3 py-2 text-right tabular-nums text-text">{ salesOverviewMoney(row.Balance, vm.Overview.BaseCurrency) }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	}
+}
+
+templ salesOverviewCashFlow(vm SalesOverviewVM) {
+	<div class="mt-4 overflow-x-auto rounded-md border border-border-subtle">
+		<table class="min-w-[72rem] w-full text-small">
+			<thead class="border-b border-border-subtle text-[11px] uppercase tracking-wider">
+				<tr>
+					<th class="sticky left-0 z-10 bg-surface px-3 py-2 text-left font-semibold text-text-muted">Cash Flow</th>
+					for _, month := range vm.Overview.CashFlowMonths {
+						<th class={ salesOverviewCashFlowHeaderClass(month.Kind) }>{ month.Label }</th>
+					}
+				</tr>
+			</thead>
+			<tbody class="text-text">
+				@salesOverviewCashFlowRow("Received payments", "Actual cash received", vm, "received")
+				@salesOverviewCashFlowRow("Projected invoice receipts", "Open invoices by due date", vm, "projected")
+				@salesOverviewCashFlowRow("Total cash inflow", "", vm, "total")
+			</tbody>
+		</table>
+	</div>
+}
+
+templ salesOverviewCashFlowRow(label string, hint string, vm SalesOverviewVM, kind string) {
+	<tr class="border-b border-border-subtle last:border-0">
+		<th class="sticky left-0 z-10 bg-surface px-3 py-2 text-left font-medium">
+			<span>{ label }</span>
+			if hint != "" {
+				<span class="block text-[11px] font-normal text-text-muted2">{ hint }</span>
+			}
+		</th>
+		for _, month := range vm.Overview.CashFlowMonths {
+			<td class="px-3 py-2 text-right tabular-nums">
+				if kind == "received" {
+					{ MoneyBlankZero(month.Received) }
+				} else if kind == "projected" {
+					{ MoneyBlankZero(month.Projected) }
+				} else {
+					<span class="font-semibold">{ MoneyBlankZero(month.Total) }</span>
+				}
+			</td>
+		}
+	</tr>
+}
+
+templ salesOverviewIncome(vm SalesOverviewVM) {
+	<div class="flex flex-wrap items-start justify-between gap-4">
+		<div>
+			<div class="flex items-center gap-2">
+				<h2 class="text-section font-semibold uppercase tracking-wide text-text">Income over time</h2>
+				<span class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border-input text-[11px] font-semibold text-text-muted2">i</span>
+			</div>
+			<p class="mt-1 text-small italic text-text-muted2">Data updated { vm.Overview.DataUpdatedAt.Format("15:04") }</p>
+			<div class="mt-5">
+				<p class="text-3xl font-semibold tabular-nums text-text">{ salesOverviewMoney(vm.Overview.IncomeThisMonth, vm.Overview.BaseCurrency) } <span class="text-body font-normal text-text-muted2">This month</span></p>
+				<p class={ "mt-2 text-body font-semibold " + salesOverviewDeltaClass(vm.Overview.IncomeDelta) }>
+					{ salesOverviewDeltaLabel(vm.Overview.IncomeDelta, vm.Overview.BaseCurrency, vm.Overview.PreviousMonthLabel) }
+				</p>
+			</div>
+		</div>
+		<div class="flex items-center gap-3 text-body text-text-muted2">
+			<span>Duration:</span>
+			<span class="font-medium text-text">Last 12 months</span>
+		</div>
+	</div>
+
+	<div class="mt-5 grid grid-cols-[3.5rem_minmax(0,1fr)] gap-3">
+		<div class="flex h-56 flex-col justify-between text-right text-small tabular-nums text-text-muted2">
+			<span>{ salesOverviewMoney(vm.Overview.IncomeSeriesMax, vm.Overview.BaseCurrency) }</span>
+			<span>{ salesOverviewMoney(vm.Overview.IncomeSeriesMax.Div(decimal.NewFromInt(2)), vm.Overview.BaseCurrency) }</span>
+			<span>{ salesOverviewMoney(decimal.Zero, vm.Overview.BaseCurrency) }</span>
+		</div>
+		<div class="relative h-56 border-b border-border-input">
+			<div class="absolute inset-x-0 top-0 border-t border-border-subtle"></div>
+			<div class="absolute inset-x-0 top-1/2 border-t border-border-subtle"></div>
+			<div class="absolute inset-x-0 bottom-0 border-t border-border-subtle"></div>
+			<div class="absolute inset-x-0 bottom-0 flex h-full items-end justify-between gap-2 px-1">
+				for _, point := range vm.Overview.IncomeSeries {
+					<div class="flex h-full min-w-0 flex-1 flex-col justify-end">
+						<div title={ salesOverviewPointTitle(point, vm.Overview.BaseCurrency) } class="w-full rounded-t bg-primary/70 hover:bg-primary" style={ salesOverviewPointHeight(point.Amount, vm.Overview.IncomeSeriesMax) }></div>
+					</div>
+				}
+			</div>
+		</div>
+		<div></div>
+		<div class="flex justify-between gap-2 px-1 text-[11px] text-text-muted2">
+			for _, point := range vm.Overview.IncomeSeries {
+				<span class="min-w-0 flex-1 text-center">{ point.Label }</span>
+			}
+		</div>
+	</div>
+}

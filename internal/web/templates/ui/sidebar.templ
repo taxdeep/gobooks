@@ -113,6 +113,7 @@ templ sidebarShell(vm SidebarVM) {
 						</svg>
 					</button>
 					<div class="sidebar-section-panel mt-1 space-y-0.5" data-sidebar-panel>
+						@navItem("/sales-overview", "Overview", "dashboard", vm.Active == "Sales Overview")
 						@navItem("/customers", "Customers", "customers", vm.Active == "Customers")
 						@navItem("/sales-transactions", "Sales Transactions", "invoice", vm.Active == "Sales Transactions")
 						@navItem("/quotes", "Quotes", "invoice", vm.Active == "Quotes")

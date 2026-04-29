@@ -353,6 +353,7 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	// Unified Sales Transactions page — merges invoices / quotes / SOs /
 	// receipts / credit notes / returns into one chronological feed with
 	// QuickBooks-style KPI strip.
+	app.Get("/sales-overview", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleSalesOverview)
 	app.Get("/sales-transactions", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleSalesTransactions)
 
 	// Customer Receipts (Phase 4)

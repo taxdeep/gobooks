@@ -216,6 +216,42 @@ templ adminFlashBanner(flash string) {
 		<div class="mb-4 rounded-md border border-border bg-surface px-4 py-3 text-body text-text-muted2">
 			Restart signal acknowledged. In production, use your process manager (systemd / Docker) to restart the service.
 		</div>
+	} else if flash == "db_backup_ok" {
+		<div class="mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success">
+			Database backup created successfully. The newest file is available in Recent backups.
+		</div>
+	} else if flash == "db_backup_missing_tool" {
+		<div class="mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover">
+			Database backup could not start because pg_dump is not installed on this server.
+		</div>
+	} else if flash == "db_backup_unsupported" {
+		<div class="mb-4 rounded-md border border-warning-border bg-warning-soft px-4 py-3 text-body text-warning">
+			Database backup currently supports PostgreSQL only.
+		</div>
+	} else if flash == "db_backup_timeout" {
+		<div class="mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover">
+			Database backup timed out before it finished. Check database size and server load.
+		</div>
+	} else if flash == "db_backup_err" {
+		<div class="mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover">
+			Database backup failed. Check server logs for pg_dump output.
+		</div>
+	} else if flash == "db_optimize_ok" {
+		<div class="mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success">
+			Database optimization completed successfully.
+		</div>
+	} else if flash == "db_optimize_unsupported" {
+		<div class="mb-4 rounded-md border border-warning-border bg-warning-soft px-4 py-3 text-body text-warning">
+			Database optimization is available for PostgreSQL and SQLite only.
+		</div>
+	} else if flash == "db_optimize_timeout" {
+		<div class="mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover">
+			Database optimization timed out before it finished. Try again during a quieter period.
+		</div>
+	} else if flash == "db_optimize_err" {
+		<div class="mb-4 rounded-md border border-border border-l-4 border-l-danger bg-surface px-4 py-3 text-body text-danger-hover">
+			Database optimization failed. Check server logs for details.
+		</div>
 	} else if flash == "created" {
 		<div class="mb-4 rounded-md border border-success-border bg-success-soft px-4 py-3 text-body text-success">
 			Account created successfully.
