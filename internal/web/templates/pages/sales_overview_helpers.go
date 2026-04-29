@@ -89,7 +89,7 @@ func salesOverviewNodeStyle(node salesOverviewWorkflowNode) string {
 }
 
 func salesOverviewNodeClass(node salesOverviewWorkflowNode) string {
-	base := "absolute flex w-[7.25rem] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1 rounded-md px-2 py-1 text-center text-small font-semibold text-text hover:bg-background"
+	base := "sales-workflow-node"
 	if strings.Contains(node.Key, "invoices") || strings.Contains(node.Key, "receipts") {
 		return base + " text-primary"
 	}

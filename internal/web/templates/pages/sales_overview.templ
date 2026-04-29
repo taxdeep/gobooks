@@ -17,6 +17,68 @@ templ SalesOverview(vm SalesOverviewVM) {
 }
 
 templ bodySalesOverview(vm SalesOverviewVM) {
+	<style>
+		.sales-overview-top-grid {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.sales-overview-top-grid > * + * {
+			border-top: 1px solid rgb(var(--gb-border));
+		}
+		.sales-workflow-map {
+			position: relative;
+			margin-top: 1rem;
+			height: 22rem;
+			overflow: hidden;
+			border-radius: 0.375rem;
+			border: 1px solid rgb(var(--gb-border-subtle));
+			background: rgb(var(--gb-background) / 0.4);
+		}
+		.sales-workflow-node {
+			position: absolute;
+			display: flex;
+			width: 7.25rem;
+			transform: translate(-50%, -50%);
+			flex-direction: column;
+			align-items: center;
+			gap: 0.25rem;
+			border-radius: 0.375rem;
+			padding: 0.25rem 0.5rem;
+			text-align: center;
+			font-size: 0.75rem;
+			line-height: 1rem;
+			font-weight: 600;
+			color: rgb(var(--gb-text));
+		}
+		.sales-workflow-node:hover {
+			background: rgb(var(--gb-background));
+		}
+		.sales-workflow-icon {
+			display: flex;
+			height: 3rem;
+			width: 3rem;
+			align-items: center;
+			justify-content: center;
+			border-radius: 9999px;
+			border: 2px solid rgb(var(--gb-primary));
+			background: rgb(var(--gb-surface));
+			color: rgb(var(--gb-primary));
+			box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+		}
+		.sales-workflow-icon svg {
+			height: 1.5rem;
+			width: 1.5rem;
+		}
+		@media (min-width: 1024px) {
+			.sales-overview-top-grid {
+				grid-template-columns: minmax(0, 1.15fr) minmax(24rem, 0.85fr);
+			}
+			.sales-overview-top-grid > * + * {
+				border-top: 0;
+				border-left: 1px solid rgb(var(--gb-border));
+			}
+		}
+	</style>
 	<div class="max-w-[98%] space-y-5">
 		<div class="flex flex-wrap items-end justify-between gap-3">
 			<div>
@@ -35,15 +97,15 @@ templ bodySalesOverview(vm SalesOverviewVM) {
 		}
 
 		<section class="rounded-lg border border-border bg-surface shadow-sm">
-			<div class="grid grid-cols-1 divide-y divide-border lg:grid-cols-[minmax(0,1.15fr)_minmax(24rem,0.85fr)] lg:divide-x lg:divide-y-0">
-				<div class="p-5">
+			<div class="sales-overview-top-grid">
+				<div class="sales-overview-workflow-panel p-5">
 					<div class="flex items-baseline justify-between gap-3">
 						<h2 class="text-section font-semibold text-text">Workflow</h2>
 						<a href="/sales-transactions" class="text-small font-medium text-primary hover:underline">View transactions</a>
 					</div>
 					@salesOverviewWorkflow()
 				</div>
-				<div class="p-5">
+				<div class="sales-overview-customer-panel p-5">
 					<div class="flex items-baseline justify-between gap-3">
 						<h2 class="text-section font-semibold text-text">Customers</h2>
 						<a href="/customers" class="text-small font-medium text-primary hover:underline">View all</a>
@@ -71,7 +133,7 @@ templ bodySalesOverview(vm SalesOverviewVM) {
 }
 
 templ salesOverviewWorkflow() {
-	<div class="relative mt-4 h-[22rem] overflow-hidden rounded-md border border-border-subtle bg-background/40">
+	<div class="sales-workflow-map">
 		<svg class="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
 			<defs>
 				<marker id="sales-overview-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
@@ -85,7 +147,7 @@ templ salesOverviewWorkflow() {
 		</svg>
 		for _, node := range salesOverviewWorkflowNodes() {
 			<a href={ templ.SafeURL(node.Href) } style={ salesOverviewNodeStyle(node) } class={ salesOverviewNodeClass(node) }>
-				<span class="flex h-12 w-12 items-center justify-center rounded-full border-2 border-primary bg-surface text-primary shadow-sm">
+				<span class="sales-workflow-icon">
 					@salesOverviewWorkflowIcon(node.Key)
 				</span>
 				<span>{ node.Label }</span>
