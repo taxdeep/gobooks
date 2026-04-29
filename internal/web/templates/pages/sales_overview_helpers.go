@@ -67,12 +67,12 @@ func salesOverviewPointTitle(point services.SalesOverviewIncomePoint, currency s
 
 func salesOverviewWorkflowNodes() []salesOverviewWorkflowNode {
 	return []salesOverviewWorkflowNode{
-		{Key: "customers", Label: "Customers", Href: "/customers", X: 8, Y: 8},
-		{Key: "quotes", Label: "Quotes", Href: "/quotes", X: 38, Y: 8},
-		{Key: "orders", Label: "Sales Orders", Href: "/sales-orders", X: 8, Y: 44},
-		{Key: "tasks", Label: "Billable Work", Href: "/tasks", X: 8, Y: 78},
-		{Key: "invoices", Label: "Invoices", Href: "/invoices", X: 46, Y: 78},
-		{Key: "receipts", Label: "Receipts", Href: "/receipts", X: 78, Y: 78},
+		{Key: "customers", Label: "Customers", Href: "/customers", X: 11, Y: 16},
+		{Key: "quotes", Label: "Quotes", Href: "/quotes", X: 39, Y: 16},
+		{Key: "orders", Label: "Sales Orders", Href: "/sales-orders", X: 11, Y: 43},
+		{Key: "tasks", Label: "Billable Work", Href: "/tasks", X: 11, Y: 80},
+		{Key: "invoices", Label: "Invoices", Href: "/invoices", X: 50, Y: 80},
+		{Key: "receipts", Label: "Receipts", Href: "/receipts", X: 78, Y: 80},
 	}
 }
 

@@ -71,14 +71,14 @@ func bodySalesOverview(vm SalesOverviewVM) templ.Component {
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<style>\n\t\t.sales-overview-top-grid {\n\t\t\tdisplay: grid;\n\t\t\tgrid-template-columns: minmax(0, 1fr);\n\t\t}\n\t\t.sales-overview-top-grid > * + * {\n\t\t\tborder-top: 1px solid rgb(var(--gb-border));\n\t\t}\n\t\t.sales-workflow-map {\n\t\t\tposition: relative;\n\t\t\tmargin-top: 1rem;\n\t\t\theight: 22rem;\n\t\t\toverflow: hidden;\n\t\t\tborder-radius: 0.375rem;\n\t\t\tborder: 1px solid rgb(var(--gb-border-subtle));\n\t\t\tbackground: rgb(var(--gb-background) / 0.4);\n\t\t}\n\t\t.sales-workflow-node {\n\t\t\tposition: absolute;\n\t\t\tdisplay: flex;\n\t\t\twidth: 7.25rem;\n\t\t\ttransform: translate(-50%, -50%);\n\t\t\tflex-direction: column;\n\t\t\talign-items: center;\n\t\t\tgap: 0.25rem;\n\t\t\tborder-radius: 0.375rem;\n\t\t\tpadding: 0.25rem 0.5rem;\n\t\t\ttext-align: center;\n\t\t\tfont-size: 0.75rem;\n\t\t\tline-height: 1rem;\n\t\t\tfont-weight: 600;\n\t\t\tcolor: rgb(var(--gb-text));\n\t\t}\n\t\t.sales-workflow-node:hover {\n\t\t\tbackground: rgb(var(--gb-background));\n\t\t}\n\t\t.sales-workflow-icon {\n\t\t\tdisplay: flex;\n\t\t\theight: 3rem;\n\t\t\twidth: 3rem;\n\t\t\talign-items: center;\n\t\t\tjustify-content: center;\n\t\t\tborder-radius: 9999px;\n\t\t\tborder: 2px solid rgb(var(--gb-primary));\n\t\t\tbackground: rgb(var(--gb-surface));\n\t\t\tcolor: rgb(var(--gb-primary));\n\t\t\tbox-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);\n\t\t}\n\t\t.sales-workflow-icon svg {\n\t\t\theight: 1.5rem;\n\t\t\twidth: 1.5rem;\n\t\t}\n\t\t@media (min-width: 1024px) {\n\t\t\t.sales-overview-top-grid {\n\t\t\t\tgrid-template-columns: minmax(0, 1.15fr) minmax(24rem, 0.85fr);\n\t\t\t}\n\t\t\t.sales-overview-top-grid > * + * {\n\t\t\t\tborder-top: 0;\n\t\t\t\tborder-left: 1px solid rgb(var(--gb-border));\n\t\t\t}\n\t\t}\n\t</style><div class=\"max-w-[98%] space-y-5\"><div class=\"flex flex-wrap items-end justify-between gap-3\"><div><h1 class=\"text-title font-semibold\">Sales Overview</h1><p class=\"mt-1 text-small text-text-muted2\">Sales workflow, customer balances, cash flow, and income trend in one view.</p></div><div class=\"text-small text-text-muted2\">Data updated ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<style>\r\n\t\t.sales-overview-top-grid {\r\n\t\t\tdisplay: grid;\r\n\t\t\tgrid-template-columns: minmax(0, 1fr);\r\n\t\t}\r\n\t\t.sales-overview-top-grid > * + * {\r\n\t\t\tborder-top: 1px solid rgb(var(--gb-border));\r\n\t\t}\r\n\t\t.sales-workflow-map {\n\t\t\tposition: relative;\n\t\t\tmargin-top: 1rem;\n\t\t\theight: 30rem;\n\t\t\toverflow: hidden;\n\t\t\tborder-radius: 0.375rem;\n\t\t\tborder: 1px solid rgb(var(--gb-border-subtle));\n\t\t\tbackground: rgb(var(--gb-background) / 0.4);\n\t\t}\n\t\t.sales-workflow-svg {\n\t\t\tposition: absolute;\n\t\t\tinset: 1.25rem 1.5rem;\n\t\t\theight: calc(100% - 2.5rem);\n\t\t\twidth: calc(100% - 3rem);\n\t\t\toverflow: visible;\n\t\t}\n\t\t.sales-workflow-path {\n\t\t\tfill: none;\n\t\t\tstroke: rgb(var(--gb-border-input));\n\t\t\tstroke-width: 2;\n\t\t\tstroke-linecap: round;\n\t\t\tstroke-linejoin: round;\n\t\t\tvector-effect: non-scaling-stroke;\n\t\t}\n\t\t.sales-workflow-path-soft {\n\t\t\topacity: 0.55;\n\t\t}\n\t\t.sales-workflow-node {\n\t\t\tposition: absolute;\n\t\t\tdisplay: flex;\n\t\t\twidth: 8rem;\n\t\t\ttransform: translate(-50%, -50%);\n\t\t\tflex-direction: column;\n\t\t\talign-items: center;\n\t\t\tgap: 0.25rem;\n\t\t\tborder-radius: 0.375rem;\r\n\t\t\tpadding: 0.25rem 0.5rem;\r\n\t\t\ttext-align: center;\r\n\t\t\tfont-size: 0.75rem;\r\n\t\t\tline-height: 1rem;\r\n\t\t\tfont-weight: 600;\n\t\t\tcolor: rgb(var(--gb-text));\n\t\t\tz-index: 1;\n\t\t}\n\t\t.sales-workflow-node:hover {\n\t\t\tbackground: rgb(var(--gb-background));\n\t\t}\n\t\t.sales-workflow-icon {\r\n\t\t\tdisplay: flex;\r\n\t\t\theight: 3rem;\r\n\t\t\twidth: 3rem;\r\n\t\t\talign-items: center;\r\n\t\t\tjustify-content: center;\r\n\t\t\tborder-radius: 9999px;\r\n\t\t\tborder: 2px solid rgb(var(--gb-primary));\r\n\t\t\tbackground: rgb(var(--gb-surface));\n\t\t\tcolor: rgb(var(--gb-primary));\n\t\t\tbox-shadow: 0 8px 18px -14px rgb(0 0 0 / 0.8);\n\t\t}\n\t\t.sales-workflow-icon svg {\r\n\t\t\theight: 1.5rem;\r\n\t\t\twidth: 1.5rem;\r\n\t\t}\r\n\t\t@media (min-width: 1024px) {\r\n\t\t\t.sales-overview-top-grid {\r\n\t\t\t\tgrid-template-columns: minmax(0, 1.15fr) minmax(24rem, 0.85fr);\r\n\t\t\t}\r\n\t\t\t.sales-overview-top-grid > * + * {\r\n\t\t\t\tborder-top: 0;\r\n\t\t\t\tborder-left: 1px solid rgb(var(--gb-border));\r\n\t\t\t}\r\n\t\t}\r\n\t</style><div class=\"max-w-[98%] space-y-5\"><div class=\"flex flex-wrap items-end justify-between gap-3\"><div><h1 class=\"text-title font-semibold\">Sales Overview</h1><p class=\"mt-1 text-small text-text-muted2\">Sales workflow, customer balances, cash flow, and income trend in one view.</p></div><div class=\"text-small text-text-muted2\">Data updated ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(vm.Overview.DataUpdatedAt.Format("2006-01-02 15:04"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 89, Col: 71}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 108, Col: 71}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
@@ -96,7 +96,7 @@ func bodySalesOverview(vm SalesOverviewVM) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(vm.FormError)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 95, Col: 18}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 114, Col: 18}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -130,7 +130,7 @@ func bodySalesOverview(vm SalesOverviewVM) templ.Component {
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(vm.Overview.BaseCurrency)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 124, Col: 84}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 143, Col: 84}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -181,7 +181,7 @@ func salesOverviewWorkflow() templ.Component {
 			templ_7745c5c3_Var6 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"sales-workflow-map\"><svg class=\"absolute inset-0 h-full w-full\" viewBox=\"0 0 100 100\" preserveAspectRatio=\"none\" aria-hidden=\"true\"><defs><marker id=\"sales-overview-arrow\" markerWidth=\"6\" markerHeight=\"6\" refX=\"5\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L6,3 L0,6 Z\" fill=\"rgb(var(--gb-border-input))\"></path></marker></defs> <path d=\"M8 44 H46 V78 H78\" fill=\"none\" stroke=\"rgb(var(--gb-border-input))\" stroke-width=\"1.3\" marker-end=\"url(#sales-overview-arrow)\"></path> <path d=\"M8 78 H46\" fill=\"none\" stroke=\"rgb(var(--gb-border-input))\" stroke-width=\"1.3\" marker-end=\"url(#sales-overview-arrow)\"></path> <path d=\"M38 8 V44 H8\" fill=\"none\" stroke=\"rgb(var(--gb-border-input))\" stroke-width=\"1.3\" marker-end=\"url(#sales-overview-arrow)\"></path> <path d=\"M8 8 V44\" fill=\"none\" stroke=\"rgb(var(--gb-border-input))\" stroke-width=\"1.3\" marker-end=\"url(#sales-overview-arrow)\"></path></svg> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"sales-workflow-map\"><svg class=\"sales-workflow-svg\" viewBox=\"0 0 100 100\" preserveAspectRatio=\"none\" aria-hidden=\"true\"><defs><marker id=\"sales-overview-arrow\" markerWidth=\"5\" markerHeight=\"5\" refX=\"4.25\" refY=\"2.5\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L5,2.5 L0,5 Z\" fill=\"rgb(var(--gb-border-input))\"></path></marker></defs> <path class=\"sales-workflow-path sales-workflow-path-soft\" d=\"M11 21 V36\" marker-end=\"url(#sales-overview-arrow)\"></path> <path class=\"sales-workflow-path sales-workflow-path-soft\" d=\"M39 21 V39 H16\" marker-end=\"url(#sales-overview-arrow)\"></path> <path class=\"sales-workflow-path\" d=\"M16 43 H50 V72\" marker-end=\"url(#sales-overview-arrow)\"></path> <path class=\"sales-workflow-path\" d=\"M16 80 H44\" marker-end=\"url(#sales-overview-arrow)\"></path> <path class=\"sales-workflow-path\" d=\"M56 80 H74\" marker-end=\"url(#sales-overview-arrow)\"></path></svg> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -198,7 +198,7 @@ func salesOverviewWorkflow() templ.Component {
 			var templ_7745c5c3_Var8 templ.SafeURL
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(node.Href))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 149, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 169, Col: 37}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -211,7 +211,7 @@ func salesOverviewWorkflow() templ.Component {
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(salesOverviewNodeStyle(node))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 149, Col: 76}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 169, Col: 76}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -245,7 +245,7 @@ func salesOverviewWorkflow() templ.Component {
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(node.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 153, Col: 22}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 173, Col: 22}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
@@ -359,7 +359,7 @@ func salesOverviewCustomers(vm SalesOverviewVM) templ.Component {
 				var templ_7745c5c3_Var14 templ.SafeURL
 				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/customers/" + Uitoa(row.CustomerID)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 191, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 211, Col: 70}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 				if templ_7745c5c3_Err != nil {
@@ -372,7 +372,7 @@ func salesOverviewCustomers(vm SalesOverviewVM) templ.Component {
 				var templ_7745c5c3_Var15 string
 				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(row.CustomerName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 191, Col: 140}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 211, Col: 140}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 				if templ_7745c5c3_Err != nil {
@@ -385,7 +385,7 @@ func salesOverviewCustomers(vm SalesOverviewVM) templ.Component {
 				var templ_7745c5c3_Var16 string
 				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(salesOverviewMoney(row.Balance, vm.Overview.BaseCurrency))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 193, Col: 122}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 213, Col: 122}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
@@ -456,7 +456,7 @@ func salesOverviewCashFlow(vm SalesOverviewVM) templ.Component {
 			var templ_7745c5c3_Var20 string
 			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(month.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 209, Col: 78}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 229, Col: 78}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 			if templ_7745c5c3_Err != nil {
@@ -519,7 +519,7 @@ func salesOverviewCashFlowRow(label string, hint string, vm SalesOverviewVM, kin
 		var templ_7745c5c3_Var22 string
 		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 225, Col: 16}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 245, Col: 16}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 		if templ_7745c5c3_Err != nil {
@@ -537,7 +537,7 @@ func salesOverviewCashFlowRow(label string, hint string, vm SalesOverviewVM, kin
 			var templ_7745c5c3_Var23 string
 			templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(hint)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 227, Col: 71}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 247, Col: 71}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 			if templ_7745c5c3_Err != nil {
@@ -561,7 +561,7 @@ func salesOverviewCashFlowRow(label string, hint string, vm SalesOverviewVM, kin
 				var templ_7745c5c3_Var24 string
 				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(MoneyBlankZero(month.Received))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 233, Col: 37}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 253, Col: 37}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 				if templ_7745c5c3_Err != nil {
@@ -571,7 +571,7 @@ func salesOverviewCashFlowRow(label string, hint string, vm SalesOverviewVM, kin
 				var templ_7745c5c3_Var25 string
 				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(MoneyBlankZero(month.Projected))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 235, Col: 38}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 255, Col: 38}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 				if templ_7745c5c3_Err != nil {
@@ -585,7 +585,7 @@ func salesOverviewCashFlowRow(label string, hint string, vm SalesOverviewVM, kin
 				var templ_7745c5c3_Var26 string
 				templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(MoneyBlankZero(month.Total))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 237, Col: 62}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 257, Col: 62}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 				if templ_7745c5c3_Err != nil {
@@ -637,7 +637,7 @@ func salesOverviewIncome(vm SalesOverviewVM) templ.Component {
 		var templ_7745c5c3_Var28 string
 		templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(vm.Overview.DataUpdatedAt.Format("15:04"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 251, Col: 110}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 271, Col: 110}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 		if templ_7745c5c3_Err != nil {
@@ -650,7 +650,7 @@ func salesOverviewIncome(vm SalesOverviewVM) templ.Component {
 		var templ_7745c5c3_Var29 string
 		templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(salesOverviewMoney(vm.Overview.IncomeThisMonth, vm.Overview.BaseCurrency))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 253, Col: 136}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 273, Col: 136}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 		if templ_7745c5c3_Err != nil {
@@ -685,7 +685,7 @@ func salesOverviewIncome(vm SalesOverviewVM) templ.Component {
 		var templ_7745c5c3_Var32 string
 		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(salesOverviewDeltaLabel(vm.Overview.IncomeDelta, vm.Overview.BaseCurrency, vm.Overview.PreviousMonthLabel))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 255, Col: 113}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 275, Col: 113}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 		if templ_7745c5c3_Err != nil {
@@ -698,7 +698,7 @@ func salesOverviewIncome(vm SalesOverviewVM) templ.Component {
 		var templ_7745c5c3_Var33 string
 		templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(salesOverviewMoney(vm.Overview.IncomeSeriesMax, vm.Overview.BaseCurrency))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 267, Col: 84}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 287, Col: 84}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 		if templ_7745c5c3_Err != nil {
@@ -711,7 +711,7 @@ func salesOverviewIncome(vm SalesOverviewVM) templ.Component {
 		var templ_7745c5c3_Var34 string
 		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(salesOverviewMoney(vm.Overview.IncomeSeriesMax.Div(decimal.NewFromInt(2)), vm.Overview.BaseCurrency))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 268, Col: 111}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 288, Col: 111}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 		if templ_7745c5c3_Err != nil {
@@ -724,7 +724,7 @@ func salesOverviewIncome(vm SalesOverviewVM) templ.Component {
 		var templ_7745c5c3_Var35 string
 		templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(salesOverviewMoney(decimal.Zero, vm.Overview.BaseCurrency))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 269, Col: 69}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 289, Col: 69}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 		if templ_7745c5c3_Err != nil {
@@ -742,7 +742,7 @@ func salesOverviewIncome(vm SalesOverviewVM) templ.Component {
 			var templ_7745c5c3_Var36 string
 			templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(salesOverviewPointTitle(point, vm.Overview.BaseCurrency))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 278, Col: 75}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 298, Col: 75}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 			if templ_7745c5c3_Err != nil {
@@ -755,7 +755,7 @@ func salesOverviewIncome(vm SalesOverviewVM) templ.Component {
 			var templ_7745c5c3_Var37 string
 			templ_7745c5c3_Var37, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(salesOverviewPointHeight(point.Amount, vm.Overview.IncomeSeriesMax))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 278, Col: 209}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 298, Col: 209}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 			if templ_7745c5c3_Err != nil {
@@ -778,7 +778,7 @@ func salesOverviewIncome(vm SalesOverviewVM) templ.Component {
 			var templ_7745c5c3_Var38 string
 			templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(point.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 286, Col: 58}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/sales_overview.templ`, Line: 306, Col: 58}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 			if templ_7745c5c3_Err != nil {

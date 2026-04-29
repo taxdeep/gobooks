@@ -28,16 +28,34 @@ templ bodySalesOverview(vm SalesOverviewVM) {
 		.sales-workflow-map {
 			position: relative;
 			margin-top: 1rem;
-			height: 22rem;
+			height: 30rem;
 			overflow: hidden;
 			border-radius: 0.375rem;
 			border: 1px solid rgb(var(--gb-border-subtle));
 			background: rgb(var(--gb-background) / 0.4);
 		}
+		.sales-workflow-svg {
+			position: absolute;
+			inset: 1.25rem 1.5rem;
+			height: calc(100% - 2.5rem);
+			width: calc(100% - 3rem);
+			overflow: visible;
+		}
+		.sales-workflow-path {
+			fill: none;
+			stroke: rgb(var(--gb-border-input));
+			stroke-width: 2;
+			stroke-linecap: round;
+			stroke-linejoin: round;
+			vector-effect: non-scaling-stroke;
+		}
+		.sales-workflow-path-soft {
+			opacity: 0.55;
+		}
 		.sales-workflow-node {
 			position: absolute;
 			display: flex;
-			width: 7.25rem;
+			width: 8rem;
 			transform: translate(-50%, -50%);
 			flex-direction: column;
 			align-items: center;
@@ -49,6 +67,7 @@ templ bodySalesOverview(vm SalesOverviewVM) {
 			line-height: 1rem;
 			font-weight: 600;
 			color: rgb(var(--gb-text));
+			z-index: 1;
 		}
 		.sales-workflow-node:hover {
 			background: rgb(var(--gb-background));
@@ -63,7 +82,7 @@ templ bodySalesOverview(vm SalesOverviewVM) {
 			border: 2px solid rgb(var(--gb-primary));
 			background: rgb(var(--gb-surface));
 			color: rgb(var(--gb-primary));
-			box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+			box-shadow: 0 8px 18px -14px rgb(0 0 0 / 0.8);
 		}
 		.sales-workflow-icon svg {
 			height: 1.5rem;
@@ -134,16 +153,17 @@ templ bodySalesOverview(vm SalesOverviewVM) {
 
 templ salesOverviewWorkflow() {
 	<div class="sales-workflow-map">
-		<svg class="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+		<svg class="sales-workflow-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
 			<defs>
-				<marker id="sales-overview-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
-					<path d="M0,0 L6,3 L0,6 Z" fill="rgb(var(--gb-border-input))"></path>
+				<marker id="sales-overview-arrow" markerWidth="5" markerHeight="5" refX="4.25" refY="2.5" orient="auto" markerUnits="strokeWidth">
+					<path d="M0,0 L5,2.5 L0,5 Z" fill="rgb(var(--gb-border-input))"></path>
 				</marker>
 			</defs>
-			<path d="M8 44 H46 V78 H78" fill="none" stroke="rgb(var(--gb-border-input))" stroke-width="1.3" marker-end="url(#sales-overview-arrow)"></path>
-			<path d="M8 78 H46" fill="none" stroke="rgb(var(--gb-border-input))" stroke-width="1.3" marker-end="url(#sales-overview-arrow)"></path>
-			<path d="M38 8 V44 H8" fill="none" stroke="rgb(var(--gb-border-input))" stroke-width="1.3" marker-end="url(#sales-overview-arrow)"></path>
-			<path d="M8 8 V44" fill="none" stroke="rgb(var(--gb-border-input))" stroke-width="1.3" marker-end="url(#sales-overview-arrow)"></path>
+			<path class="sales-workflow-path sales-workflow-path-soft" d="M11 21 V36" marker-end="url(#sales-overview-arrow)"></path>
+			<path class="sales-workflow-path sales-workflow-path-soft" d="M39 21 V39 H16" marker-end="url(#sales-overview-arrow)"></path>
+			<path class="sales-workflow-path" d="M16 43 H50 V72" marker-end="url(#sales-overview-arrow)"></path>
+			<path class="sales-workflow-path" d="M16 80 H44" marker-end="url(#sales-overview-arrow)"></path>
+			<path class="sales-workflow-path" d="M56 80 H74" marker-end="url(#sales-overview-arrow)"></path>
 		</svg>
 		for _, node := range salesOverviewWorkflowNodes() {
 			<a href={ templ.SafeURL(node.Href) } style={ salesOverviewNodeStyle(node) } class={ salesOverviewNodeClass(node) }>
