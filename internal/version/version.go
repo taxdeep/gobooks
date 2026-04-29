@@ -8,9 +8,9 @@ const (
 	Patch = 0
 
 	// BuildCode is a fixed-width uppercase base36 build counter.
-	BuildCode = "000G"
+	BuildCode = "000H"
 
 	// Version format: M.mm.ppp.BBBB
 	// M/mm/ppp are decimal; BBBB is a four-character base36 build code.
-	Version = "0.00.000.000G"
+	Version = "0.00.000.000H"
 )
