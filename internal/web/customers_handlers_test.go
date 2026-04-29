@@ -258,7 +258,10 @@ func TestCustomerDetailPageHappyPath(t *testing.T) {
 		"INV-CUST-002",
 		"INV-CUST-003",
 		// New Invoice CTA in header
+		fmt.Sprintf("/quotes/new?customer_id=%d", customerID),
 		fmt.Sprintf("/invoices/new?customer_id=%d", customerID),
+		fmt.Sprintf("/banking/receive-payment?customer_id=%d", customerID),
+		fmt.Sprintf("/customer-statement?customer_id=%d", customerID),
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("expected default customer detail tab to contain %q, got %q", want, body)
@@ -266,6 +269,24 @@ func TestCustomerDetailPageHappyPath(t *testing.T) {
 	}
 	if strings.Contains(body, "INV-OTHER-001") {
 		t.Fatalf("expected other customer invoice to stay hidden on transactions tab, got %q", body)
+	}
+
+	respQuote := performRequest(t, app, fmt.Sprintf("/quotes/new?customer_id=%d", customerID), rawToken)
+	if respQuote.StatusCode != http.StatusOK {
+		t.Fatalf("quote deep link: expected %d, got %d", http.StatusOK, respQuote.StatusCode)
+	}
+	quoteBody := readResponseBody(t, respQuote)
+	if want := fmt.Sprintf(`data-value="%d"`, customerID); !strings.Contains(quoteBody, want) {
+		t.Fatalf("expected quote deep link to preselect customer %q, got %q", want, quoteBody)
+	}
+
+	respRP := performRequest(t, app, fmt.Sprintf("/banking/receive-payment?customer_id=%d", customerID), rawToken)
+	if respRP.StatusCode != http.StatusOK {
+		t.Fatalf("receive-payment deep link: expected %d, got %d", http.StatusOK, respRP.StatusCode)
+	}
+	rpBody := readResponseBody(t, respRP)
+	if want := fmt.Sprintf(`data-initial-customer="%d"`, customerID); !strings.Contains(rpBody, want) {
+		t.Fatalf("expected receive-payment deep link to preselect customer %q, got %q", want, rpBody)
 	}
 
 	// Billable Work tab still carries the unbilled labor/expense KPI

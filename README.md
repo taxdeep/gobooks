@@ -12,7 +12,6 @@ Built on Go · Fiber · GORM · PostgreSQL · Templ · Alpine.js · Tailwind CSS
 
 ## Table of Contents
 
-- [What's new in 0.00.016](#whats-new-in-000016)
 - [AI Product Architecture](#ai-product-architecture)
 - [Quick Start — Docker](#quick-start--docker)
 - [Local Development](#local-development)
@@ -23,22 +22,6 @@ Built on Go · Fiber · GORM · PostgreSQL · Templ · Alpine.js · Tailwind CSS
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
----
-
-## What's new in 0.00.016
-
-This release establishes the SmartPicker recommendation and AI learning foundation:
-
-- SmartPicker now records validated, company-scoped behavior events for search, select, no-match, create-new, and clear interactions.
-- Deterministic recommendations rank by text match, user/company frequency, recency, pair stats, active aliases, and capped ranking hints.
-- Context validation is backend-owned: providers determine valid scope first, ranking only sorts valid candidates, and cross-company entities are rejected.
-- Pair learning is in place for anchor-to-target recommendations such as vendor-to-expense-category patterns.
-- AI Gateway infrastructure now exists with a safe no-op default; live SmartPicker search never calls AI.
-- Background SmartPicker learning runs create visible `ai_job_runs` and `ai_request_logs` records, with generated hints and aliases pending by default.
-- Decision traces can be enabled with feature flags to persist compact score breakdowns for debugging.
-- Natural-language accounting copilot interfaces are scaffolded for future draft/review workflows, with no auto-posting.
-
-See `RELEASE_NOTES_0.00.016.md` for the implementation record.
 
 ---
 

@@ -79,6 +79,17 @@ func (s *Server) handleQuoteNew(c *fiber.Ctx) error {
 	}
 	vm := pages.QuoteDetailVM{HasCompany: true}
 	vm.Quote.QuoteDate = time.Now()
+	if customerIDRaw := strings.TrimSpace(c.Query("customer_id")); customerIDRaw != "" {
+		if customerID64, err := strconv.ParseUint(customerIDRaw, 10, 64); err == nil && customerID64 > 0 {
+			var customer models.Customer
+			if err := s.DB.Select("id", "currency_code").
+				Where("id = ? AND company_id = ? AND is_active = true", uint(customerID64), companyID).
+				First(&customer).Error; err == nil {
+				vm.Quote.CustomerID = customer.ID
+				vm.Quote.CurrencyCode = customer.CurrencyCode
+			}
+		}
+	}
 	s.loadQuoteFormData(companyID, &vm)
 	return pages.QuoteDetail(vm).Render(c.Context(), c)
 }

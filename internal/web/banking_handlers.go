@@ -836,6 +836,17 @@ func (s *Server) handleReceivePaymentForm(c *fiber.Ctx) error {
 		OpenCreditNotesJSON: buildOpenCreditNotesJSON(s, companyID),
 	}
 
+	if customerIDRaw := strings.TrimSpace(c.Query("customer_id")); customerIDRaw != "" {
+		if customerID64, err := services.ParseUint(customerIDRaw); err == nil && customerID64 > 0 {
+			var customer models.Customer
+			if err := s.DB.Select("id", "company_id").
+				Where("id = ? AND company_id = ? AND is_active = true", uint(customerID64), companyID).
+				First(&customer).Error; err == nil {
+				vm.CustomerID = customerIDRaw
+			}
+		}
+	}
+
 	// Deep-link from invoice detail "Apply Credits / Deposits" button:
 	// `/banking/receive-payment?invoice_id=X` pre-selects the invoice +
 	// its customer so the Apply table renders the customer's open CNs +

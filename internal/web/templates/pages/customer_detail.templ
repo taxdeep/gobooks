@@ -107,10 +107,13 @@ templ customerDetailHeader(vm CustomerDetailVM) {
 			</div>
 
 			<!-- Right: financial summary card (sticky-looking) + action buttons -->
-			<div class="flex w-full shrink-0 flex-col gap-3 sm:w-72">
+			<div class="flex w-full shrink-0 flex-col gap-3 sm:w-96 xl:w-[30rem]">
 				@customerFinancialSummary(vm)
 				<div class="flex flex-wrap items-center gap-2">
+					<a href={ templ.SafeURL(fmt.Sprintf("/quotes/new?customer_id=%d", vm.Customer.ID)) } class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-small font-semibold text-text hover:bg-background hover:text-primary">New Quote</a>
 					<a href={ templ.SafeURL(fmt.Sprintf("/invoices/new?customer_id=%d", vm.Customer.ID)) } class="rounded-md bg-primary px-3 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover">New Invoice</a>
+					<a href={ templ.SafeURL(fmt.Sprintf("/banking/receive-payment?customer_id=%d", vm.Customer.ID)) } class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-small font-semibold text-text hover:bg-background hover:text-primary">Received Payment</a>
+					<a href={ templ.SafeURL(fmt.Sprintf("/customer-statement?customer_id=%d", vm.Customer.ID)) } class="rounded-md border border-border-input bg-surface px-3 py-1.5 text-small font-semibold text-text hover:bg-background hover:text-primary">Statement</a>
 				</div>
 			</div>
 		</div>
@@ -138,7 +141,7 @@ templ headerFieldStatic(label, value string) {
 }
 
 templ customerFinancialSummary(vm CustomerDetailVM) {
-	<div class="rounded-lg border border-primary-soft/40 bg-primary-soft/10 p-4">
+	<div class="rounded-lg border border-primary/30 bg-primary-soft/25 p-4 shadow-inner">
 		<div class="flex items-center gap-2 text-small font-semibold text-text">
 			<span>💰</span>
 			<span>Financial summary</span>
