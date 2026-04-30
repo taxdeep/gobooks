@@ -220,11 +220,7 @@ func renderJournalEntryListHTML(vm JournalEntryListVM) string {
 		b.WriteString(`<td class="whitespace-nowrap border-r border-border-subtle px-2 py-2 font-mono text-text-muted2">` + itemID + `</td>`)
 		b.WriteString(`<td class="whitespace-nowrap border-r border-border-subtle px-2 py-2">` + esc(item.EntryDate) + `</td>`)
 		b.WriteString(`<td class="border-r border-border-subtle px-2 py-2"><a href="/journal-entry/` + itemID + `" onclick="event.stopPropagation()" class="font-semibold text-primary hover:text-primary-hover">` + esc(item.JournalNo) + `</a></td>`)
-		b.WriteString(`<td class="border-r border-border-subtle px-2 py-2"><div class="font-medium text-text">` + esc(item.TransactionCurrencyDisplay) + `</div>`)
-		if strings.TrimSpace(item.ExchangeRateSourceLabel) != "" {
-			b.WriteString(`<div class="mt-1 text-small text-text-muted2">` + esc(item.ExchangeRateSourceLabel) + `</div>`)
-		}
-		b.WriteString(`</td>`)
+		b.WriteString(`<td class="border-r border-border-subtle px-2 py-2"><div class="font-medium text-text">` + esc(item.TransactionCurrencyDisplay) + `</div></td>`)
 		b.WriteString(`<td class="border-r border-border-subtle px-2 py-2 text-right font-mono tabular-nums">` + esc(Itoa(item.LineCount)) + `</td>`)
 		b.WriteString(`<td class="border-r border-border-subtle px-2 py-2 text-right font-mono tabular-nums">` + esc(item.TotalDebit) + `</td>`)
 		b.WriteString(`<td class="border-r border-border-subtle px-2 py-2 text-right font-mono tabular-nums">` + esc(item.TotalCredit) + `</td>`)
