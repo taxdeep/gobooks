@@ -212,6 +212,14 @@ func sidebarShell(vm SidebarVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = navItem("/journal-entry/list", "Journal Entries", "journal", vm.Active == "Journal Entry").Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		} else {
 			templ_7745c5c3_Err = navItem("/setup", "Setup", "setup", vm.Active == "Setup").Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {

@@ -7,7 +7,7 @@ import "strings"
 // Used to keep the section containing the current route expanded on load.
 func SectionKeyForActivePage(active string) string {
 	switch active {
-	case "Dashboard", "Setup":
+	case "Dashboard", "Setup", "Journal Entry":
 		return "core"
 	case "Sales Overview", "Customers", "Sales Transactions", "Quotes", "Sales Orders", "Customer Deposits", "Customer Receipts",
 		"AR Returns", "AR Refunds", "AR Write-Offs", "Customer Statement", "Receive Payment", "Credit Notes":

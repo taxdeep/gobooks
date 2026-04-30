@@ -167,34 +167,73 @@ func renderJournalEntryPageHTML(vm JournalEntryVM) string {
 func renderJournalEntryListHTML(vm JournalEntryListVM) string {
 	var b strings.Builder
 	esc := html.EscapeString
-	b.WriteString(`<div class="max-w-[95%]"><div class="flex items-center justify-between gap-4"><div><h1 class="text-title font-semibold text-text">Journal Entries</h1><p class="mt-2 text-text-muted2">Review posted entries, inspect immutable FX snapshots, and create reversing entries.</p></div><a href="/journal-entry" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">New Entry</a></div>`)
+	b.WriteString(`<div class="max-w-[95%] space-y-4"><div class="flex items-center justify-between gap-4"><div><h1 class="text-title font-semibold text-text">Journal Entries</h1><p class="mt-2 text-text-muted2">Dense journal-entry register. Click a row to open the entry; use Edit on the right for manual corrections.</p></div><a href="/journal-entry" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">New Entry</a></div>`)
 	if vm.Reversed {
-		b.WriteString(`<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Reverse entry created successfully.</div>`)
+		b.WriteString(`<div class="rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Reverse entry created successfully.</div>`)
 	}
 	if vm.Voided {
-		b.WriteString(`<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Journal entry voided with a reversal entry.</div>`)
+		b.WriteString(`<div class="rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Journal entry voided with a reversal entry.</div>`)
 	}
 	if vm.Corrected {
-		b.WriteString(`<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Replacement journal entry posted and the original was voided.</div>`)
+		b.WriteString(`<div class="rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Replacement journal entry posted and the original was voided.</div>`)
 	}
 	if vm.FormError != "" {
-		b.WriteString(`<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">` + esc(vm.FormError) + `</div>`)
+		b.WriteString(`<div class="rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">` + esc(vm.FormError) + `</div>`)
 	}
-	b.WriteString(`<div class="mt-6 rounded-lg border border-border bg-surface p-6"><div class="overflow-x-auto"><table class="w-full text-left text-body"><thead class="text-small uppercase tracking-wider text-text-muted"><tr class="border-b border-border"><th class="py-3 pr-4">ID</th><th class="py-3 pr-4">Date</th><th class="py-3 pr-4">Journal No.</th><th class="py-3 pr-4">Tx Currency</th><th class="py-3 pr-4">Lines</th><th class="py-3 pr-4">Debits</th><th class="py-3 pr-4">Credits</th><th class="py-3 pr-0">Actions</th></tr></thead><tbody class="text-text">`)
+
+	b.WriteString(`<form method="get" action="/journal-entry/list" class="rounded-md border border-border bg-surface px-3 py-3">`)
+	b.WriteString(`<div class="grid grid-cols-1 gap-3 md:grid-cols-[minmax(220px,1fr)_160px_160px_auto] md:items-end">`)
+	b.WriteString(`<label class="block"><span class="text-small font-semibold uppercase tracking-wider text-text-muted">Search</span><input type="search" name="q" value="` + esc(vm.FilterQ) + `" placeholder="Journal no. or line memo..." class="mt-1 block w-full rounded-md border border-border-input bg-background px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"/></label>`)
+	b.WriteString(`<label class="block"><span class="text-small font-semibold uppercase tracking-wider text-text-muted">From</span><input type="date" name="from" value="` + esc(vm.FilterDateFrom) + `" class="mt-1 block w-full rounded-md border border-border-input bg-background px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"/></label>`)
+	b.WriteString(`<label class="block"><span class="text-small font-semibold uppercase tracking-wider text-text-muted">To</span><input type="date" name="to" value="` + esc(vm.FilterDateTo) + `" class="mt-1 block w-full rounded-md border border-border-input bg-background px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"/></label>`)
+	if strings.TrimSpace(vm.FilterAccount) != "" {
+		b.WriteString(`<input type="hidden" name="account_id" value="` + esc(vm.FilterAccount) + `"/>`)
+	}
+	b.WriteString(`<div class="flex items-center gap-2"><button type="submit" class="rounded-md bg-primary px-3 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">Apply</button><a href="/journal-entry/list" class="rounded-md border border-border-input px-3 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text">Reset</a></div>`)
+	b.WriteString(`</div>`)
+	if strings.TrimSpace(vm.FilterAccountLabel) != "" {
+		b.WriteString(`<div class="mt-2 text-small text-text-muted2">Filtered account: <span class="font-medium text-text">` + esc(vm.FilterAccountLabel) + `</span></div>`)
+	}
+	b.WriteString(`</form>`)
+
+	b.WriteString(`<div class="overflow-hidden rounded-md border border-border bg-surface shadow-sm"><div class="overflow-x-auto"><table class="w-full min-w-[1120px] border-collapse text-left text-small"><thead class="sticky top-0 z-10 bg-background text-[11px] font-bold uppercase tracking-wider text-text-muted"><tr>`)
+	b.WriteString(`<th class="border-b border-r border-border px-2 py-2">ID</th>`)
+	b.WriteString(`<th class="border-b border-r border-border px-2 py-2">Date</th>`)
+	b.WriteString(`<th class="border-b border-r border-border px-2 py-2">Journal No.</th>`)
+	b.WriteString(`<th class="border-b border-r border-border px-2 py-2">Tx Currency</th>`)
+	b.WriteString(`<th class="border-b border-r border-border px-2 py-2 text-right">Lines</th>`)
+	b.WriteString(`<th class="border-b border-r border-border px-2 py-2 text-right">Debits</th>`)
+	b.WriteString(`<th class="border-b border-r border-border px-2 py-2 text-right">Credits</th>`)
+	b.WriteString(`<th class="border-b border-border px-2 py-2 text-right">Actions</th>`)
+	b.WriteString(`</tr></thead><tbody class="text-text">`)
+	if len(vm.Items) == 0 {
+		b.WriteString(`<tr><td colspan="8" class="px-4 py-10 text-center text-text-muted2">No journal entries match this view.</td></tr>`)
+	}
 	for _, item := range vm.Items {
-		b.WriteString(`<tr class="border-b border-border-subtle align-top"><td class="py-3 pr-4">` + esc(Uitoa(item.ID)) + `</td><td class="py-3 pr-4 whitespace-nowrap">` + esc(item.EntryDate) + `</td><td class="py-3 pr-4"><a href="/journal-entry/` + esc(Uitoa(item.ID)) + `" class="font-medium text-primary hover:text-primary-hover">` + esc(item.JournalNo) + `</a></td><td class="py-3 pr-4"><div class="font-medium text-text">` + esc(item.TransactionCurrencyDisplay) + `</div>`)
+		itemID := esc(Uitoa(item.ID))
+		b.WriteString(`<tr onclick="window.location.href='/journal-entry/` + itemID + `'" class="cursor-pointer border-b border-border-subtle align-top hover:bg-background/70">`)
+		b.WriteString(`<td class="whitespace-nowrap border-r border-border-subtle px-2 py-2 font-mono text-text-muted2">` + itemID + `</td>`)
+		b.WriteString(`<td class="whitespace-nowrap border-r border-border-subtle px-2 py-2">` + esc(item.EntryDate) + `</td>`)
+		b.WriteString(`<td class="border-r border-border-subtle px-2 py-2"><a href="/journal-entry/` + itemID + `" onclick="event.stopPropagation()" class="font-semibold text-primary hover:text-primary-hover">` + esc(item.JournalNo) + `</a></td>`)
+		b.WriteString(`<td class="border-r border-border-subtle px-2 py-2"><div class="font-medium text-text">` + esc(item.TransactionCurrencyDisplay) + `</div>`)
 		if strings.TrimSpace(item.ExchangeRateSourceLabel) != "" {
 			b.WriteString(`<div class="mt-1 text-small text-text-muted2">` + esc(item.ExchangeRateSourceLabel) + `</div>`)
 		}
-		b.WriteString(`</td><td class="py-3 pr-4">` + esc(Itoa(item.LineCount)) + `</td><td class="py-3 pr-4 font-mono tabular-nums">` + esc(item.TotalDebit) + `</td><td class="py-3 pr-4 font-mono tabular-nums">` + esc(item.TotalCredit) + `</td><td class="py-3 pr-0"><div class="flex flex-wrap items-center gap-2"><a href="/journal-entry/` + esc(Uitoa(item.ID)) + `" class="rounded-md border border-border-input px-3 py-2 text-body font-medium text-text hover:bg-background">View</a>`)
+		b.WriteString(`</td>`)
+		b.WriteString(`<td class="border-r border-border-subtle px-2 py-2 text-right font-mono tabular-nums">` + esc(Itoa(item.LineCount)) + `</td>`)
+		b.WriteString(`<td class="border-r border-border-subtle px-2 py-2 text-right font-mono tabular-nums">` + esc(item.TotalDebit) + `</td>`)
+		b.WriteString(`<td class="border-r border-border-subtle px-2 py-2 text-right font-mono tabular-nums">` + esc(item.TotalCredit) + `</td>`)
+		b.WriteString(`<td class="px-2 py-2 text-right" onclick="event.stopPropagation()"><div class="flex flex-wrap items-center justify-end gap-2"><a href="/journal-entry/` + itemID + `" class="rounded-md border border-border-input px-2.5 py-1.5 text-small font-semibold text-text hover:bg-background">View</a>`)
 		if item.CanCorrect {
-			b.WriteString(`<a href="/journal-entry/` + esc(Uitoa(item.ID)) + `/edit" class="rounded-md border border-border-input px-3 py-2 text-body font-medium text-text hover:bg-background">Edit</a>`)
+			b.WriteString(`<a href="/journal-entry/` + itemID + `/edit" class="rounded-md bg-primary px-2.5 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover">Edit</a>`)
+		} else {
+			b.WriteString(`<span class="rounded-md border border-border-subtle px-2.5 py-1.5 text-small font-semibold text-text-muted2">Locked</span>`)
 		}
-		b.WriteString(`<form method="post" action="/journal-entry/` + esc(Uitoa(item.ID)) + `/void" class="flex items-center gap-2"><input type="date" name="reverse_date" class="rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text"`)
+		b.WriteString(`<form method="post" action="/journal-entry/` + itemID + `/void" class="flex items-center gap-1"><input type="date" name="reverse_date" class="w-32 rounded-md border border-border-input bg-surface px-2 py-1.5 text-small text-text"`)
 		if !item.CanReverse {
 			b.WriteString(` disabled`)
 		}
-		b.WriteString(`/><button type="submit" class="rounded-md border border-border-input px-3 py-2 text-body font-semibold text-text-muted3 hover:bg-background disabled:cursor-not-allowed disabled:bg-disabled-bg disabled:text-disabled-text"`)
+		b.WriteString(`/><button type="submit" class="rounded-md border border-border-input px-2.5 py-1.5 text-small font-semibold text-text-muted3 hover:bg-background disabled:cursor-not-allowed disabled:bg-disabled-bg disabled:text-disabled-text"`)
 		if !item.CanReverse {
 			b.WriteString(` disabled`)
 		}

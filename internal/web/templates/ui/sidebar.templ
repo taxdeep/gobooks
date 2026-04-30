@@ -93,6 +93,7 @@ templ sidebarShell(vm SidebarVM) {
 				<div class="sidebar-section-panel mt-1 space-y-0.5" data-sidebar-panel>
 					if vm.HasCompany {
 						@navItem("/", "Dashboard", "dashboard", vm.Active == "Dashboard")
+						@navItem("/journal-entry/list", "Journal Entries", "journal", vm.Active == "Journal Entry")
 					} else {
 						@navItem("/setup", "Setup", "setup", vm.Active == "Setup")
 					}
