@@ -230,9 +230,9 @@ func renderJournalEntryListHTML(vm JournalEntryListVM) string {
 		b.WriteString(`<td class="border-r border-border-subtle px-2 py-2 text-right font-mono tabular-nums">` + esc(item.TotalCredit) + `</td>`)
 		b.WriteString(`<td class="px-2 py-2 text-right" onclick="event.stopPropagation()"><div class="flex flex-wrap items-center justify-end gap-2"><a href="/journal-entry/` + itemID + `" class="rounded-md border border-border-input px-2.5 py-1.5 text-small font-semibold text-text hover:bg-background">View</a>`)
 		if item.CanCorrect {
-			b.WriteString(`<a href="/journal-entry/` + itemID + `/edit" class="rounded-md bg-primary px-2.5 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover">Edit</a>`)
+			b.WriteString(`<a href="/journal-entry/` + itemID + `/edit" class="inline-flex w-16 justify-center rounded-md bg-primary px-2.5 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover">Edit</a>`)
 		} else {
-			b.WriteString(`<span class="rounded-md border border-border-subtle px-2.5 py-1.5 text-small font-semibold text-text-muted2">Locked</span>`)
+			b.WriteString(`<span class="inline-flex w-16 justify-center rounded-md border border-border-subtle px-2.5 py-1.5 text-small font-semibold text-text-muted2">Locked</span>`)
 		}
 		b.WriteString(`<form method="post" action="/journal-entry/` + itemID + `/void" class="flex items-center gap-1" title="` + esc(item.ReverseHint) + `"><button type="submit" class="rounded-md border border-border-input px-2.5 py-1.5 text-small font-semibold text-text-muted3 hover:bg-background disabled:cursor-not-allowed disabled:bg-disabled-bg disabled:text-disabled-text"`)
 		if !item.CanReverse {
