@@ -1039,7 +1039,7 @@ func (s *Server) handleReceivePaymentSubmit(c *fiber.Ctx) error {
 	// no new deposit, the form falls back to the legacy manual-amount
 	// path (unlinked payment on account).
 	var amount decimal.Decimal
-	if len(allocations) > 0 || newDepositAmount.IsPositive() {
+	if len(allocations) > 0 || len(depositApps) > 0 || len(cnApps) > 0 || newDepositAmount.IsPositive() {
 		amount = allocTotal.Sub(cnTotal).Sub(depositTotal).Add(newDepositAmount)
 	} else {
 		a, aErr := services.ParseDecimalMoney(amountRaw)
@@ -1047,6 +1047,9 @@ func (s *Server) handleReceivePaymentSubmit(c *fiber.Ctx) error {
 			vm.AmountError = "Amount must be greater than 0 (or select invoices above)."
 		} else {
 			amount = a
+			if invoiceIDRaw == "" || invoiceIDRaw == "0" {
+				newDepositAmount = a
+			}
 		}
 	}
 

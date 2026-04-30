@@ -142,8 +142,10 @@ func RecordReceivePayment(tx *gorm.DB, in ReceivePaymentInput) (uint, error) {
 		return 0, fmt.Errorf("payment method is required")
 	}
 
-	// Route to Phase-4 allocation path when Allocations are present.
-	if len(in.Allocations) > 0 {
+	// Route to the unified allocation path when the receipt touches any
+	// document-style AR object. A standalone NewDepositAmount is the
+	// Receive Payment "customer paid, do not apply yet" path.
+	if len(in.Allocations) > 0 || len(in.Deposits) > 0 || len(in.CreditNotes) > 0 || in.NewDepositAmount.IsPositive() {
 		return recordReceivePaymentAllocations(tx, in)
 	}
 
@@ -324,7 +326,7 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 
 	// ── Validate deposit applications ─────────────────────────────────────────
 	type depositRecord struct {
-		dep       models.CustomerDeposit
+		dep        models.CustomerDeposit
 		appliedAmt decimal.Decimal // document currency; consumed from this deposit
 	}
 	depositRecords := make([]depositRecord, 0, len(in.Deposits))
@@ -373,8 +375,8 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 
 	// ── Validate credit-note consumption ──────────────────────────────────────
 	type cnRecord struct {
-		cn         models.CreditNote
-		consumed   decimal.Decimal // document currency consumed in this session
+		cn       models.CreditNote
+		consumed decimal.Decimal // document currency consumed in this session
 	}
 	cnRecords := make([]cnRecord, 0, len(in.CreditNotes))
 	totalCNDoc := decimal.Zero

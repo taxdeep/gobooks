@@ -44,7 +44,7 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 			data-initial-new-deposit={ vm.NewDepositAmount }
 			data-initial-allocations={ vm.InitialAllocationsJSON }
 		>
-			<form method="post" action="/banking/receive-payment" class="space-y-5">
+			<form method="post" action="/banking/receive-payment" class="space-y-5" @submit="return confirmOutstandingApply()">
 
 				// ── Payment Details ──────────────────────────────────────────────
 				@ui.SectionCard("Payment Details", "", rpPaymentDetails(vm))
@@ -154,6 +154,16 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 							}
 							return sum;
 						},
+						get selectedDepositCapacity() {
+							var sum = 0;
+							for (var k in this.selectedDep) {
+								if (!this.selectedDep[k]) continue;
+								var dep = this.findDeposit(k);
+								if (!dep) continue;
+								sum += this.moneyValue(dep.amount);
+							}
+							return sum;
+						},
 						get totalCNApplied() {
 							var sum = 0;
 							for (var k in this.selectedCN) {
@@ -239,6 +249,7 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 							this.bankAmountManual = String(this.manualAmount || '').trim() !== '';
 							if (this.bankAmountManual) {
 								this.redistributeManualBankAcrossInvoices();
+								this.redistributeManualBankAcrossDeposits();
 								this.updateAutoDepositForManualBank();
 							} else {
 								this.newDepositAmountAuto = false;
@@ -253,6 +264,7 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 						},
 						onInvoiceAmountInput() {
 							if (this.bankAmountManual) {
+								this.redistributeManualBankAcrossDeposits();
 								this.updateAutoDepositForManualBank();
 							} else {
 								this.syncBankAmountFromSelection();
@@ -260,6 +272,8 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 						},
 						onOffsetAmountInput() {
 							if (this.bankAmountManual) {
+								this.redistributeManualBankAcrossInvoices();
+								this.redistributeManualBankAcrossDeposits();
 								this.updateAutoDepositForManualBank();
 							} else {
 								this.syncBankAmountFromSelection();
@@ -272,7 +286,8 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 							}
 						},
 						invoiceCapacityTarget() {
-							return Math.max(0, this.bankTargetValue + this.totalCNApplied + this.totalDepositApplied - (this.newDepositAmountAuto ? 0 : this.newDepositValue));
+							var depositCapacity = this.bankAmountManual ? this.selectedDepositCapacity : this.totalDepositApplied;
+							return Math.max(0, this.bankTargetValue + this.totalCNApplied + depositCapacity - (this.newDepositAmountAuto ? 0 : this.newDepositValue));
 						},
 						selectedInvoiceTotalExcept(exceptID) {
 							var sum = 0;
@@ -288,6 +303,23 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 							var balance = this.moneyValue(inv.amount);
 							return this.moneyText(Math.max(0, Math.min(balance, remaining)));
 						},
+						selectedDepositTotalExcept(exceptID) {
+							var sum = 0;
+							exceptID = String(exceptID || '');
+							for (var k in this.selectedDep) {
+								if (!this.selectedDep[k] || String(k) === exceptID) continue;
+								sum += this.moneyValue(this.allocDep[k]);
+							}
+							return sum;
+						},
+						depositCapacityTarget() {
+							return Math.max(0, this.totalInvoiceApplied - this.totalCNApplied + (this.newDepositAmountAuto ? 0 : this.newDepositValue) - this.bankTargetValue);
+						},
+						manualApplicationForDeposit(dep) {
+							var remaining = this.depositCapacityTarget() - this.selectedDepositTotalExcept(dep.id);
+							var balance = this.moneyValue(dep.amount);
+							return this.moneyText(Math.max(0, Math.min(balance, remaining)));
+						},
 						redistributeManualBankAcrossInvoices() {
 							var remaining = this.invoiceCapacityTarget();
 							for (var i = 0; i < this.filteredInvoices.length; i++) {
@@ -296,6 +328,17 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 								if (!this.selectedInv[id]) continue;
 								var amount = Math.max(0, Math.min(this.moneyValue(inv.amount), remaining));
 								this.allocInv[id] = this.moneyText(amount);
+								remaining -= amount;
+							}
+						},
+						redistributeManualBankAcrossDeposits() {
+							var remaining = this.depositCapacityTarget();
+							for (var i = 0; i < this.filteredDeposits.length; i++) {
+								var dep = this.filteredDeposits[i];
+								var id = String(dep.id);
+								if (!this.selectedDep[id]) continue;
+								var amount = Math.max(0, Math.min(this.moneyValue(dep.amount), remaining));
+								this.allocDep[id] = this.moneyText(amount);
 								remaining -= amount;
 							}
 						},
@@ -326,6 +369,12 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 							}
 							return null;
 						},
+						findDeposit(id) {
+							for (var i = 0; i < this.allDeposits.length; i++) {
+								if (String(this.allDeposits[i].id) === String(id)) return this.allDeposits[i];
+							}
+							return null;
+						},
 
 						onCustomerChange() {
 							// Switching customer invalidates any prior selection —
@@ -353,6 +402,7 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 								this.allocInv[id] = this.bankAmountManual ? this.manualAllocationForInvoice(inv) : inv.amount;
 							}
 							if (this.bankAmountManual) {
+								this.redistributeManualBankAcrossDeposits();
 								this.updateAutoDepositForManualBank();
 							} else {
 								this.syncBankAmountFromSelection();
@@ -365,10 +415,11 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 								delete this.allocDep[id];
 							} else {
 								this.selectedDep[id] = true;
-								// Default consumption = full remaining balance.
 								this.allocDep[id] = dep.amount;
 							}
 							if (this.bankAmountManual) {
+								this.redistributeManualBankAcrossInvoices();
+								this.redistributeManualBankAcrossDeposits();
 								this.updateAutoDepositForManualBank();
 							} else {
 								this.syncBankAmountFromSelection();
@@ -384,6 +435,8 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 								this.allocCN[id] = cn.amount;
 							}
 							if (this.bankAmountManual) {
+								this.redistributeManualBankAcrossInvoices();
+								this.redistributeManualBankAcrossDeposits();
 								this.updateAutoDepositForManualBank();
 							} else {
 								this.syncBankAmountFromSelection();
@@ -419,6 +472,39 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 							var bal  = parseFloat(cn.amount || '0');
 							if (isNaN(used) || isNaN(bal)) return 0;
 							return Math.max(0, used - bal);
+						},
+						totalInvoiceOverage() {
+							var sum = 0;
+							for (var i = 0; i < this.filteredInvoices.length; i++) {
+								sum += this.invoiceOverage(this.filteredInvoices[i]);
+							}
+							return sum;
+						},
+						openInvoiceBalanceAfterApply() {
+							var balance = 0;
+							for (var i = 0; i < this.filteredInvoices.length; i++) {
+								var inv = this.filteredInvoices[i];
+								var invBalance = this.moneyValue(inv.amount);
+								balance += invBalance;
+								if (this.selectedInv[String(inv.id)]) {
+									balance -= Math.min(invBalance, this.moneyValue(this.allocInv[String(inv.id)]));
+								}
+							}
+							return Math.max(0, balance);
+						},
+						depositCreatedAmount() {
+							if (!this.hasInvoiceSelection) {
+								return Math.max(0, this.bankTargetValue, this.newDepositValue);
+							}
+							return Math.max(0, this.newDepositValue + this.totalInvoiceOverage());
+						},
+						confirmOutstandingApply() {
+							var depositAmount = this.depositCreatedAmount();
+							var openAfter = this.openInvoiceBalanceAfterApply();
+							if (this.customerId && depositAmount > 0.004 && openAfter > 0.004) {
+								return window.confirm('This customer still has $' + this.moneyText(openAfter) + ' in open invoices. Continue and record $' + this.moneyText(depositAmount) + ' as a customer deposit instead of applying it?');
+							}
+							return true;
 						},
 					};
 				}
@@ -526,7 +612,7 @@ templ rpPaymentDetails(vm ReceivePaymentVM) {
 				Fixed total: selected invoices fill in order; any remainder becomes Extra.
 			</p>
 			<p x-show="!hasAnySelection && newDepositValue === 0" class="mt-1 text-small text-text-muted2">
-				Leave the table empty to record an unlinked payment on account.
+				Leave the table empty to record the cash as a customer deposit.
 			</p>
 		</div>
 

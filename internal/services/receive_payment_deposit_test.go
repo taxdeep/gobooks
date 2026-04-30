@@ -381,6 +381,166 @@ func TestReceivePayment_CaseC_OverpaymentCreatesNewDeposit(t *testing.T) {
 
 // ── Case D: mixed — cash + partial deposit ────────────────────────────────────
 
+func TestReceivePayment_UnallocatedCashCreatesCustomerDeposit(t *testing.T) {
+	db := testRPDepositDB(t)
+	cid := seedRPDepositCompany(t, db)
+	bankID := seedRPDepositAccount(t, db, cid, "1000", models.RootAsset, models.DetailBank)
+	arID := seedRPDepositAccount(t, db, cid, "1100", models.RootAsset, models.DetailAccountsReceivable)
+	cust := models.Customer{CompanyID: cid, Name: "Cust Deposit Only"}
+	if err := db.Create(&cust).Error; err != nil {
+		t.Fatal(err)
+	}
+	inv := seedRPInvoice(t, db, cid, cust.ID, "INV-OPEN-001", "100.00")
+
+	in := baseInput(cid, cust.ID, bankID, arID)
+	in.NewDepositAmount = decimal.RequireFromString("100.00")
+
+	jeID, err := RecordReceivePayment(db, in)
+	if err != nil {
+		t.Fatalf("RecordReceivePayment: %v", err)
+	}
+
+	bankDR, _ := sumJEByAccount(t, db, cid, jeID, bankID)
+	if !bankDR.Equal(decimal.RequireFromString("100.00")) {
+		t.Errorf("bank DR = %s, want 100", bankDR)
+	}
+	_, arCR := sumJEByAccount(t, db, cid, jeID, arID)
+	if !arCR.IsZero() {
+		t.Errorf("AR CR = %s, want 0 for unapplied customer deposit", arCR)
+	}
+	var custDepAcc models.Account
+	if err := db.Where("company_id = ? AND system_key = ?", cid, "customer_deposits").First(&custDepAcc).Error; err != nil {
+		t.Fatalf("customer deposits account not auto-created: %v", err)
+	}
+	_, custDepCR := sumJEByAccount(t, db, cid, jeID, custDepAcc.ID)
+	if !custDepCR.Equal(decimal.RequireFromString("100.00")) {
+		t.Errorf("Customer Deposits CR = %s, want 100", custDepCR)
+	}
+	var dep models.CustomerDeposit
+	if err := db.Where("customer_id = ?", cust.ID).First(&dep).Error; err != nil {
+		t.Fatalf("expected customer deposit row: %v", err)
+	}
+	if !dep.BalanceRemaining.Equal(decimal.RequireFromString("100.00")) {
+		t.Errorf("deposit balance = %s, want 100", dep.BalanceRemaining)
+	}
+	var rInv models.Invoice
+	db.First(&rInv, inv.ID)
+	if !rInv.BalanceDue.Equal(decimal.RequireFromString("100.00")) || rInv.Status != models.InvoiceStatusIssued {
+		t.Errorf("invoice changed unexpectedly: status=%s balance=%s", rInv.Status, rInv.BalanceDue)
+	}
+}
+
+func TestReceivePayment_PartialInvoiceApplyCreatesDepositForRemainder(t *testing.T) {
+	db := testRPDepositDB(t)
+	cid := seedRPDepositCompany(t, db)
+	bankID := seedRPDepositAccount(t, db, cid, "1000", models.RootAsset, models.DetailBank)
+	arID := seedRPDepositAccount(t, db, cid, "1100", models.RootAsset, models.DetailAccountsReceivable)
+	cust := models.Customer{CompanyID: cid, Name: "Cust Partial Plus Deposit"}
+	if err := db.Create(&cust).Error; err != nil {
+		t.Fatal(err)
+	}
+	inv := seedRPInvoice(t, db, cid, cust.ID, "INV-PART-001", "100.00")
+
+	in := baseInput(cid, cust.ID, bankID, arID)
+	in.Allocations = []InvoiceAllocation{{InvoiceID: inv.ID, Amount: decimal.RequireFromString("50.00")}}
+	in.NewDepositAmount = decimal.RequireFromString("50.00")
+
+	jeID, err := RecordReceivePayment(db, in)
+	if err != nil {
+		t.Fatalf("RecordReceivePayment: %v", err)
+	}
+
+	bankDR, _ := sumJEByAccount(t, db, cid, jeID, bankID)
+	if !bankDR.Equal(decimal.RequireFromString("100.00")) {
+		t.Errorf("bank DR = %s, want 100", bankDR)
+	}
+	var rInv models.Invoice
+	db.First(&rInv, inv.ID)
+	if rInv.Status != models.InvoiceStatusPartiallyPaid || !rInv.BalanceDue.Equal(decimal.RequireFromString("50.00")) {
+		t.Errorf("invoice status/balance = %s/%s, want partially_paid/50", rInv.Status, rInv.BalanceDue)
+	}
+	var dep models.CustomerDeposit
+	if err := db.Where("customer_id = ?", cust.ID).First(&dep).Error; err != nil {
+		t.Fatalf("expected customer deposit row: %v", err)
+	}
+	if !dep.BalanceRemaining.Equal(decimal.RequireFromString("50.00")) {
+		t.Errorf("deposit balance = %s, want 50", dep.BalanceRemaining)
+	}
+}
+
+func TestReceivePayment_MultiplePartialInvoiceAllocations(t *testing.T) {
+	db := testRPDepositDB(t)
+	cid := seedRPDepositCompany(t, db)
+	bankID := seedRPDepositAccount(t, db, cid, "1000", models.RootAsset, models.DetailBank)
+	arID := seedRPDepositAccount(t, db, cid, "1100", models.RootAsset, models.DetailAccountsReceivable)
+	cust := models.Customer{CompanyID: cid, Name: "Cust Multi Partial"}
+	if err := db.Create(&cust).Error; err != nil {
+		t.Fatal(err)
+	}
+	inv1 := seedRPInvoice(t, db, cid, cust.ID, "INV-MP-001", "100.00")
+	inv2 := seedRPInvoice(t, db, cid, cust.ID, "INV-MP-002", "50.00")
+
+	in := baseInput(cid, cust.ID, bankID, arID)
+	in.Allocations = []InvoiceAllocation{
+		{InvoiceID: inv1.ID, Amount: decimal.RequireFromString("40.00")},
+		{InvoiceID: inv2.ID, Amount: decimal.RequireFromString("20.00")},
+	}
+
+	_, err := RecordReceivePayment(db, in)
+	if err != nil {
+		t.Fatalf("RecordReceivePayment: %v", err)
+	}
+
+	var rInv1, rInv2 models.Invoice
+	db.First(&rInv1, inv1.ID)
+	db.First(&rInv2, inv2.ID)
+	if !rInv1.BalanceDue.Equal(decimal.RequireFromString("60.00")) {
+		t.Errorf("A1 balance = %s, want 60", rInv1.BalanceDue)
+	}
+	if !rInv2.BalanceDue.Equal(decimal.RequireFromString("30.00")) {
+		t.Errorf("A2 balance = %s, want 30", rInv2.BalanceDue)
+	}
+}
+
+func TestReceivePayment_PartialDepositUseLeavesRemainingBalance(t *testing.T) {
+	db := testRPDepositDB(t)
+	cid := seedRPDepositCompany(t, db)
+	bankID := seedRPDepositAccount(t, db, cid, "1000", models.RootAsset, models.DetailBank)
+	arID := seedRPDepositAccount(t, db, cid, "1100", models.RootAsset, models.DetailAccountsReceivable)
+	cust := models.Customer{CompanyID: cid, Name: "Cust Deposit Remainder"}
+	if err := db.Create(&cust).Error; err != nil {
+		t.Fatal(err)
+	}
+	inv1 := seedRPInvoice(t, db, cid, cust.ID, "INV-DR-001", "30.00")
+	inv2 := seedRPInvoice(t, db, cid, cust.ID, "INV-DR-002", "100.00")
+	dep := seedRPDeposit(t, db, cid, cust.ID, "DEP-D4", "50.00")
+
+	in := baseInput(cid, cust.ID, bankID, arID)
+	in.Allocations = []InvoiceAllocation{
+		{InvoiceID: inv1.ID, Amount: decimal.RequireFromString("30.00")},
+		{InvoiceID: inv2.ID, Amount: decimal.RequireFromString("100.00")},
+	}
+	in.Deposits = []DepositApplication{{DepositID: dep.ID, Amount: decimal.RequireFromString("30.00")}}
+
+	jeID, err := RecordReceivePayment(db, in)
+	if err != nil {
+		t.Fatalf("RecordReceivePayment: %v", err)
+	}
+
+	bankDR, _ := sumJEByAccount(t, db, cid, jeID, bankID)
+	if !bankDR.Equal(decimal.RequireFromString("100.00")) {
+		t.Errorf("bank DR = %s, want 100", bankDR)
+	}
+	var rDep models.CustomerDeposit
+	db.First(&rDep, dep.ID)
+	if rDep.Status != models.CustomerDepositStatusPartiallyApplied {
+		t.Errorf("deposit status = %q, want partially_applied", rDep.Status)
+	}
+	if !rDep.BalanceRemaining.Equal(decimal.RequireFromString("20.00")) {
+		t.Errorf("deposit balance = %s, want 20", rDep.BalanceRemaining)
+	}
+}
+
 func TestReceivePayment_CaseD_Mixed(t *testing.T) {
 	db := testRPDepositDB(t)
 	cid := seedRPDepositCompany(t, db)
