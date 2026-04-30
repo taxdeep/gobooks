@@ -86,7 +86,7 @@ func (e *EntEngine) Search(ctx context.Context, req SearchRequest) (*SearchRespo
 // via the NullsLast order below.
 func (e *EntEngine) searchEmpty(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
 	rows, err := e.client.SearchDocument.Query().
-		Where(searchdocument.CompanyIDEQ(req.CompanyID)).
+		Where(dropdownPredicates(req.CompanyID)...).
 		Order(searchdocument.ByDocDate(entsql.OrderDesc(), entsql.OrderNullsLast())).
 		Limit(recentLimit).
 		All(ctx)
@@ -118,14 +118,13 @@ func (e *EntEngine) searchRanked(ctx context.Context, req SearchRequest, rawQ st
 	// (company_id, entity_type, doc_number) btree — index narrows to the
 	// company's docs first, then filters.
 	tier1, err := e.client.SearchDocument.Query().
-		Where(
-			searchdocument.CompanyIDEQ(req.CompanyID),
+		Where(dropdownPredicates(req.CompanyID,
 			searchdocument.Or(
 				searchdocument.DocNumberEqualFold(rawQ),
 				searchdocument.DocNumberContainsFold(rawQ),
 			),
 			searchdocument.DocNumberNEQ(""), // skip rows without a number
-		).
+		)...).
 		Order(searchdocument.ByDocDate(entsql.OrderDesc(), entsql.OrderNullsLast())).
 		Limit(perGroupLimit * 4). // each entity group needs its own budget
 		All(ctx)
@@ -135,10 +134,9 @@ func (e *EntEngine) searchRanked(ctx context.Context, req SearchRequest, rawQ st
 
 	// Tier 2: substring on title_native (counterparty / entity name).
 	tier2, err := e.client.SearchDocument.Query().
-		Where(
-			searchdocument.CompanyIDEQ(req.CompanyID),
+		Where(dropdownPredicates(req.CompanyID,
 			searchdocument.TitleNativeContainsFold(normalized),
-		).
+		)...).
 		Order(searchdocument.ByDocDate(entsql.OrderDesc(), entsql.OrderNullsLast())).
 		Limit(perGroupLimit * 4).
 		All(ctx)
@@ -150,13 +148,12 @@ func (e *EntEngine) searchRanked(ctx context.Context, req SearchRequest, rawQ st
 	if amountToken, ok := normalizedSearchAmountToken(rawQ); ok {
 		amountNative := e.normalizer.Native(amountToken)
 		tierAmount, err = e.client.SearchDocument.Query().
-			Where(
-				searchdocument.CompanyIDEQ(req.CompanyID),
+			Where(dropdownPredicates(req.CompanyID,
 				searchdocument.Or(
 					searchdocument.AmountContainsFold(amountToken),
 					searchdocument.MemoNativeContainsFold(amountNative),
 				),
-			).
+			)...).
 			Order(searchdocument.ByDocDate(entsql.OrderDesc(), entsql.OrderNullsLast())).
 			Limit(perGroupLimit * 4).
 			All(ctx)
@@ -167,10 +164,9 @@ func (e *EntEngine) searchRanked(ctx context.Context, req SearchRequest, rawQ st
 
 	// Tier 3: substring on memo_native (descriptions, notes).
 	tier3, err := e.client.SearchDocument.Query().
-		Where(
-			searchdocument.CompanyIDEQ(req.CompanyID),
+		Where(dropdownPredicates(req.CompanyID,
 			searchdocument.MemoNativeContainsFold(normalized),
-		).
+		)...).
 		Order(searchdocument.ByDocDate(entsql.OrderDesc(), entsql.OrderNullsLast())).
 		Limit(perGroupLimit * 4).
 		All(ctx)
@@ -215,6 +211,18 @@ func (e *EntEngine) searchRanked(ctx context.Context, req SearchRequest, rawQ st
 		Candidates: cands,
 		Source:     "ranked",
 	}, nil
+}
+
+func dropdownPredicates(companyID uint, extras ...predicate.SearchDocument) []predicate.SearchDocument {
+	preds := []predicate.SearchDocument{
+		searchdocument.CompanyIDEQ(companyID),
+		searchdocument.StatusNotIn("voided", "reversed"),
+		searchdocument.Not(searchdocument.And(
+			searchdocument.EntityTypeEQ("journal_entry"),
+			searchdocument.SubtitleContainsFold("source=reversal"),
+		)),
+	}
+	return append(preds, extras...)
 }
 
 // groupAndCap bucketises rows by entity family (transactions / contacts

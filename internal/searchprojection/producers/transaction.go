@@ -599,6 +599,9 @@ func ProjectJournalEntry(ctx context.Context, db *gorm.DB, p searchprojection.Pr
 		}
 		return fmt.Errorf("producers.ProjectJournalEntry: load %d for company %d: %w", entryID, companyID, err)
 	}
+	if !journalEntrySearchVisible(je) {
+		return p.Delete(ctx, companyID, EntityTypeJournalEntry, entryID)
+	}
 	doc := JournalEntrySearchDocument(je)
 	if err := p.Upsert(ctx, companyID, doc); err != nil {
 		logging.L().Warn("searchprojection.ProjectJournalEntry upsert failed",
@@ -606,6 +609,13 @@ func ProjectJournalEntry(ctx context.Context, db *gorm.DB, p searchprojection.Pr
 		return err
 	}
 	return nil
+}
+
+func journalEntrySearchVisible(je models.JournalEntry) bool {
+	if je.Status == models.JournalEntryStatusVoided || je.Status == models.JournalEntryStatusReversed {
+		return false
+	}
+	return je.SourceType != models.LedgerSourceReversal
 }
 
 func DeleteJournalEntryProjection(ctx context.Context, p searchprojection.Projector, companyID, entryID uint) error {

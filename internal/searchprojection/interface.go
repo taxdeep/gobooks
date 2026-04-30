@@ -86,4 +86,4 @@ type Projector interface {
 // (e.g. a new normalisation method, additional fields in subtitle);
 // the reconciler picks up rows where projector_version < current and
 // re-runs Upsert to refresh them.
-const CurrentProjectorVersion = 2
+const CurrentProjectorVersion = 3

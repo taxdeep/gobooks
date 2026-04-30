@@ -60,6 +60,10 @@ func seedDoc(t *testing.T, c *ent.Client, companyID uint, entityType string, ent
 }
 
 func seedDocWithAmount(t *testing.T, c *ent.Client, companyID uint, entityType string, entityID uint, title, number, amount, memo string) {
+	seedDocWithAmountAndStatus(t, c, companyID, entityType, entityID, title, number, amount, memo, "")
+}
+
+func seedDocWithAmountAndStatus(t *testing.T, c *ent.Client, companyID uint, entityType string, entityID uint, title, number, amount, memo, status string) {
 	t.Helper()
 	_, err := c.SearchDocument.Create().
 		SetCompanyID(companyID).
@@ -71,8 +75,29 @@ func seedDocWithAmount(t *testing.T, c *ent.Client, companyID uint, entityType s
 		SetSubtitle("sub").
 		SetMemoNative(memo).
 		SetAmount(amount).
+		SetStatus(status).
 		SetNillableDocDate(ptrTime(time.Now())).
 		SetURLPath("/" + entityType + "/" + uintKey(entityID)).
+		Save(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func seedJournalSearchDoc(t *testing.T, c *ent.Client, companyID uint, entityID uint, title, amount, memo, status, subtitle string) {
+	t.Helper()
+	_, err := c.SearchDocument.Create().
+		SetCompanyID(companyID).
+		SetEntityType("journal_entry").
+		SetEntityID(entityID).
+		SetTitle(title).
+		SetTitleNative(strings.ToLower(title)).
+		SetSubtitle(subtitle).
+		SetMemoNative(memo).
+		SetAmount(amount).
+		SetStatus(status).
+		SetNillableDocDate(ptrTime(time.Now())).
+		SetURLPath("/journal-entry/" + uintKey(entityID)).
 		Save(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -202,6 +227,27 @@ func TestEntEngine_AmountSearchMatchesAmountAndMemoAmounts(t *testing.T) {
 	}
 	if !foundJE {
 		t.Fatalf("base amount search should find journal entry memo; got %+v", resp.Candidates)
+	}
+}
+
+func TestEntEngine_AmountSearchHidesVoidedReversedAndReversalEntries(t *testing.T) {
+	c := newTestClient(t)
+	defer c.Close()
+	seedJournalSearchDoc(t, c, 1, 1, "Posted JE", "11039.18", "usd 11039 18 base 15270 50", "posted", "Journal Entry JE-1 · 2026-04-30 · source=manual")
+	seedJournalSearchDoc(t, c, 1, 2, "Voided JE", "11039.18", "usd 11039 18 base 15270 50", "voided", "Journal Entry JE-VOID · 2026-04-30 · source=manual")
+	seedJournalSearchDoc(t, c, 1, 3, "Reversed JE", "11039.18", "usd 11039 18 base 15270 50", "reversed", "Journal Entry JE-REV · 2026-04-30 · source=manual")
+	seedJournalSearchDoc(t, c, 1, 4, "Reversal JE", "11039.18", "usd 11039 18 base 15270 50", "posted", "Journal Entry REV-JE-1 · 2026-04-30 · source=reversal")
+
+	e, _ := NewEntEngine(c, searchprojection.AsciiNormalizer{})
+	resp, err := e.Search(context.Background(), SearchRequest{CompanyID: 1, Query: "11039.18"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Candidates) != 1 {
+		t.Fatalf("expected only active JE in amount search, got %+v", resp.Candidates)
+	}
+	if resp.Candidates[0].Primary != "Posted JE" {
+		t.Fatalf("unexpected candidate: %+v", resp.Candidates[0])
 	}
 }
 
