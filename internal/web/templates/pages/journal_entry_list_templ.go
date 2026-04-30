@@ -401,7 +401,7 @@ func bodyJournalList(vm JournalEntryListVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\" class=\"flex items-center gap-2\"><input type=\"date\" name=\"reverse_date\" class=\"rounded-md border border-border-input px-3 py-2 text-body\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\" class=\"flex items-center gap-2\"><button type=\"submit\" class=\"rounded-md border border-border-input px-3 py-2 text-body font-semibold text-text-muted3 hover:bg-background disabled:cursor-not-allowed disabled:bg-disabled-bg disabled:text-disabled-text\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -411,17 +411,7 @@ func bodyJournalList(vm JournalEntryListVM) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "> <button type=\"submit\" class=\"rounded-md border border-border-input px-3 py-2 text-body font-semibold text-text-muted3 hover:bg-background disabled:cursor-not-allowed disabled:bg-disabled-bg disabled:text-disabled-text\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			if !it.CanReverse {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, " disabled")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, ">Reverse</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, ">Reverse</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

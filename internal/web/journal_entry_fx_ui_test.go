@@ -127,6 +127,9 @@ func TestJournalEntryListPage_UsesSingleRowFilterGrid(t *testing.T) {
 		FilterDateTo:       "2026-04-30",
 		FilterAccount:      "7",
 		FilterAccountLabel: "Cash (1000)",
+		Items: []pages.JournalEntryListItem{
+			{ID: 70, EntryDate: "2099-12-31", JournalNo: "JE-0070", LineCount: 2, TotalDebit: "15,270.50", TotalCredit: "15,270.50"},
+		},
 	}
 
 	var sb strings.Builder
@@ -149,6 +152,12 @@ func TestJournalEntryListPage_UsesSingleRowFilterGrid(t *testing.T) {
 	}
 	if strings.Contains(html, `flex flex-wrap items-end gap-3`) {
 		t.Fatal("journal entry list filters should use the single-row grid, not the old wrapping flex strip")
+	}
+	if !strings.Contains(html, `>Date</th>`) || !strings.Contains(html, `2099-12-31`) {
+		t.Fatal("journal entry list table should keep the Date column")
+	}
+	if strings.Contains(html, `name="reverse_date"`) {
+		t.Fatal("journal entry list actions should not render per-row reverse date inputs")
 	}
 }
 

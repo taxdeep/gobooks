@@ -95,7 +95,6 @@ templ bodyJournalList(vm JournalEntryListVM) {
 								<td class="py-3 pr-4">{ it.TotalCredit }</td>
 								<td class="py-3 pr-0">
 									<form method="post" action={ "/journal-entry/" + Uitoa(it.ID) + "/reverse" } class="flex items-center gap-2">
-										<input type="date" name="reverse_date" class="rounded-md border border-border-input px-3 py-2 text-body" disabled?={ !it.CanReverse }/>
 										<button type="submit" class="rounded-md border border-border-input px-3 py-2 text-body font-semibold text-text-muted3 hover:bg-background disabled:cursor-not-allowed disabled:bg-disabled-bg disabled:text-disabled-text" disabled?={ !it.CanReverse }>Reverse</button>
 									</form>
 									if it.ReverseHint != "" {
