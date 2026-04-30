@@ -16,6 +16,7 @@ import (
 	"gorm.io/gorm"
 
 	"balanciz/internal/models"
+	"balanciz/internal/numbering"
 	"balanciz/internal/searchprojection/producers"
 	"balanciz/internal/services"
 	"balanciz/internal/web/templates/pages"
@@ -175,7 +176,13 @@ func (s *Server) handleJournalEntryForm(c *fiber.Ctx) error {
 	var vendors []models.Vendor
 	_ = s.DB.Where("company_id = ?", companyID).Order("name asc").Find(&vendors).Error
 
-	return pages.JournalEntryPage(journalEntryPageVM(companyID, currencyCtx, accounts, customers, vendors, "", c.Query("saved") == "1")).Render(c.Context(), c)
+	vm := journalEntryPageVM(companyID, currencyCtx, accounts, customers, vendors, "", c.Query("saved") == "1")
+	if suggested, sErr := services.SuggestNextNumberForModule(s.DB, companyID, numbering.ModuleJournalEntry); sErr == nil && suggested != "" {
+		vm.DefaultJournalNo = suggested
+	} else {
+		vm.DefaultJournalNo = "JE-0001"
+	}
+	return pages.JournalEntryPage(vm).Render(c.Context(), c)
 }
 
 func (s *Server) handleJournalEntryEdit(c *fiber.Ctx) error {
@@ -302,6 +309,7 @@ func (s *Server) handleJournalEntryPost(c *fiber.Ctx) error {
 
 	entryDateRaw := strings.TrimSpace(c.FormValue("entry_date"))
 	journalNo := strings.TrimSpace(c.FormValue("journal_no"))
+	suggestedJournalNo := strings.TrimSpace(c.FormValue("suggested_journal_no"))
 	transactionCurrencyCode := strings.TrimSpace(c.FormValue("transaction_currency_code"))
 	replaceRaw := strings.TrimSpace(c.FormValue("replace_journal_entry_id"))
 	var replaceJournalEntryID uint
@@ -320,6 +328,18 @@ func (s *Server) handleJournalEntryPost(c *fiber.Ctx) error {
 	entryDate, err := time.Parse("2006-01-02", entryDateRaw)
 	if err != nil {
 		return renderFormError("Date must be a valid date.")
+	}
+
+	autoAssignedJournalNo := false
+	if replaceJournalEntryID == 0 {
+		if journalNo == "" {
+			if suggested, sErr := services.SuggestNextNumberForModule(s.DB, companyID, numbering.ModuleJournalEntry); sErr == nil && suggested != "" {
+				journalNo = suggested
+				autoAssignedJournalNo = true
+			}
+		} else if suggestedJournalNo != "" && journalNo == suggestedJournalNo {
+			autoAssignedJournalNo = true
+		}
 	}
 
 	snapshotCandidate, err := parseJournalExchangeRateCandidate(c)
@@ -441,6 +461,9 @@ func (s *Server) handleJournalEntryPost(c *fiber.Ctx) error {
 			return renderFormError("Could not replace journal entry: " + err.Error())
 		}
 		return renderFormError("Could not save journal entry. Please try again.")
+	}
+	if autoAssignedJournalNo {
+		_ = services.BumpModuleNextNumberAfterCreate(s.DB, companyID, numbering.ModuleJournalEntry)
 	}
 
 	services.TryWriteAuditLogWithContext(s.DB, "journal.posted", "journal_entry", postedJEID, actor, map[string]any{

@@ -346,6 +346,10 @@ function balancizJournalEntryDraft() {
         el && el.dataset && el.dataset.defaultCurrency != null && String(el.dataset.defaultCurrency).trim() !== ""
           ? String(el.dataset.defaultCurrency).trim().toUpperCase()
           : this.baseCurrencyCode;
+      const defaultJournalNo =
+        el && el.dataset && el.dataset.defaultJournalNo != null && String(el.dataset.defaultJournalNo).trim() !== ""
+          ? String(el.dataset.defaultJournalNo).trim()
+          : "";
       this.draftSuffix =
         el && el.dataset && el.dataset.draftSuffix != null && String(el.dataset.draftSuffix).trim() !== ""
           ? String(el.dataset.draftSuffix).trim()
@@ -353,6 +357,7 @@ function balancizJournalEntryDraft() {
 
       const today = new Date().toISOString().slice(0, 10);
       this.header.entry_date = today;
+      this.header.journal_no = defaultJournalNo;
       this.header.transaction_currency_code = defaultCurrency;
       this.fx.date = today;
 
@@ -392,6 +397,9 @@ function balancizJournalEntryDraft() {
       }
       if (!this.header.transaction_currency_code) {
         this.header.transaction_currency_code = defaultCurrency;
+      }
+      if (!usingInitialDraft && !this.header.journal_no && defaultJournalNo) {
+        this.header.journal_no = defaultJournalNo;
       }
       this.lastTransactionCurrencyCode = this.header.transaction_currency_code;
       this.syncFXMode();

@@ -155,6 +155,64 @@ func performJournalFormRequest(t *testing.T, app *fiber.App, path string, form u
 	)
 }
 
+func TestJournalEntryFormSuggestsEditableNumberAndPostAutoAssigns(t *testing.T) {
+	db := testJournalRouteDB(t)
+	app := testRouteApp(t, db)
+	companyID, token := seedJournalCompanyContext(t, db)
+	cashID := seedJournalAccount(t, db, companyID, "1000", "Cash", models.RootAsset, models.DetailBank)
+	revenueID := seedJournalAccount(t, db, companyID, "4000", "Revenue", models.RootRevenue, models.DetailServiceRevenue)
+
+	formResp := performRequest(t, app, "/journal-entry", token)
+	if formResp.StatusCode != fiber.StatusOK {
+		t.Fatalf("expected form page, got %d", formResp.StatusCode)
+	}
+	formBodyBytes, err := io.ReadAll(formResp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = formResp.Body.Close()
+	formBody := string(formBodyBytes)
+	if !strings.Contains(formBody, `data-default-journal-no="JE-0001"`) {
+		t.Fatalf("expected suggested JE number in form, got %q", formBody)
+	}
+	if !strings.Contains(formBody, `name="suggested_journal_no" value="JE-0001"`) {
+		t.Fatalf("expected suggested JE number to post with the form, got %q", formBody)
+	}
+
+	resp := performJournalFormRequest(t, app, "/journal-entry", url.Values{
+		"entry_date":                {"2026-04-10"},
+		"journal_no":                {""},
+		"transaction_currency_code": {"CAD"},
+		"lines[0][account_id]":      {decimal.NewFromInt(int64(cashID)).String()},
+		"lines[0][debit]":           {"100.00"},
+		"lines[0][credit]":          {""},
+		"lines[1][account_id]":      {decimal.NewFromInt(int64(revenueID)).String()},
+		"lines[1][debit]":           {""},
+		"lines[1][credit]":          {"100.00"},
+	}, token)
+	if resp.StatusCode != fiber.StatusSeeOther {
+		t.Fatalf("expected redirect, got %d", resp.StatusCode)
+	}
+
+	var je models.JournalEntry
+	if err := db.Where("company_id = ? AND journal_no = ?", companyID, "JE-0001").First(&je).Error; err != nil {
+		t.Fatalf("expected auto-assigned journal entry number: %v", err)
+	}
+
+	nextResp := performRequest(t, app, "/journal-entry", token)
+	if nextResp.StatusCode != fiber.StatusOK {
+		t.Fatalf("expected second form page, got %d", nextResp.StatusCode)
+	}
+	nextBodyBytes, err := io.ReadAll(nextResp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = nextResp.Body.Close()
+	if !strings.Contains(string(nextBodyBytes), `data-default-journal-no="JE-0002"`) {
+		t.Fatalf("expected JE number counter to advance, got %q", string(nextBodyBytes))
+	}
+}
+
 func TestJournalEntryPost_BaseCurrencyStoresExplicitSnapshotAndProjectsLedger(t *testing.T) {
 	db := testJournalRouteDB(t)
 	app := testRouteApp(t, db)

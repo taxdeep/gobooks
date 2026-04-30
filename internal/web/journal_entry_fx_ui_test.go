@@ -18,6 +18,7 @@ func TestJournalEntryPage_UsesFXBlockDarkControlsAndSingleInitPath(t *testing.T)
 		CompanyCurrencies:          []models.CompanyCurrency{{CompanyID: 42, CurrencyCode: "USD", IsActive: true}},
 		TransactionCurrencyOptions: []string{"CAD", "USD"},
 		DefaultTransactionCurrency: "CAD",
+		DefaultJournalNo:           "JE-0001",
 		AccountsDataJSON:           "[]",
 	}
 
@@ -34,7 +35,10 @@ func TestJournalEntryPage_UsesFXBlockDarkControlsAndSingleInitPath(t *testing.T)
 		`@input="onRateInput()"`,
 		`Transaction Difference`,
 		`Base Difference`,
-		`/static/journal_entry_fx.js?v=4`,
+		`/static/journal_entry_fx.js?v=5`,
+		`data-default-journal-no="JE-0001"`,
+		`name="suggested_journal_no" value="JE-0001"`,
+		`Auto-assigned by the system. You can edit it before saving.`,
 		`text-right font-mono tabular-nums`,
 		`bg-surface px-3 py-2 text-body text-text`,
 		// JE Date drives FX date: @change handler must be wired on the date input.
@@ -47,6 +51,11 @@ func TestJournalEntryPage_UsesFXBlockDarkControlsAndSingleInitPath(t *testing.T)
 		if !strings.Contains(html, want) {
 			t.Fatalf("expected journal entry HTML to contain %q", want)
 		}
+	}
+	journalNoIndex := strings.Index(html, `>Journal No.</label>`)
+	currencyIndex := strings.Index(html, `>Currency</label>`)
+	if journalNoIndex < 0 || currencyIndex < 0 || journalNoIndex > currencyIndex {
+		t.Fatal("journal entry header should place Journal No. before Currency")
 	}
 	if strings.Contains(html, `@click="addLine()"><span>+</span><span>Add</span></button>`) {
 		t.Fatal("journal entry lines should use per-row insert controls instead of a top-right add button")

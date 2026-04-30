@@ -16,6 +16,8 @@ type JournalEntryVM struct {
 	TransactionCurrencyOptions []string
 	// DefaultTransactionCurrency is the initial JE transaction currency code.
 	DefaultTransactionCurrency string
+	// DefaultJournalNo is the suggested editable journal number for new manual JEs.
+	DefaultJournalNo string
 
 	// Dropdown data
 	Accounts         []models.Account

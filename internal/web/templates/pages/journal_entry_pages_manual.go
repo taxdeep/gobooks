@@ -59,6 +59,7 @@ func renderJournalEntryPageHTML(vm JournalEntryVM) string {
 	write(` data-company-id="` + esc(Uitoa(vm.ActiveCompanyID)) + `"`)
 	write(` data-base-currency="` + esc(vm.BaseCurrencyCode) + `"`)
 	write(` data-default-currency="` + esc(vm.DefaultTransactionCurrency) + `"`)
+	write(` data-default-journal-no="` + esc(vm.DefaultJournalNo) + `"`)
 	write(` data-draft-suffix="` + esc(vm.DraftStorageSuffix) + `">`)
 	write(`<script type="application/json" id="balanciz-journal-accounts-data">` + vm.AccountsDataJSON + `</script>`)
 	if strings.TrimSpace(vm.InitialDraftJSON) != "" {
@@ -93,10 +94,17 @@ func renderJournalEntryPageHTML(vm JournalEntryVM) string {
 	if vm.ReplaceJournalEntryID != 0 {
 		write(`<input type="hidden" name="replace_journal_entry_id" value="` + esc(Uitoa(vm.ReplaceJournalEntryID)) + `"/>`)
 	}
+	if vm.DefaultJournalNo != "" {
+		write(`<input type="hidden" name="suggested_journal_no" value="` + esc(vm.DefaultJournalNo) + `"/>`)
+	}
 	write(`<div class="rounded-lg border border-border bg-surface p-6">`)
 
-	// Header: 3-column grid — Currency (+ inline FX rate) | Date | Journal No.
+	// Header: 3-column grid: Journal No. | Date | Currency (+ inline FX rate).
 	write(`<div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">`)
+
+	write(`<div><label class="block text-body font-medium text-text">Journal No.</label><input type="text" name="journal_no" x-model="header.journal_no" placeholder="JE-0001" class="` + journalControlClass + `"/><p class="mt-1 text-small text-text-muted2">Auto-assigned by the system. You can edit it before saving.</p></div>`)
+
+	write(`<div><label class="block text-body font-medium text-text">Date *</label><input type="date" name="entry_date" x-model="header.entry_date" @change="onDateChange()" class="` + journalControlClass + `"/></div>`)
 
 	// Currency column: select + inline "1 TX = [rate] BASE" when foreign currency active.
 	write(`<div>`)
@@ -131,9 +139,6 @@ func renderJournalEntryPageHTML(vm JournalEntryVM) string {
 	write(`<p class="mt-1 text-small text-text-muted2">Every journal entry stores an explicit transaction currency, including base-currency entries.</p>`)
 	write(`</div>`)
 
-	write(`<div><label class="block text-body font-medium text-text">Date *</label><input type="date" name="entry_date" x-model="header.entry_date" @change="onDateChange()" class="` + journalControlClass + `"/></div>`)
-
-	write(`<div><label class="block text-body font-medium text-text">Journal No.</label><input type="text" name="journal_no" x-model="header.journal_no" placeholder="Optional, e.g. JE-001" class="` + journalControlClass + `"/><p class="mt-1 text-small text-text-muted2">Used as the immutable read-only reference after posting.</p></div>`)
 	write(`</div>`)
 
 	write(`</div>`)
@@ -160,7 +165,7 @@ func renderJournalEntryPageHTML(vm JournalEntryVM) string {
 
 	write(`<div class="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]"><div><div class="text-body text-danger-hover" x-show="primaryError" x-text="primaryError"></div><div class="mt-2 text-small text-text-muted2">Phase 1 FX policy converts each line individually using banker's rounding to 2 decimals and blocks save if base totals do not balance exactly.</div></div><div class="rounded-lg border border-border-subtle bg-background/70 p-4"><div class="space-y-2 text-body"><div class="flex items-center justify-between gap-4"><span class="text-text-muted2" x-text="'Transaction Debits (' + header.transaction_currency_code + ')'"></span><span class="font-mono font-semibold tabular-nums text-text" x-text="formatMoney(totals.txDebits)"></span></div><div class="flex items-center justify-between gap-4"><span class="text-text-muted2" x-text="'Transaction Credits (' + header.transaction_currency_code + ')'"></span><span class="font-mono font-semibold tabular-nums text-text" x-text="formatMoney(totals.txCredits)"></span></div><div class="flex items-center justify-between gap-4"><span class="text-text-muted2">Base Debits (` + esc(vm.BaseCurrencyCode) + `)</span><span class="font-mono font-semibold tabular-nums text-text" x-text="formatMoney(totals.baseDebits)"></span></div><div class="flex items-center justify-between gap-4"><span class="text-text-muted2">Base Credits (` + esc(vm.BaseCurrencyCode) + `)</span><span class="font-mono font-semibold tabular-nums text-text" x-text="formatMoney(totals.baseCredits)"></span></div><div class="border-t border-border-subtle pt-2"><div class="flex items-center justify-between gap-4"><span class="text-text-muted2">Transaction Difference</span><span class="font-mono font-semibold tabular-nums" :class="diffOk ? 'text-text' : 'text-danger-hover'" x-text="formatMoney(difference)"></span></div><div class="mt-2 flex items-center justify-between gap-4"><span class="text-text-muted2">Base Difference</span><span class="font-mono font-semibold tabular-nums" :class="baseDiffOk ? 'text-text' : 'text-danger-hover'" x-text="formatMoney(baseDifference)"></span></div></div></div></div></div>`)
 	write(`<div class="mt-6 flex items-center justify-end gap-3"><button type="submit" :disabled="!canSave" :class="canSave ? 'bg-primary text-onPrimary hover:bg-primary-hover' : 'bg-disabled-bg text-disabled-text cursor-not-allowed'" class="rounded-md px-4 py-2 text-body font-semibold">Save</button></div>`)
-	write(`</div></form></div><script src="/static/journal_entry_fx.js?v=4"></script>`)
+	write(`</div></form></div><script src="/static/journal_entry_fx.js?v=5"></script>`)
 	return b.String()
 }
 
