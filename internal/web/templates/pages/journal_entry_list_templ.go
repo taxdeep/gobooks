@@ -96,7 +96,7 @@ func bodyJournalList(vm JournalEntryListVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<form method=\"get\" action=\"/journal-entry/list\" class=\"mt-6 rounded-lg border border-border bg-surface p-4\"><div class=\"flex flex-wrap items-end gap-3\"><div class=\"min-w-[220px] flex-1\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<form method=\"get\" action=\"/journal-entry/list\" class=\"mt-6 rounded-lg border border-border bg-surface p-4\"><div class=\"grid grid-cols-1 gap-3 lg:grid-cols-[minmax(18rem,1fr)_minmax(15rem,22rem)_10rem_10rem_auto] lg:items-end\"><div class=\"min-w-0\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -153,7 +153,7 @@ func bodyJournalList(vm JournalEntryListVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\"></div><div class=\"min-w-[260px] flex-1\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\"></div><div class=\"min-w-0\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -191,7 +191,7 @@ func bodyJournalList(vm JournalEntryListVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</div><div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</div><div class=\"min-w-0\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -248,7 +248,7 @@ func bodyJournalList(vm JournalEntryListVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\"></div><div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\"></div><div class=\"min-w-0\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -305,7 +305,7 @@ func bodyJournalList(vm JournalEntryListVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\"></div><div class=\"flex items-end gap-2\"><button type=\"submit\" class=\"rounded-md bg-primary px-3 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover\">Apply Filter</button> <a href=\"/journal-entry/list\" class=\"rounded-md border border-border-input px-3 py-1.5 text-small text-text-muted3 hover:bg-background hover:text-text\">Reset</a></div></div></form><div class=\"mt-6 rounded-lg border border-border bg-surface p-6\"><div class=\"overflow-x-auto\"><table class=\"w-full text-left text-body\"><thead class=\"text-small uppercase tracking-wider text-text-muted\"><tr class=\"border-b border-border\"><th class=\"py-3 pr-4\">ID</th><th class=\"py-3 pr-4\">Date</th><th class=\"py-3 pr-4\">Journal No.</th><th class=\"py-3 pr-4\">Lines</th><th class=\"py-3 pr-4\">Debits</th><th class=\"py-3 pr-4\">Credits</th><th class=\"py-3 pr-0\">Reverse</th></tr></thead> <tbody class=\"text-text\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\"></div><div class=\"flex items-end gap-2 whitespace-nowrap\"><button type=\"submit\" class=\"rounded-md bg-primary px-3 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover\">Apply Filter</button> <a href=\"/journal-entry/list\" class=\"rounded-md border border-border-input px-3 py-1.5 text-small text-text-muted3 hover:bg-background hover:text-text\">Reset</a></div></div></form><div class=\"mt-6 rounded-lg border border-border bg-surface p-6\"><div class=\"overflow-x-auto\"><table class=\"w-full text-left text-body\"><thead class=\"text-small uppercase tracking-wider text-text-muted\"><tr class=\"border-b border-border\"><th class=\"py-3 pr-4\">ID</th><th class=\"py-3 pr-4\">Date</th><th class=\"py-3 pr-4\">Journal No.</th><th class=\"py-3 pr-4\">Lines</th><th class=\"py-3 pr-4\">Debits</th><th class=\"py-3 pr-4\">Credits</th><th class=\"py-3 pr-0\">Reverse</th></tr></thead> <tbody class=\"text-text\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

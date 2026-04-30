@@ -119,6 +119,39 @@ func TestJournalEntryPage_CompactFXStrip(t *testing.T) {
 	}
 }
 
+func TestJournalEntryListPage_UsesSingleRowFilterGrid(t *testing.T) {
+	vm := pages.JournalEntryListVM{
+		HasCompany:         true,
+		FilterQ:            "11039.18",
+		FilterDateFrom:     "2026-04-01",
+		FilterDateTo:       "2026-04-30",
+		FilterAccount:      "7",
+		FilterAccountLabel: "Cash (1000)",
+	}
+
+	var sb strings.Builder
+	if err := pages.JournalEntryList(vm).Render(context.Background(), &sb); err != nil {
+		t.Fatalf("render journal entry list page: %v", err)
+	}
+	html := sb.String()
+
+	for _, want := range []string{
+		`lg:grid-cols-[minmax(18rem,1fr)_minmax(15rem,22rem)_10rem_10rem_auto]`,
+		`lg:items-end`,
+		`whitespace-nowrap`,
+		`Journal number or line memo`,
+		`name="from"`,
+		`name="to"`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("expected journal entry list HTML to contain %q", want)
+		}
+	}
+	if strings.Contains(html, `flex flex-wrap items-end gap-3`) {
+		t.Fatal("journal entry list filters should use the single-row grid, not the old wrapping flex strip")
+	}
+}
+
 func TestJournalEntryDetailPage_RendersImmutableFXSnapshotBlock(t *testing.T) {
 	vm := pages.JournalEntryDetailVM{
 		HasCompany:              true,
