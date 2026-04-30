@@ -140,6 +140,65 @@ func TestIssueVendorReturn_PartialQty_LessThanAnchor(t *testing.T) {
 	}
 }
 
+func TestIssueVendorReturn_ForeignCurrencyAnchorPreservesDocumentCost(t *testing.T) {
+	db := testDB(t)
+	companyID, itemID, warehouseID := seedTestFixture(t, db)
+
+	receive, err := ReceiveStock(db, ReceiveStockInput{
+		CompanyID:    companyID,
+		ItemID:       itemID,
+		WarehouseID:  warehouseID,
+		Quantity:     decimal.NewFromInt(2),
+		MovementDate: time.Now(),
+		UnitCost:     decimal.NewFromInt(250),
+		CurrencyCode: "USD",
+		ExchangeRate: decimal.RequireFromString("1.35000000"),
+		SourceType:   "bill",
+		SourceID:     1,
+	})
+	if err != nil {
+		t.Fatalf("seed foreign receipt: %v", err)
+	}
+
+	result, err := IssueVendorReturn(db, IssueVendorReturnInput{
+		CompanyID:          companyID,
+		OriginalMovementID: receive.MovementID,
+		Quantity:           decimal.NewFromInt(1),
+		MovementDate:       time.Now(),
+		SourceType:         "vendor_return_shipment",
+		SourceID:           201,
+	})
+	if err != nil {
+		t.Fatalf("IssueVendorReturn: %v", err)
+	}
+	if !result.UnitCostBase.Equal(decimal.RequireFromString("337.5000")) {
+		t.Fatalf("UnitCostBase: got %s want 337.5000", result.UnitCostBase)
+	}
+	if !result.OutflowValueBase.Equal(decimal.RequireFromString("337.50")) {
+		t.Fatalf("OutflowValueBase: got %s want 337.50", result.OutflowValueBase)
+	}
+
+	var mov models.InventoryMovement
+	if err := db.First(&mov, result.MovementID).Error; err != nil {
+		t.Fatalf("load vendor return movement: %v", err)
+	}
+	if mov.CurrencyCode != "USD" {
+		t.Fatalf("CurrencyCode: got %q want USD", mov.CurrencyCode)
+	}
+	if mov.UnitCost == nil || !mov.UnitCost.Equal(decimal.NewFromInt(250)) {
+		t.Fatalf("UnitCost: got %v want 250 USD", mov.UnitCost)
+	}
+	if mov.TotalCost == nil || !mov.TotalCost.Equal(decimal.NewFromInt(250)) {
+		t.Fatalf("TotalCost: got %v want 250 USD", mov.TotalCost)
+	}
+	if mov.ExchangeRate == nil || !mov.ExchangeRate.Equal(decimal.RequireFromString("1.35000000")) {
+		t.Fatalf("ExchangeRate: got %v want 1.35000000", mov.ExchangeRate)
+	}
+	if mov.UnitCostBase == nil || !mov.UnitCostBase.Equal(decimal.RequireFromString("337.5000")) {
+		t.Fatalf("UnitCostBase row: got %v want 337.5000 CAD", mov.UnitCostBase)
+	}
+}
+
 func TestIssueVendorReturn_InsufficientStockRejected(t *testing.T) {
 	db := testDB(t)
 	companyID, itemID, warehouseID := seedTestFixture(t, db)

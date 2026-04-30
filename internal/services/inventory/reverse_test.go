@@ -121,6 +121,62 @@ func TestReverseMovement_PurchaseReversalRemovesAtSnapshotCost(t *testing.T) {
 	}
 }
 
+func TestReverseMovement_ForeignCurrencyReceiptPreservesDocumentCost(t *testing.T) {
+	db := testDB(t)
+	companyID, itemID, warehouseID := seedTestFixture(t, db)
+
+	rs, err := ReceiveStock(db, ReceiveStockInput{
+		CompanyID:    companyID,
+		ItemID:       itemID,
+		WarehouseID:  warehouseID,
+		Quantity:     decimal.NewFromInt(1),
+		MovementDate: time.Now(),
+		UnitCost:     decimal.NewFromInt(250),
+		CurrencyCode: "USD",
+		ExchangeRate: decimal.RequireFromString("1.35000000"),
+		SourceType:   "bill",
+		SourceID:     1,
+	})
+	if err != nil {
+		t.Fatalf("seed foreign receipt: %v", err)
+	}
+
+	result, err := ReverseMovement(db, ReverseMovementInput{
+		CompanyID:          companyID,
+		OriginalMovementID: rs.MovementID,
+		MovementDate:       time.Now(),
+		Reason:             ReversalReasonCancellation,
+		SourceType:         "bill_reversal",
+		SourceID:           1,
+	})
+	if err != nil {
+		t.Fatalf("ReverseMovement: %v", err)
+	}
+	if !result.UnitCostBase.Equal(decimal.RequireFromString("337.5000")) {
+		t.Fatalf("UnitCostBase: got %s want 337.5000", result.UnitCostBase)
+	}
+
+	var reversal models.InventoryMovement
+	if err := db.First(&reversal, result.ReversalMovementID).Error; err != nil {
+		t.Fatalf("load reversal: %v", err)
+	}
+	if reversal.CurrencyCode != "USD" {
+		t.Fatalf("CurrencyCode: got %q want USD", reversal.CurrencyCode)
+	}
+	if reversal.UnitCost == nil || !reversal.UnitCost.Equal(decimal.NewFromInt(250)) {
+		t.Fatalf("UnitCost: got %v want 250 USD", reversal.UnitCost)
+	}
+	if reversal.TotalCost == nil || !reversal.TotalCost.Equal(decimal.NewFromInt(250)) {
+		t.Fatalf("TotalCost: got %v want 250 USD", reversal.TotalCost)
+	}
+	if reversal.ExchangeRate == nil || !reversal.ExchangeRate.Equal(decimal.RequireFromString("1.35000000")) {
+		t.Fatalf("ExchangeRate: got %v want 1.35000000", reversal.ExchangeRate)
+	}
+	if reversal.UnitCostBase == nil || !reversal.UnitCostBase.Equal(decimal.RequireFromString("337.5000")) {
+		t.Fatalf("UnitCostBase row: got %v want 337.5000 CAD", reversal.UnitCostBase)
+	}
+}
+
 // Reversing the same movement twice is blocked.
 func TestReverseMovement_CannotReverseTwice(t *testing.T) {
 	db := testDB(t)

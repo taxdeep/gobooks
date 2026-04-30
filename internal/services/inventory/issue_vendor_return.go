@@ -174,20 +174,18 @@ func IssueVendorReturn(db *gorm.DB, in IssueVendorReturnInput) (*IssueVendorRetu
 
 	// Persist the outflow movement row at the TRACED cost.
 	outflowValueBase := in.Quantity.Mul(snapshotCost).RoundBank(2)
-	unitCostBase := snapshotCost
-	totalDoc := outflowValueBase // doc == base for the traced-cost verb
-	rate := decimal.NewFromInt(1)
+	costSnapshot := costSnapshotForQuantity(orig, in.Quantity, snapshotCost)
 
 	mov := models.InventoryMovement{
 		CompanyID:      in.CompanyID,
 		ItemID:         orig.ItemID,
 		MovementType:   models.MovementTypeVendorReturn,
 		QuantityDelta:  in.Quantity.Neg(), // outflow
-		UnitCost:       &snapshotCost,
-		TotalCost:      &totalDoc,
-		CurrencyCode:   orig.CurrencyCode,
-		ExchangeRate:   &rate,
-		UnitCostBase:   &unitCostBase,
+		UnitCost:       &costSnapshot.UnitCostDoc,
+		TotalCost:      &costSnapshot.TotalCostDoc,
+		CurrencyCode:   costSnapshot.CurrencyCode,
+		ExchangeRate:   &costSnapshot.ExchangeRate,
+		UnitCostBase:   &costSnapshot.UnitCostBase,
 		SourceType:     in.SourceType,
 		SourceID:       ptrUintIfNonZero(in.SourceID),
 		SourceLineID:   in.SourceLineID,

@@ -101,20 +101,18 @@ func ReverseMovement(db *gorm.DB, in ReverseMovementInput) (*ReverseMovementResu
 	absQty := reverseDelta.Abs()
 	reversalValueBase := reverseDelta.Mul(snapshotCost).RoundBank(2)
 	origMovID := orig.ID
-	unitCostBase := snapshotCost
-	totalDoc := absQty.Mul(snapshotCost).RoundBank(2)
-	rate := decimal.NewFromInt(1)
+	costSnapshot := costSnapshotForQuantity(orig, absQty, snapshotCost)
 
 	reversal := models.InventoryMovement{
 		CompanyID:            in.CompanyID,
 		ItemID:               orig.ItemID,
 		MovementType:         orig.MovementType,
 		QuantityDelta:        reverseDelta,
-		UnitCost:             &snapshotCost,
-		TotalCost:            &totalDoc,
-		CurrencyCode:         orig.CurrencyCode,
-		ExchangeRate:         &rate,
-		UnitCostBase:         &unitCostBase,
+		UnitCost:             &costSnapshot.UnitCostDoc,
+		TotalCost:            &costSnapshot.TotalCostDoc,
+		CurrencyCode:         costSnapshot.CurrencyCode,
+		ExchangeRate:         &costSnapshot.ExchangeRate,
+		UnitCostBase:         &costSnapshot.UnitCostBase,
 		SourceType:           in.SourceType,
 		SourceID:             ptrUintIfNonZero(in.SourceID),
 		ReferenceNote:        buildReversalReferenceNote(in, orig),

@@ -96,8 +96,8 @@ templ soFlashBanners(vm SalesOrderDetailVM) {
 
 // soLineQtyEditor renders the inline per-line Qty input that operators
 // use on partially-invoiced SOs. Posts to /sales-orders/:id/lines/:lineID/qty
-// (S2 — 2026-04-25). The min hint is the line's already-invoiced floor
-// (lower violates the contract); the max hint is the over-shipment cap
+// (S2 — 2026-04-25). The quantity floor is the line's already-invoiced amount
+// (lower violates the contract); the cap is the over-shipment buffer
 // pre-computed by the handler. A small "Save" button submits the form.
 templ soLineQtyEditor(vm SalesOrderDetailVM, line models.SalesOrderLine) {
 	<form
@@ -118,12 +118,6 @@ templ soLineQtyEditor(vm SalesOrderDetailVM, line models.SalesOrderLine) {
 			class="rounded-md border border-border-input px-2 py-1 text-[11px] font-medium text-text-muted2 hover:bg-background hover:text-text"
 		>Save</button>
 	</form>
-	<div class="mt-0.5 text-[11px] text-text-muted3">
-		min { QtyDisplayForLineProduct(line.InvoicedQty, line.ProductService) }
-		if max, ok := vm.QtyMaxByLineID[line.ID]; ok {
-			<span> · max { max }</span>
-		}
-	</div>
 }
 
 // qtyEditorHint returns the title-attribute tooltip shown on hover.
