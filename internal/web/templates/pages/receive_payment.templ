@@ -96,6 +96,8 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 						// Manual amount for unlinked payment-on-account (when no
 						// documents ticked and no new deposit).
 						manualAmount: '',
+						bankAmountManual: false,
+						newDepositAmountAuto: false,
 						// Explicit overpayment field — creates a new deposit row.
 						newDepositAmount: '',
 						// Legacy single-invoice id preserved for deep-link arrivals.
@@ -165,6 +167,9 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 							var v = parseFloat(this.newDepositAmount || '0');
 							return isNaN(v) ? 0 : v;
 						},
+						get bankTargetValue() {
+							return this.moneyValue(this.manualAmount);
+						},
 
 						// Net Bank receipt = invoice − CN − deposit + new deposit.
 						// This is what DR Bank on the JE will be. Must be ≥ 0.
@@ -177,6 +182,9 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 						// for the legacy manual-amount path when no rows are
 						// ticked and no new deposit is entered.
 						get amount() {
+							if (this.bankAmountManual) {
+								return this.manualAmount;
+							}
 							if (this.hasAnySelection || this.newDepositValue > 0) {
 								return this.bankTotalDisplay;
 							}
@@ -213,6 +221,103 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 								var inv = this.findInvoice(this.invoiceId);
 								this.allocInv[this.invoiceId] = inv ? inv.amount : (this.manualAmount || '');
 							}
+							if (this.manualAmount && (this.hasAnySelection || this.newDepositValue > 0)) {
+								this.bankAmountManual = true;
+								this.updateAutoDepositForManualBank();
+							}
+						},
+
+						moneyValue(value) {
+							var v = parseFloat(String(value || '0').replace(/,/g, ''));
+							return isNaN(v) ? 0 : v;
+						},
+						moneyText(value) {
+							value = Math.round((value + Number.EPSILON) * 100) / 100;
+							return value.toFixed(2);
+						},
+						onBankAmountInput() {
+							this.bankAmountManual = String(this.manualAmount || '').trim() !== '';
+							if (this.bankAmountManual) {
+								this.redistributeManualBankAcrossInvoices();
+								this.updateAutoDepositForManualBank();
+							} else {
+								this.newDepositAmountAuto = false;
+								this.syncBankAmountFromSelection();
+							}
+						},
+						onNewDepositInput() {
+							this.newDepositAmountAuto = false;
+							if (!this.bankAmountManual) {
+								this.syncBankAmountFromSelection();
+							}
+						},
+						onInvoiceAmountInput() {
+							if (this.bankAmountManual) {
+								this.updateAutoDepositForManualBank();
+							} else {
+								this.syncBankAmountFromSelection();
+							}
+						},
+						onOffsetAmountInput() {
+							if (this.bankAmountManual) {
+								this.updateAutoDepositForManualBank();
+							} else {
+								this.syncBankAmountFromSelection();
+							}
+						},
+						syncBankAmountFromSelection() {
+							if (this.bankAmountManual) return;
+							if (this.hasAnySelection || this.newDepositValue > 0) {
+								this.manualAmount = this.bankTotalDisplay;
+							}
+						},
+						invoiceCapacityTarget() {
+							return Math.max(0, this.bankTargetValue + this.totalCNApplied + this.totalDepositApplied - (this.newDepositAmountAuto ? 0 : this.newDepositValue));
+						},
+						selectedInvoiceTotalExcept(exceptID) {
+							var sum = 0;
+							exceptID = String(exceptID || '');
+							for (var k in this.selectedInv) {
+								if (!this.selectedInv[k] || String(k) === exceptID) continue;
+								sum += this.moneyValue(this.allocInv[k]);
+							}
+							return sum;
+						},
+						manualAllocationForInvoice(inv) {
+							var remaining = this.invoiceCapacityTarget() - this.selectedInvoiceTotalExcept(inv.id);
+							var balance = this.moneyValue(inv.amount);
+							return this.moneyText(Math.max(0, Math.min(balance, remaining)));
+						},
+						redistributeManualBankAcrossInvoices() {
+							var remaining = this.invoiceCapacityTarget();
+							for (var i = 0; i < this.filteredInvoices.length; i++) {
+								var inv = this.filteredInvoices[i];
+								var id = String(inv.id);
+								if (!this.selectedInv[id]) continue;
+								var amount = Math.max(0, Math.min(this.moneyValue(inv.amount), remaining));
+								this.allocInv[id] = this.moneyText(amount);
+								remaining -= amount;
+							}
+						},
+						updateAutoDepositForManualBank() {
+							if (!this.bankAmountManual) return;
+							if (!this.hasAnySelection) {
+								if (this.newDepositAmountAuto) {
+									this.newDepositAmount = '';
+									this.newDepositAmountAuto = false;
+								}
+								return;
+							}
+							var target = this.bankTargetValue;
+							var netWithoutNewDeposit = this.totalInvoiceApplied - this.totalCNApplied - this.totalDepositApplied;
+							var extra = Math.max(0, target - netWithoutNewDeposit);
+							if (extra > 0.004) {
+								this.newDepositAmount = this.moneyText(extra);
+								this.newDepositAmountAuto = true;
+							} else if (this.newDepositAmountAuto) {
+								this.newDepositAmount = '';
+								this.newDepositAmountAuto = false;
+							}
 						},
 
 						findInvoice(id) {
@@ -233,7 +338,9 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 							this.allocCN = {};
 							this.invoiceId = '';
 							this.manualAmount = '';
+							this.bankAmountManual = false;
 							this.newDepositAmount = '';
+							this.newDepositAmountAuto = false;
 						},
 
 						toggleInvoice(inv) {
@@ -243,8 +350,12 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 								delete this.allocInv[id];
 							} else {
 								this.selectedInv[id] = true;
-								// Default payment = full balance due.
-								this.allocInv[id] = inv.amount;
+								this.allocInv[id] = this.bankAmountManual ? this.manualAllocationForInvoice(inv) : inv.amount;
+							}
+							if (this.bankAmountManual) {
+								this.updateAutoDepositForManualBank();
+							} else {
+								this.syncBankAmountFromSelection();
 							}
 						},
 						toggleDeposit(dep) {
@@ -257,6 +368,11 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 								// Default consumption = full remaining balance.
 								this.allocDep[id] = dep.amount;
 							}
+							if (this.bankAmountManual) {
+								this.updateAutoDepositForManualBank();
+							} else {
+								this.syncBankAmountFromSelection();
+							}
 						},
 						toggleCreditNote(cn) {
 							var id = String(cn.id);
@@ -266,6 +382,11 @@ templ bodyReceivePayment(vm ReceivePaymentVM) {
 							} else {
 								this.selectedCN[id] = true;
 								this.allocCN[id] = cn.amount;
+							}
+							if (this.bankAmountManual) {
+								this.updateAutoDepositForManualBank();
+							} else {
+								this.syncBankAmountFromSelection();
 							}
 						},
 						isInvoiceSelected(inv) { return !!this.selectedInv[String(inv.id)]; },
@@ -390,17 +511,19 @@ templ rpPaymentDetails(vm ReceivePaymentVM) {
 				inputmode="decimal"
 				name="amount"
 				x-model="manualAmount"
-				:readonly="hasAnySelection || newDepositValue > 0"
+				@input="onBankAmountInput()"
 				:value="amount"
-				:class="(hasAnySelection || newDepositValue > 0) ? 'bg-background cursor-not-allowed' : ''"
 				placeholder="0.00"
 				class={ fieldClass(vm.AmountError != "") }
 			/>
 			if vm.AmountError != "" {
 				<div class="mt-1 text-small text-danger">{ vm.AmountError }</div>
 			}
-			<p x-show="hasAnySelection || newDepositValue > 0" class="mt-1 text-small text-text-muted2">
+			<p x-show="(hasAnySelection || newDepositValue > 0) && !bankAmountManual" class="mt-1 text-small text-text-muted2">
 				Auto-calculated: invoice total − deposit used + new deposit.
+			</p>
+			<p x-show="bankAmountManual && hasAnySelection" class="mt-1 text-small text-text-muted2">
+				Fixed total: selected invoices fill in order; any remainder becomes Extra.
 			</p>
 			<p x-show="!hasAnySelection && newDepositValue === 0" class="mt-1 text-small text-text-muted2">
 				Leave the table empty to record an unlinked payment on account.
@@ -416,6 +539,7 @@ templ rpPaymentDetails(vm ReceivePaymentVM) {
 				inputmode="decimal"
 				name="new_deposit_amount"
 				x-model="newDepositAmount"
+				@input="onNewDepositInput()"
 				placeholder="0.00"
 				class={ fieldClass(vm.NewDepositAmountError != "") }
 			/>
@@ -504,6 +628,7 @@ templ rpDocumentTable(vm ReceivePaymentVM) {
 											name="allocation_amount"
 											class="w-28 rounded-md border border-border-input bg-surface px-2 py-1 text-right text-small font-mono text-text focus:outline-none focus:ring-2 focus:ring-primary-focus"
 											x-model="allocInv[String(inv.id)]"
+											@input="onInvoiceAmountInput()"
 										/>
 									</div>
 									<input type="hidden" name="allocation_invoice_id" :value="String(inv.id)"/>
@@ -555,6 +680,7 @@ templ rpDocumentTable(vm ReceivePaymentVM) {
 											name="deposit_amount"
 											class="w-28 rounded-md border border-border-input bg-surface px-2 py-1 text-right text-small font-mono text-text focus:outline-none focus:ring-2 focus:ring-primary-focus"
 											x-model="allocDep[String(dep.id)]"
+											@input="onOffsetAmountInput()"
 										/>
 									</div>
 									<input type="hidden" name="deposit_id" :value="String(dep.id)"/>
@@ -602,6 +728,7 @@ templ rpDocumentTable(vm ReceivePaymentVM) {
 											name="credit_note_amount"
 											class="w-28 rounded-md border border-border-input bg-surface px-2 py-1 text-right text-small font-mono text-text focus:outline-none focus:ring-2 focus:ring-primary-focus"
 											x-model="allocCN[String(cn.id)]"
+											@input="onOffsetAmountInput()"
 										/>
 									</div>
 									<input type="hidden" name="credit_note_id" :value="String(cn.id)"/>
@@ -652,7 +779,7 @@ templ rpDocumentTable(vm ReceivePaymentVM) {
 	<div x-show="hasAnySelection" class="mt-3 flex justify-end">
 		<button
 			type="button"
-			@click="selectedInv = {}; allocInv = {}; selectedDep = {}; allocDep = {}; selectedCN = {}; allocCN = {}; invoiceId = ''"
+			@click="selectedInv = {}; allocInv = {}; selectedDep = {}; allocDep = {}; selectedCN = {}; allocCN = {}; invoiceId = ''; if (bankAmountManual) { updateAutoDepositForManualBank(); } else { syncBankAmountFromSelection(); }"
 			class="text-small text-text-muted3 hover:text-text"
 		>
 			← Clear all selections
