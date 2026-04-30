@@ -172,7 +172,7 @@ func renderJournalEntryPageHTML(vm JournalEntryVM) string {
 func renderJournalEntryListHTML(vm JournalEntryListVM) string {
 	var b strings.Builder
 	esc := html.EscapeString
-	b.WriteString(`<div class="max-w-[95%] space-y-4"><div class="flex items-center justify-between gap-4"><div><h1 class="text-title font-semibold text-text">Journal Entries</h1><p class="mt-2 text-text-muted2">Dense journal-entry register. Click a row to open the entry; use Edit on the right for manual corrections.</p></div><a href="/journal-entry" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">New Entry</a></div>`)
+	b.WriteString(`<div class="max-w-[95%] space-y-3"><div class="flex items-center justify-between gap-4"><div><h1 class="text-title font-semibold text-text">Journal Entries</h1><p class="mt-1 text-small text-text-muted2">Dense journal-entry register. Click a row to open the entry; use Edit on the right for manual corrections.</p></div><a href="/journal-entry" class="rounded-md bg-primary px-3 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover">New Entry</a></div>`)
 	if vm.Reversed {
 		b.WriteString(`<div class="rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Reverse entry created successfully.</div>`)
 	}
@@ -186,15 +186,15 @@ func renderJournalEntryListHTML(vm JournalEntryListVM) string {
 		b.WriteString(`<div class="rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">` + esc(vm.FormError) + `</div>`)
 	}
 
-	b.WriteString(`<form method="get" action="/journal-entry/list" class="rounded-md border border-border bg-surface px-3 py-3">`)
+	b.WriteString(`<form method="get" action="/journal-entry/list" class="rounded-md border border-border bg-surface px-3 py-2">`)
 	b.WriteString(`<div class="grid grid-cols-1 gap-3 md:grid-cols-[minmax(220px,1fr)_160px_160px_auto] md:items-end">`)
-	b.WriteString(`<label class="block"><span class="text-small font-semibold uppercase tracking-wider text-text-muted">Search</span><input type="search" name="q" value="` + esc(vm.FilterQ) + `" placeholder="Journal no. or line memo..." class="mt-1 block w-full rounded-md border border-border-input bg-background px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"/></label>`)
-	b.WriteString(`<label class="block"><span class="text-small font-semibold uppercase tracking-wider text-text-muted">From</span><input type="date" name="from" value="` + esc(vm.FilterDateFrom) + `" class="mt-1 block w-full rounded-md border border-border-input bg-background px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"/></label>`)
-	b.WriteString(`<label class="block"><span class="text-small font-semibold uppercase tracking-wider text-text-muted">To</span><input type="date" name="to" value="` + esc(vm.FilterDateTo) + `" class="mt-1 block w-full rounded-md border border-border-input bg-background px-3 py-2 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"/></label>`)
+	b.WriteString(`<label class="block"><span class="text-small font-semibold uppercase tracking-wider text-text-muted">Search</span><input type="search" name="q" value="` + esc(vm.FilterQ) + `" placeholder="Journal no. or line memo..." class="mt-1 block w-full rounded-md border border-border-input bg-background px-2.5 py-1.5 text-small text-text outline-none focus:ring-2 focus:ring-primary-focus"/></label>`)
+	b.WriteString(`<label class="block"><span class="text-small font-semibold uppercase tracking-wider text-text-muted">From</span><input type="date" name="from" value="` + esc(vm.FilterDateFrom) + `" class="mt-1 block w-full rounded-md border border-border-input bg-background px-2.5 py-1.5 text-small text-text outline-none focus:ring-2 focus:ring-primary-focus"/></label>`)
+	b.WriteString(`<label class="block"><span class="text-small font-semibold uppercase tracking-wider text-text-muted">To</span><input type="date" name="to" value="` + esc(vm.FilterDateTo) + `" class="mt-1 block w-full rounded-md border border-border-input bg-background px-2.5 py-1.5 text-small text-text outline-none focus:ring-2 focus:ring-primary-focus"/></label>`)
 	if strings.TrimSpace(vm.FilterAccount) != "" {
 		b.WriteString(`<input type="hidden" name="account_id" value="` + esc(vm.FilterAccount) + `"/>`)
 	}
-	b.WriteString(`<div class="flex items-center gap-2"><button type="submit" class="rounded-md bg-primary px-3 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">Apply</button><a href="/journal-entry/list" class="rounded-md border border-border-input px-3 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text">Reset</a></div>`)
+	b.WriteString(`<div class="flex items-center gap-2"><button type="submit" class="rounded-md bg-primary px-3 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover">Apply</button><a href="/journal-entry/list" class="rounded-md border border-border-input px-3 py-1.5 text-small font-semibold text-text-muted3 hover:bg-background hover:text-text">Reset</a></div>`)
 	b.WriteString(`</div>`)
 	if strings.TrimSpace(vm.FilterAccountLabel) != "" {
 		b.WriteString(`<div class="mt-2 text-small text-text-muted2">Filtered account: <span class="font-medium text-text">` + esc(vm.FilterAccountLabel) + `</span></div>`)
@@ -234,18 +234,11 @@ func renderJournalEntryListHTML(vm JournalEntryListVM) string {
 		} else {
 			b.WriteString(`<span class="rounded-md border border-border-subtle px-2.5 py-1.5 text-small font-semibold text-text-muted2">Locked</span>`)
 		}
-		b.WriteString(`<form method="post" action="/journal-entry/` + itemID + `/void" class="flex items-center gap-1"><input type="date" name="reverse_date" class="w-32 rounded-md border border-border-input bg-surface px-2 py-1.5 text-small text-text"`)
-		if !item.CanReverse {
-			b.WriteString(` disabled`)
-		}
-		b.WriteString(`/><button type="submit" class="rounded-md border border-border-input px-2.5 py-1.5 text-small font-semibold text-text-muted3 hover:bg-background disabled:cursor-not-allowed disabled:bg-disabled-bg disabled:text-disabled-text"`)
+		b.WriteString(`<form method="post" action="/journal-entry/` + itemID + `/void" class="flex items-center gap-1" title="` + esc(item.ReverseHint) + `"><button type="submit" class="rounded-md border border-border-input px-2.5 py-1.5 text-small font-semibold text-text-muted3 hover:bg-background disabled:cursor-not-allowed disabled:bg-disabled-bg disabled:text-disabled-text"`)
 		if !item.CanReverse {
 			b.WriteString(` disabled`)
 		}
 		b.WriteString(`>Void</button></form></div>`)
-		if item.ReverseHint != "" {
-			b.WriteString(`<div class="mt-1 text-small text-text-muted2">` + esc(item.ReverseHint) + `</div>`)
-		}
 		b.WriteString(`</td></tr>`)
 	}
 	b.WriteString(`</tbody></table></div></div></div>`)

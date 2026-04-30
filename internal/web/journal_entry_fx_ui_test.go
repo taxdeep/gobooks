@@ -133,22 +133,23 @@ func TestJournalEntryListPage_UsesSingleRowFilterGrid(t *testing.T) {
 	}
 
 	var sb strings.Builder
-	if err := pages.JournalEntryList(vm).Render(context.Background(), &sb); err != nil {
+	if err := pages.JournalEntryListPage(vm).Render(context.Background(), &sb); err != nil {
 		t.Fatalf("render journal entry list page: %v", err)
 	}
 	html := sb.String()
 
 	for _, want := range []string{
-		`lg:grid-cols-[minmax(18rem,1fr)_minmax(15rem,22rem)_10rem_10rem_auto]`,
-		`lg:items-end`,
+		`md:grid-cols-[minmax(220px,1fr)_160px_160px_auto]`,
+		`md:items-end`,
 		`whitespace-nowrap`,
-		`Journal number or line memo`,
+		`Journal no. or line memo`,
 		`name="from"`,
 		`name="to"`,
-		`mt-4 overflow-hidden rounded-lg border border-border bg-surface`,
-		`<table class="w-full text-left text-small">`,
-		`px-3 py-2 text-right font-mono tabular-nums`,
-		`px-2.5 py-1 text-small font-semibold`,
+		`space-y-3`,
+		`overflow-hidden rounded-md border border-border bg-surface shadow-sm`,
+		`<table class="w-full min-w-[1120px] border-collapse text-left text-small">`,
+		`px-2 py-2 text-right font-mono tabular-nums`,
+		`px-2.5 py-1.5 text-small font-semibold`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("expected journal entry list HTML to contain %q", want)
