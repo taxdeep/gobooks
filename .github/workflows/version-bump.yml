@@ -1,13 +1,10 @@
-name: Auto-bump version build code
+name: Manual version build code bump
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   bump-version:
-    # Skip if the push was already from this workflow to avoid infinite loops.
-    if: "!startsWith(github.event.head_commit.message, 'chore(version):')"
     runs-on: ubuntu-latest
     permissions:
       contents: write
