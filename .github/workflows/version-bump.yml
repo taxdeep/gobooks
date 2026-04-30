@@ -1,6 +1,11 @@
-name: Manual version build code bump
+name: Version build code bump
 
 on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'internal/version/version.go'
   workflow_dispatch:
 
 jobs:
@@ -46,25 +51,33 @@ jobs:
               sys.exit(1)
 
           parts = match.group(1).split(".")
-          if len(parts) < 3:
+          if len(parts) < 4:
               print(f"invalid version: {match.group(1)}", file=sys.stderr)
               sys.exit(1)
 
           major = int(parts[0])
-          minor = int(parts[1])
+          channel = parts[1].upper()
           patch = int(parts[2])
-          build = parts[3].upper() if len(parts) >= 4 else "0000"
+          build = parts[3].upper()
+          revision = int(parts[4]) if len(parts) >= 5 else 0
+          variant = parts[5].upper() if len(parts) >= 6 else "0"
+          if not re.fullmatch(r"[0-9A-Z]{2}", channel):
+              channel = "00"
           if not re.fullmatch(r"[0-9A-Z]{4}", build):
               build = "0000"
+          if not re.fullmatch(r"[0-9A-Z]", variant):
+              variant = "0"
 
           next_build = to_base36(from_base36(build) + 1)
-          core = f"{major}.{minor:02d}.{patch:03d}"
-          version = f"{core}.{next_build}"
+          core = f"{major}.{channel}.{patch:03d}"
+          version = f"{core}.{next_build}.{revision:02d}.{variant}"
 
           print(f"major={major}")
-          print(f"minor={minor}")
+          print(f"channel={channel}")
           print(f"patch={patch}")
           print(f"build={next_build}")
+          print(f"revision={revision}")
+          print(f"variant={variant}")
           print(f"core={core}")
           print(f"version={version}")
           PY
@@ -76,16 +89,24 @@ jobs:
           package version
 
           const (
-          	// Major, Minor, and Patch are decimal release components.
+          	// Major and Patch are decimal release components.
           	Major = ${{ steps.ver.outputs.major }}
-          	Minor = ${{ steps.ver.outputs.minor }}
           	Patch = ${{ steps.ver.outputs.patch }}
+
+          	// ChannelCode is a fixed-width uppercase base36 channel marker.
+          	ChannelCode = "${{ steps.ver.outputs.channel }}"
 
           	// BuildCode is a fixed-width uppercase base36 build counter.
           	BuildCode = "${{ steps.ver.outputs.build }}"
 
-          	// Version format: M.mm.ppp.BBBB
-          	// M/mm/ppp are decimal; BBBB is a four-character base36 build code.
+          	// Revision is a two-digit decimal release revision.
+          	Revision = ${{ steps.ver.outputs.revision }}
+
+          	// VariantCode is a one-character uppercase base36 build variant.
+          	VariantCode = "${{ steps.ver.outputs.variant }}"
+
+          	// Version format: M.CC.PPP.BBBB.RR.V
+          	// M/PPP/RR are decimal; CC/BBBB/V are uppercase base36-style codes.
           	Version = "${{ steps.ver.outputs.version }}"
           )
           GOEOF
