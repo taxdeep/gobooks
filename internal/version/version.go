@@ -10,7 +10,7 @@ const (
 	ChannelCode = "00"
 
 	// BuildCode is a fixed-width uppercase base36 build counter.
-	BuildCode = "000T"
+	BuildCode = "000U"
 
 	// Revision is a two-digit decimal release revision.
 	Revision = 0
@@ -20,5 +20,5 @@ const (
 
 	// Version format: M.CC.PPP.BBBB.RR.V
 	// M/PPP/RR are decimal; CC/BBBB/V are uppercase base36-style codes.
-	Version = "0.00.000.000T.00.0"
+	Version = "0.00.000.000U.00.0"
 )
