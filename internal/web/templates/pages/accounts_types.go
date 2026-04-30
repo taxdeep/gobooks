@@ -13,19 +13,21 @@ type AccountsVM struct {
 	Active     string
 
 	// Form fields
-	Code    string
-	Name    string
-	Root    string
-	Detail  string
-	GifiCode string
+	Code         string
+	Name         string
+	Root         string
+	Detail       string
+	GifiCode     string
+	CurrencyCode string
 
 	// Form-level + field-level errors
-	FormError   string
-	CodeError   string
-	NameError   string
-	RootError   string
-	DetailError string
-	GifiError   string
+	FormError     string
+	CodeError     string
+	NameError     string
+	RootError     string
+	DetailError   string
+	GifiError     string
+	CurrencyError string
 
 	// Success banner
 	Created    bool
@@ -45,6 +47,12 @@ type AccountsVM struct {
 
 	// ActiveCompanyID is the session company (for API calls from the account drawer).
 	ActiveCompanyID uint
+
+	// Multi-currency controls the conditional account currency selector.
+	MultiCurrencyEnabled bool
+	BaseCurrencyCode     string
+	CurrencyOptions      []string
+	CurrencyLocked       bool
 
 	// Data to render the table
 	Accounts []models.Account
@@ -90,4 +98,27 @@ func DetailOptionsByRootJSON() string {
 	}
 	b, _ := json.Marshal(out)
 	return string(b)
+}
+
+// CurrencyAccountDetailTypesJSON returns detail types that carry an account-level currency.
+func CurrencyAccountDetailTypesJSON() string {
+	values := []string{
+		string(models.DetailBank),
+		string(models.DetailOtherCurrentAsset),
+		string(models.DetailCreditCard),
+		string(models.DetailAccountsReceivable),
+		string(models.DetailAccountsPayable),
+	}
+	b, _ := json.Marshal(values)
+	return string(b)
+}
+
+func AccountCurrencyOptions(vm AccountsVM) []string {
+	if len(vm.CurrencyOptions) > 0 {
+		return vm.CurrencyOptions
+	}
+	if vm.BaseCurrencyCode != "" {
+		return []string{vm.BaseCurrencyCode}
+	}
+	return []string{"CAD"}
 }

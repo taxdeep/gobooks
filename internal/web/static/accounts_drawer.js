@@ -12,6 +12,8 @@ function balancizAccountDrawerSuggest() {
     prefixErr: "",
     prefixMap: {},
     detailByRoot: {},
+    multiCurrency: false,
+    currencyDetails: [],
     sug: null,
     sugLoadingRule: false,
     sugLoadingAI: false,
@@ -40,6 +42,12 @@ function balancizAccountDrawerSuggest() {
       } catch (e) {
         this.detailByRoot = {};
       }
+      this.multiCurrency = el.dataset.multiCurrency === "true";
+      try {
+        this.currencyDetails = JSON.parse(el.dataset.currencyDetails || "[]");
+      } catch (e) {
+        this.currencyDetails = [];
+      }
       this.selectedRoot = el.dataset.initialRoot || "";
       this.selectedDetail = el.dataset.initialDetail || "";
     },
@@ -55,6 +63,10 @@ function balancizAccountDrawerSuggest() {
     onDetailChange(val) {
       this.selectedDetail = val;
       this.validate(this.$refs.codeInput?.value || "");
+    },
+    currencyDetailApplies() {
+      const detail = this.selectedDetail || this.$refs.detailSelect?.value || "";
+      return this.multiCurrency && this.currencyDetails.includes(detail);
     },
     validate(v) {
       if (this.mode !== "create") return;

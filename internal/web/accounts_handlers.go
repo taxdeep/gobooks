@@ -2,6 +2,7 @@
 package web
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 
@@ -37,6 +38,7 @@ func (s *Server) handleAccounts(c *fiber.Ctx) error {
 	c.Set("Pragma", "no-cache")
 
 	codeLen, _ := companyAccountCodeLength(s.DB, companyID)
+	currencyCtx, currencyErr := services.LoadCompanyCurrencyContext(s.DB, companyID)
 
 	vm := pages.AccountsVM{
 		HasCompany:        true,
@@ -46,6 +48,10 @@ func (s *Server) handleAccounts(c *fiber.Ctx) error {
 		InactiveOK:        c.Query("inactive") == "1",
 		AccountCodeLength: codeLen,
 		ActiveCompanyID:   companyID,
+	}
+	applyAccountCurrencyContextToVM(&vm, currencyCtx)
+	if currencyErr != nil {
+		vm.FormError = "Could not load company currency settings."
 	}
 
 	if c.Query("new") == "1" {
@@ -66,6 +72,8 @@ func (s *Server) handleAccounts(c *fiber.Ctx) error {
 				vm.Root = string(acc.RootAccountType)
 				vm.Detail = string(acc.DetailAccountType)
 				vm.GifiCode = acc.GifiCode
+				vm.CurrencyCode = accountEffectiveCurrencyCode(acc, vm.BaseCurrencyCode)
+				vm.CurrencyLocked = s.accountHasJournalMovement(companyID, acc.ID)
 			}
 		}
 	}
@@ -73,12 +81,16 @@ func (s *Server) handleAccounts(c *fiber.Ctx) error {
 	var accounts []models.Account
 	if err := s.DB.Where("company_id = ?", companyID).Order("code asc").Find(&accounts).Error; err != nil {
 		return pages.Accounts(pages.AccountsVM{
-			HasCompany:        true,
-			Active:            "Accounts",
-			FormError:         "Could not load accounts.",
-			Accounts:          []models.Account{},
-			AccountCodeLength: codeLen,
-			ActiveCompanyID:   companyID,
+			HasCompany:           true,
+			Active:               "Accounts",
+			FormError:            "Could not load accounts.",
+			Accounts:             []models.Account{},
+			AccountCodeLength:    codeLen,
+			ActiveCompanyID:      companyID,
+			MultiCurrencyEnabled: currencyCtx.MultiCurrencyEnabled,
+			BaseCurrencyCode:     currencyCtx.BaseCurrencyCode,
+			CurrencyOptions:      currencyCtx.AllowedCurrencyOptions,
+			CurrencyCode:         currencyCtx.BaseCurrencyCode,
 		}).Render(c.Context(), c)
 	}
 	vm.Accounts = accounts
@@ -105,12 +117,22 @@ func (s *Server) handleAccountCreate(c *fiber.Ctx) error {
 			ActiveCompanyID: companyID,
 		}).Render(c.Context(), c)
 	}
+	currencyCtx, err := services.LoadCompanyCurrencyContext(s.DB, companyID)
+	if err != nil {
+		return pages.Accounts(pages.AccountsVM{
+			HasCompany:      true,
+			Active:          "Accounts",
+			FormError:       "Could not load company currency settings.",
+			ActiveCompanyID: companyID,
+		}).Render(c.Context(), c)
+	}
 
 	code := strings.TrimSpace(c.FormValue("code"))
 	name := models.NormalizeAccountNameForSave(c.FormValue("name"))
 	rootRaw := strings.TrimSpace(c.FormValue("root_account_type"))
 	detailRaw := strings.TrimSpace(c.FormValue("detail_account_type"))
 	gifiTrim := models.TrimGifiForStorage(c.FormValue("gifi_code"))
+	currencyRaw := strings.TrimSpace(c.FormValue("currency_code"))
 
 	vm := pages.AccountsVM{
 		HasCompany:        true,
@@ -121,9 +143,11 @@ func (s *Server) handleAccountCreate(c *fiber.Ctx) error {
 		Root:              rootRaw,
 		Detail:            detailRaw,
 		GifiCode:          gifiTrim,
+		CurrencyCode:      normalizeAccountCurrencyInput(currencyRaw, currencyCtx.BaseCurrencyCode),
 		AccountCodeLength: codeLen,
 		ActiveCompanyID:   companyID,
 	}
+	applyAccountCurrencyContextToVM(&vm, currencyCtx)
 
 	root, rerr := models.ParseRootAccountType(rootRaw)
 	if rerr != nil {
@@ -137,6 +161,10 @@ func (s *Server) handleAccountCreate(c *fiber.Ctx) error {
 		if err := models.ValidateRootDetail(root, detail); err != nil {
 			vm.DetailError = err.Error()
 		}
+	}
+	currencyMode, currencyCode, currencyErr := accountCurrencySelection(currencyCtx, detail, currencyRaw)
+	if derr == nil && currencyErr != nil {
+		vm.CurrencyError = currencyErr.Error()
 	}
 
 	if code == "" {
@@ -163,7 +191,7 @@ func (s *Server) handleAccountCreate(c *fiber.Ctx) error {
 		vm.Accounts = accounts
 	}
 
-	if vm.CodeError != "" || vm.NameError != "" || vm.RootError != "" || vm.DetailError != "" || vm.GifiError != "" {
+	if vm.CodeError != "" || vm.NameError != "" || vm.RootError != "" || vm.DetailError != "" || vm.GifiError != "" || vm.CurrencyError != "" {
 		vm.AccountDrawerOpen = true
 		return pages.Accounts(vm).Render(c.Context(), c)
 	}
@@ -188,6 +216,8 @@ func (s *Server) handleAccountCreate(c *fiber.Ctx) error {
 		DetailAccountType: detail,
 		IsActive:          true,
 		GifiCode:          gifiTrim,
+		CurrencyMode:      currencyMode,
+		CurrencyCode:      currencyCode,
 	}
 	setAccountFieldRecommendationSourcesFromForm(&acc, c)
 
@@ -242,6 +272,15 @@ func (s *Server) handleAccountUpdate(c *fiber.Ctx) error {
 			ActiveCompanyID: companyID,
 		}).Render(c.Context(), c)
 	}
+	currencyCtx, err := services.LoadCompanyCurrencyContext(s.DB, companyID)
+	if err != nil {
+		return pages.Accounts(pages.AccountsVM{
+			HasCompany:      true,
+			Active:          "Accounts",
+			FormError:       "Could not load company currency settings.",
+			ActiveCompanyID: companyID,
+		}).Render(c.Context(), c)
+	}
 
 	idRaw := strings.TrimSpace(c.FormValue("account_id"))
 	id64, idErr := strconv.ParseUint(idRaw, 10, 64)
@@ -254,11 +293,13 @@ func (s *Server) handleAccountUpdate(c *fiber.Ctx) error {
 	rootRaw := strings.TrimSpace(c.FormValue("root_account_type"))
 	detailRaw := strings.TrimSpace(c.FormValue("detail_account_type"))
 	gifiTrim := models.TrimGifiForStorage(c.FormValue("gifi_code"))
+	currencyRaw := strings.TrimSpace(c.FormValue("currency_code"))
 
 	var existing models.Account
 	if err := s.DB.Where("id = ? AND company_id = ?", accountID, companyID).First(&existing).Error; err != nil {
 		return c.Redirect("/accounts", fiber.StatusSeeOther)
 	}
+	currencyLocked := s.accountHasJournalMovement(companyID, existing.ID)
 
 	vm := pages.AccountsVM{
 		HasCompany:        true,
@@ -270,8 +311,14 @@ func (s *Server) handleAccountUpdate(c *fiber.Ctx) error {
 		Root:              rootRaw,
 		Detail:            detailRaw,
 		GifiCode:          gifiTrim,
+		CurrencyCode:      normalizeAccountCurrencyInput(currencyRaw, accountEffectiveCurrencyCode(existing, currencyCtx.BaseCurrencyCode)),
 		AccountCodeLength: codeLen,
 		ActiveCompanyID:   companyID,
+		CurrencyLocked:    currencyLocked,
+	}
+	applyAccountCurrencyContextToVM(&vm, currencyCtx)
+	if currencyLocked {
+		vm.CurrencyCode = accountEffectiveCurrencyCode(existing, currencyCtx.BaseCurrencyCode)
 	}
 
 	if name == "" {
@@ -292,6 +339,22 @@ func (s *Server) handleAccountUpdate(c *fiber.Ctx) error {
 			vm.RootError = err.Error()
 		}
 	}
+	currencyMode, currencyCode, currencyErr := accountCurrencySelection(currencyCtx, detail, currencyRaw)
+	if derr == nil && currencyErr != nil {
+		vm.CurrencyError = currencyErr.Error()
+	}
+	if currencyLocked {
+		existingCurrency := accountEffectiveCurrencyCode(existing, currencyCtx.BaseCurrencyCode)
+		submittedCurrency := normalizeAccountCurrencyInput(currencyRaw, existingCurrency)
+		if !accountDetailSupportsCurrency(detail) && !strings.EqualFold(existingCurrency, currencyCtx.BaseCurrencyCode) {
+			vm.DetailError = "This account already has foreign-currency transaction history, so it must keep a currency-aware detail type."
+		}
+		if !strings.EqualFold(submittedCurrency, existingCurrency) {
+			vm.CurrencyError = "Currency cannot be changed because this account already has transaction history, including voided or reversed movements."
+		}
+		currencyMode = existing.CurrencyMode
+		currencyCode = existing.CurrencyCode
+	}
 	if err := models.ValidateGifiCode(gifiTrim); err != nil {
 		vm.GifiError = err.Error()
 	}
@@ -304,7 +367,7 @@ func (s *Server) handleAccountUpdate(c *fiber.Ctx) error {
 		vm.Accounts = accounts
 	}
 
-	if vm.NameError != "" || vm.RootError != "" || vm.DetailError != "" || vm.GifiError != "" {
+	if vm.NameError != "" || vm.RootError != "" || vm.DetailError != "" || vm.GifiError != "" || vm.CurrencyError != "" {
 		vm.AccountDrawerOpen = true
 		return pages.Accounts(vm).Render(c.Context(), c)
 	}
@@ -313,6 +376,8 @@ func (s *Server) handleAccountUpdate(c *fiber.Ctx) error {
 	existing.RootAccountType = root
 	existing.DetailAccountType = detail
 	existing.GifiCode = gifiTrim
+	existing.CurrencyMode = currencyMode
+	existing.CurrencyCode = currencyCode
 	setAccountFieldRecommendationSourcesFromForm(&existing, c)
 	if err := s.DB.Save(&existing).Error; err != nil {
 		vm.FormError = "Could not update account. Please try again."
@@ -391,4 +456,68 @@ func (s *Server) accountsForCompany(companyID uint) ([]models.Account, error) {
 	var accounts []models.Account
 	err := s.DB.Where("company_id = ?", companyID).Order("code asc").Find(&accounts).Error
 	return accounts, err
+}
+
+func applyAccountCurrencyContextToVM(vm *pages.AccountsVM, ctx services.CompanyCurrencyContext) {
+	vm.MultiCurrencyEnabled = ctx.MultiCurrencyEnabled
+	vm.BaseCurrencyCode = ctx.BaseCurrencyCode
+	vm.CurrencyOptions = ctx.AllowedCurrencyOptions
+	if vm.CurrencyCode == "" {
+		vm.CurrencyCode = ctx.BaseCurrencyCode
+	}
+}
+
+func accountDetailSupportsCurrency(detail models.DetailAccountType) bool {
+	switch detail {
+	case models.DetailBank,
+		models.DetailOtherCurrentAsset,
+		models.DetailCreditCard,
+		models.DetailAccountsReceivable,
+		models.DetailAccountsPayable:
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeAccountCurrencyInput(raw string, fallback string) string {
+	code := strings.ToUpper(strings.TrimSpace(raw))
+	if code == "" {
+		code = strings.ToUpper(strings.TrimSpace(fallback))
+	}
+	return code
+}
+
+func accountCurrencySelection(ctx services.CompanyCurrencyContext, detail models.DetailAccountType, raw string) (models.CurrencyMode, *string, error) {
+	if !ctx.MultiCurrencyEnabled || !accountDetailSupportsCurrency(detail) {
+		return models.CurrencyModeBaseOnly, nil, nil
+	}
+
+	code := normalizeAccountCurrencyInput(raw, ctx.BaseCurrencyCode)
+	if code == "" {
+		return models.CurrencyModeBaseOnly, nil, nil
+	}
+	if !ctx.IsAllowedTransactionCurrency(code) {
+		return models.CurrencyModeBaseOnly, nil, errors.New("select a valid company currency for this account")
+	}
+	if strings.EqualFold(code, ctx.BaseCurrencyCode) {
+		return models.CurrencyModeBaseOnly, nil, nil
+	}
+	return models.CurrencyModeFixedForeign, &code, nil
+}
+
+func accountEffectiveCurrencyCode(acc models.Account, baseCurrencyCode string) string {
+	if acc.CurrencyMode == models.CurrencyModeFixedForeign && acc.CurrencyCode != nil && strings.TrimSpace(*acc.CurrencyCode) != "" {
+		return strings.ToUpper(strings.TrimSpace(*acc.CurrencyCode))
+	}
+	return strings.ToUpper(strings.TrimSpace(baseCurrencyCode))
+}
+
+func (s *Server) accountHasJournalMovement(companyID uint, accountID uint) bool {
+	var count int64
+	err := s.DB.Model(&models.JournalLine{}).
+		Where("company_id = ? AND account_id = ?", companyID, accountID).
+		Limit(1).
+		Count(&count).Error
+	return err == nil && count > 0
 }
