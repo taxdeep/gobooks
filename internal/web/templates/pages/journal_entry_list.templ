@@ -17,9 +17,9 @@ templ bodyJournalList(vm JournalEntryListVM) {
 		<div class="flex items-center justify-between">
 			<div>
 				<h1 class="text-title font-semibold">Journal Entries</h1>
-				<p class="mt-2 text-text-muted2">Review posted entries and create reversing entries.</p>
+				<p class="mt-1 text-small text-text-muted2">Review posted entries and create reversing entries.</p>
 			</div>
-			<a href="/journal-entry" class="rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover">New Entry</a>
+			<a href="/journal-entry" class="rounded-md bg-primary px-3 py-1.5 text-small font-semibold text-onPrimary hover:bg-primary-hover">New Entry</a>
 		</div>
 
 		if vm.Reversed {
@@ -37,7 +37,7 @@ templ bodyJournalList(vm JournalEntryListVM) {
 		// Mirrors the AR/AP list-page pattern. Account picker is the
 		// "journal_entry_account" SmartPicker context (returns ALL active
 		// company accounts, not just expense roots).
-		<form method="get" action="/journal-entry/list" class="mt-6 rounded-lg border border-border bg-surface p-4">
+		<form method="get" action="/journal-entry/list" class="mt-4 rounded-lg border border-border bg-surface p-3">
 			<div class="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(18rem,1fr)_minmax(15rem,22rem)_10rem_10rem_auto] lg:items-end">
 				<div class="min-w-0">
 					<label for="je-filter-q" class={ compactLabelClass() }>Search</label>
@@ -70,36 +70,33 @@ templ bodyJournalList(vm JournalEntryListVM) {
 			</div>
 		</form>
 
-		<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+		<div class="mt-4 overflow-hidden rounded-lg border border-border bg-surface">
 			<div class="overflow-x-auto">
-				<table class="w-full text-left text-body">
+				<table class="w-full text-left text-small">
 					<thead class="text-small uppercase tracking-wider text-text-muted">
 						<tr class="border-b border-border">
-							<th class="py-3 pr-4">ID</th>
-							<th class="py-3 pr-4">Date</th>
-							<th class="py-3 pr-4">Journal No.</th>
-							<th class="py-3 pr-4">Lines</th>
-							<th class="py-3 pr-4">Debits</th>
-							<th class="py-3 pr-4">Credits</th>
-							<th class="py-3 pr-0">Reverse</th>
+							<th class="px-3 py-2">ID</th>
+							<th class="px-3 py-2">Date</th>
+							<th class="px-3 py-2">Journal No.</th>
+							<th class="px-3 py-2 text-right">Lines</th>
+							<th class="px-3 py-2 text-right">Debits</th>
+							<th class="px-3 py-2 text-right">Credits</th>
+							<th class="px-3 py-2 text-right">Reverse</th>
 						</tr>
 					</thead>
 					<tbody class="text-text">
 						for _, it := range vm.Items {
 							<tr class="border-b border-border-subtle align-top">
-								<td class="py-3 pr-4">{ Uitoa(it.ID) }</td>
-								<td class="py-3 pr-4 whitespace-nowrap">{ it.EntryDate }</td>
-								<td class="py-3 pr-4">{ it.JournalNo }</td>
-								<td class="py-3 pr-4">{ it.LineCount }</td>
-								<td class="py-3 pr-4">{ it.TotalDebit }</td>
-								<td class="py-3 pr-4">{ it.TotalCredit }</td>
-								<td class="py-3 pr-0">
-									<form method="post" action={ "/journal-entry/" + Uitoa(it.ID) + "/reverse" } class="flex items-center gap-2">
-										<button type="submit" class="rounded-md border border-border-input px-3 py-2 text-body font-semibold text-text-muted3 hover:bg-background disabled:cursor-not-allowed disabled:bg-disabled-bg disabled:text-disabled-text" disabled?={ !it.CanReverse }>Reverse</button>
+								<td class="px-3 py-2">{ Uitoa(it.ID) }</td>
+								<td class="whitespace-nowrap px-3 py-2">{ it.EntryDate }</td>
+								<td class="px-3 py-2">{ it.JournalNo }</td>
+								<td class="px-3 py-2 text-right">{ it.LineCount }</td>
+								<td class="px-3 py-2 text-right font-mono tabular-nums">{ it.TotalDebit }</td>
+								<td class="px-3 py-2 text-right font-mono tabular-nums">{ it.TotalCredit }</td>
+								<td class="px-3 py-2">
+									<form method="post" action={ "/journal-entry/" + Uitoa(it.ID) + "/reverse" } class="flex justify-end">
+										<button type="submit" class="rounded-md border border-border-input px-2.5 py-1 text-small font-semibold text-text-muted3 hover:bg-background disabled:cursor-not-allowed disabled:bg-disabled-bg disabled:text-disabled-text" disabled?={ !it.CanReverse }>Reverse</button>
 									</form>
-									if it.ReverseHint != "" {
-										<div class="mt-1 text-small text-text-muted">{ it.ReverseHint }</div>
-									}
 								</td>
 							</tr>
 						}

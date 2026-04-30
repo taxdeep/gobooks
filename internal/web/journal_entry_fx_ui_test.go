@@ -145,6 +145,10 @@ func TestJournalEntryListPage_UsesSingleRowFilterGrid(t *testing.T) {
 		`Journal number or line memo`,
 		`name="from"`,
 		`name="to"`,
+		`mt-4 overflow-hidden rounded-lg border border-border bg-surface`,
+		`<table class="w-full text-left text-small">`,
+		`px-3 py-2 text-right font-mono tabular-nums`,
+		`px-2.5 py-1 text-small font-semibold`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("expected journal entry list HTML to contain %q", want)
