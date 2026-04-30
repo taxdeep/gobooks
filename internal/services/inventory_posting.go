@@ -514,6 +514,12 @@ func CreatePurchaseMovements(tx *gorm.DB, companyID uint, bill models.Bill, ware
 		return fmt.Errorf("pick idempotency version: %w", err)
 	}
 
+	movementCurrency := normalizeCurrencyCode(bill.CurrencyCode)
+	movementRate := bill.ExchangeRate
+	if movementRate.IsZero() {
+		movementRate = decimal.NewFromInt(1)
+	}
+
 	for _, l := range bill.Lines {
 		if l.ProductService == nil || !l.ProductService.IsStockItem {
 			continue
@@ -534,18 +540,19 @@ func CreatePurchaseMovements(tx *gorm.DB, companyID uint, bill models.Bill, ware
 			stockUnitCost = l.UnitPrice.Div(l.LineUOMFactor).Round(4)
 		}
 		in := inventory.ReceiveStockInput{
-			CompanyID:    companyID,
-			ItemID:       l.ProductService.ID,
-			WarehouseID:  warehouseValue,
-			Quantity:     stockQty,
-			MovementDate: bill.BillDate,
-			UnitCost:     stockUnitCost,
-			UoMCode:      l.LineUOM,
-			UoMFactor:    l.LineUOMFactor,
-			ExchangeRate: decimal.NewFromInt(1),
-			SourceType:   "bill",
-			SourceID:     bill.ID,
-			SourceLineID: &lineID,
+			CompanyID:      companyID,
+			ItemID:         l.ProductService.ID,
+			WarehouseID:    warehouseValue,
+			Quantity:       stockQty,
+			MovementDate:   bill.BillDate,
+			UnitCost:       stockUnitCost,
+			UoMCode:        l.LineUOM,
+			UoMFactor:      l.LineUOMFactor,
+			CurrencyCode:   movementCurrency,
+			ExchangeRate:   movementRate,
+			SourceType:     "bill",
+			SourceID:       bill.ID,
+			SourceLineID:   &lineID,
 			IdempotencyKey: fmt.Sprintf("bill:%d:line:%d:v%d", bill.ID, l.ID, version),
 			Memo:           "Purchase: " + bill.BillNumber,
 		}

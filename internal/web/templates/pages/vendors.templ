@@ -27,11 +27,6 @@ templ bodyVendors(vm VendorsVM) {
 			@ui.AlertError(vm.FormError)
 		}
 
-		// ── Add Vendor ──────────────────────────────────────────────────────────
-		<form method="post" action="/vendors">
-			@ui.SectionCard("Add Vendor", "", vendorAddForm(vm))
-		</form>
-
 		// ── Vendor List ─────────────────────────────────────────────────────────
 		@vendorFilterBar(vm)
 		@ui.SectionCard("All Vendors", "", vendorListTable(vm))

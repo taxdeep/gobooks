@@ -157,6 +157,10 @@ func PostBill(db *gorm.DB, companyID, billID uint, actor string, userID *uuid.UU
 			exchangeRate = jeSnapshot.ExchangeRate
 		}
 	}
+	bill.ExchangeRate = exchangeRate
+	if isForeignCurrency {
+		bill.CurrencyCode = transactionCurrencyCode
+	}
 
 	// ── 2b. Validate vendor currency policy (Phase 12) ───────────────────────
 	if err := ValidateDocumentCurrency(db, companyID, bill.VendorID,
@@ -222,10 +226,10 @@ func PostBill(db *gorm.DB, companyID, billID uint, actor string, userID *uuid.UU
 	// (flag=false) and flag=true bills without matching pass through the
 	// same tx-local finalization with zero matching work performed.
 	var (
-		jeLines         []PostingFragment
-		txJournalLines  []PostingFragment
-		docCreditSum    decimal.Decimal
-		creditSum       decimal.Decimal
+		jeLines        []PostingFragment
+		txJournalLines []PostingFragment
+		docCreditSum   decimal.Decimal
+		creditSum      decimal.Decimal
 	)
 
 	// ── 7. Transaction ────────────────────────────────────────────────────────

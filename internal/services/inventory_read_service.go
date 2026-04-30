@@ -6,8 +6,8 @@ package services
 // All queries are company-scoped. No writes.
 
 import (
-	"github.com/shopspring/decimal"
 	"balanciz/internal/models"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -143,6 +143,14 @@ func ListMovements(db *gorm.DB, companyID, itemID uint, limit, offset int) ([]Mo
 		limit = 50
 	}
 
+	baseCurrency := "BASE"
+	var company models.Company
+	if err := db.Select("base_currency_code").
+		Where("id = ?", companyID).
+		First(&company).Error; err == nil && company.BaseCurrencyCode != "" {
+		baseCurrency = company.BaseCurrencyCode
+	}
+
 	var total int64
 	db.Model(&models.InventoryMovement{}).
 		Where("company_id = ? AND item_id = ?", companyID, itemID).
@@ -174,8 +182,8 @@ func ListMovements(db *gorm.DB, companyID, itemID uint, limit, offset int) ([]Mo
 			SourceLabel:   sourceTypeLabel(m.SourceType),
 			SourceID:      m.SourceID,
 			QuantityDelta: m.QuantityDelta.String(),
-			UnitCost:      formatOptDecimal(m.UnitCost),
-			TotalCost:     formatOptDecimal(m.TotalCost),
+			UnitCost:      formatMovementCost(m.UnitCost, m.UnitCostBase, m.CurrencyCode, baseCurrency),
+			TotalCost:     formatMovementCost(m.TotalCost, movementTotalCostBase(m), m.CurrencyCode, baseCurrency),
 			Note:          m.ReferenceNote,
 			WarehouseCode: whCode,
 			WarehouseName: whName,
@@ -228,4 +236,29 @@ func formatOptDecimal(d *decimal.Decimal) string {
 		return "—"
 	}
 	return d.StringFixed(2)
+}
+
+func movementTotalCostBase(m models.InventoryMovement) *decimal.Decimal {
+	if m.UnitCostBase == nil {
+		return nil
+	}
+	total := m.QuantityDelta.Abs().Mul(*m.UnitCostBase).RoundBank(2)
+	return &total
+}
+
+func formatMovementCost(doc, base *decimal.Decimal, currencyCode, baseCurrencyCode string) string {
+	if doc == nil {
+		return "â€”"
+	}
+	out := doc.StringFixed(2)
+	currencyCode = normalizeCurrencyCode(currencyCode)
+	baseCurrencyCode = normalizeCurrencyCode(baseCurrencyCode)
+	if currencyCode == "" {
+		return out
+	}
+	out += " " + currencyCode
+	if base != nil && baseCurrencyCode != "" && currencyCode != baseCurrencyCode && !doc.Equal(*base) {
+		out += " (" + base.StringFixed(2) + " " + baseCurrencyCode + " base)"
+	}
+	return out
 }

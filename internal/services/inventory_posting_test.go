@@ -137,7 +137,7 @@ func TestPostInvoice_StockItem_CreatesCOGSAndMovement(t *testing.T) {
 	inv := models.Invoice{
 		CompanyID: s.companyID, InvoiceNumber: "INV-STOCK-1",
 		CustomerID: s.customerID, InvoiceDate: time.Now(),
-		Status: models.InvoiceStatusDraft,
+		Status:   models.InvoiceStatusDraft,
 		Subtotal: decimal.NewFromInt(1000), TaxTotal: decimal.Zero,
 		Amount: decimal.NewFromInt(1000), BalanceDue: decimal.NewFromInt(1000),
 		CustomerNameSnapshot: "Customer",
@@ -218,7 +218,7 @@ func TestPostInvoice_InsufficientStock_Blocked(t *testing.T) {
 	inv := models.Invoice{
 		CompanyID: s.companyID, InvoiceNumber: "INV-NOSTOCK",
 		CustomerID: s.customerID, InvoiceDate: time.Now(),
-		Status: models.InvoiceStatusDraft,
+		Status:   models.InvoiceStatusDraft,
 		Subtotal: decimal.NewFromInt(1000), TaxTotal: decimal.Zero,
 		Amount: decimal.NewFromInt(1000), BalanceDue: decimal.NewFromInt(1000),
 		CustomerNameSnapshot: "Customer",
@@ -258,7 +258,7 @@ func TestPostInvoice_ServiceItem_NoMovement(t *testing.T) {
 	inv := models.Invoice{
 		CompanyID: s.companyID, InvoiceNumber: "INV-SVC",
 		CustomerID: s.customerID, InvoiceDate: time.Now(),
-		Status: models.InvoiceStatusDraft,
+		Status:   models.InvoiceStatusDraft,
 		Subtotal: decimal.NewFromInt(500), TaxTotal: decimal.Zero,
 		Amount: decimal.NewFromInt(500), BalanceDue: decimal.NewFromInt(500),
 		CustomerNameSnapshot: "Customer",
@@ -301,7 +301,7 @@ func TestPostBill_StockItem_CreatesMovementAndUpdatesBalance(t *testing.T) {
 	bill := models.Bill{
 		CompanyID: s.companyID, BillNumber: "BILL-STOCK-1",
 		VendorID: s.vendorID, BillDate: time.Now(),
-		Status: models.BillStatusDraft,
+		Status:   models.BillStatusDraft,
 		Subtotal: decimal.NewFromInt(500), TaxTotal: decimal.Zero,
 		Amount: decimal.NewFromInt(500), BalanceDue: decimal.NewFromInt(500),
 	}
@@ -358,6 +358,113 @@ func TestPostBill_StockItem_CreatesMovementAndUpdatesBalance(t *testing.T) {
 	}
 }
 
+func TestPostBill_ForeignCurrencyStockItem_CreatesBaseCostedMovement(t *testing.T) {
+	db := testInventoryPostingDB(t)
+	s := setupInventoryPosting(t, db)
+
+	if err := db.Model(&models.Vendor{}).
+		Where("id = ? AND company_id = ?", s.vendorID, s.companyID).
+		Update("currency_code", "USD").Error; err != nil {
+		t.Fatalf("set vendor currency: %v", err)
+	}
+
+	billDate := time.Date(2026, 4, 29, 0, 0, 0, 0, time.UTC)
+	rate := decimal.RequireFromString("1.35000000")
+	bill := models.Bill{
+		CompanyID:    s.companyID,
+		BillNumber:   "BILL-USD-STOCK",
+		VendorID:     s.vendorID,
+		BillDate:     billDate,
+		Status:       models.BillStatusDraft,
+		CurrencyCode: "USD",
+		ExchangeRate: rate,
+		Subtotal:     decimal.NewFromInt(250),
+		TaxTotal:     decimal.Zero,
+		Amount:       decimal.NewFromInt(250),
+		BalanceDue:   decimal.NewFromInt(250),
+	}
+	if err := db.Create(&bill).Error; err != nil {
+		t.Fatalf("create bill: %v", err)
+	}
+
+	expID := s.expenseID
+	if err := db.Create(&models.BillLine{
+		CompanyID: s.companyID, BillID: bill.ID, SortOrder: 1,
+		ProductServiceID: &s.stockItemID, ExpenseAccountID: &expID,
+		Description: "Widget", Qty: decimal.NewFromInt(1), UnitPrice: decimal.NewFromInt(250),
+		LineNet: decimal.NewFromInt(250), LineTax: decimal.Zero, LineTotal: decimal.NewFromInt(250),
+	}).Error; err != nil {
+		t.Fatalf("create bill line: %v", err)
+	}
+
+	if err := PostBill(db, s.companyID, bill.ID, "test", nil); err != nil {
+		t.Fatalf("PostBill failed: %v", err)
+	}
+
+	var mov models.InventoryMovement
+	if err := db.Where("company_id = ? AND source_type = ? AND source_id = ?",
+		s.companyID, "bill", bill.ID).First(&mov).Error; err != nil {
+		t.Fatalf("load purchase movement: %v", err)
+	}
+	if mov.CurrencyCode != "USD" {
+		t.Fatalf("movement currency = %q, want USD", mov.CurrencyCode)
+	}
+	if mov.ExchangeRate == nil || !mov.ExchangeRate.Equal(rate) {
+		t.Fatalf("movement exchange rate = %v, want %s", mov.ExchangeRate, rate)
+	}
+	if mov.UnitCost == nil || !mov.UnitCost.Equal(decimal.NewFromInt(250)) {
+		t.Fatalf("movement unit cost = %v, want 250 USD", mov.UnitCost)
+	}
+	wantBase := decimal.RequireFromString("337.5000")
+	if mov.UnitCostBase == nil || !mov.UnitCostBase.Equal(wantBase) {
+		t.Fatalf("movement unit cost base = %v, want %s CAD", mov.UnitCostBase, wantBase)
+	}
+
+	bal, err := GetBalance(db, s.companyID, s.stockItemID)
+	if err != nil {
+		t.Fatalf("GetBalance: %v", err)
+	}
+	if !bal.AverageCost.Equal(wantBase) {
+		t.Fatalf("average cost = %s, want %s CAD", bal.AverageCost, wantBase)
+	}
+
+	var invDebit decimal.Decimal
+	var apCredit decimal.Decimal
+	var lines []models.JournalLine
+	if err := db.Where("company_id = ?", s.companyID).Find(&lines).Error; err != nil {
+		t.Fatalf("load journal lines: %v", err)
+	}
+	for _, jl := range lines {
+		switch jl.AccountID {
+		case s.invAssetID:
+			invDebit = invDebit.Add(jl.Debit)
+		case s.apAcctID:
+			apCredit = apCredit.Add(jl.Credit)
+		}
+	}
+	wantBaseTotal := decimal.RequireFromString("337.50")
+	if !invDebit.Equal(wantBaseTotal) {
+		t.Fatalf("inventory debit = %s, want %s CAD", invDebit, wantBaseTotal)
+	}
+	if !apCredit.Equal(wantBaseTotal) {
+		t.Fatalf("AP credit = %s, want %s CAD", apCredit, wantBaseTotal)
+	}
+
+	rows, _, err := ListMovements(db, s.companyID, s.stockItemID, 10, 0)
+	if err != nil {
+		t.Fatalf("ListMovements: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("movement rows = %d, want 1", len(rows))
+	}
+	if rows[0].UnitCost != "250.00 USD (337.50 CAD base)" {
+		t.Fatalf("display unit cost = %q", rows[0].UnitCost)
+	}
+	if rows[0].TotalCost != "250.00 USD (337.50 CAD base)" {
+		t.Fatalf("display total cost = %q", rows[0].TotalCost)
+	}
+}
+
 func TestPostBill_NonInventoryItem_NoMovement(t *testing.T) {
 	db := testInventoryPostingDB(t)
 	s := setupInventoryPosting(t, db)
@@ -366,7 +473,7 @@ func TestPostBill_NonInventoryItem_NoMovement(t *testing.T) {
 	bill := models.Bill{
 		CompanyID: s.companyID, BillNumber: "BILL-SVC",
 		VendorID: s.vendorID, BillDate: time.Now(),
-		Status: models.BillStatusDraft,
+		Status:   models.BillStatusDraft,
 		Subtotal: decimal.NewFromInt(300), TaxTotal: decimal.Zero,
 		Amount: decimal.NewFromInt(300), BalanceDue: decimal.NewFromInt(300),
 	}
@@ -408,7 +515,7 @@ func TestPostInvoice_COGSAmountMatchesMovement(t *testing.T) {
 	inv := models.Invoice{
 		CompanyID: s.companyID, InvoiceNumber: "INV-CONSIST",
 		CustomerID: s.customerID, InvoiceDate: time.Now(),
-		Status: models.InvoiceStatusDraft,
+		Status:   models.InvoiceStatusDraft,
 		Subtotal: decimal.NewFromInt(2000), TaxTotal: decimal.Zero,
 		Amount: decimal.NewFromInt(2000), BalanceDue: decimal.NewFromInt(2000),
 		CustomerNameSnapshot: "Customer",
@@ -484,18 +591,18 @@ func TestPostInvoice_COGSAgreesWithMovementUnitCostBase(t *testing.T) {
 		CustomerID: s.customerID, InvoiceDate: time.Now(),
 		Status:   models.InvoiceStatusDraft,
 		Subtotal: decimal.NewFromInt(700), TaxTotal: decimal.Zero,
-		Amount:   decimal.NewFromInt(700), BalanceDue: decimal.NewFromInt(700),
+		Amount: decimal.NewFromInt(700), BalanceDue: decimal.NewFromInt(700),
 		CustomerNameSnapshot: "Customer",
 	}
 	db.Create(&inv)
 	db.Create(&models.InvoiceLine{
 		CompanyID: s.companyID, InvoiceID: inv.ID, SortOrder: 1,
 		ProductServiceID: &s.stockItemID, Description: "Widget",
-		Qty:              decimal.NewFromInt(7),
-		UnitPrice:        decimal.NewFromInt(100),
-		LineNet:          decimal.NewFromInt(700),
-		LineTax:          decimal.Zero,
-		LineTotal:        decimal.NewFromInt(700),
+		Qty:       decimal.NewFromInt(7),
+		UnitPrice: decimal.NewFromInt(100),
+		LineNet:   decimal.NewFromInt(700),
+		LineTax:   decimal.Zero,
+		LineTotal: decimal.NewFromInt(700),
 	})
 
 	if err := PostInvoice(db, s.companyID, inv.ID, "test", nil); err != nil {
@@ -569,8 +676,8 @@ func TestValidateStockForInvoice_RejectsTrackedSingleLine(t *testing.T) {
 	inv := models.Invoice{
 		CompanyID: s.companyID, InvoiceNumber: "INV-TRACKED",
 		CustomerID: s.customerID, InvoiceDate: time.Now(),
-		Status:   models.InvoiceStatusDraft,
-		Amount:   decimal.NewFromInt(100), BalanceDue: decimal.NewFromInt(100),
+		Status: models.InvoiceStatusDraft,
+		Amount: decimal.NewFromInt(100), BalanceDue: decimal.NewFromInt(100),
 		CustomerNameSnapshot: "Customer",
 	}
 	db.Create(&inv)
@@ -623,12 +730,12 @@ func TestCreatePurchaseMovements_LotTrackedBillLine_PersistsLot(t *testing.T) {
 	line := models.BillLine{
 		CompanyID: s.companyID, BillID: bill.ID, SortOrder: 1,
 		ProductServiceID: &s.stockItemID, ProductService: &item,
-		Description: "Lot-tracked widget",
-		Qty:         decimal.NewFromInt(10),
-		UnitPrice:   decimal.NewFromInt(5),
-		LineNet:     decimal.NewFromInt(50),
-		LineTotal:   decimal.NewFromInt(50),
-		LotNumber:   "LOT-G4",
+		Description:   "Lot-tracked widget",
+		Qty:           decimal.NewFromInt(10),
+		UnitPrice:     decimal.NewFromInt(5),
+		LineNet:       decimal.NewFromInt(50),
+		LineTotal:     decimal.NewFromInt(50),
+		LotNumber:     "LOT-G4",
 		LotExpiryDate: &expiry,
 	}
 	db.Create(&line)
