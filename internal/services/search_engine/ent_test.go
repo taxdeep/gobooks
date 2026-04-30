@@ -59,6 +59,26 @@ func seedDoc(t *testing.T, c *ent.Client, companyID uint, entityType string, ent
 	}
 }
 
+func seedDocWithAmount(t *testing.T, c *ent.Client, companyID uint, entityType string, entityID uint, title, number, amount, memo string) {
+	t.Helper()
+	_, err := c.SearchDocument.Create().
+		SetCompanyID(companyID).
+		SetEntityType(entityType).
+		SetEntityID(entityID).
+		SetDocNumber(number).
+		SetTitle(title).
+		SetTitleNative(strings.ToLower(title)).
+		SetSubtitle("sub").
+		SetMemoNative(memo).
+		SetAmount(amount).
+		SetNillableDocDate(ptrTime(time.Now())).
+		SetURLPath("/" + entityType + "/" + uintKey(entityID)).
+		Save(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func ptrTime(t time.Time) *time.Time { return &t }
 
 // Phase 4's read-path defence in depth: search always filters on
@@ -145,6 +165,43 @@ func TestEntEngine_DocNumberExactMatch(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("exact doc number match missing from results: %+v", resp.Candidates)
+	}
+}
+
+func TestEntEngine_AmountSearchMatchesAmountAndMemoAmounts(t *testing.T) {
+	c := newTestClient(t)
+	defer c.Close()
+	seedDocWithAmount(t, c, 1, "bill", 1, "US Vendor", "BILL-1", "11039.18", "")
+	seedDocWithAmount(t, c, 1, "journal_entry", 2, "Journal Entry JE-1", "JE-1", "11039.18", "usd 11039 18 base 15270 50")
+
+	e, _ := NewEntEngine(c, searchprojection.AsciiNormalizer{})
+	resp, err := e.Search(context.Background(), SearchRequest{CompanyID: 1, Query: "11039.18"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, cnd := range resp.Candidates {
+		seen[cnd.EntityType] = true
+	}
+	if !seen["bill"] {
+		t.Fatalf("amount search should find bill amount field; got %+v", resp.Candidates)
+	}
+	if !seen["journal_entry"] {
+		t.Fatalf("amount search should find journal entry amount memo; got %+v", resp.Candidates)
+	}
+
+	resp, err = e.Search(context.Background(), SearchRequest{CompanyID: 1, Query: "15270.50"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundJE := false
+	for _, cnd := range resp.Candidates {
+		if cnd.EntityType == "journal_entry" {
+			foundJE = true
+		}
+	}
+	if !foundJE {
+		t.Fatalf("base amount search should find journal entry memo; got %+v", resp.Candidates)
 	}
 }
 

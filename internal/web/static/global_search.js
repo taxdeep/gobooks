@@ -153,6 +153,7 @@ function balancizGlobalSearch() {
     select(item) {
       this.open = false;
       this.highlighted = -1;
+      this._sendUsage(item);
       if (item.action_kind === "select") {
         // Reserved for future inline-form usage.
         return;
@@ -170,6 +171,35 @@ function balancizGlobalSearch() {
       const q = this.query ? "?q=" + encodeURIComponent(this.query) : "";
       this.open = false;
       window.location.href = target + q;
+    },
+
+    _sendUsage(item) {
+      if (!item || !item.id || !item.entity_type) return;
+      const idx = this.items.findIndex((row) => row && row.id === item.id && row.entity_type === item.entity_type);
+      const payload = {
+        query: this.query || "",
+        event_type: "select",
+        selected_entity_type: item.entity_type,
+        selected_entity_id: String(item.id),
+        rank_position: idx >= 0 ? idx + 1 : null,
+        result_count: this.items.length,
+        source_route: window.location ? window.location.pathname : "",
+      };
+      const body = JSON.stringify(payload);
+      try {
+        if (navigator.sendBeacon) {
+          const blob = new Blob([body], { type: "application/json" });
+          navigator.sendBeacon("/api/global-search/usage", blob);
+          return;
+        }
+      } catch (_) {}
+      const fetchFn = window.balancizFetch || fetch;
+      fetchFn("/api/global-search/usage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        keepalive: true,
+      }).catch(() => {});
     },
 
     close() {

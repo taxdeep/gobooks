@@ -83,6 +83,7 @@ func (s *Server) handleGlobalSearch(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(fiber.Map{"error": "search failed"})
 	}
+	resp.Candidates = s.applyGlobalSearchUsageBoosts(companyID, smartPickerUserID(c), q, resp.Candidates)
 
 	out := globalSearchResponse{
 		Source: resp.Source,

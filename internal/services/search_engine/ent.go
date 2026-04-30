@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"unicode"
 
 	entsql "entgo.io/ent/dialect/sql"
 
@@ -145,6 +146,25 @@ func (e *EntEngine) searchRanked(ctx context.Context, req SearchRequest, rawQ st
 		return nil, err
 	}
 
+	var tierAmount []*ent.SearchDocument
+	if amountToken, ok := normalizedSearchAmountToken(rawQ); ok {
+		amountNative := e.normalizer.Native(amountToken)
+		tierAmount, err = e.client.SearchDocument.Query().
+			Where(
+				searchdocument.CompanyIDEQ(req.CompanyID),
+				searchdocument.Or(
+					searchdocument.AmountContainsFold(amountToken),
+					searchdocument.MemoNativeContainsFold(amountNative),
+				),
+			).
+			Order(searchdocument.ByDocDate(entsql.OrderDesc(), entsql.OrderNullsLast())).
+			Limit(perGroupLimit * 4).
+			All(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Tier 3: substring on memo_native (descriptions, notes).
 	tier3, err := e.client.SearchDocument.Query().
 		Where(
@@ -175,6 +195,7 @@ func (e *EntEngine) searchRanked(ctx context.Context, req SearchRequest, rawQ st
 	var merged []*ent.SearchDocument
 	merged = addUnique(tier1, merged)
 	merged = addUnique(tier2, merged)
+	merged = addUnique(tierAmount, merged)
 	merged = addUnique(tier3, merged)
 
 	// Group by family and cap each group at perGroupLimit.
@@ -362,11 +383,18 @@ func (e *EntEngine) SearchAdvanced(ctx context.Context, req AdvancedRequest) (*A
 	if q := strings.TrimSpace(req.Query); q != "" {
 		normalized := e.normalizer.Native(q)
 		if normalized != "" {
-			preds = append(preds, searchdocument.Or(
+			searchPreds := []predicate.SearchDocument{
 				searchdocument.DocNumberContainsFold(q),
 				searchdocument.TitleNativeContainsFold(normalized),
 				searchdocument.MemoNativeContainsFold(normalized),
-			))
+			}
+			if amountToken, ok := normalizedSearchAmountToken(q); ok {
+				searchPreds = append(searchPreds,
+					searchdocument.AmountContainsFold(amountToken),
+					searchdocument.MemoNativeContainsFold(e.normalizer.Native(amountToken)),
+				)
+			}
+			preds = append(preds, searchdocument.Or(searchPreds...))
 		}
 	}
 
@@ -393,6 +421,47 @@ func (e *EntEngine) SearchAdvanced(ctx context.Context, req AdvancedRequest) (*A
 		Page:     page,
 		PageSize: pageSize,
 	}, nil
+}
+
+func normalizedSearchAmountToken(q string) (string, bool) {
+	q = strings.TrimSpace(q)
+	var b strings.Builder
+	for _, r := range q {
+		switch {
+		case r >= '0' && r <= '9':
+			b.WriteRune(r)
+		case r == '.' || r == ',':
+			b.WriteRune(r)
+		case unicode.IsSpace(r), unicode.IsLetter(r), unicode.IsSymbol(r):
+			continue
+		default:
+			continue
+		}
+	}
+	out := strings.ReplaceAll(b.String(), ",", "")
+	out = strings.Trim(out, ".")
+	if out == "" {
+		return "", false
+	}
+	digits := 0
+	dots := 0
+	for _, r := range out {
+		switch {
+		case r >= '0' && r <= '9':
+			digits++
+		case r == '.':
+			dots++
+		default:
+			return "", false
+		}
+	}
+	if digits < 2 || dots > 1 {
+		return "", false
+	}
+	if !strings.Contains(out, ".") && digits < 4 {
+		return "", false
+	}
+	return out, true
 }
 
 // uintKey stringifies an entity ID for Candidate.ID. Isolated so future

@@ -193,6 +193,7 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	// Rate limit (Phase 5.2) sits AFTER auth so KeyGenerator can read the
 	// authenticated user; before the handler so 429 short-circuits the work.
 	app.Get("/api/global-search", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), NewGlobalSearchLimiter(), s.handleGlobalSearch)
+	app.Post("/api/global-search/usage", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleGlobalSearchUsage)
 	// Phase 5.6: full-page Advanced Transactions Search (reachable from
 	// the dropdown's "Advanced transactions search" link). Same projection,
 	// flat paginated results, richer filter set.

@@ -237,6 +237,8 @@ func Migrate(db *gorm.DB) error {
 		&models.AIJobRun{},
 		&models.AIRequestLog{},
 		&models.SmartPickerDecisionTrace{},
+		&models.GlobalSearchEvent{},
+		&models.GlobalSearchTypeStat{},
 		&models.ReportUsageEvent{},
 		&models.ReportUsageStat{},
 		&models.DashboardUserWidget{},
