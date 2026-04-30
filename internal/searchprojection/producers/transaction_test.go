@@ -71,10 +71,10 @@ func TestBillDocument(t *testing.T) {
 	now := time.Date(2026, 4, 9, 0, 0, 0, 0, time.UTC)
 	b := models.Bill{
 		ID: 15, CompanyID: 3,
-		BillNumber: "LG-AS-202511",
-		BillDate:   now,
-		Status:     models.BillStatusPosted,
-		Amount:     decimal.NewFromFloat(21010.50),
+		BillNumber:   "LG-AS-202511",
+		BillDate:     now,
+		Status:       models.BillStatusPosted,
+		Amount:       decimal.NewFromFloat(21010.50),
 		CurrencyCode: "CAD",
 		Memo:         "Monthly lights",
 		Vendor:       models.Vendor{Name: "Lighting Geek Technologies Inc."},
@@ -192,6 +192,51 @@ func TestCustomerReceiptDocument(t *testing.T) {
 		urlPrefix:  "/receipts/",
 		subShould:  []string{"Payment", "RCP-001", "2026-04-13", "USD 16000.00"},
 	})
+}
+
+func TestJournalEntryDocumentIndexesOriginalAndBaseAmounts(t *testing.T) {
+	je := models.JournalEntry{
+		ID: 77, CompanyID: 9,
+		JournalNo:               "JE-USD-1",
+		EntryDate:               time.Date(2026, 4, 29, 0, 0, 0, 0, time.UTC),
+		Status:                  models.JournalEntryStatusPosted,
+		TransactionCurrencyCode: "USD",
+		Lines: []models.JournalLine{
+			{
+				TxDebit: decimal.RequireFromString("11039.18"),
+				Debit:   decimal.RequireFromString("15270.50"),
+				Memo:    "USD debit line",
+			},
+			{
+				TxCredit: decimal.RequireFromString("11039.18"),
+				Credit:   decimal.RequireFromString("15270.50"),
+				Memo:     "USD credit line",
+			},
+		},
+	}
+
+	doc := JournalEntryDocument(je)
+	assertTxDoc(t, doc, txCase{
+		entityType: EntityTypeJournalEntry,
+		entityID:   77,
+		companyID:  9,
+		title:      "Journal Entry JE-USD-1",
+		docNumber:  "JE-USD-1",
+		status:     "posted",
+		urlPrefix:  "/journal-entry/",
+		subShould:  []string{"Journal Entry", "JE-USD-1", "2026-04-29", "USD 11039.18", "base 15270.50"},
+	})
+	for _, needle := range []string{"11039.18", "15270.50", "USD debit line", "USD credit line"} {
+		if !strings.Contains(doc.Memo, needle) {
+			t.Fatalf("Memo %q should contain %q", doc.Memo, needle)
+		}
+	}
+	if doc.Amount != "11039.18" {
+		t.Fatalf("Amount = %q, want transaction total", doc.Amount)
+	}
+	if doc.Currency != "USD" {
+		t.Fatalf("Currency = %q", doc.Currency)
+	}
 }
 
 // formatTxSubtitle edge case: amount=0 should be omitted so draft docs

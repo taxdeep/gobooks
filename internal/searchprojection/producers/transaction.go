@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
 	"balanciz/internal/logging"
@@ -567,7 +569,6 @@ func formatTxSubtitle(label, number, date, currency, amount string) string {
 	return out
 }
 
-
 // ─────────────────────────────────────────────────────────────────────
 // Phase 5.4 / 5.5 — JournalEntry + 4 AR docs + 4 AP docs
 // ─────────────────────────────────────────────────────────────────────
@@ -589,14 +590,16 @@ func ProjectJournalEntry(ctx context.Context, db *gorm.DB, p searchprojection.Pr
 		return errors.New("producers.ProjectJournalEntry: companyID is required")
 	}
 	var je models.JournalEntry
-	err := db.Where("id = ? AND company_id = ?", entryID, companyID).First(&je).Error
+	err := db.Where("id = ? AND company_id = ?", entryID, companyID).
+		Preload("Lines").
+		First(&je).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrEntityNotInCompany
 		}
 		return fmt.Errorf("producers.ProjectJournalEntry: load %d for company %d: %w", entryID, companyID, err)
 	}
-	doc := JournalEntryDocument(je)
+	doc := JournalEntrySearchDocument(je)
 	if err := p.Upsert(ctx, companyID, doc); err != nil {
 		logging.L().Warn("searchprojection.ProjectJournalEntry upsert failed",
 			"entry_id", entryID, "company_id", companyID, "err", err)
@@ -613,6 +616,7 @@ func DeleteJournalEntryProjection(ctx context.Context, p searchprojection.Projec
 }
 
 func JournalEntryDocument(je models.JournalEntry) searchprojection.Document {
+	return JournalEntrySearchDocument(je)
 	number := je.JournalNo
 	title := "Journal Entry " + number
 	if number == "" {
@@ -637,6 +641,124 @@ func JournalEntryDocument(je models.JournalEntry) searchprojection.Document {
 		Status:     string(je.Status),
 		URLPath:    "/journal-entry/" + strconv.FormatUint(uint64(je.ID), 10),
 	}
+}
+
+func JournalEntrySearchDocument(je models.JournalEntry) searchprojection.Document {
+	number := je.JournalNo
+	title := "Journal Entry " + number
+	if number == "" {
+		title = "Journal Entry (no number)"
+	}
+	src := string(je.SourceType)
+	if src == "" {
+		src = "manual"
+	}
+	txDebitTotal, txCreditTotal, baseDebitTotal, baseCreditTotal := journalEntryTotals(je)
+	txTotal := maxDecimal(txDebitTotal, txCreditTotal)
+	baseTotal := maxDecimal(baseDebitTotal, baseCreditTotal)
+	amount := ""
+	if !txTotal.IsZero() {
+		amount = txTotal.StringFixed(2)
+	}
+	subtitleParts := []string{"Journal Entry " + number, je.EntryDate.Format("2006-01-02"), "source=" + src}
+	if amountSummary := journalAmountSummary(je.TransactionCurrencyCode, txTotal, baseTotal); amountSummary != "" {
+		subtitleParts = append(subtitleParts, amountSummary)
+	}
+	docDate := je.EntryDate
+	return searchprojection.Document{
+		CompanyID:  je.CompanyID,
+		EntityType: EntityTypeJournalEntry,
+		EntityID:   je.ID,
+		DocNumber:  number,
+		Title:      title,
+		Subtitle:   strings.Join(subtitleParts, " · "),
+		Memo:       journalEntrySearchMemo(je, txDebitTotal, txCreditTotal, baseDebitTotal, baseCreditTotal),
+		DocDate:    &docDate,
+		Amount:     amount,
+		Currency:   je.TransactionCurrencyCode,
+		Status:     string(je.Status),
+		URLPath:    "/journal-entry/" + strconv.FormatUint(uint64(je.ID), 10),
+	}
+}
+
+func journalEntryTotals(je models.JournalEntry) (decimal.Decimal, decimal.Decimal, decimal.Decimal, decimal.Decimal) {
+	txDebitTotal := decimal.Zero
+	txCreditTotal := decimal.Zero
+	baseDebitTotal := decimal.Zero
+	baseCreditTotal := decimal.Zero
+	for _, line := range je.Lines {
+		txDebit := line.TxDebit
+		txCredit := line.TxCredit
+		if txDebit.IsZero() && !line.Debit.IsZero() {
+			txDebit = line.Debit
+		}
+		if txCredit.IsZero() && !line.Credit.IsZero() {
+			txCredit = line.Credit
+		}
+		txDebitTotal = txDebitTotal.Add(txDebit)
+		txCreditTotal = txCreditTotal.Add(txCredit)
+		baseDebitTotal = baseDebitTotal.Add(line.Debit)
+		baseCreditTotal = baseCreditTotal.Add(line.Credit)
+	}
+	return txDebitTotal, txCreditTotal, baseDebitTotal, baseCreditTotal
+}
+
+func journalAmountSummary(txCurrency string, txTotal, baseTotal decimal.Decimal) string {
+	parts := []string{}
+	txCurrency = strings.TrimSpace(txCurrency)
+	if !txTotal.IsZero() {
+		label := txTotal.StringFixed(2)
+		if txCurrency != "" {
+			label = txCurrency + " " + label
+		}
+		parts = append(parts, label)
+	}
+	if !baseTotal.IsZero() && !baseTotal.Equal(txTotal) {
+		parts = append(parts, "base "+baseTotal.StringFixed(2))
+	}
+	return strings.Join(parts, " / ")
+}
+
+func journalEntrySearchMemo(je models.JournalEntry, txDebitTotal, txCreditTotal, baseDebitTotal, baseCreditTotal decimal.Decimal) string {
+	seen := map[string]struct{}{}
+	parts := []string{}
+	add := func(v string) {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return
+		}
+		if _, ok := seen[v]; ok {
+			return
+		}
+		seen[v] = struct{}{}
+		parts = append(parts, v)
+	}
+
+	add(je.JournalNo)
+	add(string(je.Status))
+	add(string(je.SourceType))
+	add(je.TransactionCurrencyCode)
+	for _, v := range []decimal.Decimal{txDebitTotal, txCreditTotal, baseDebitTotal, baseCreditTotal} {
+		if !v.IsZero() {
+			add(v.StringFixed(2))
+		}
+	}
+	for _, line := range je.Lines {
+		add(line.Memo)
+		for _, v := range []decimal.Decimal{line.TxDebit, line.TxCredit, line.Debit, line.Credit} {
+			if !v.IsZero() {
+				add(v.StringFixed(2))
+			}
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+func maxDecimal(a, b decimal.Decimal) decimal.Decimal {
+	if b.GreaterThan(a) {
+		return b
+	}
+	return a
 }
 
 // CreditNote (customer-side)

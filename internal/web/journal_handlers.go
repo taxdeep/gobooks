@@ -3,6 +3,7 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -42,6 +43,103 @@ func journalEntryPageVM(companyID uint, currencyCtx services.CompanyCurrencyCont
 	}
 }
 
+type journalInitialDraftPayload struct {
+	Header map[string]string            `json:"header"`
+	FX     map[string]any               `json:"fx"`
+	Lines  []journalInitialDraftLineDTO `json:"lines"`
+}
+
+type journalInitialDraftLineDTO struct {
+	Key       string            `json:"key"`
+	AccountID string            `json:"account_id"`
+	Debit     string            `json:"debit"`
+	Credit    string            `json:"credit"`
+	Memo      string            `json:"memo"`
+	Party     string            `json:"party"`
+	Errors    map[string]string `json:"errors"`
+}
+
+func journalCorrectionAllowed(db *gorm.DB, companyID uint, je models.JournalEntry) (bool, string) {
+	if je.ReversedFromID != nil {
+		return false, "This journal entry is already a reversal entry."
+	}
+	if je.Status != models.JournalEntryStatusPosted {
+		return false, "Only posted manual journal entries can be edited or voided."
+	}
+	if je.SourceType != "" || je.SourceID != 0 {
+		return false, "This journal entry belongs to another document. Edit or void the source document instead."
+	}
+	var reversalCount int64
+	if err := db.Model(&models.JournalEntry{}).
+		Where("company_id = ? AND reversed_from_id = ?", companyID, je.ID).
+		Count(&reversalCount).Error; err != nil {
+		return false, "Could not check reversal history."
+	}
+	if reversalCount > 0 {
+		return false, "This journal entry is already voided."
+	}
+	return true, ""
+}
+
+func journalInitialDraftJSON(je models.JournalEntry) string {
+	source := strings.TrimSpace(je.ExchangeRateSource)
+	if source == "" {
+		source = services.JournalEntryExchangeRateSourceIdentity
+	}
+	sourceLabel := services.ExchangeRateSourceLabel(source)
+	manual := strings.EqualFold(source, services.JournalEntryExchangeRateSourceManual) || je.FXSnapshotID == nil
+	fx := map[string]any{
+		"snapshot_id": "",
+		"rate":        je.ExchangeRate.String(),
+		"date":        je.ExchangeRateDate.Format("2006-01-02"),
+		"source":      source,
+		"sourceLabel": sourceLabel,
+		"manual":      manual,
+		"loading":     false,
+	}
+	if je.FXSnapshotID != nil {
+		fx["snapshot_id"] = strconv.FormatUint(uint64(*je.FXSnapshotID), 10)
+	}
+	lines := make([]journalInitialDraftLineDTO, 0, len(je.Lines))
+	for i, line := range je.Lines {
+		debit := line.TxDebit
+		credit := line.TxCredit
+		if debit.IsZero() && !line.Debit.IsZero() {
+			debit = line.Debit
+		}
+		if credit.IsZero() && !line.Credit.IsZero() {
+			credit = line.Credit
+		}
+		party := ""
+		if line.PartyType != "" && line.PartyID != 0 {
+			party = string(line.PartyType) + ":" + strconv.FormatUint(uint64(line.PartyID), 10)
+		}
+		lines = append(lines, journalInitialDraftLineDTO{
+			Key:       "edit-" + strconv.Itoa(i) + "-" + strconv.FormatUint(uint64(line.ID), 10),
+			AccountID: strconv.FormatUint(uint64(line.AccountID), 10),
+			Debit:     debit.StringFixed(2),
+			Credit:    credit.StringFixed(2),
+			Memo:      line.Memo,
+			Party:     party,
+			Errors:    map[string]string{},
+		})
+	}
+	payload := journalInitialDraftPayload{
+		Header: map[string]string{
+			"entry_date":                je.EntryDate.Format("2006-01-02"),
+			"journal_no":                je.JournalNo,
+			"transaction_currency_code": je.TransactionCurrencyCode,
+		},
+		FX:    fx,
+		Lines: lines,
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
 func (s *Server) handleJournalEntryForm(c *fiber.Ctx) error {
 	companyID, ok := ActiveCompanyIDFromCtx(c)
 	if !ok {
@@ -78,6 +176,63 @@ func (s *Server) handleJournalEntryForm(c *fiber.Ctx) error {
 	_ = s.DB.Where("company_id = ?", companyID).Order("name asc").Find(&vendors).Error
 
 	return pages.JournalEntryPage(journalEntryPageVM(companyID, currencyCtx, accounts, customers, vendors, "", c.Query("saved") == "1")).Render(c.Context(), c)
+}
+
+func (s *Server) handleJournalEntryEdit(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/select-company", fiber.StatusSeeOther)
+	}
+	idU64, err := services.ParseUint(strings.TrimSpace(c.Params("id")))
+	if err != nil || idU64 == 0 {
+		return c.Redirect("/journal-entry/list", fiber.StatusSeeOther)
+	}
+
+	var je models.JournalEntry
+	if err := s.DB.Preload("Lines").Where("id = ? AND company_id = ?", uint(idU64), companyID).First(&je).Error; err != nil {
+		return c.Redirect("/journal-entry/list", fiber.StatusSeeOther)
+	}
+	if ok, reason := journalCorrectionAllowed(s.DB, companyID, je); !ok {
+		return pages.JournalEntryDetailPage(pages.JournalEntryDetailVM{
+			HasCompany:  true,
+			ID:          je.ID,
+			JournalNo:   je.JournalNo,
+			EntryDate:   je.EntryDate.Format("2006-01-02"),
+			Status:      string(je.Status),
+			ReverseHint: reason,
+		}).Render(c.Context(), c)
+	}
+
+	currencyCtx, err := services.LoadCompanyCurrencyContext(s.DB, companyID)
+	if err != nil {
+		return pages.JournalEntryPage(pages.JournalEntryVM{
+			HasCompany:       true,
+			ActiveCompanyID:  companyID,
+			FormError:        "Could not load company currency settings.",
+			AccountsDataJSON: "[]",
+		}).Render(c.Context(), c)
+	}
+	accounts, err := s.activeAccountsForCompany(companyID)
+	if err != nil {
+		return pages.JournalEntryPage(pages.JournalEntryVM{
+			HasCompany:       true,
+			ActiveCompanyID:  companyID,
+			FormError:        "Could not load accounts.",
+			AccountsDataJSON: "[]",
+		}).Render(c.Context(), c)
+	}
+	var customers []models.Customer
+	_ = s.DB.Where("company_id = ?", companyID).Order("name asc").Find(&customers).Error
+	var vendors []models.Vendor
+	_ = s.DB.Where("company_id = ?", companyID).Order("name asc").Find(&vendors).Error
+
+	vm := journalEntryPageVM(companyID, currencyCtx, accounts, customers, vendors, "", false)
+	vm.DefaultTransactionCurrency = je.TransactionCurrencyCode
+	vm.ReplaceJournalEntryID = je.ID
+	vm.InitialDraftJSON = journalInitialDraftJSON(je)
+	vm.DraftStorageSuffix = "edit:" + strconv.FormatUint(uint64(je.ID), 10)
+	vm.Notice = "Editing will not overwrite the original JE. Saving posts a replacement and voids the original with a reversal."
+	return pages.JournalEntryPage(vm).Render(c.Context(), c)
 }
 
 type postedLine struct {
@@ -148,6 +303,15 @@ func (s *Server) handleJournalEntryPost(c *fiber.Ctx) error {
 	entryDateRaw := strings.TrimSpace(c.FormValue("entry_date"))
 	journalNo := strings.TrimSpace(c.FormValue("journal_no"))
 	transactionCurrencyCode := strings.TrimSpace(c.FormValue("transaction_currency_code"))
+	replaceRaw := strings.TrimSpace(c.FormValue("replace_journal_entry_id"))
+	var replaceJournalEntryID uint
+	if replaceRaw != "" {
+		id, err := services.ParseUint(replaceRaw)
+		if err != nil || id == 0 {
+			return renderFormError("Replacement journal entry reference is invalid.")
+		}
+		replaceJournalEntryID = uint(id)
+	}
 
 	if entryDateRaw == "" {
 		return renderFormError("Date is required.")
@@ -228,7 +392,17 @@ func (s *Server) handleJournalEntryPost(c *fiber.Ctx) error {
 	uid := user.ID
 
 	var postedJEID uint
+	var reversalJEID uint
 	if err := s.DB.Transaction(func(tx *gorm.DB) error {
+		if replaceJournalEntryID != 0 {
+			var original models.JournalEntry
+			if err := tx.Where("id = ? AND company_id = ?", replaceJournalEntryID, companyID).First(&original).Error; err != nil {
+				return fmt.Errorf("load original journal entry: %w", err)
+			}
+			if ok, reason := journalCorrectionAllowed(tx, companyID, original); !ok {
+				return errors.New(reason)
+			}
+		}
 		je := prepared.JournalEntry
 		if err := tx.Create(&je).Error; err != nil {
 			return err
@@ -248,11 +422,24 @@ func (s *Server) handleJournalEntryPost(c *fiber.Ctx) error {
 			models.FXPostingReasonTransaction); err != nil {
 			return err
 		}
-		return services.ProjectToLedger(tx, companyID, services.LedgerPostInput{
+		if err := services.ProjectToLedger(tx, companyID, services.LedgerPostInput{
 			JournalEntry: je,
 			Lines:        prepared.JournalLines,
-		})
+		}); err != nil {
+			return err
+		}
+		if replaceJournalEntryID != 0 {
+			newID, err := services.ReverseJournalEntry(tx, companyID, replaceJournalEntryID, entryDate)
+			if err != nil {
+				return err
+			}
+			reversalJEID = newID
+		}
+		return nil
 	}); err != nil {
+		if replaceJournalEntryID != 0 {
+			return renderFormError("Could not replace journal entry: " + err.Error())
+		}
 		return renderFormError("Could not save journal entry. Please try again.")
 	}
 
@@ -268,6 +455,17 @@ func (s *Server) handleJournalEntryPost(c *fiber.Ctx) error {
 	}, &cid, &uid)
 	s.ReportCache.InvalidateCompany(companyID)
 	_ = producers.ProjectJournalEntry(c.Context(), s.DB, s.SearchProjector, companyID, postedJEID)
+	if replaceJournalEntryID != 0 {
+		services.TryWriteAuditLogWithContext(s.DB, "journal.replaced", "journal_entry", postedJEID, actor, map[string]any{
+			"original_id":    replaceJournalEntryID,
+			"replacement_id": postedJEID,
+			"reversal_id":    reversalJEID,
+			"company_id":     companyID,
+		}, &cid, &uid)
+		_ = producers.ProjectJournalEntry(c.Context(), s.DB, s.SearchProjector, companyID, replaceJournalEntryID)
+		_ = producers.ProjectJournalEntry(c.Context(), s.DB, s.SearchProjector, companyID, reversalJEID)
+		return c.Redirect("/journal-entry/list?corrected=1", fiber.StatusSeeOther)
+	}
 
 	return c.Redirect("/journal-entry?saved=1", fiber.StatusSeeOther)
 }
@@ -386,6 +584,12 @@ func (s *Server) handleJournalEntryDetail(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Redirect("/journal-entry/list", fiber.StatusSeeOther)
 	}
+	canCorrect, reverseHint := journalCorrectionAllowed(s.DB, companyID, je)
+	canReverse := canCorrect
+	if canReverse && !fxState.ReversalAllowed {
+		canReverse = false
+		reverseHint = fxState.ReversalBlockedReason
+	}
 
 	lines := make([]pages.JournalEntryDetailLineItem, 0, len(je.Lines))
 	txDebitTotal := decimal.Zero
@@ -457,6 +661,9 @@ func (s *Server) handleJournalEntryDetail(c *fiber.Ctx) error {
 		IsForeignCurrency:          fxState.IsForeignCurrency,
 		TransactionAmountsPresent:  fxState.TransactionAmountsPresent,
 		FXSnapshotNote:             fxState.SnapshotNote,
+		CanCorrect:                 canCorrect,
+		CanReverse:                 canReverse,
+		ReverseHint:                reverseHint,
 		Lines:                      lines,
 		TxDebitTotal:               txDebitTotalLabel,
 		TxCreditTotal:              txCreditTotalLabel,
@@ -568,6 +775,11 @@ func (s *Server) handleJournalEntryList(c *fiber.Ctx) error {
 		} else if reversedFromSet[e.ID] {
 			reverseHint = "Already reversed."
 		}
+		canCorrect := canReverse && e.Status == models.JournalEntryStatusPosted && e.SourceType == "" && e.SourceID == 0
+		if canReverse && !canCorrect && reverseHint == "" {
+			reverseHint = "This entry belongs to another document. Edit or void the source document instead."
+		}
+		canReverse = canReverse && canCorrect
 		fxState, err := fxResolver.BuildReadState(e)
 		if err != nil {
 			return pages.JournalEntryListPage(pages.JournalEntryListVM{
@@ -577,7 +789,7 @@ func (s *Server) handleJournalEntryList(c *fiber.Ctx) error {
 				FormError:  "Could not resolve journal-entry FX summaries.",
 			}).Render(c.Context(), c)
 		}
-		if canReverse && !fxState.ReversalAllowed {
+		if !fxState.ReversalAllowed {
 			canReverse = false
 			reverseHint = fxState.ReversalBlockedReason
 		}
@@ -590,6 +802,7 @@ func (s *Server) handleJournalEntryList(c *fiber.Ctx) error {
 			TotalCredit:                pages.Money(totalCredit),
 			TransactionCurrencyDisplay: fxState.TransactionCurrencyDisplay,
 			ExchangeRateSourceLabel:    fxState.ExchangeRateSourceLabel,
+			CanCorrect:                 canCorrect,
 			CanReverse:                 canReverse,
 			ReverseHint:                reverseHint,
 		})
@@ -615,6 +828,8 @@ func (s *Server) handleJournalEntryList(c *fiber.Ctx) error {
 		Items:              items,
 		FormError:          formError,
 		Reversed:           c.Query("reversed") == "1",
+		Voided:             c.Query("voided") == "1",
+		Corrected:          c.Query("corrected") == "1",
 		FilterQ:            filterQ,
 		FilterAccount:      filterAccountRaw,
 		FilterAccountLabel: accountLabel,
@@ -624,6 +839,14 @@ func (s *Server) handleJournalEntryList(c *fiber.Ctx) error {
 }
 
 func (s *Server) handleJournalEntryReverse(c *fiber.Ctx) error {
+	return s.handleJournalEntryReverseResult(c, "reversed")
+}
+
+func (s *Server) handleJournalEntryVoid(c *fiber.Ctx) error {
+	return s.handleJournalEntryReverseResult(c, "voided")
+}
+
+func (s *Server) handleJournalEntryReverseResult(c *fiber.Ctx, resultQuery string) error {
 	user := UserFromCtx(c)
 	if user == nil {
 		return c.Redirect("/login", fiber.StatusSeeOther)
@@ -683,5 +906,8 @@ func (s *Server) handleJournalEntryReverse(c *fiber.Ctx) error {
 	_ = producers.ProjectJournalEntry(c.Context(), s.DB, s.SearchProjector, companyID, uint(idU64))
 	_ = producers.ProjectJournalEntry(c.Context(), s.DB, s.SearchProjector, companyID, reversedID)
 
-	return c.Redirect("/journal-entry/list?reversed=1", fiber.StatusSeeOther)
+	if strings.TrimSpace(resultQuery) == "" {
+		resultQuery = "reversed"
+	}
+	return c.Redirect("/journal-entry/list?"+resultQuery+"=1", fiber.StatusSeeOther)
 }

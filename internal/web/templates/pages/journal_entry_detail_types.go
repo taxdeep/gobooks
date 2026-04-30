@@ -27,6 +27,9 @@ type JournalEntryDetailVM struct {
 	IsForeignCurrency          bool
 	TransactionAmountsPresent  bool
 	FXSnapshotNote             string
+	CanCorrect                 bool
+	CanReverse                 bool
+	ReverseHint                string
 	Lines                      []JournalEntryDetailLineItem
 	TxDebitTotal               string
 	TxCreditTotal              string

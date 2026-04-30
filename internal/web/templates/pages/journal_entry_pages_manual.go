@@ -58,8 +58,12 @@ func renderJournalEntryPageHTML(vm JournalEntryVM) string {
 	write(`<div class="max-w-[95%]" x-data="balancizJournalEntryDraft()"`)
 	write(` data-company-id="` + esc(Uitoa(vm.ActiveCompanyID)) + `"`)
 	write(` data-base-currency="` + esc(vm.BaseCurrencyCode) + `"`)
-	write(` data-default-currency="` + esc(vm.DefaultTransactionCurrency) + `">`)
+	write(` data-default-currency="` + esc(vm.DefaultTransactionCurrency) + `"`)
+	write(` data-draft-suffix="` + esc(vm.DraftStorageSuffix) + `">`)
 	write(`<script type="application/json" id="balanciz-journal-accounts-data">` + vm.AccountsDataJSON + `</script>`)
+	if strings.TrimSpace(vm.InitialDraftJSON) != "" {
+		write(`<script type="application/json" id="balanciz-journal-initial-draft">` + vm.InitialDraftJSON + `</script>`)
+	}
 	write(`<script type="application/json" id="balanciz-journal-currency-options">[`)
 	for i, code := range vm.TransactionCurrencyOptions {
 		if i > 0 {
@@ -68,15 +72,27 @@ func renderJournalEntryPageHTML(vm JournalEntryVM) string {
 		write(`"` + esc(code) + `"`)
 	}
 	write(`]</script>`)
-	write(`<div><div class="flex items-center justify-between gap-4"><div><h1 class="text-title font-semibold text-text">Journal Entry</h1><p class="mt-2 text-text-muted2">Posted journal entries now preserve an explicit transaction currency and immutable FX snapshot. The backend derives base-currency truth on save.</p></div><a href="/journal-entry/list" class="rounded-md border border-border-input px-3 py-2 text-body font-medium text-text-muted3 hover:bg-background">View Entries</a></div></div>`)
+	pageTitle := "Journal Entry"
+	pageHelp := "Posted journal entries now preserve an explicit transaction currency and immutable FX snapshot. The backend derives base-currency truth on save."
+	if vm.ReplaceJournalEntryID != 0 {
+		pageTitle = "Edit Journal Entry"
+		pageHelp = "Saving creates a replacement journal entry and voids the original with a reversal, preserving the audit trail."
+	}
+	write(`<div><div class="flex items-center justify-between gap-4"><div><h1 class="text-title font-semibold text-text">` + esc(pageTitle) + `</h1><p class="mt-2 text-text-muted2">` + esc(pageHelp) + `</p></div><a href="/journal-entry/list" class="rounded-md border border-border-input px-3 py-2 text-body font-medium text-text-muted3 hover:bg-background">View Entries</a></div></div>`)
 	if vm.Saved {
 		write(`<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Journal entry posted.</div>`)
+	}
+	if strings.TrimSpace(vm.Notice) != "" {
+		write(`<div class="mt-4 rounded-md border border-warning-border bg-warning-soft p-4 text-body text-warning-hover">` + esc(vm.Notice) + `</div>`)
 	}
 	if vm.FormError != "" {
 		write(`<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">` + esc(vm.FormError) + `</div>`)
 	}
 
 	write(`<form method="post" action="/journal-entry" class="mt-6 space-y-6" @submit="beforeSubmit($event)">`)
+	if vm.ReplaceJournalEntryID != 0 {
+		write(`<input type="hidden" name="replace_journal_entry_id" value="` + esc(Uitoa(vm.ReplaceJournalEntryID)) + `"/>`)
+	}
 	write(`<div class="rounded-lg border border-border bg-surface p-6">`)
 
 	// Header: 3-column grid — Currency (+ inline FX rate) | Date | Journal No.
@@ -155,6 +171,12 @@ func renderJournalEntryListHTML(vm JournalEntryListVM) string {
 	if vm.Reversed {
 		b.WriteString(`<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Reverse entry created successfully.</div>`)
 	}
+	if vm.Voided {
+		b.WriteString(`<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Journal entry voided with a reversal entry.</div>`)
+	}
+	if vm.Corrected {
+		b.WriteString(`<div class="mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover">Replacement journal entry posted and the original was voided.</div>`)
+	}
 	if vm.FormError != "" {
 		b.WriteString(`<div class="mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover">` + esc(vm.FormError) + `</div>`)
 	}
@@ -164,7 +186,11 @@ func renderJournalEntryListHTML(vm JournalEntryListVM) string {
 		if strings.TrimSpace(item.ExchangeRateSourceLabel) != "" {
 			b.WriteString(`<div class="mt-1 text-small text-text-muted2">` + esc(item.ExchangeRateSourceLabel) + `</div>`)
 		}
-		b.WriteString(`</td><td class="py-3 pr-4">` + esc(Itoa(item.LineCount)) + `</td><td class="py-3 pr-4 font-mono tabular-nums">` + esc(item.TotalDebit) + `</td><td class="py-3 pr-4 font-mono tabular-nums">` + esc(item.TotalCredit) + `</td><td class="py-3 pr-0"><div class="flex flex-wrap items-center gap-2"><a href="/journal-entry/` + esc(Uitoa(item.ID)) + `" class="rounded-md border border-border-input px-3 py-2 text-body font-medium text-text hover:bg-background">View</a><form method="post" action="/journal-entry/` + esc(Uitoa(item.ID)) + `/reverse" class="flex items-center gap-2"><input type="date" name="reverse_date" class="rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text"`)
+		b.WriteString(`</td><td class="py-3 pr-4">` + esc(Itoa(item.LineCount)) + `</td><td class="py-3 pr-4 font-mono tabular-nums">` + esc(item.TotalDebit) + `</td><td class="py-3 pr-4 font-mono tabular-nums">` + esc(item.TotalCredit) + `</td><td class="py-3 pr-0"><div class="flex flex-wrap items-center gap-2"><a href="/journal-entry/` + esc(Uitoa(item.ID)) + `" class="rounded-md border border-border-input px-3 py-2 text-body font-medium text-text hover:bg-background">View</a>`)
+		if item.CanCorrect {
+			b.WriteString(`<a href="/journal-entry/` + esc(Uitoa(item.ID)) + `/edit" class="rounded-md border border-border-input px-3 py-2 text-body font-medium text-text hover:bg-background">Edit</a>`)
+		}
+		b.WriteString(`<form method="post" action="/journal-entry/` + esc(Uitoa(item.ID)) + `/void" class="flex items-center gap-2"><input type="date" name="reverse_date" class="rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text"`)
 		if !item.CanReverse {
 			b.WriteString(` disabled`)
 		}
@@ -172,7 +198,7 @@ func renderJournalEntryListHTML(vm JournalEntryListVM) string {
 		if !item.CanReverse {
 			b.WriteString(` disabled`)
 		}
-		b.WriteString(`>Reverse</button></form></div>`)
+		b.WriteString(`>Void</button></form></div>`)
 		if item.ReverseHint != "" {
 			b.WriteString(`<div class="mt-1 text-small text-text-muted2">` + esc(item.ReverseHint) + `</div>`)
 		}
@@ -201,7 +227,22 @@ func renderJournalEntryDetailHTML(vm JournalEntryDetailVM) string {
 	if effectiveDateLabel == "" {
 		effectiveDateLabel = "Unavailable"
 	}
-	b.WriteString(`<div class="max-w-[95%] space-y-6"><div class="flex items-center justify-between gap-4"><div><h1 class="text-title font-semibold text-text">` + esc(title) + `</h1><p class="mt-2 text-text-muted2">Immutable posted journal-entry snapshot. Corrections should be made through reversal or adjustment entries, never silent mutation.</p></div><a href="/journal-entry/list" class="rounded-md border border-border-input px-3 py-2 text-body font-medium text-text-muted3 hover:bg-background">Back to Entries</a></div>`)
+	b.WriteString(`<div class="max-w-[95%] space-y-6"><div class="flex items-center justify-between gap-4"><div><h1 class="text-title font-semibold text-text">` + esc(title) + `</h1><p class="mt-2 text-text-muted2">Immutable posted journal-entry snapshot. Corrections create a replacement entry and a reversal, preserving the original amounts.</p></div><div class="flex flex-wrap items-center justify-end gap-2"><a href="/journal-entry/list" class="rounded-md border border-border-input px-3 py-2 text-body font-medium text-text-muted3 hover:bg-background">Back to Entries</a>`)
+	if vm.CanCorrect {
+		b.WriteString(`<a href="/journal-entry/` + esc(Uitoa(vm.ID)) + `/edit" class="rounded-md border border-border-input px-3 py-2 text-body font-semibold text-text hover:bg-background">Edit</a>`)
+	}
+	b.WriteString(`<form method="post" action="/journal-entry/` + esc(Uitoa(vm.ID)) + `/void" class="inline-flex items-center gap-2"><input type="date" name="reverse_date" class="rounded-md border border-border-input bg-surface px-3 py-2 text-body text-text"`)
+	if !vm.CanReverse {
+		b.WriteString(` disabled`)
+	}
+	b.WriteString(`/><button type="submit" class="rounded-md border border-border-danger px-3 py-2 text-body font-semibold text-danger hover:bg-danger-soft disabled:cursor-not-allowed disabled:bg-disabled-bg disabled:text-disabled-text"`)
+	if !vm.CanReverse {
+		b.WriteString(` disabled`)
+	}
+	b.WriteString(`>Void</button></form></div></div>`)
+	if vm.ReverseHint != "" {
+		b.WriteString(`<div class="rounded-md border border-border bg-surface px-4 py-3 text-body text-text-muted2">` + esc(vm.ReverseHint) + `</div>`)
+	}
 	b.WriteString(`<div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]"><div class="rounded-lg border border-border bg-surface p-6"><div class="grid grid-cols-1 gap-4 md:grid-cols-3"><div><div class="text-small uppercase tracking-wider text-text-muted">Date</div><div class="mt-1 text-body font-medium text-text">` + esc(vm.EntryDate) + `</div></div><div><div class="text-small uppercase tracking-wider text-text-muted">Status</div><div class="mt-1 text-body font-medium text-text">` + esc(vm.Status) + `</div></div><div><div class="text-small uppercase tracking-wider text-text-muted">Transaction Currency</div><div class="mt-1 text-body font-medium text-text">` + esc(transactionCurrencyLabel) + `</div></div></div>`)
 	if strings.TrimSpace(vm.FXSnapshotNote) != "" {
 		b.WriteString(`<div class="mt-4 rounded-md border border-warning-border bg-warning-soft p-4 text-body text-warning-hover">` + esc(vm.FXSnapshotNote) + `</div>`)

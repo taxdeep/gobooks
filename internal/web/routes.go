@@ -227,8 +227,10 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Get("/journal-entry", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleJournalEntryForm)
 	app.Post("/journal-entry", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleJournalEntryPost)
 	app.Get("/journal-entry/list", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleJournalEntryList)
+	app.Get("/journal-entry/:id/edit", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleJournalEntryEdit)
 	app.Get("/journal-entry/:id", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleJournalEntryDetail)
 	app.Post("/journal-entry/:id/reverse", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleJournalEntryReverse)
+	app.Post("/journal-entry/:id/void", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionJournalCreate), s.handleJournalEntryVoid)
 
 	// ── 发票 ─────────────────────────────────────────────────────────────────────
 	// 创建 / 编辑需要 ar_access（bookkeeper 及以上）

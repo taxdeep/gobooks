@@ -165,6 +165,7 @@ function balancizJournalEntryDraft() {
     primaryError: "",
     recalcRunning: false,
     lastTransactionCurrencyCode: "",
+    draftSuffix: "",
 
     formatAccountLabel(account) {
       if (!account) {
@@ -345,6 +346,10 @@ function balancizJournalEntryDraft() {
         el && el.dataset && el.dataset.defaultCurrency != null && String(el.dataset.defaultCurrency).trim() !== ""
           ? String(el.dataset.defaultCurrency).trim().toUpperCase()
           : this.baseCurrencyCode;
+      this.draftSuffix =
+        el && el.dataset && el.dataset.draftSuffix != null && String(el.dataset.draftSuffix).trim() !== ""
+          ? String(el.dataset.draftSuffix).trim()
+          : "";
 
       const today = new Date().toISOString().slice(0, 10);
       this.header.entry_date = today;
@@ -355,19 +360,31 @@ function balancizJournalEntryDraft() {
         localStorage.removeItem(this.draftStorageKey());
       }
 
-      const raw = localStorage.getItem(this.draftStorageKey());
-      if (raw) {
-        try {
-          const draft = JSON.parse(raw);
-          if (draft && draft.header && Array.isArray(draft.lines)) {
-            this.header = { ...this.header, ...draft.header };
-            this.fx = { ...this.fx, ...(draft.fx || {}) };
-            this.lines = draft.lines.map((line) => this.normalizeLine(line));
-            if (this.lines.length > MAX_LINES) {
-              this.lines = this.lines.slice(0, MAX_LINES);
+      const initial = this.loadInitialDraft();
+      const usingInitialDraft = !!(initial && initial.header && Array.isArray(initial.lines));
+      if (usingInitialDraft) {
+        this.header = { ...this.header, ...initial.header };
+        this.fx = { ...this.fx, ...(initial.fx || {}) };
+        this.lines = initial.lines.map((line) => this.normalizeLine(line));
+      } else {
+        const raw = localStorage.getItem(this.draftStorageKey());
+        if (raw) {
+          try {
+            const draft = JSON.parse(raw);
+            if (draft && draft.header && Array.isArray(draft.lines)) {
+              this.header = { ...this.header, ...draft.header };
+              this.fx = { ...this.fx, ...(draft.fx || {}) };
+              this.lines = draft.lines.map((line) => this.normalizeLine(line));
+              if (this.lines.length > MAX_LINES) {
+                this.lines = this.lines.slice(0, MAX_LINES);
+              }
             }
-          }
-        } catch (e) {}
+          } catch (e) {}
+        }
+      }
+
+      if (this.lines.length > MAX_LINES) {
+        this.lines = this.lines.slice(0, MAX_LINES);
       }
 
       if (this.lines.length < 2) {
@@ -380,13 +397,26 @@ function balancizJournalEntryDraft() {
       this.syncFXMode();
       this.recalc();
       this.persist();
-      if (this.showFXBlock && !this.fx.manual) {
+      if (this.showFXBlock && !this.fx.manual && !usingInitialDraft) {
         this.fetchFX(true);
       }
     },
 
     draftStorageKey() {
-      return `balanciz:journalDraft:v2:${this.companyId}`;
+      const suffix = this.draftSuffix ? `:${this.draftSuffix}` : "";
+      return `balanciz:journalDraft:v2:${this.companyId}${suffix}`;
+    },
+
+    loadInitialDraft() {
+      try {
+        const el = document.getElementById("balanciz-journal-initial-draft");
+        if (!el || !el.textContent) {
+          return null;
+        }
+        return JSON.parse(el.textContent);
+      } catch (e) {
+        return null;
+      }
     },
 
     persist() {

@@ -10,6 +10,7 @@ type JournalEntryListItem struct {
 	TotalCredit                string
 	TransactionCurrencyDisplay string
 	ExchangeRateSourceLabel    string
+	CanCorrect                 bool
 	CanReverse                 bool
 	ReverseHint                string
 }
@@ -20,6 +21,8 @@ type JournalEntryListVM struct {
 	Items      []JournalEntryListItem
 	FormError  string
 	Reversed   bool
+	Voided     bool
+	Corrected  bool
 
 	// Filter state — echoed back into the filter bar so the URL fully
 	// describes the result set.
