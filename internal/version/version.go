@@ -12,13 +12,7 @@ const (
 	// BuildCode is a fixed-width uppercase base36 build counter.
 	BuildCode = "000V"
 
-	// Revision is a two-digit decimal release revision.
-	Revision = 0
-
-	// VariantCode is a one-character uppercase base36 build variant.
-	VariantCode = "0"
-
-	// Version format: M.CC.PPP.BBBB.RR.V
-	// M/PPP/RR are decimal; CC/BBBB/V are uppercase base36-style codes.
-	Version = "0.00.000.000V.00.0"
+	// Version format: M.CC.PPP.BBBB
+	// M/PPP are decimal; CC/BBBB are uppercase base36-style codes.
+	Version = "0.00.000.000V"
 )

@@ -59,25 +59,19 @@ jobs:
           channel = parts[1].upper()
           patch = int(parts[2])
           build = parts[3].upper()
-          revision = int(parts[4]) if len(parts) >= 5 else 0
-          variant = parts[5].upper() if len(parts) >= 6 else "0"
           if not re.fullmatch(r"[0-9A-Z]{2}", channel):
               channel = "00"
           if not re.fullmatch(r"[0-9A-Z]{4}", build):
               build = "0000"
-          if not re.fullmatch(r"[0-9A-Z]", variant):
-              variant = "0"
 
           next_build = to_base36(from_base36(build) + 1)
           core = f"{major}.{channel}.{patch:03d}"
-          version = f"{core}.{next_build}.{revision:02d}.{variant}"
+          version = f"{core}.{next_build}"
 
           print(f"major={major}")
           print(f"channel={channel}")
           print(f"patch={patch}")
           print(f"build={next_build}")
-          print(f"revision={revision}")
-          print(f"variant={variant}")
           print(f"core={core}")
           print(f"version={version}")
           PY
@@ -99,14 +93,8 @@ jobs:
           	// BuildCode is a fixed-width uppercase base36 build counter.
           	BuildCode = "${{ steps.ver.outputs.build }}"
 
-          	// Revision is a two-digit decimal release revision.
-          	Revision = ${{ steps.ver.outputs.revision }}
-
-          	// VariantCode is a one-character uppercase base36 build variant.
-          	VariantCode = "${{ steps.ver.outputs.variant }}"
-
-          	// Version format: M.CC.PPP.BBBB.RR.V
-          	// M/PPP/RR are decimal; CC/BBBB/V are uppercase base36-style codes.
+          	// Version format: M.CC.PPP.BBBB
+          	// M/PPP are decimal; CC/BBBB are uppercase base36-style codes.
           	Version = "${{ steps.ver.outputs.version }}"
           )
           GOEOF
