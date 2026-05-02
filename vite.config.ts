@@ -14,6 +14,7 @@ export default defineConfig({
         dashboard: resolve(__dirname, "internal/web/react/dashboard/main.tsx"),
         sales_transactions: resolve(__dirname, "internal/web/react/sales_transactions/main.tsx"),
         account_transactions: resolve(__dirname, "internal/web/react/account_transactions/main.tsx"),
+        balance_sheet: resolve(__dirname, "internal/web/react/balance_sheet/main.tsx"),
         general_ledger: resolve(__dirname, "internal/web/react/general_ledger/main.tsx"),
         income_statement: resolve(__dirname, "internal/web/react/income_statement/main.tsx"),
         journal_entry_report: resolve(__dirname, "internal/web/react/journal_entry_report/main.tsx"),

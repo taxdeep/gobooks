@@ -1,7 +1,7 @@
-// 遵循project_guide.md
 package pages
 
 import (
+	"net/url"
 	"time"
 
 	"balanciz/internal/models"
@@ -29,23 +29,50 @@ templ bodyBalanceSheet(vm BalanceSheetVM) {
 
 		@ReportToolbar(vm.Toolbar)
 
-		// One unified table holds the whole Balance Sheet. Each section
-		// is a group of rows — section header + per-detail-type sub-groups
-		// + section total — instead of a separate card. Keeps columns
-		// aligned across sections (the QB-style feel). Section renderer
-		// is shared with Income Statement via renderAccountLinesSection.
-		{{ assetLines, assetDetails := bsLinesToReportLines(vm.Report.Assets) }}
-		{{ liabLines, liabDetails := bsLinesToReportLines(vm.Report.Liabilities) }}
-		{{ equityLines, equityDetails := bsLinesToReportLines(vm.Report.Equity) }}
-		<div class="mt-4 rounded-lg border border-border bg-surface overflow-x-auto">
-			<table class="w-full text-left text-body">
-				<tbody class="text-text">
-					@renderAccountLinesSection("Assets", models.RootAsset, assetLines, assetDetails, vm.Report.TotalAssets, time.Time{}, vm.AsOfTime)
-					@renderAccountLinesSection("Liabilities", models.RootLiability, liabLines, liabDetails, vm.Report.TotalLiabilities, time.Time{}, vm.AsOfTime)
-					@renderAccountLinesSection("Equity", models.RootEquity, equityLines, equityDetails, vm.Report.TotalEquity, time.Time{}, vm.AsOfTime)
-					@reportSummaryRow("Total Liabilities + Equity", vm.Report.TotalLiabilities.Add(vm.Report.TotalEquity))
-				</tbody>
-			</table>
-		</div>
+		if vm.FormError == "" {
+			@balanceSheetReactIsland(vm)
+		}
 	</div>
+}
+
+templ balanceSheetReactIsland(vm BalanceSheetVM) {
+	<div
+		id="balance-sheet-island"
+		data-gb-react="balance-sheet"
+		data-api-url={ balanceSheetAPIHref(vm) }
+	>
+		@balanceSheetFallback(vm)
+	</div>
+	<script type="module" src="/static/react/balance_sheet.js?v=1"></script>
+}
+
+templ balanceSheetFallback(vm BalanceSheetVM) {
+	{{ assetLines, assetDetails := bsLinesToReportLines(vm.Report.Assets) }}
+	{{ liabLines, liabDetails := bsLinesToReportLines(vm.Report.Liabilities) }}
+	{{ equityLines, equityDetails := bsLinesToReportLines(vm.Report.Equity) }}
+	<div class="mt-4 rounded-lg border border-border bg-surface overflow-x-auto">
+		<table class="w-full text-left text-body">
+			<tbody class="text-text">
+				@renderAccountLinesSection("Assets", models.RootAsset, assetLines, assetDetails, vm.Report.TotalAssets, time.Time{}, vm.AsOfTime)
+				@renderAccountLinesSection("Liabilities", models.RootLiability, liabLines, liabDetails, vm.Report.TotalLiabilities, time.Time{}, vm.AsOfTime)
+				@renderAccountLinesSection("Equity", models.RootEquity, equityLines, equityDetails, vm.Report.TotalEquity, time.Time{}, vm.AsOfTime)
+				@reportSummaryRow("Total Liabilities + Equity", vm.Report.TotalLiabilities.Add(vm.Report.TotalEquity))
+			</tbody>
+		</table>
+	</div>
+}
+
+func balanceSheetAPIHref(vm BalanceSheetVM) string {
+	values := url.Values{}
+	if vm.Toolbar.Preset != "" {
+		values.Set("period", vm.Toolbar.Preset)
+	}
+	if vm.AsOf != "" {
+		values.Set("as_of", vm.AsOf)
+	}
+	encoded := values.Encode()
+	if encoded == "" {
+		return "/api/reports/balance-sheet"
+	}
+	return "/api/reports/balance-sheet?" + encoded
 }
