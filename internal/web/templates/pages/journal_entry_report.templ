@@ -1,8 +1,11 @@
-// 遵循project_guide.md
 package pages
 
-import "balanciz/internal/web/templates/layout"
-import "balanciz/internal/web/templates/ui"
+import (
+	"net/url"
+
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
+)
 
 templ JournalEntryReport(vm JournalEntryReportVM) {
 	@layout.Layout(
@@ -24,55 +27,90 @@ templ bodyJournalEntryReport(vm JournalEntryReportVM) {
 
 		@ReportToolbar(vm.Toolbar)
 
-		<div class="mt-4 space-y-3">
-			if len(vm.Entries) == 0 {
-				<div class="rounded-lg border border-border bg-surface p-4 text-body text-text-muted2">
-					No journal entries in this date range.
-				</div>
-			} else {
-				for _, e := range vm.Entries {
-					<div class="rounded-lg border border-border bg-surface p-4">
-						<div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-border-subtle pb-2">
-							<div>
-								<span class="text-body font-semibold text-text">{ e.EntryDate }</span>
-								if e.JournalNo != "" {
-									<span class="ml-3 font-mono text-body text-text-muted">{ e.JournalNo }</span>
-								}
-								<span class="ml-3 text-small text-text-muted">#{ e.ID }</span>
-							</div>
-							if e.ReversalNote != "" {
-								<span class="text-small font-medium text-text-muted2">{ e.ReversalNote }</span>
-							}
-						</div>
-						<div class="mt-2 overflow-x-auto">
-							<table class="w-full text-left text-body">
-								<thead class="text-small uppercase tracking-wider text-text-muted">
-									<tr class="border-b border-border-subtle">
-										<th class="py-1.5 pr-4">Account</th>
-										<th class="py-1.5 pr-4">Memo</th>
-										<th class="py-1.5 pr-4 text-right">Debit</th>
-										<th class="py-1.5 pr-0 text-right">Credit</th>
-									</tr>
-								</thead>
-								<tbody class="text-text">
-									for _, line := range e.Lines {
-										<tr class="border-b border-border-subtle/60 hover:bg-background">
-											<td class="py-1.5 pr-4">
-												<span class="font-mono text-small font-medium">{ line.AccountCode }</span>
-												<span class="text-text-muted2"> — </span>
-												{ line.AccountName }
-											</td>
-											<td class="py-1.5 pr-4 text-text-muted2">{ line.Memo }</td>
-											<td class="py-1.5 pr-4 text-right tabular-nums">{ Money(line.Debit) }</td>
-											<td class="py-1.5 pr-0 text-right tabular-nums">{ Money(line.Credit) }</td>
-										</tr>
-									}
-								</tbody>
-							</table>
-						</div>
-					</div>
-				}
-			}
-		</div>
+		if vm.FormError == "" {
+			@journalEntryReportReactIsland(vm)
+		}
 	</div>
+}
+
+templ journalEntryReportReactIsland(vm JournalEntryReportVM) {
+	<div
+		id="journal-entry-report-island"
+		data-gb-react="journal-entry-report"
+		data-api-url={ journalEntryReportAPIHref(vm) }
+	>
+		@journalEntryReportFallback(vm)
+	</div>
+	<script type="module" src="/static/react/journal_entry_report.js?v=1"></script>
+}
+
+templ journalEntryReportFallback(vm JournalEntryReportVM) {
+	<div class="mt-4 space-y-3">
+		if len(vm.Entries) == 0 {
+			<div class="rounded-lg border border-border bg-surface p-4 text-body text-text-muted2">
+				No journal entries in this date range.
+			</div>
+		} else {
+			for _, e := range vm.Entries {
+				<div class="rounded-lg border border-border bg-surface p-4">
+					<div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-border-subtle pb-2">
+						<div>
+							<span class="text-body font-semibold text-text">{ e.EntryDate }</span>
+							if e.JournalNo != "" {
+								<span class="ml-3 font-mono text-body text-text-muted">{ e.JournalNo }</span>
+							}
+							<span class="ml-3 text-small text-text-muted">#{ e.ID }</span>
+						</div>
+						if e.ReversalNote != "" {
+							<span class="text-small font-medium text-text-muted2">{ e.ReversalNote }</span>
+						}
+					</div>
+					<div class="mt-2 overflow-x-auto">
+						<table class="w-full text-left text-body">
+							<thead class="text-small uppercase tracking-wider text-text-muted">
+								<tr class="border-b border-border-subtle">
+									<th class="py-1.5 pr-4">Account</th>
+									<th class="py-1.5 pr-4">Memo</th>
+									<th class="py-1.5 pr-4 text-right">Debit</th>
+									<th class="py-1.5 pr-0 text-right">Credit</th>
+								</tr>
+							</thead>
+							<tbody class="text-text">
+								for _, line := range e.Lines {
+									<tr class="border-b border-border-subtle/60 hover:bg-background">
+										<td class="py-1.5 pr-4">
+											<span class="font-mono text-small font-medium">{ line.AccountCode }</span>
+											<span class="text-text-muted2"> - </span>
+											{ line.AccountName }
+										</td>
+										<td class="py-1.5 pr-4 text-text-muted2">{ line.Memo }</td>
+										<td class="py-1.5 pr-4 text-right tabular-nums">{ Money(line.Debit) }</td>
+										<td class="py-1.5 pr-0 text-right tabular-nums">{ Money(line.Credit) }</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			}
+		}
+	</div>
+}
+
+func journalEntryReportAPIHref(vm JournalEntryReportVM) string {
+	values := url.Values{}
+	if vm.Toolbar.Preset != "" {
+		values.Set("period", vm.Toolbar.Preset)
+	}
+	if vm.From != "" {
+		values.Set("from", vm.From)
+	}
+	if vm.To != "" {
+		values.Set("to", vm.To)
+	}
+	encoded := values.Encode()
+	if encoded == "" {
+		return "/api/reports/journal-entries"
+	}
+	return "/api/reports/journal-entries?" + encoded
 }

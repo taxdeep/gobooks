@@ -24,6 +24,9 @@ function balancizJournalEntryDraft() {
   const RECENT_MAX = 8;
   const MAX_LINES = 50;
   const RECENT_LS_PREFIX = "balanciz:journalRecentAccountIds:v1:";
+  const ACCOUNT_PICKER_ENTITY = "account";
+  const ACCOUNT_PICKER_CONTEXT = "journal_entry_account";
+  const ACCOUNT_PICKER_LIMIT = 20;
 
   function recentStorageKey(companyId) {
     const c = companyId && String(companyId).trim() !== "" ? String(companyId) : "0";
@@ -123,6 +126,23 @@ function balancizJournalEntryDraft() {
     return segments;
   }
 
+  function smartPickerRequestId() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return window.crypto.randomUUID();
+    }
+    return "je-account-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+  }
+
+  function accountFromSmartPickerItem(item) {
+    const payload = item && item.payload ? item.payload : {};
+    return {
+      id: item && item.id != null ? String(item.id) : "",
+      code: (item && item.secondary) || payload.code || "",
+      name: (item && item.primary) || payload.name || "",
+      class: payload.class || payload.root_account_type || "",
+    };
+  }
+
   function roundBank(value, decimals = 2) {
     const factor = Math.pow(10, decimals);
     const scaled = value * factor;
@@ -182,6 +202,26 @@ function balancizJournalEntryDraft() {
       return account ? this.formatAccountLabel(account) : "";
     },
 
+    rememberAccounts(rows) {
+      if (!Array.isArray(rows) || rows.length === 0) {
+        return;
+      }
+      const byId = new Map(this.accounts.map((acc) => [String(acc.id), acc]));
+      for (const row of rows) {
+        if (!row || row.id == null || String(row.id) === "") {
+          continue;
+        }
+        byId.set(String(row.id), {
+          ...byId.get(String(row.id)),
+          ...row,
+          id: String(row.id),
+        });
+      }
+      this.accounts = Array.from(byId.values()).sort((left, right) =>
+        String(left.code || "").localeCompare(String(right.code || "")),
+      );
+    },
+
     loadRecentIds() {
       try {
         const raw = localStorage.getItem(recentStorageKey(this.companyId));
@@ -236,6 +276,10 @@ function balancizJournalEntryDraft() {
 
     filteredAccounts(line) {
       const query = line.acctQuery || "";
+      const normalizedQuery = query.trim();
+      if (Array.isArray(line.acctItems) && line.acctItemsQuery === normalizedQuery) {
+        return line.acctItems;
+      }
       if (!query.trim()) {
         return this.accountsEmptyQueryOrder();
       }
@@ -244,8 +288,72 @@ function balancizJournalEntryDraft() {
 
     highlightSegments,
 
-    openAcctPicker(line) {
+    async refreshAccountPicker(line) {
+      if (!line) {
+        return;
+      }
+      const q = (line.acctQuery || "").trim();
+      const fetchFn = window.balancizFetch || (typeof fetch === "function" ? fetch : null);
+      if (typeof fetchFn !== "function") {
+        line.acctItems = this.filteredAccounts(line);
+        line.acctItemsQuery = q;
+        return;
+      }
+      const seq = (line.acctFetchSeq || 0) + 1;
+      line.acctFetchSeq = seq;
+      line.acctLoading = true;
+      line.acctFailed = false;
+      const requestId = smartPickerRequestId();
+      try {
+        const params = new URLSearchParams({
+          entity: ACCOUNT_PICKER_ENTITY,
+          context: ACCOUNT_PICKER_CONTEXT,
+          q,
+          limit: String(ACCOUNT_PICKER_LIMIT),
+          request_id: requestId,
+        });
+        const res = await fetchFn("/api/smart-picker/search?" + params.toString(), { method: "GET" });
+        if (seq !== line.acctFetchSeq) {
+          return;
+        }
+        if (!res || !res.ok) {
+          line.acctFailed = true;
+          line.acctItems = rankSearchResults(this.accounts, q, this.loadRecentIds());
+          line.acctItemsQuery = q;
+          return;
+        }
+        const data = await res.json();
+        if (seq !== line.acctFetchSeq) {
+          return;
+        }
+        const candidates = Array.isArray(data.candidates)
+          ? data.candidates
+          : Array.isArray(data.items)
+            ? data.items
+            : [];
+        const rows = candidates.map(accountFromSmartPickerItem).filter((row) => row.id !== "");
+        this.rememberAccounts(rows);
+        line.acctItems = rows;
+        line.acctItemsQuery = q;
+        line.acctRequestId = data.request_id && data.request_id === requestId ? data.request_id : requestId;
+        line.acctRequiresBackendValidation = data.requires_backend_validation !== false;
+      } catch (_) {
+        if (seq !== line.acctFetchSeq) {
+          return;
+        }
+        line.acctFailed = true;
+        line.acctItems = rankSearchResults(this.accounts, q, this.loadRecentIds());
+        line.acctItemsQuery = q;
+      } finally {
+        if (seq === line.acctFetchSeq) {
+          line.acctLoading = false;
+        }
+      }
+    },
+
+    async openAcctPicker(line) {
       line.acctOpen = true;
+      await this.refreshAccountPicker(line);
       const list = this.filteredAccounts(line);
       line.acctHi = list.length > 0 ? 0 : -1;
     },
@@ -266,7 +374,7 @@ function balancizJournalEntryDraft() {
       }, 180);
     },
 
-    onAcctQueryInput(line) {
+    async onAcctQueryInput(line) {
       if (line.account_id) {
         const current = this.accountLabelForId(line.account_id);
         if (current !== line.acctQuery) {
@@ -274,6 +382,7 @@ function balancizJournalEntryDraft() {
         }
       }
       line.acctOpen = true;
+      await this.refreshAccountPicker(line);
       const list = this.filteredAccounts(line);
       line.acctHi = list.length > 0 ? 0 : -1;
       this.recalc();
@@ -285,10 +394,38 @@ function balancizJournalEntryDraft() {
       line.acctQuery = this.formatAccountLabel(account);
       line.acctOpen = false;
       line.acctHi = -1;
+      this.rememberAccounts([account]);
       this.recordRecentAccountId(account.id);
+      this.sendAccountPickerUsage(line, "select", {
+        query: line.acctItemsQuery || "",
+        selected_entity_id: String(account.id),
+        item_id: String(account.id),
+        result_count: Array.isArray(line.acctItems) ? line.acctItems.length : this.filteredAccounts(line).length,
+      });
       this.recalc();
       this.autoGrowIfNeeded(line, idx);
       this.persist();
+    },
+
+    sendAccountPickerUsage(line, eventType, extra = {}) {
+      const fetchFn = window.balancizFetch || (typeof fetch === "function" ? fetch : null);
+      if (typeof fetchFn !== "function") {
+        return;
+      }
+      const payload = {
+        entity: ACCOUNT_PICKER_ENTITY,
+        entity_type: ACCOUNT_PICKER_ENTITY,
+        context: ACCOUNT_PICKER_CONTEXT,
+        event_type: eventType,
+        request_id: (line && line.acctRequestId) || "",
+        source_route: window.location ? window.location.pathname || "" : "",
+        ...extra,
+      };
+      fetchFn("/api/smart-picker/usage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }).catch(() => {});
     },
 
     onAcctKeydown(line, event, idx) {
@@ -464,6 +601,13 @@ function balancizJournalEntryDraft() {
         acctOpen: false,
         acctHi: -1,
         acctQuery: "",
+        acctItems: null,
+        acctItemsQuery: "",
+        acctLoading: false,
+        acctFailed: false,
+        acctFetchSeq: 0,
+        acctRequestId: "",
+        acctRequiresBackendValidation: true,
       };
       next.acctQuery = this.accountLabelForId(next.account_id);
       return next;

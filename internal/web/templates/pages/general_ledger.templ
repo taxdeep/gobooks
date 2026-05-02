@@ -2,6 +2,8 @@
 package pages
 
 import (
+	"net/url"
+
 	"balanciz/internal/services"
 	"balanciz/internal/web/templates/layout"
 	"balanciz/internal/web/templates/ui"
@@ -40,19 +42,48 @@ templ bodyGeneralLedger(vm GeneralLedgerVM) {
 		@ReportToolbar(vm.Toolbar)
 
 		if vm.Report != nil {
-			if len(vm.Report.Sections) == 0 {
-				<div class="mt-4 rounded-lg border border-border bg-surface p-4 text-text-muted2">
-					No accounts had activity or an opening balance in this period.
-				</div>
-			} else {
-				<div class="mt-4 space-y-3">
-					for _, section := range vm.Report.Sections {
-						@glSection(section)
-					}
-				</div>
-			}
+			@generalLedgerReactIsland(vm)
 		}
 	</div>
+}
+
+templ generalLedgerReactIsland(vm GeneralLedgerVM) {
+	<div
+		id="general-ledger-island"
+		data-gb-react="general-ledger"
+		data-api-url={ generalLedgerAPIHref(vm) }
+	>
+		if len(vm.Report.Sections) == 0 {
+			<div class="mt-4 rounded-lg border border-border bg-surface p-4 text-text-muted2">
+				No accounts had activity or an opening balance in this period.
+			</div>
+		} else {
+			<div class="mt-4 space-y-3">
+				for _, section := range vm.Report.Sections {
+					@glSection(section)
+				}
+			</div>
+		}
+	</div>
+	<script type="module" src="/static/react/general_ledger.js?v=1"></script>
+}
+
+func generalLedgerAPIHref(vm GeneralLedgerVM) string {
+	values := url.Values{}
+	if vm.Toolbar.Preset != "" {
+		values.Set("period", vm.Toolbar.Preset)
+	}
+	if vm.From != "" {
+		values.Set("from", vm.From)
+	}
+	if vm.To != "" {
+		values.Set("to", vm.To)
+	}
+	encoded := values.Encode()
+	if encoded == "" {
+		return "/api/reports/general-ledger"
+	}
+	return "/api/reports/general-ledger?" + encoded
 }
 
 // glSection renders one account's ledger inside the GL document.

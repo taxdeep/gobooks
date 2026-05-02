@@ -1,7 +1,8 @@
-// 遵循project_guide.md
 package pages
 
 import (
+	"net/url"
+
 	"balanciz/internal/models"
 	"balanciz/internal/web/templates/layout"
 	"balanciz/internal/web/templates/ui"
@@ -27,38 +28,68 @@ templ bodyTrialBalance(vm TrialBalanceVM) {
 
 		@ReportToolbar(vm.Toolbar)
 
-		// One unified table with per-root-type sections. The Debit /
-		// Credit column pair stays (TB convention — totals across both
-		// columns must balance). Section renderer is Trial-Balance-
-		// specific because it uses the 5-column layout instead of the
-		// 3-column single-amount layout shared by BS + IS.
-		<div class="mt-4 rounded-lg border border-border bg-surface overflow-x-auto">
-			<table class="w-full text-left text-body">
-				<thead class="text-small uppercase tracking-wider text-text-muted">
-					<tr class="border-b border-border-subtle">
-						<th class="py-1.5 pl-4 pr-4 w-24">Code</th>
-						<th class="py-1.5 pr-4">Name</th>
-						<th class="py-1.5 pr-4">Classification</th>
-						<th class="py-1.5 pr-4 text-right w-36">Debit</th>
-						<th class="py-1.5 pr-4 text-right w-36">Credit</th>
-					</tr>
-				</thead>
-				<tbody class="text-text">
-					@renderTBSection("Assets", models.RootAsset, vm.Rows, vm.FromTime, vm.ToTime)
-					@renderTBSection("Liabilities", models.RootLiability, vm.Rows, vm.FromTime, vm.ToTime)
-					@renderTBSection("Equity", models.RootEquity, vm.Rows, vm.FromTime, vm.ToTime)
-					@renderTBSection("Revenue", models.RootRevenue, vm.Rows, vm.FromTime, vm.ToTime)
-					@renderTBSection("Cost of Sales", models.RootCostOfSales, vm.Rows, vm.FromTime, vm.ToTime)
-					@renderTBSection("Expenses", models.RootExpense, vm.Rows, vm.FromTime, vm.ToTime)
-				</tbody>
-				<tfoot class="text-text">
-					<tr class="border-t border-border bg-surface-tableHeader">
-						<td class="py-2 pl-4 pr-4 font-semibold" colspan="3">Grand Totals</td>
-						<td class="py-2 pr-4 text-right font-semibold tabular-nums">{ vm.TotalDebits }</td>
-						<td class="py-2 pr-4 text-right font-semibold tabular-nums">{ vm.TotalCredits }</td>
-					</tr>
-				</tfoot>
-			</table>
-		</div>
+		if vm.FormError == "" {
+			@trialBalanceReactIsland(vm)
+		}
 	</div>
+}
+
+templ trialBalanceReactIsland(vm TrialBalanceVM) {
+	<div
+		id="trial-balance-island"
+		data-gb-react="trial-balance"
+		data-api-url={ trialBalanceAPIHref(vm) }
+	>
+		@trialBalanceFallback(vm)
+	</div>
+	<script type="module" src="/static/react/trial_balance.js?v=1"></script>
+}
+
+templ trialBalanceFallback(vm TrialBalanceVM) {
+	<div class="mt-4 rounded-lg border border-border bg-surface overflow-x-auto">
+		<table class="w-full text-left text-body">
+			<thead class="text-small uppercase tracking-wider text-text-muted">
+				<tr class="border-b border-border-subtle">
+					<th class="py-1.5 pl-4 pr-4 w-24">Code</th>
+					<th class="py-1.5 pr-4">Name</th>
+					<th class="py-1.5 pr-4">Classification</th>
+					<th class="py-1.5 pr-4 text-right w-36">Debit</th>
+					<th class="py-1.5 pr-4 text-right w-36">Credit</th>
+				</tr>
+			</thead>
+			<tbody class="text-text">
+				@renderTBSection("Assets", models.RootAsset, vm.Rows, vm.FromTime, vm.ToTime)
+				@renderTBSection("Liabilities", models.RootLiability, vm.Rows, vm.FromTime, vm.ToTime)
+				@renderTBSection("Equity", models.RootEquity, vm.Rows, vm.FromTime, vm.ToTime)
+				@renderTBSection("Revenue", models.RootRevenue, vm.Rows, vm.FromTime, vm.ToTime)
+				@renderTBSection("Cost of Sales", models.RootCostOfSales, vm.Rows, vm.FromTime, vm.ToTime)
+				@renderTBSection("Expenses", models.RootExpense, vm.Rows, vm.FromTime, vm.ToTime)
+			</tbody>
+			<tfoot class="text-text">
+				<tr class="border-t border-border bg-surface-tableHeader">
+					<td class="py-2 pl-4 pr-4 font-semibold" colspan="3">Grand Totals</td>
+					<td class="py-2 pr-4 text-right font-semibold tabular-nums">{ vm.TotalDebits }</td>
+					<td class="py-2 pr-4 text-right font-semibold tabular-nums">{ vm.TotalCredits }</td>
+				</tr>
+			</tfoot>
+		</table>
+	</div>
+}
+
+func trialBalanceAPIHref(vm TrialBalanceVM) string {
+	values := url.Values{}
+	if vm.Toolbar.Preset != "" {
+		values.Set("period", vm.Toolbar.Preset)
+	}
+	if vm.From != "" {
+		values.Set("from", vm.From)
+	}
+	if vm.To != "" {
+		values.Set("to", vm.To)
+	}
+	encoded := values.Encode()
+	if encoded == "" {
+		return "/api/reports/trial-balance"
+	}
+	return "/api/reports/trial-balance?" + encoded
 }

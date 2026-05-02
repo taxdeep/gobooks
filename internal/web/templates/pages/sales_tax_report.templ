@@ -3,6 +3,8 @@ package pages
 
 import (
 	"fmt"
+	"net/url"
+
 	"balanciz/internal/web/templates/layout"
 	"balanciz/internal/web/templates/ui"
 )
@@ -195,6 +197,28 @@ templ bodyAccountTransactions(vm AccountTransactionsVM) {
 		@ReportToolbar(vm.Toolbar)
 
 		if vm.Report != nil {
+			@accountTransactionsReactIsland(vm)
+		} else if vm.FormError == "" {
+			<div class="mt-6 rounded-lg border border-border bg-surface p-8 text-center text-text-muted2">
+				No results were found.<br/>
+				<span class="text-small mt-1 block">Try choosing a different date range or account.</span>
+			</div>
+		}
+	</div>
+}
+
+templ accountTransactionsReactIsland(vm AccountTransactionsVM) {
+	<div
+		id="account-transactions-island"
+		data-gb-react="account-transactions"
+		data-api-url={ accountTransactionsAPIHref(vm) }
+	>
+		@accountTransactionsFallback(vm)
+	</div>
+	<script type="module" src="/static/react/account_transactions.js?v=1"></script>
+}
+
+templ accountTransactionsFallback(vm AccountTransactionsVM) {
 			<div class="mt-6 rounded-lg border border-border bg-surface overflow-x-auto">
 				// Account header
 				<div class="px-6 py-4 border-b border-border bg-surface-tableHeader">
@@ -284,13 +308,27 @@ templ bodyAccountTransactions(vm AccountTransactionsVM) {
 					</tbody>
 				</table>
 			</div>
-		} else if vm.FormError == "" {
-			<div class="mt-6 rounded-lg border border-border bg-surface p-8 text-center text-text-muted2">
-				No results were found.<br/>
-				<span class="text-small mt-1 block">Try choosing a different date range or account.</span>
-			</div>
-		}
-	</div>
+}
+
+func accountTransactionsAPIHref(vm AccountTransactionsVM) string {
+	values := url.Values{}
+	if vm.AccountID != 0 {
+		values.Set("account_id", fmt.Sprintf("%d", vm.AccountID))
+	}
+	if vm.Toolbar.Preset != "" {
+		values.Set("period", vm.Toolbar.Preset)
+	}
+	if vm.DateFrom != "" {
+		values.Set("from", vm.DateFrom)
+	}
+	if vm.DateTo != "" {
+		values.Set("to", vm.DateTo)
+	}
+	encoded := values.Encode()
+	if encoded == "" {
+		return "/api/reports/account-transactions"
+	}
+	return "/api/reports/account-transactions?" + encoded
 }
 
 // accountDetailLabel returns a human-readable "Root > Detail" label.

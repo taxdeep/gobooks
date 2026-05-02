@@ -518,6 +518,110 @@ async function testJournalEntryCurrencyChangeConfirmation() {
   assert.equal(editor.lines[0].debit, '10.00');
 }
 
+async function testJournalEntryAccountPickerUsesSmartPickerContract() {
+  const fetchCalls = [];
+  const balancizFetch = async (url, options = {}) => {
+    fetchCalls.push({ url, options });
+    if (String(url).startsWith('/api/smart-picker/search?')) {
+      return {
+        ok: true,
+        async json() {
+          return {
+            request_id: 'je-account-request-1',
+            requires_backend_validation: true,
+            candidates: [
+              { id: '10', primary: 'Cash', secondary: '1000' },
+              { id: '20', primary: 'Sales Revenue', secondary: '4100' },
+            ],
+          };
+        },
+      };
+    }
+    return {
+      ok: true,
+      async json() {
+        return {};
+      },
+    };
+  };
+  const localStore = new Map();
+  const context = loadBrowserScript('journal_entry_fx.js', {
+    localStorage: {
+      getItem(key) {
+        return localStore.has(key) ? localStore.get(key) : null;
+      },
+      setItem(key, value) {
+        localStore.set(key, value);
+      },
+      removeItem(key) {
+        localStore.delete(key);
+      },
+    },
+    document: {
+      getElementById(id) {
+        if (id === 'balanciz-journal-accounts-data') {
+          return { textContent: '[]' };
+        }
+        if (id === 'balanciz-journal-currency-options') {
+          return { textContent: '["CAD"]' };
+        }
+        return null;
+      },
+    },
+    window: {
+      location: { search: '', pathname: '/journal-entry' },
+      balancizFetch,
+      crypto: {
+        randomUUID() {
+          return 'je-account-request-1';
+        },
+      },
+    },
+    crypto: {
+      randomUUID() {
+        return 'journal-line-3';
+      },
+    },
+  });
+
+  const editor = context.balancizJournalEntryDraft();
+  editor.$el = {
+    dataset: {
+      companyId: '42',
+      baseCurrency: 'CAD',
+      defaultCurrency: 'CAD',
+    },
+  };
+
+  editor.init();
+  const line = editor.lines[0];
+  line.acctQuery = 'cash';
+  await editor.onAcctQueryInput(line);
+
+  const searchCalls = fetchCalls.filter(call => String(call.url).startsWith('/api/smart-picker/search?'));
+  assert.equal(searchCalls.length, 1);
+  const requestURL = new URL(searchCalls[0].url, 'https://example.test');
+  assert.equal(requestURL.pathname, '/api/smart-picker/search');
+  assert.equal(requestURL.searchParams.get('entity'), 'account');
+  assert.equal(requestURL.searchParams.get('context'), 'journal_entry_account');
+  assert.equal(requestURL.searchParams.get('q'), 'cash');
+  assert.equal(requestURL.searchParams.get('limit'), '20');
+  assert.equal(line.acctItems.length, 2);
+  assert.equal(line.acctItems[0].code, '1000');
+
+  editor.selectAccount(line, line.acctItems[0], 0);
+  assert.equal(line.account_id, '10');
+  assert.equal(line.acctQuery, '1000 - Cash');
+
+  const usageCalls = fetchCalls.filter(call => String(call.url) === '/api/smart-picker/usage');
+  assert.equal(usageCalls.length, 1);
+  const usagePayload = JSON.parse(usageCalls[0].options.body);
+  assert.equal(usagePayload.entity, 'account');
+  assert.equal(usagePayload.context, 'journal_entry_account');
+  assert.equal(usagePayload.event_type, 'select');
+  assert.equal(usagePayload.request_id, 'je-account-request-1');
+}
+
 async function run() {
   const tests = [
     {
@@ -551,6 +655,10 @@ async function run() {
     {
       name: 'journal entry currency change confirmation restores prior currency on cancel',
       fn: testJournalEntryCurrencyChangeConfirmation,
+    },
+    {
+      name: 'journal entry account picker uses SmartPicker search contract',
+      fn: testJournalEntryAccountPickerUsesSmartPickerContract,
     },
   ];
 

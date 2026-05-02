@@ -35,7 +35,7 @@ func TestJournalEntryPage_UsesFXBlockDarkControlsAndSingleInitPath(t *testing.T)
 		`@input="onRateInput()"`,
 		`Transaction Difference`,
 		`Base Difference`,
-		`/static/journal_entry_fx.js?v=5`,
+		`/static/journal_entry_fx.js?v=6`,
 		`data-default-journal-no="JE-0001"`,
 		`name="suggested_journal_no" value="JE-0001"`,
 		`Auto-assigned by the system. You can edit it before saving.`,
@@ -139,10 +139,13 @@ func TestJournalEntryListPage_UsesSingleRowFilterGrid(t *testing.T) {
 	html := sb.String()
 
 	for _, want := range []string{
-		`md:grid-cols-[minmax(220px,1fr)_160px_160px_auto]`,
+		`md:grid-cols-[minmax(220px,1fr)_minmax(220px,320px)_160px_160px_auto]`,
 		`md:items-end`,
 		`whitespace-nowrap`,
 		`Journal no. or line memo`,
+		`data-context="journal_entry_account"`,
+		`data-field-name="account_id"`,
+		`data-selected-label="Cash (1000)"`,
 		`name="from"`,
 		`name="to"`,
 		`space-y-3`,

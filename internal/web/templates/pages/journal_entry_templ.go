@@ -10,9 +10,9 @@ package pages
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "balanciz/internal/web/templates/layout"
-import "balanciz/internal/web/templates/ui"
-
+// JournalEntry is kept as a compatibility component for older call sites.
+// The active JE implementation currently lives in JournalEntryPage so there is
+// only one rendered UI path while the page is migrated back to native templ.
 func JournalEntry(vm JournalEntryVM) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -34,162 +34,7 @@ func JournalEntry(vm JournalEntryVM) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = layout.Layout(
-			"Balanciz - Journal Entry",
-			ui.SidebarVM{Active: "Journal Entry", HasCompany: vm.HasCompany},
-			bodyJournalEntry(vm),
-		).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		return nil
-	})
-}
-
-func bodyJournalEntry(vm JournalEntryVM) templ.Component {
-	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
-			return templ_7745c5c3_CtxErr
-		}
-		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-		if !templ_7745c5c3_IsBuffer {
-			defer func() {
-				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err == nil {
-					templ_7745c5c3_Err = templ_7745c5c3_BufErr
-				}
-			}()
-		}
-		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var2 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var2 == nil {
-			templ_7745c5c3_Var2 = templ.NopComponent
-		}
-		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"max-w-[95%]\" x-data=\"balancizJournalEntryDraft()\" x-init=\"init()\" data-company-id=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var3 string
-		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(Uitoa(vm.ActiveCompanyID))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/journal_entry.templ`, Line: 16, Col: 122}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = JournalAccountsJSONScript(vm.AccountsDataJSON).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div><div class=\"flex items-center justify-between\"><h1 class=\"text-title font-semibold\">Journal Entry</h1><a href=\"/journal-entry/list\" class=\"rounded-md border border-border-input px-3 py-2 text-body font-medium text-text-muted3 hover:bg-background\">View Entries</a></div><p class=\"mt-2 text-text-muted2\">A journal entry records a transaction using double-entry accounting: total debits must equal total credits.</p></div>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if vm.Saved {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"mt-4 rounded-md border border-success-border bg-success-soft p-4 text-body text-success-hover\">Journal entry posted.</div>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		if vm.FormError != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div class=\"mt-4 rounded-md border border-border-danger bg-danger-soft p-4 text-body text-danger-hover\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var4 string
-			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(vm.FormError)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/journal_entry.templ`, Line: 33, Col: 18}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<form method=\"post\" action=\"/journal-entry\" class=\"mt-6 space-y-6\" @submit=\"beforeSubmit($event)\"><div class=\"rounded-lg border border-border bg-surface p-6\"><div class=\"grid grid-cols-1 gap-6 md:grid-cols-2\"><div><label class=\"block text-body font-medium text-text\">Date *</label> <input type=\"date\" name=\"entry_date\" x-model=\"header.entry_date\" class=\"mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus\"></div><div><label class=\"block text-body font-medium text-text\">Journal No.</label> <input type=\"text\" name=\"journal_no\" x-model=\"header.journal_no\" placeholder=\"Optional, e.g. JE-001\" class=\"mt-2 block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus\"></div></div></div><div class=\"rounded-lg border border-border bg-surface p-6\"><div class=\"flex items-center justify-between\"><h2 class=\"text-section font-semibold text-text\">Lines</h2><button type=\"button\" class=\"inline-flex items-center gap-2 rounded-md border border-border-input px-3 py-2 text-body font-semibold text-primary hover:bg-background hover:text-primary-hover\" @click=\"addLine()\"><span>+</span> <span>Add</span></button></div><div class=\"mt-4 w-[95%] overflow-visible\"><table class=\"w-full table-fixed text-left text-body\"><thead class=\"text-small uppercase tracking-wider text-text-muted\"><tr class=\"border-b border-border\"><th class=\"py-3 pr-4 w-[28%]\">Account</th><th class=\"py-3 pr-4 w-[12%]\">Debit</th><th class=\"py-3 pr-4 w-[12%]\">Credit</th><th class=\"py-3 pr-4 w-[20%]\">Name</th><th class=\"py-3 pr-0 w-[28%]\">Memo</th></tr></thead> <tbody><template x-for=\"(line, idx) in lines\" :key=\"line.key\"><tr class=\"border-b border-border-subtle align-top\"><td class=\"w-[28%] min-w-0 max-w-[28%] overflow-visible py-3 pr-4 align-top\"><!-- Anchor: only this block is position:relative; dropdown is absolutely positioned inside it (not td/table). --><div class=\"relative block w-full min-w-0 max-w-full\"><input type=\"hidden\" :name=\"`lines[${idx}][account_id]`\" :value=\"line.account_id\"> <input type=\"text\" autocomplete=\"off\" placeholder=\"Search by code or name…\" x-model=\"line.acctQuery\" @focus=\"openAcctPicker(line)\" @blur=\"onAcctBlur(line)\" @input=\"onAcctQueryInput(line)\" @keydown=\"onAcctKeydown(line, $event)\" class=\"block w-full min-w-0 max-w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus\" :class=\"line.errors.account ? 'border-danger' : 'border-border-input'\"><ul x-show=\"line.acctOpen\" x-cloak class=\"absolute inset-x-0 top-full z-40 mt-0.5 max-h-48 min-w-0 box-border overflow-y-auto overflow-x-hidden rounded-md border border-border-input bg-surface py-0.5 shadow-md\" role=\"listbox\"><template x-if=\"line.acctOpen && filteredAccounts(line).length === 0\"><li class=\"px-2 py-1.5 text-small text-text-muted2\"><span x-show=\"accounts.length === 0\">No accounts available.</span> <span x-show=\"accounts.length > 0\">No matching accounts</span></li></template><template x-for=\"(acc, li) in filteredAccounts(line)\" :key=\"acc.id\"><li role=\"option\" @mousedown.prevent=\"selectAccount(line, acc)\" class=\"flex cursor-pointer items-center justify-between gap-2 px-2 py-1 text-small leading-snug hover:bg-background\" :class=\"line.acctHi === li ? 'bg-primary/10' : ''\"><div class=\"min-w-0 flex-1 truncate\"><span class=\"font-mono font-medium tabular-nums text-text\"><template x-for=\"(seg, si) in highlightSegments(acc.code, line.acctQuery)\" :key=\"'c' + si\"><span :class=\"seg.em ? 'font-semibold text-primary' : ''\" x-text=\"seg.text\"></span></template></span> <span class=\"text-text-muted3\">- </span> <span class=\"text-text\"><template x-for=\"(seg, si) in highlightSegments(acc.name, line.acctQuery)\" :key=\"'n' + si\"><span :class=\"seg.em ? 'font-semibold text-primary' : ''\" x-text=\"seg.text\"></span></template></span></div><span class=\"max-w-[42%] shrink-0 truncate pl-1 text-right text-small text-text-muted3\" x-text=\"acc.class\" x-show=\"acc.class\"></span></li></template></ul></div><div class=\"mt-1 text-small text-danger\" x-show=\"line.errors.account\" x-text=\"line.errors.account\"></div></td><td class=\"py-3 pr-4\"><input type=\"text\" inputmode=\"decimal\" :name=\"`lines[${idx}][debit]`\" x-model=\"line.debit\" @input=\"onDebitInput(line)\" placeholder=\"0.00\" class=\"block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus\"><div class=\"mt-1 text-small text-danger\" x-show=\"line.errors.amount\" x-text=\"line.errors.amount\"></div></td><td class=\"py-3 pr-4\"><input type=\"text\" inputmode=\"decimal\" :name=\"`lines[${idx}][credit]`\" x-model=\"line.credit\" @input=\"onCreditInput(line)\" placeholder=\"0.00\" class=\"block w-full rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus\"></td><td class=\"py-3 pr-4\"><select :name=\"`lines[${idx}][party]`\" x-model=\"line.party\" class=\"block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus\"><option value=\"\">-- None --</option> <optgroup label=\"Customers\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		for _, c := range vm.Customers {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<option value=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var5 string
-			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs("customer:" + Uitoa(c.ID))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/journal_entry.templ`, Line: 158, Col: 54}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var6 string
-			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(c.Name)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/journal_entry.templ`, Line: 158, Col: 65}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</option>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</optgroup> <optgroup label=\"Vendors\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		for _, v := range vm.Vendors {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<option value=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var7 string
-			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs("vendor:" + Uitoa(v.ID))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/journal_entry.templ`, Line: 163, Col: 52}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var8 string
-			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(v.Name)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/journal_entry.templ`, Line: 163, Col: 63}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</option>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</optgroup></select></td><td class=\"py-3 pr-0\"><div class=\"flex items-center gap-3\"><input type=\"text\" :name=\"`lines[${idx}][memo]`\" x-model=\"line.memo\" placeholder=\"\" class=\"flex-1 rounded-md border border-border-input px-3 py-2 text-body outline-none focus:ring-2 focus:ring-primary-focus\"> <button type=\"button\" class=\"rounded-md border border-border-input px-3 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text disabled:cursor-not-allowed disabled:opacity-50\" @click=\"removeLine(idx)\" :disabled=\"lines.length <= 2\">-</button></div></td></tr></template></tbody></table></div><div class=\"mt-4 flex flex-col gap-2\"><div class=\"flex items-center justify-between text-body\"><div class=\"text-danger-hover\" x-show=\"primaryError\" x-text=\"primaryError\"></div><div class=\"flex items-center gap-6\"><div><span class=\"text-text-muted2\">Total Debits:</span> <span class=\"font-semibold\" x-text=\"formatMoney(totals.debits)\"></span></div><div><span class=\"text-text-muted2\">Total Credits:</span> <span class=\"font-semibold\" x-text=\"formatMoney(totals.credits)\"></span></div></div></div><div class=\"text-body\" x-show=\"lines.length >= 2\"><span class=\"text-text-muted2\">Difference:</span> <span :class=\"diffOk ? 'text-text' : 'text-danger-hover'\" class=\"font-semibold\" x-text=\"formatMoney(difference)\"></span></div></div><div class=\"mt-6 flex items-center justify-end gap-3\"><button type=\"submit\" :disabled=\"!canSave\" :class=\"canSave ? 'bg-primary hover:bg-primary-hover text-onPrimary' : 'bg-disabled-bg text-disabled-text cursor-not-allowed'\" class=\"rounded-md px-4 py-2 text-body font-semibold\">Save</button></div></div></form></div><script src=\"/static/journal_entry.js?v=7\"></script>")
+		templ_7745c5c3_Err = JournalEntryPage(vm).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
