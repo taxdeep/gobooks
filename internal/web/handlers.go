@@ -41,8 +41,9 @@ func (s *Server) handleReportsHub(c *fiber.Ctx) error {
 	user := UserFromCtx(c)
 
 	vm := pages.ReportsHubVM{
-		HasCompany: hasCompany,
-		Categories: buildReportsHubCategories(),
+		HasCompany:  hasCompany,
+		CoreEntries: buildReportsHubItems(services.CoreReports()),
+		Categories:  buildReportsHubCategories(),
 	}
 	// Favourites only exist when both user + company are resolved.
 	// Pre-company users (mid-onboarding) get the categorized list with
@@ -63,22 +64,48 @@ func buildReportsHubCategories() []pages.ReportsHubCategoryVM {
 	cats := services.Categories()
 	out := make([]pages.ReportsHubCategoryVM, 0, len(cats))
 	for _, c := range cats {
-		entries := services.ReportsByCategory(c)
-		items := make([]pages.ReportsHubItemVM, 0, len(entries))
-		for _, e := range entries {
-			items = append(items, pages.ReportsHubItemVM{
-				Key:   e.Key,
-				Title: e.Title,
-				Desc:  e.Desc,
-				Href:  e.Href,
-			})
-		}
+		items := buildReportsHubItems(services.ReportsByCategory(c))
 		out = append(out, pages.ReportsHubCategoryVM{
 			Key:         string(c),
 			Label:       services.ReportCategoryLabel(c),
 			Description: services.ReportCategoryDescription(c),
 			Items:       items,
 		})
+	}
+	return out
+}
+
+func buildReportsHubItems(entries []services.ReportEntry) []pages.ReportsHubItemVM {
+	items := make([]pages.ReportsHubItemVM, 0, len(entries))
+	for _, e := range entries {
+		items = append(items, pages.ReportsHubItemVM{
+			Key:          e.Key,
+			Title:        e.Title,
+			Desc:         e.Desc,
+			Href:         e.Href,
+			Mode:         e.Mode,
+			CSVHref:      e.CSVHref,
+			Interactive:  e.Interactive,
+			DrillDown:    e.DrillDown,
+			Capabilities: reportCapabilities(e),
+		})
+	}
+	return items
+}
+
+func reportCapabilities(e services.ReportEntry) []string {
+	out := []string{}
+	if e.Mode != "" {
+		out = append(out, e.Mode)
+	}
+	if e.Interactive {
+		out = append(out, "Interactive")
+	}
+	if e.CSVHref != "" {
+		out = append(out, "CSV")
+	}
+	if e.DrillDown {
+		out = append(out, "Drill-through")
 	}
 	return out
 }
@@ -93,12 +120,7 @@ func collectFavouriteEntries(favs map[string]bool) []pages.ReportsHubItemVM {
 	out := []pages.ReportsHubItemVM{}
 	for _, e := range services.AllReports() {
 		if favs[e.Key] {
-			out = append(out, pages.ReportsHubItemVM{
-				Key:   e.Key,
-				Title: e.Title,
-				Desc:  e.Desc,
-				Href:  e.Href,
-			})
+			out = append(out, buildReportsHubItems([]services.ReportEntry{e})[0])
 		}
 	}
 	return out

@@ -1,9 +1,7 @@
-// 遵循project_guide.md
 package services
 
-// ReportCategory groups related reports on the Reports hub. Order
-// matters — slices iterate in display order so what you see in the
-// `Categories()` list IS the on-screen layout.
+// ReportCategory groups related reports on the Reports hub. Order matters;
+// slices iterate in display order so registry order is the on-screen layout.
 type ReportCategory string
 
 const (
@@ -16,9 +14,6 @@ const (
 	ReportCategoryAccountantTools ReportCategory = "accountant_tools"
 )
 
-// ReportCategoryLabel + ReportCategoryDescription drive the section
-// header on the Reports hub. Kept as functions (not constants) so a
-// future i18n layer can hook in without touching every call site.
 func ReportCategoryLabel(c ReportCategory) string {
 	switch c {
 	case ReportCategoryFinancials:
@@ -44,13 +39,13 @@ func ReportCategoryDescription(c ReportCategory) string {
 	case ReportCategoryFinancials:
 		return "The core statements that summarise your financial position and performance."
 	case ReportCategorySales:
-		return "Where your revenue comes from — sales activity broken down by customer."
+		return "Where your revenue comes from - sales activity broken down by customer."
 	case ReportCategoryExpenses:
-		return "Where your money goes — expense activity broken down by vendor."
+		return "Where your money goes - expense activity broken down by vendor."
 	case ReportCategoryWhoOwesYou:
-		return "Money your customers owe you — outstanding receivables and aging."
+		return "Money your customers owe you - outstanding receivables and aging."
 	case ReportCategoryWhatYouOwe:
-		return "Money you owe your vendors — outstanding payables and aging."
+		return "Money you owe your vendors - outstanding payables and aging."
 	case ReportCategorySalesTax:
 		return "Taxes collected and paid, ready for your sales tax filing."
 	case ReportCategoryAccountantTools:
@@ -59,125 +54,142 @@ func ReportCategoryDescription(c ReportCategory) string {
 	return ""
 }
 
-// ReportEntry is one report listed on the hub. Key is a stable
-// identifier used for favourites (must never change for an existing
-// report — that's the row ID in the report_favourites join). Href
-// is what the link points at.
+// ReportEntry is one report listed on the hub. Key is stable because it is
+// persisted by report_favourites.
 type ReportEntry struct {
-	Key      string
-	Title    string
-	Desc     string
-	Href     string
-	Category ReportCategory
+	Key         string
+	Title       string
+	Desc        string
+	Href        string
+	Category    ReportCategory
+	Core        bool
+	Mode        string
+	CSVHref     string
+	Interactive bool
+	DrillDown   bool
 }
 
-// AllReports is the canonical, ordered registry of every report
-// surfaced in the Reports hub. Add new reports here — the hub picks
-// them up automatically and the favourites toggle starts working
-// without any other glue.
-//
-// Renaming a report's Key would orphan existing favourites; if a
-// rename is unavoidable, write a migration that updates the
-// report_favourites.report_key column in place.
+// AllReports is the canonical, ordered registry of every report surfaced in
+// the Reports hub.
 func AllReports() []ReportEntry {
 	return []ReportEntry{
-		// ── Financial Statements ─────────────────────────────────────
 		{
-			Key:      "income-statement",
-			Title:    "Profit & Loss (Income Statement)",
-			Desc:     "Net profit for a period — revenues minus cost of sales minus expenses.",
-			Href:     "/reports/income-statement",
-			Category: ReportCategoryFinancials,
+			Key:         "income-statement",
+			Title:       "Profit & Loss (Income Statement)",
+			Desc:        "Net profit for a period - revenues minus cost of sales minus expenses.",
+			Href:        "/reports/income-statement",
+			Category:    ReportCategoryFinancials,
+			Core:        true,
+			Mode:        "Period",
+			CSVHref:     "/reports/income-statement/export.csv",
+			Interactive: true,
+			DrillDown:   true,
 		},
 		{
-			Key:      "balance-sheet",
-			Title:    "Balance Sheet",
-			Desc:     "Snapshot of finances on a given day — assets, liabilities, and equity.",
-			Href:     "/reports/balance-sheet",
-			Category: ReportCategoryFinancials,
+			Key:         "balance-sheet",
+			Title:       "Balance Sheet",
+			Desc:        "Snapshot of finances on a given day - assets, liabilities, and equity.",
+			Href:        "/reports/balance-sheet",
+			Category:    ReportCategoryFinancials,
+			Core:        true,
+			Mode:        "As-of",
+			CSVHref:     "/reports/balance-sheet/export.csv",
+			Interactive: true,
+			DrillDown:   true,
 		},
 		{
-			Key:      "trial-balance",
-			Title:    "Trial Balance",
-			Desc:     "Sum of debits and credits for every account on a single day. Helps catch posting errors.",
-			Href:     "/reports/trial-balance",
-			Category: ReportCategoryFinancials,
+			Key:         "trial-balance",
+			Title:       "Trial Balance",
+			Desc:        "Sum of debits and credits for every account in a period. Helps catch posting errors.",
+			Href:        "/reports/trial-balance",
+			Category:    ReportCategoryFinancials,
+			Core:        true,
+			Mode:        "Period",
+			CSVHref:     "/reports/trial-balance/export.csv",
+			Interactive: true,
+			DrillDown:   true,
 		},
 		{
-			Key:      "cash-flow",
-			Title:    "Cash Flow Summary",
-			Desc:     "Where your cash actually moved this period — opening, inflows, outflows, closing — grouped by source.",
-			Href:     "/reports/cash-flow",
-			Category: ReportCategoryFinancials,
+			Key:         "cash-flow",
+			Title:       "Cash Flow Summary",
+			Desc:        "Where your cash actually moved this period - opening, inflows, outflows, closing - grouped by source.",
+			Href:        "/reports/cash-flow",
+			Category:    ReportCategoryFinancials,
+			Core:        true,
+			Mode:        "Period",
+			Interactive: true,
+			DrillDown:   true,
 		},
-
-		// ── Sales ────────────────────────────────────────────────────
 		{
-			Key:      "sales-by-customer",
-			Title:    "Sales by Customer",
-			Desc:     "Posted invoices grouped by customer, sorted by total revenue. Click a customer to drill into their full activity.",
-			Href:     "/reports/sales-by-customer",
-			Category: ReportCategorySales,
+			Key:       "sales-by-customer",
+			Title:     "Sales by Customer",
+			Desc:      "Posted invoices grouped by customer, sorted by total revenue. Click a customer to drill into their full activity.",
+			Href:      "/reports/sales-by-customer",
+			Category:  ReportCategorySales,
+			Mode:      "Period",
+			DrillDown: true,
 		},
-
-		// ── Expenses ─────────────────────────────────────────────────
 		{
-			Key:      "expense-by-vendor",
-			Title:    "Expense by Vendor",
-			Desc:     "Posted bills + expenses grouped by vendor, sorted by total spend. Click a vendor to drill into their full activity.",
-			Href:     "/reports/expense-by-vendor",
-			Category: ReportCategoryExpenses,
+			Key:       "expense-by-vendor",
+			Title:     "Expense by Vendor",
+			Desc:      "Posted bills + expenses grouped by vendor, sorted by total spend. Click a vendor to drill into their full activity.",
+			Href:      "/reports/expense-by-vendor",
+			Category:  ReportCategoryExpenses,
+			Mode:      "Period",
+			DrillDown: true,
 		},
-
-		// ── Who owes you ─────────────────────────────────────────────
 		{
 			Key:      "ar-aging",
 			Title:    "A/R Aging",
 			Desc:     "Outstanding receivables grouped by how long each balance has been due.",
 			Href:     "/reports/ar-aging",
 			Category: ReportCategoryWhoOwesYou,
+			Mode:     "As-of",
+			CSVHref:  "/reports/ar-aging/export.csv",
 		},
-
-		// ── What you owe ─────────────────────────────────────────────
 		{
 			Key:      "ap-aging",
 			Title:    "A/P Aging",
 			Desc:     "Open bill balances grouped by how long each amount has been outstanding to vendors.",
 			Href:     "/ap-aging",
 			Category: ReportCategoryWhatYouOwe,
-		},
-
-		// ── Sales Tax ────────────────────────────────────────────────
-		{
-			Key:      "sales-tax",
-			Title:    "Sales Tax Report",
-			Desc:     "A breakdown of taxes collected from sales and paid on purchases. Use to prepare your sales tax returns.",
-			Href:     "/reports/sales-tax",
-			Category: ReportCategorySalesTax,
-		},
-
-		// ── For my accountant ───────────────────────────────────────
-		{
-			Key:      "general-ledger",
-			Title:    "General Ledger",
-			Desc:     "Every account's posting trail in one document — opening balance, period activity, ending balance.",
-			Href:     "/reports/general-ledger",
-			Category: ReportCategoryAccountantTools,
+			Mode:     "As-of",
 		},
 		{
-			Key:      "journal-entries",
-			Title:    "Journal Entries",
-			Desc:     "Every posted journal entry with reverse + drill-through to source documents.",
-			Href:     "/reports/journal-entries",
-			Category: ReportCategoryAccountantTools,
+			Key:       "sales-tax",
+			Title:     "Sales Tax Report",
+			Desc:      "A breakdown of taxes collected from sales and paid on purchases. Use to prepare your sales tax returns.",
+			Href:      "/reports/sales-tax",
+			Category:  ReportCategorySalesTax,
+			Mode:      "Period",
+			DrillDown: true,
+		},
+		{
+			Key:         "general-ledger",
+			Title:       "General Ledger",
+			Desc:        "Every account's posting trail in one document - opening balance, period activity, ending balance.",
+			Href:        "/reports/general-ledger",
+			Category:    ReportCategoryAccountantTools,
+			Core:        true,
+			Mode:        "Period",
+			Interactive: true,
+			DrillDown:   true,
+		},
+		{
+			Key:         "journal-entries",
+			Title:       "Journal Entries",
+			Desc:        "Every posted journal entry with reverse + drill-through to source documents.",
+			Href:        "/reports/journal-entries",
+			Category:    ReportCategoryAccountantTools,
+			Core:        true,
+			Mode:        "Period",
+			Interactive: true,
+			DrillDown:   true,
 		},
 	}
 }
 
 // ReportByKey returns the registry entry for a Key, or nil if unknown.
-// Used by the favourites endpoint to validate the key against the
-// canonical list before persisting (so a typo in the form can't
-// pollute the table with garbage).
 func ReportByKey(key string) *ReportEntry {
 	for _, r := range AllReports() {
 		if r.Key == key {
@@ -188,8 +200,6 @@ func ReportByKey(key string) *ReportEntry {
 }
 
 // Categories returns the ordered list of categories used on the hub.
-// Computed from AllReports() so adding a new category there
-// automatically flows here without a second source of truth.
 func Categories() []ReportCategory {
 	seen := map[ReportCategory]bool{}
 	out := []ReportCategory{}
@@ -203,12 +213,22 @@ func Categories() []ReportCategory {
 	return out
 }
 
-// ReportsByCategory returns the entries in one category, in registry
-// order.
+// ReportsByCategory returns the entries in one category, in registry order.
 func ReportsByCategory(c ReportCategory) []ReportEntry {
 	out := []ReportEntry{}
 	for _, r := range AllReports() {
 		if r.Category == c {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// CoreReports returns the primary report package in registry order.
+func CoreReports() []ReportEntry {
+	out := []ReportEntry{}
+	for _, r := range AllReports() {
+		if r.Core {
 			out = append(out, r)
 		}
 	}

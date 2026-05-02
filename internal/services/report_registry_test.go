@@ -84,3 +84,21 @@ func TestReportsByCategory_FiltersCorrectly(t *testing.T) {
 		}
 	}
 }
+
+func TestCoreReportsHaveOperationalMetadata(t *testing.T) {
+	core := CoreReports()
+	if len(core) < 4 {
+		t.Fatalf("expected core report package, got %d reports", len(core))
+	}
+	for _, r := range core {
+		if r.Mode == "" {
+			t.Errorf("core report %q has empty Mode", r.Key)
+		}
+		if !r.Interactive {
+			t.Errorf("core report %q should be marked interactive", r.Key)
+		}
+		if !r.DrillDown {
+			t.Errorf("core report %q should expose drill-through", r.Key)
+		}
+	}
+}

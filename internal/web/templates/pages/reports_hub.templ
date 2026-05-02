@@ -1,4 +1,3 @@
-// 遵循project_guide.md
 package pages
 
 import (
@@ -6,24 +5,13 @@ import (
 	"balanciz/internal/web/templates/ui"
 )
 
-// ReportsHubVM drives the categorized Reports landing page. Categories
-// render in registry order; the Favourites section appears at the top
-// only when the operator has starred at least one report.
 type ReportsHubVM struct {
 	HasCompany bool
 
-	// Favourites is a per-(user, company) map keyed by report Key
-	// (services.AllReports() Key field). Used by the star icons to
-	// decide filled vs empty rendering. May be nil for pre-company
-	// users — treat nil and empty as equivalent.
-	Favourites map[string]bool
-	// FavouriteEntries is the resolved list of starred reports in
-	// registry order. Empty / nil → Favourites section is hidden.
+	Favourites       map[string]bool
 	FavouriteEntries []ReportsHubItemVM
-
-	// Categories drives the main report list. Each category renders
-	// its label / description / item rows.
-	Categories []ReportsHubCategoryVM
+	CoreEntries      []ReportsHubItemVM
+	Categories       []ReportsHubCategoryVM
 }
 
 type ReportsHubCategoryVM struct {
@@ -34,10 +22,15 @@ type ReportsHubCategoryVM struct {
 }
 
 type ReportsHubItemVM struct {
-	Key   string // services.AllReports() Key — used by the favourite-toggle form
-	Title string
-	Desc  string
-	Href  string
+	Key          string
+	Title        string
+	Desc         string
+	Href         string
+	Mode         string
+	CSVHref      string
+	Interactive  bool
+	DrillDown    bool
+	Capabilities []string
 }
 
 templ ReportsHub(vm ReportsHubVM) {
@@ -50,8 +43,20 @@ templ ReportsHub(vm ReportsHubVM) {
 
 templ bodyReportsHub(vm ReportsHubVM) {
 	<div class="max-w-[95%]">
-		<h1 class="text-title font-semibold">Reports</h1>
-		<div class="mt-6 space-y-4">
+		<div class="flex flex-wrap items-end justify-between gap-3">
+			<div>
+				<h1 class="text-title font-semibold text-text">Reports</h1>
+				<p class="mt-1 text-small text-text-muted2">Core statements, audit trails, and operational reports in one place.</p>
+			</div>
+			<div class="text-small text-text-muted2">
+				Interactive reports keep a server-rendered fallback for delivery.
+			</div>
+		</div>
+
+		<div class="mt-5 space-y-4">
+			if len(vm.CoreEntries) > 0 {
+				@reportsHubCore(vm.CoreEntries, vm.Favourites)
+			}
 
 			if len(vm.FavouriteEntries) > 0 {
 				@reportsHubFavourites(vm.FavouriteEntries)
@@ -60,22 +65,58 @@ templ bodyReportsHub(vm ReportsHubVM) {
 			for _, cat := range vm.Categories {
 				@reportsHubCategorySection(cat, vm.Favourites)
 			}
-
 		</div>
 	</div>
 }
 
-// reportsHubFavourites renders the per-user starred set at the top of
-// the page. Each row uses the same star toggle so the operator can
-// un-star from the favourites strip without scrolling down.
+templ reportsHubCore(items []ReportsHubItemVM, favs map[string]bool) {
+	<section class="rounded-lg border border-border bg-surface">
+		<div class="border-b border-border px-5 py-4">
+			<div class="flex flex-wrap items-center justify-between gap-2">
+				<div>
+					<h2 class="text-section font-semibold text-text">Core Report Package</h2>
+					<p class="mt-1 text-small text-text-muted2">Statements and posting trails used for close, review, and handoff.</p>
+				</div>
+				<div class="text-small text-text-muted2">React + API where data density matters</div>
+			</div>
+		</div>
+		<div class="grid grid-cols-1 divide-y divide-border md:grid-cols-2 md:divide-x md:divide-y-0 xl:grid-cols-3">
+			for _, item := range items {
+				@reportsHubCoreCard(item, favs[item.Key])
+			}
+		</div>
+	</section>
+}
+
+templ reportsHubCoreCard(item ReportsHubItemVM, starred bool) {
+	<div class="flex min-h-[11rem] flex-col justify-between border-b border-border px-5 py-4 hover:bg-background md:border-b-0">
+		<div>
+			<div class="flex items-start justify-between gap-3">
+				<a href={ templ.SafeURL(item.Href) } class="min-w-0">
+					<h3 class="text-body font-semibold text-primary hover:underline">{ item.Title }</h3>
+				</a>
+				@reportsHubStarButton(item, starred)
+			</div>
+			<p class="mt-2 text-small text-text-muted2">{ item.Desc }</p>
+		</div>
+		<div class="mt-4 flex flex-wrap items-center gap-2">
+			@reportsHubCapabilityBadges(item.Capabilities)
+		</div>
+		<div class="mt-4 flex items-center gap-2">
+			<a href={ templ.SafeURL(item.Href) } class="rounded-md bg-primary px-3 py-2 text-small font-semibold text-onPrimary hover:bg-primary-hover">Open</a>
+			if item.CSVHref != "" {
+				<a href={ templ.SafeURL(item.CSVHref) } class="rounded-md border border-border-input px-3 py-2 text-small font-semibold text-text hover:bg-background">CSV</a>
+			}
+		</div>
+	</div>
+}
+
 templ reportsHubFavourites(items []ReportsHubItemVM) {
-	<div class="rounded-lg border border-border bg-surface">
+	<section class="rounded-lg border border-border bg-surface">
 		<div class="grid grid-cols-1 divide-y divide-border md:grid-cols-[260px_1fr] md:divide-x md:divide-y-0">
-			<div class="p-6">
+			<div class="p-5">
 				<h2 class="text-section font-semibold text-text">Favourites</h2>
-				<p class="mt-2 text-small text-text-muted2">
-					The reports you've starred. Use the star icon on any report below to add or remove it from this list.
-				</p>
+				<p class="mt-2 text-small text-text-muted2">Starred reports stay here in registry order.</p>
 			</div>
 			<div class="divide-y divide-border">
 				for _, item := range items {
@@ -83,16 +124,13 @@ templ reportsHubFavourites(items []ReportsHubItemVM) {
 				}
 			</div>
 		</div>
-	</div>
+	</section>
 }
 
-// reportsHubCategorySection renders one category card with its title,
-// description, and report rows. Star state is read from `favs` so all
-// renders of the same item share one source of truth.
 templ reportsHubCategorySection(cat ReportsHubCategoryVM, favs map[string]bool) {
-	<div class="rounded-lg border border-border bg-surface">
+	<section class="rounded-lg border border-border bg-surface">
 		<div class="grid grid-cols-1 divide-y divide-border md:grid-cols-[260px_1fr] md:divide-x md:divide-y-0">
-			<div class="p-6">
+			<div class="p-5">
 				<h2 class="text-section font-semibold text-text">{ cat.Label }</h2>
 				<p class="mt-2 text-small text-text-muted2">{ cat.Description }</p>
 			</div>
@@ -102,40 +140,50 @@ templ reportsHubCategorySection(cat ReportsHubCategoryVM, favs map[string]bool) 
 				}
 			</div>
 		</div>
-	</div>
+	</section>
 }
 
-// reportsHubRow is one report's display row inside a category. The
-// star button is a tiny POST form so the toggle works without JS;
-// the chevron is just visual affordance for the link.
 templ reportsHubRow(item ReportsHubItemVM, starred bool) {
-	<div class="group flex items-center justify-between px-6 py-4 hover:bg-background">
+	<div class="group flex items-center justify-between px-5 py-4 hover:bg-background">
 		<a href={ templ.SafeURL(item.Href) } class="min-w-0 flex-1 pr-4">
 			<div class="text-body font-medium text-primary group-hover:underline">{ item.Title }</div>
 			<p class="mt-0.5 text-small text-text-muted2">{ item.Desc }</p>
+			<div class="mt-2 flex flex-wrap gap-1.5">
+				@reportsHubCapabilityBadges(item.Capabilities)
+			</div>
 		</a>
 		<div class="flex items-center gap-3">
-			<form method="post" action="/reports/favourites/toggle">
-				<input type="hidden" name="report_key" value={ item.Key }/>
-				if starred {
-					<button type="submit" title="Remove from favourites" class="text-warning hover:text-warning-hover" aria-label="Remove from favourites">
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-							<path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.367 2.446a1 1 0 00-.364 1.118l1.286 3.957c.299.921-.756 1.688-1.54 1.118L10 15.347l-3.366 2.446c-.784.57-1.838-.197-1.54-1.118l1.286-3.957a1 1 0 00-.364-1.118L2.65 9.154c-.783-.57-.38-1.81.588-1.81h4.162a1 1 0 00.95-.69l1.286-3.957z"/>
-						</svg>
-					</button>
-				} else {
-					<button type="submit" title="Add to favourites" class="text-text-muted3 hover:text-warning" aria-label="Add to favourites">
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.367 2.446a1 1 0 00-.364 1.118l1.286 3.957c.299.921-.756 1.688-1.54 1.118L12 15.347l-3.366 2.446c-.784.57-1.838-.197-1.54-1.118l1.286-3.957a1 1 0 00-.364-1.118L4.65 9.154c-.783-.57-.38-1.81.588-1.81h4.162a1 1 0 00.95-.69l1.286-3.957z"/>
-						</svg>
-					</button>
-				}
-			</form>
-			<a href={ templ.SafeURL(item.Href) } class="text-text-muted3" tabindex="-1">
+			@reportsHubStarButton(item, starred)
+			<a href={ templ.SafeURL(item.Href) } class="text-text-muted3" tabindex="-1" aria-label={ "Open " + item.Title }>
 				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+					<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path>
 				</svg>
 			</a>
 		</div>
 	</div>
+}
+
+templ reportsHubCapabilityBadges(labels []string) {
+	for _, label := range labels {
+		<span class="rounded border border-border-subtle bg-background px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">{ label }</span>
+	}
+}
+
+templ reportsHubStarButton(item ReportsHubItemVM, starred bool) {
+	<form method="post" action="/reports/favourites/toggle">
+		<input type="hidden" name="report_key" value={ item.Key }/>
+		if starred {
+			<button type="submit" title="Remove from favourites" class="text-warning hover:text-warning-hover" aria-label="Remove from favourites">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+					<path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.367 2.446a1 1 0 00-.364 1.118l1.286 3.957c.299.921-.756 1.688-1.54 1.118L10 15.347l-3.366 2.446c-.784.57-1.838-.197-1.54-1.118l1.286-3.957a1 1 0 00-.364-1.118L2.65 9.154c-.783-.57-.38-1.81.588-1.81h4.162a1 1 0 00.95-.69l1.286-3.957z"></path>
+				</svg>
+			</button>
+		} else {
+			<button type="submit" title="Add to favourites" class="text-text-muted3 hover:text-warning" aria-label="Add to favourites">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.367 2.446a1 1 0 00-.364 1.118l1.286 3.957c.299.921-.756 1.688-1.54 1.118L12 15.347l-3.366 2.446c-.784.57-1.838-.197-1.54-1.118l1.286-3.957a1 1 0 00-.364-1.118L4.65 9.154c-.783-.57-.38-1.81.588-1.81h4.162a1 1 0 00.95-.69l1.286-3.957z"></path>
+				</svg>
+			</button>
+		}
+	</form>
 }
