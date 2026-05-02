@@ -1,7 +1,8 @@
-// 遵循project_guide.md
 package pages
 
 import (
+	"net/url"
+
 	"balanciz/internal/models"
 	"balanciz/internal/web/templates/layout"
 	"balanciz/internal/web/templates/ui"
@@ -27,25 +28,55 @@ templ bodyIncomeStatement(vm IncomeStatementVM) {
 
 		@ReportToolbar(vm.Toolbar)
 
-		// One unified table. Revenue + COGS sections build up to a
-		// Gross Profit summary row; Expenses section builds down to
-		// Net Income. Mirrors the QB Profit & Loss visual layout.
-		// Section renderer is shared with Balance Sheet via
-		// renderAccountLinesSection.
-		{{ revLines, revDetails := isLinesToReportLines(vm.Report.Revenue) }}
-		{{ cogsLines, cogsDetails := isLinesToReportLines(vm.Report.CostOfSales) }}
-		{{ expLines, expDetails := isLinesToReportLines(vm.Report.Expenses) }}
-		<div class="mt-4 rounded-lg border border-border bg-surface overflow-x-auto">
-			<table class="w-full text-left text-body">
-				<tbody class="text-text">
-					@renderAccountLinesSection("Revenue", models.RootRevenue, revLines, revDetails, vm.Report.TotalRevenue, vm.Report.FromDate, vm.Report.ToDate)
-					@renderAccountLinesSection("Cost of Sales", models.RootCostOfSales, cogsLines, cogsDetails, vm.Report.TotalCostOfSales, vm.Report.FromDate, vm.Report.ToDate)
-					@reportSummaryRow("Gross Profit", vm.Report.GrossProfit)
-					@reportSpacerRow()
-					@renderAccountLinesSection("Expenses", models.RootExpense, expLines, expDetails, vm.Report.TotalExpenses, vm.Report.FromDate, vm.Report.ToDate)
-					@reportSummaryRow("Net Income", vm.Report.NetIncome)
-				</tbody>
-			</table>
-		</div>
+		if vm.FormError == "" {
+			@incomeStatementReactIsland(vm)
+		}
 	</div>
+}
+
+templ incomeStatementReactIsland(vm IncomeStatementVM) {
+	<div
+		id="income-statement-island"
+		data-gb-react="income-statement"
+		data-api-url={ incomeStatementAPIHref(vm) }
+	>
+		@incomeStatementFallback(vm)
+	</div>
+	<script type="module" src="/static/react/income_statement.js?v=1"></script>
+}
+
+templ incomeStatementFallback(vm IncomeStatementVM) {
+	{{ revLines, revDetails := isLinesToReportLines(vm.Report.Revenue) }}
+	{{ cogsLines, cogsDetails := isLinesToReportLines(vm.Report.CostOfSales) }}
+	{{ expLines, expDetails := isLinesToReportLines(vm.Report.Expenses) }}
+	<div class="mt-4 rounded-lg border border-border bg-surface overflow-x-auto">
+		<table class="w-full text-left text-body">
+			<tbody class="text-text">
+				@renderAccountLinesSection("Revenue", models.RootRevenue, revLines, revDetails, vm.Report.TotalRevenue, vm.Report.FromDate, vm.Report.ToDate)
+				@renderAccountLinesSection("Cost of Sales", models.RootCostOfSales, cogsLines, cogsDetails, vm.Report.TotalCostOfSales, vm.Report.FromDate, vm.Report.ToDate)
+				@reportSummaryRow("Gross Profit", vm.Report.GrossProfit)
+				@reportSpacerRow()
+				@renderAccountLinesSection("Expenses", models.RootExpense, expLines, expDetails, vm.Report.TotalExpenses, vm.Report.FromDate, vm.Report.ToDate)
+				@reportSummaryRow("Net Income", vm.Report.NetIncome)
+			</tbody>
+		</table>
+	</div>
+}
+
+func incomeStatementAPIHref(vm IncomeStatementVM) string {
+	values := url.Values{}
+	if vm.Toolbar.Preset != "" {
+		values.Set("period", vm.Toolbar.Preset)
+	}
+	if vm.From != "" {
+		values.Set("from", vm.From)
+	}
+	if vm.To != "" {
+		values.Set("to", vm.To)
+	}
+	encoded := values.Encode()
+	if encoded == "" {
+		return "/api/reports/income-statement"
+	}
+	return "/api/reports/income-statement?" + encoded
 }
