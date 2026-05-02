@@ -1,7 +1,8 @@
-// 遵循project_guide.md
 package pages
 
 import (
+	"net/url"
+
 	"balanciz/internal/services"
 	"balanciz/internal/web/templates/layout"
 	"balanciz/internal/web/templates/ui"
@@ -29,14 +30,9 @@ templ bodyCashFlow(vm CashFlowVM) {
 	<div class="max-w-[95%]">
 		@ReportPageHeader("Cash Flow Summary")
 
-		// Honest scope disclaimer — this isn't a GAAP indirect-method
-		// statement of cash flows. It's the more useful "where did my
-		// cash actually move" view that small-business operators reach
-		// for. The disclaimer matters because anyone expecting the
-		// formal version would miss the working-capital adjustments.
 		<div class="mt-2 rounded-md border border-border bg-background p-2.5 text-small text-text-muted2">
 			This report shows the actual cash movements in your bank-type accounts, grouped by source.
-			It is not a GAAP indirect-method statement of cash flows — it does not separate operating /
+			It is not a GAAP indirect-method statement of cash flows; it does not separate operating /
 			investing / financing activities or apply non-cash adjustments.
 		</div>
 
@@ -49,19 +45,36 @@ templ bodyCashFlow(vm CashFlowVM) {
 		@ReportToolbar(vm.Toolbar)
 
 		if vm.Report != nil {
-			if len(vm.Report.Accounts) == 0 {
-				<div class="mt-4 rounded-lg border border-border bg-surface p-4 text-text-muted2">
-					No bank-type accounts found. Mark at least one account as "Bank" in the chart of accounts to see cash flow data here.
-				</div>
-			} else {
-				<div class="mt-4 space-y-3">
-					@cashFlowSummaryHeader(vm.Report)
-					@cashFlowAccountsTable(vm.Report)
-					@cashFlowSourceTables(vm.Report)
-				</div>
-			}
+			@cashFlowReactIsland(vm)
 		}
 	</div>
+}
+
+templ cashFlowReactIsland(vm CashFlowVM) {
+	<div
+		id="cash-flow-island"
+		data-gb-react="cash-flow"
+		data-api-url={ cashFlowAPIHref(vm) }
+	>
+		@cashFlowFallback(vm.Report)
+	</div>
+	<script type="module" src="/static/react/cash_flow.js?v=1"></script>
+}
+
+templ cashFlowFallback(report *services.CashFlowReport) {
+	if report != nil {
+		if len(report.Accounts) == 0 {
+			<div class="mt-4 rounded-lg border border-border bg-surface p-4 text-text-muted2">
+				No bank-type accounts found. Mark at least one account as "Bank" in the chart of accounts to see cash flow data here.
+			</div>
+		} else {
+			<div class="mt-4 space-y-3">
+				@cashFlowSummaryHeader(report)
+				@cashFlowAccountsTable(report)
+				@cashFlowSourceTables(report)
+			</div>
+		}
+	}
 }
 
 templ cashFlowSummaryHeader(report *services.CashFlowReport) {
@@ -113,9 +126,9 @@ templ cashFlowAccountsTable(report *services.CashFlowReport) {
 					<tr class="border-b border-border-subtle/60 hover:bg-background">
 						<td class="px-4 py-1.5">
 							if drillURL != "" {
-								<a href={ templ.SafeURL(drillURL) } class="text-primary hover:underline">{ a.AccountCode } — { a.AccountName }</a>
+								<a href={ templ.SafeURL(drillURL) } class="text-primary hover:underline">{ a.AccountCode } - { a.AccountName }</a>
 							} else {
-								{ a.AccountCode } — { a.AccountName }
+								{ a.AccountCode } - { a.AccountName }
 							}
 						</td>
 						<td class="px-4 py-1.5 text-right tabular-nums" data-numfmt>{ Money(a.OpeningBalance) }</td>
@@ -166,4 +179,22 @@ templ cashFlowSourceSection(title string, rows []services.CashFlowSourceRow, isI
 			</table>
 		}
 	</div>
+}
+
+func cashFlowAPIHref(vm CashFlowVM) string {
+	values := url.Values{}
+	if vm.Toolbar.Preset != "" {
+		values.Set("period", vm.Toolbar.Preset)
+	}
+	if vm.From != "" {
+		values.Set("from", vm.From)
+	}
+	if vm.To != "" {
+		values.Set("to", vm.To)
+	}
+	encoded := values.Encode()
+	if encoded == "" {
+		return "/api/reports/cash-flow"
+	}
+	return "/api/reports/cash-flow?" + encoded
 }
