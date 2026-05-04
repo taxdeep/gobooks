@@ -38,7 +38,9 @@ func TestPurchaseOrderEditorVendorCurrencyIsRenderedForSync(t *testing.T) {
 		`name="currency_code" value="USD" :value="currencyCode || baseCurrency"`,
 		`x-text="currencyRateLeftLabel()"`,
 		`&times;`,
-		`pr-10`,
+		`flex h-8 w-8 shrink-0`,
+		`w-64">Item`,
+		`w-64">Account`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("expected purchase order editor HTML to contain %q", want)
