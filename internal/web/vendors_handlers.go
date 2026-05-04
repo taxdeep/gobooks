@@ -70,6 +70,16 @@ func (s *Server) handleVendors(c *fiber.Ctx) error {
 	}).Render(c.Context(), c)
 }
 
+func (s *Server) handleVendorNew(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/select-company", fiber.StatusSeeOther)
+	}
+	vm := pages.VendorsVM{HasCompany: true}
+	s.loadVendorFormData(companyID, &vm)
+	return pages.VendorNew(vm).Render(c.Context(), c)
+}
+
 func (s *Server) handleVendorCreate(c *fiber.Ctx) error {
 	user := UserFromCtx(c)
 	if user == nil {
@@ -80,13 +90,13 @@ func (s *Server) handleVendorCreate(c *fiber.Ctx) error {
 		return c.Redirect("/select-company", fiber.StatusSeeOther)
 	}
 
-	name         := strings.TrimSpace(c.FormValue("name"))
-	email        := strings.TrimSpace(c.FormValue("email"))
-	phone        := strings.TrimSpace(c.FormValue("phone"))
-	address      := strings.TrimSpace(c.FormValue("address"))
+	name := strings.TrimSpace(c.FormValue("name"))
+	email := strings.TrimSpace(c.FormValue("email"))
+	phone := strings.TrimSpace(c.FormValue("phone"))
+	address := strings.TrimSpace(c.FormValue("address"))
 	currencyCode := strings.TrimSpace(c.FormValue("currency_code"))
-	notes        := strings.TrimSpace(c.FormValue("notes"))
-	paymentTerm  := strings.TrimSpace(c.FormValue("payment_term"))
+	notes := strings.TrimSpace(c.FormValue("notes"))
+	paymentTerm := strings.TrimSpace(c.FormValue("payment_term"))
 
 	multiCurrency, baseCurrency, currencies := s.vendorCurrencyInfo(companyID)
 
@@ -109,15 +119,8 @@ func (s *Server) handleVendorCreate(c *fiber.Ctx) error {
 		vm.NameError = "Name is required."
 	}
 
-	vendors, listErr := s.vendorsForCompany(companyID)
-	if listErr != nil {
-		vm.FormError = "Could not load vendors."
-	} else {
-		vm.Vendors = vendors
-	}
-
 	if vm.NameError != "" {
-		return pages.Vendors(vm).Render(c.Context(), c)
+		return pages.VendorNew(vm).Render(c.Context(), c)
 	}
 
 	var count int64
@@ -125,11 +128,11 @@ func (s *Server) handleVendorCreate(c *fiber.Ctx) error {
 		Where("company_id = ? AND lower(name) = lower(?)", companyID, name).
 		Count(&count).Error; err != nil {
 		vm.FormError = "Could not validate vendor name."
-		return pages.Vendors(vm).Render(c.Context(), c)
+		return pages.VendorNew(vm).Render(c.Context(), c)
 	}
 	if count > 0 {
 		vm.NameError = "A vendor with this name already exists for this company."
-		return pages.Vendors(vm).Render(c.Context(), c)
+		return pages.VendorNew(vm).Render(c.Context(), c)
 	}
 
 	// Discard currency selection when multi-currency is not enabled.
@@ -149,7 +152,7 @@ func (s *Server) handleVendorCreate(c *fiber.Ctx) error {
 	}
 	if err := s.DB.Create(&vendor).Error; err != nil {
 		vm.FormError = "Could not create vendor. Please try again."
-		return pages.Vendors(vm).Render(c.Context(), c)
+		return pages.VendorNew(vm).Render(c.Context(), c)
 	}
 	_ = producers.ProjectVendor(c.Context(), s.DB, s.SearchProjector, companyID, vendor.ID)
 
@@ -294,6 +297,13 @@ func (s *Server) allVendorsForCompany(companyID uint) ([]models.Vendor, error) {
 	var vendors []models.Vendor
 	err := s.DB.Where("company_id = ?", companyID).Order("name asc").Find(&vendors).Error
 	return vendors, err
+}
+
+func (s *Server) loadVendorFormData(companyID uint, vm *pages.VendorsVM) {
+	_ = s.DB.Where("company_id = ? AND is_active = true", companyID).
+		Order("sort_order asc, code asc").
+		Find(&vm.PaymentTerms)
+	vm.MultiCurrency, vm.BaseCurrencyCode, vm.Currencies = s.vendorCurrencyInfo(companyID)
 }
 
 // vendorCurrencyInfo returns the multi-currency flag, base currency code, and

@@ -190,15 +190,15 @@ func UpdateCustomerReceipt(db *gorm.DB, companyID, receiptID uint, in CustomerRe
 	}
 
 	updates := map[string]any{
-		"customer_id":    in.CustomerID,
+		"customer_id":     in.CustomerID,
 		"bank_account_id": in.BankAccountID,
-		"receipt_date":   in.ReceiptDate,
-		"currency_code":  in.CurrencyCode,
-		"exchange_rate":  rate,
-		"amount":         in.Amount.Round(2),
-		"payment_method": in.PaymentMethod,
-		"reference":      in.Reference,
-		"memo":           in.Memo,
+		"receipt_date":    in.ReceiptDate,
+		"currency_code":   in.CurrencyCode,
+		"exchange_rate":   rate,
+		"amount":          in.Amount.Round(2),
+		"payment_method":  in.PaymentMethod,
+		"reference":       in.Reference,
+		"memo":            in.Memo,
 	}
 	if err := db.Model(&rcpt).Updates(updates).Error; err != nil {
 		return nil, fmt.Errorf("update receipt: %w", err)
@@ -244,13 +244,26 @@ func ConfirmCustomerReceipt(db *gorm.DB, companyID, receiptID uint, actor string
 	amountBase := rcpt.Amount.Mul(rate).Round(2)
 
 	return db.Transaction(func(tx *gorm.DB) error {
+		cash, err := resolveCashPostingCurrency(tx, companyID, *rcpt.BankAccountID, rcpt.CurrencyCode, rate)
+		if err != nil {
+			return err
+		}
+		txAmount := amountBase
+		if cash.BankIsForeign {
+			txAmount = rcpt.Amount.Round(2)
+		}
+
 		je := models.JournalEntry{
-			CompanyID:  companyID,
-			EntryDate:  rcpt.ReceiptDate,
-			JournalNo:  "RCT – " + rcpt.ReceiptNumber,
-			Status:     models.JournalEntryStatusPosted,
-			SourceType: models.LedgerSourceCustomerReceipt,
-			SourceID:   rcpt.ID,
+			CompanyID:               companyID,
+			EntryDate:               rcpt.ReceiptDate,
+			JournalNo:               "RCT – " + rcpt.ReceiptNumber,
+			Status:                  models.JournalEntryStatusPosted,
+			TransactionCurrencyCode: cash.TransactionCurrencyCode,
+			ExchangeRate:            cash.ExchangeRate,
+			ExchangeRateDate:        rcpt.ReceiptDate,
+			ExchangeRateSource:      cashExchangeRateSource(cash),
+			SourceType:              models.LedgerSourceCustomerReceipt,
+			SourceID:                rcpt.ID,
 		}
 		if err := tx.Create(&je).Error; err != nil {
 			return fmt.Errorf("create receipt JE: %w", err)
@@ -262,6 +275,8 @@ func ConfirmCustomerReceipt(db *gorm.DB, companyID, receiptID uint, actor string
 				CompanyID:      companyID,
 				JournalEntryID: je.ID,
 				AccountID:      *rcpt.BankAccountID,
+				TxDebit:        txAmount,
+				TxCredit:       decimal.Zero,
 				Debit:          amountBase,
 				Credit:         decimal.Zero,
 				Memo:           rcpt.ReceiptNumber + " – cash received",
@@ -271,6 +286,8 @@ func ConfirmCustomerReceipt(db *gorm.DB, companyID, receiptID uint, actor string
 				CompanyID:      companyID,
 				JournalEntryID: je.ID,
 				AccountID:      arAccount.ID,
+				TxDebit:        decimal.Zero,
+				TxCredit:       txAmount,
 				Debit:          decimal.Zero,
 				Credit:         amountBase,
 				Memo:           rcpt.ReceiptNumber + " – AR reduction",

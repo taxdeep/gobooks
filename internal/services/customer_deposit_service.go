@@ -34,12 +34,12 @@ import (
 // ── Errors ─────────────────────────────────────────────────────────────────
 
 var (
-	ErrDepositNotFound      = errors.New("customer deposit not found")
-	ErrDepositInvalidStatus = errors.New("action not allowed in current deposit status")
-	ErrDepositNoBank        = errors.New("bank account is required before posting")
-	ErrDepositNoLiability   = errors.New("deposit liability account is required before posting")
+	ErrDepositNotFound            = errors.New("customer deposit not found")
+	ErrDepositInvalidStatus       = errors.New("action not allowed in current deposit status")
+	ErrDepositNoBank              = errors.New("bank account is required before posting")
+	ErrDepositNoLiability         = errors.New("deposit liability account is required before posting")
 	ErrDepositInsufficientBalance = errors.New("apply amount exceeds deposit balance remaining")
-	ErrDepositAlreadyApplied = errors.New("cannot void a deposit that has been partially or fully applied")
+	ErrDepositAlreadyApplied      = errors.New("cannot void a deposit that has been partially or fully applied")
 )
 
 // ── Input types ──────────────────────────────────────────────────────────────
@@ -249,6 +249,15 @@ func PostCustomerDeposit(db *gorm.DB, companyID, depositID uint, actor string, a
 	amountBase := dep.Amount.Mul(rate).Round(2)
 
 	return db.Transaction(func(tx *gorm.DB) error {
+		cash, err := resolveCashPostingCurrency(tx, companyID, *dep.BankAccountID, dep.CurrencyCode, rate)
+		if err != nil {
+			return err
+		}
+		txAmount := amountBase
+		if cash.BankIsForeign {
+			txAmount = dep.Amount.Round(2)
+		}
+
 		// Auto-resolve the system Customer Deposits liability account
 		// when the operator didn't pick one (default in the new design).
 		// The id is captured back onto the deposit row so subsequent
@@ -265,12 +274,16 @@ func PostCustomerDeposit(db *gorm.DB, companyID, depositID uint, actor string, a
 			liabAccID = id
 		}
 		je := models.JournalEntry{
-			CompanyID:  companyID,
-			EntryDate:  dep.DepositDate,
-			JournalNo:  "DEP – " + dep.DepositNumber,
-			Status:     models.JournalEntryStatusPosted,
-			SourceType: models.LedgerSourceCustomerDeposit,
-			SourceID:   dep.ID,
+			CompanyID:               companyID,
+			EntryDate:               dep.DepositDate,
+			JournalNo:               "DEP – " + dep.DepositNumber,
+			Status:                  models.JournalEntryStatusPosted,
+			TransactionCurrencyCode: cash.TransactionCurrencyCode,
+			ExchangeRate:            cash.ExchangeRate,
+			ExchangeRateDate:        dep.DepositDate,
+			ExchangeRateSource:      cashExchangeRateSource(cash),
+			SourceType:              models.LedgerSourceCustomerDeposit,
+			SourceID:                dep.ID,
 		}
 		if err := tx.Create(&je).Error; err != nil {
 			return fmt.Errorf("create deposit JE: %w", err)
@@ -282,6 +295,8 @@ func PostCustomerDeposit(db *gorm.DB, companyID, depositID uint, actor string, a
 				CompanyID:      companyID,
 				JournalEntryID: je.ID,
 				AccountID:      *dep.BankAccountID,
+				TxDebit:        txAmount,
+				TxCredit:       decimal.Zero,
 				Debit:          amountBase,
 				Credit:         decimal.Zero,
 				Memo:           dep.DepositNumber + " – customer deposit received",
@@ -291,6 +306,8 @@ func PostCustomerDeposit(db *gorm.DB, companyID, depositID uint, actor string, a
 				CompanyID:      companyID,
 				JournalEntryID: je.ID,
 				AccountID:      liabAccID,
+				TxDebit:        decimal.Zero,
+				TxCredit:       txAmount,
 				Debit:          decimal.Zero,
 				Credit:         amountBase,
 				Memo:           dep.DepositNumber + " – deposit liability",

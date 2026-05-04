@@ -164,18 +164,18 @@ func UpdateVendorPrepayment(db *gorm.DB, companyID, ppID uint, in VendorPrepayme
 	}
 
 	updates := map[string]any{
-		"vendor_id":            in.VendorID,
-		"purchase_order_id":    in.PurchaseOrderID,
-		"prepayment_date":      in.PrepaymentDate,
-		"currency_code":        in.CurrencyCode,
-		"exchange_rate":        rate,
-		"amount":               in.Amount.Round(2),
-		"remaining_amount":     in.Amount.Round(2),
-		"bank_account_id":      in.BankAccountID,
+		"vendor_id":             in.VendorID,
+		"purchase_order_id":     in.PurchaseOrderID,
+		"prepayment_date":       in.PrepaymentDate,
+		"currency_code":         in.CurrencyCode,
+		"exchange_rate":         rate,
+		"amount":                in.Amount.Round(2),
+		"remaining_amount":      in.Amount.Round(2),
+		"bank_account_id":       in.BankAccountID,
 		"prepayment_account_id": in.PrepaymentAccountID,
-		"payment_method":       in.PaymentMethod,
-		"reference":            in.Reference,
-		"memo":                 in.Memo,
+		"payment_method":        in.PaymentMethod,
+		"reference":             in.Reference,
+		"memo":                  in.Memo,
 	}
 	if err := db.Model(&pp).Updates(updates).Error; err != nil {
 		return nil, fmt.Errorf("update vendor prepayment: %w", err)
@@ -215,14 +215,26 @@ func PostVendorPrepayment(db *gorm.DB, companyID, ppID uint, actor string, actor
 			rate = decimal.NewFromInt(1)
 		}
 		amountBase := pp.Amount.Mul(rate).Round(2)
+		cash, err := resolveCashPostingCurrency(tx, companyID, *pp.BankAccountID, pp.CurrencyCode, rate)
+		if err != nil {
+			return err
+		}
+		txAmount := amountBase
+		if cash.BankIsForeign {
+			txAmount = pp.Amount.Round(2)
+		}
 
 		je := models.JournalEntry{
-			CompanyID:  companyID,
-			EntryDate:  pp.PrepaymentDate,
-			JournalNo:  "PP – " + pp.PrepaymentNumber,
-			Status:     models.JournalEntryStatusPosted,
-			SourceType: models.LedgerSourceVendorPrepayment,
-			SourceID:   pp.ID,
+			CompanyID:               companyID,
+			EntryDate:               pp.PrepaymentDate,
+			JournalNo:               "PP – " + pp.PrepaymentNumber,
+			Status:                  models.JournalEntryStatusPosted,
+			TransactionCurrencyCode: cash.TransactionCurrencyCode,
+			ExchangeRate:            cash.ExchangeRate,
+			ExchangeRateDate:        pp.PrepaymentDate,
+			ExchangeRateSource:      cashExchangeRateSource(cash),
+			SourceType:              models.LedgerSourceVendorPrepayment,
+			SourceID:                pp.ID,
 		}
 		if err := tx.Create(&je).Error; err != nil {
 			return fmt.Errorf("create prepayment JE: %w", err)
@@ -233,6 +245,8 @@ func PostVendorPrepayment(db *gorm.DB, companyID, ppID uint, actor string, actor
 				CompanyID:      companyID,
 				JournalEntryID: je.ID,
 				AccountID:      *pp.PrepaymentAccountID,
+				TxDebit:        txAmount,
+				TxCredit:       decimal.Zero,
 				Debit:          amountBase,
 				Credit:         decimal.Zero,
 				Memo:           pp.PrepaymentNumber + " – vendor prepayment asset",
@@ -241,6 +255,8 @@ func PostVendorPrepayment(db *gorm.DB, companyID, ppID uint, actor string, actor
 				CompanyID:      companyID,
 				JournalEntryID: je.ID,
 				AccountID:      *pp.BankAccountID,
+				TxDebit:        decimal.Zero,
+				TxCredit:       txAmount,
 				Debit:          decimal.Zero,
 				Credit:         amountBase,
 				Memo:           pp.PrepaymentNumber + " – cash outflow",

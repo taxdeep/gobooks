@@ -15,9 +15,19 @@ templ Vendors(vm VendorsVM) {
 
 templ bodyVendors(vm VendorsVM) {
 	<div class="max-w-[95%] space-y-5">
-		<div>
-			<h1 class="text-title font-semibold text-text">Vendors</h1>
-			<p class="mt-1 text-small text-text-muted2">Manage vendors for accounts payable and expense tracking.</p>
+		<div class="flex flex-wrap items-start justify-between gap-4">
+			<div class="min-w-0 flex-1">
+				<h1 class="text-title font-semibold text-text">Vendors</h1>
+				<p class="mt-1 text-small text-text-muted2">Manage vendors for accounts payable and expense tracking.</p>
+			</div>
+			<div class="shrink-0">
+				<a
+					href="/vendors/new"
+					class="inline-block rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+				>
+					New Vendor
+				</a>
+			</div>
 		</div>
 
 		if vm.Created {
@@ -30,6 +40,36 @@ templ bodyVendors(vm VendorsVM) {
 		// ── Vendor List ─────────────────────────────────────────────────────────
 		@vendorFilterBar(vm)
 		@ui.SectionCard("All Vendors", "", vendorListTable(vm))
+	</div>
+}
+
+templ VendorNew(vm VendorsVM) {
+	@layout.Layout(
+		"Balanciz - New Vendor",
+		ui.SidebarVM{Active: "Vendors", HasCompany: vm.HasCompany},
+		bodyVendorNew(vm),
+	)
+}
+
+templ bodyVendorNew(vm VendorsVM) {
+	<div class="max-w-[95%]">
+		<div class="flex flex-wrap items-center justify-between gap-4">
+			<div>
+				<h1 class="text-title font-semibold text-text">New Vendor</h1>
+				<p class="mt-1 text-small text-text-muted2">Add a vendor for bills, purchase orders, and AP workflows.</p>
+			</div>
+			<a href="/vendors" class="text-body text-text-muted3 hover:text-text">Back to Vendors</a>
+		</div>
+
+		if vm.FormError != "" {
+			<div class="mt-4">
+				@ui.AlertError(vm.FormError)
+			</div>
+		}
+
+		<form method="post" action="/vendors" class="mt-6">
+			@ui.SectionCard("Vendor Details", "", vendorAddForm(vm))
+		</form>
 	</div>
 }
 

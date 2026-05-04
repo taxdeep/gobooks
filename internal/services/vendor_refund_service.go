@@ -175,19 +175,19 @@ func UpdateVendorRefund(db *gorm.DB, companyID, vrfID uint, in VendorRefundInput
 	}
 
 	updates := map[string]any{
-		"vendor_id":            in.VendorID,
-		"source_type":          in.SourceType,
-		"vendor_prepayment_id": in.VendorPrepaymentID,
+		"vendor_id":             in.VendorID,
+		"source_type":           in.SourceType,
+		"vendor_prepayment_id":  in.VendorPrepaymentID,
 		"vendor_credit_note_id": in.VendorCreditNoteID,
-		"refund_date":          in.RefundDate,
-		"currency_code":        in.CurrencyCode,
-		"exchange_rate":        rate,
-		"amount":               in.Amount.Round(2),
-		"bank_account_id":      in.BankAccountID,
-		"credit_account_id":    in.CreditAccountID,
-		"payment_method":       in.PaymentMethod,
-		"reference":            in.Reference,
-		"memo":                 in.Memo,
+		"refund_date":           in.RefundDate,
+		"currency_code":         in.CurrencyCode,
+		"exchange_rate":         rate,
+		"amount":                in.Amount.Round(2),
+		"bank_account_id":       in.BankAccountID,
+		"credit_account_id":     in.CreditAccountID,
+		"payment_method":        in.PaymentMethod,
+		"reference":             in.Reference,
+		"memo":                  in.Memo,
 	}
 	if err := db.Model(&vrf).Updates(updates).Error; err != nil {
 		return nil, fmt.Errorf("update vendor refund: %w", err)
@@ -227,14 +227,26 @@ func PostVendorRefund(db *gorm.DB, companyID, vrfID uint, actor string, actorID 
 			rate = decimal.NewFromInt(1)
 		}
 		amountBase := vrf.Amount.Mul(rate).Round(2)
+		cash, err := resolveCashPostingCurrency(tx, companyID, *vrf.BankAccountID, vrf.CurrencyCode, rate)
+		if err != nil {
+			return err
+		}
+		txAmount := amountBase
+		if cash.BankIsForeign {
+			txAmount = vrf.Amount.Round(2)
+		}
 
 		je := models.JournalEntry{
-			CompanyID:  companyID,
-			EntryDate:  vrf.RefundDate,
-			JournalNo:  "VRF – " + vrf.RefundNumber,
-			Status:     models.JournalEntryStatusPosted,
-			SourceType: models.LedgerSourceVendorRefund,
-			SourceID:   vrf.ID,
+			CompanyID:               companyID,
+			EntryDate:               vrf.RefundDate,
+			JournalNo:               "VRF – " + vrf.RefundNumber,
+			Status:                  models.JournalEntryStatusPosted,
+			TransactionCurrencyCode: cash.TransactionCurrencyCode,
+			ExchangeRate:            cash.ExchangeRate,
+			ExchangeRateDate:        vrf.RefundDate,
+			ExchangeRateSource:      cashExchangeRateSource(cash),
+			SourceType:              models.LedgerSourceVendorRefund,
+			SourceID:                vrf.ID,
 		}
 		if err := tx.Create(&je).Error; err != nil {
 			return fmt.Errorf("create refund JE: %w", err)
@@ -245,6 +257,8 @@ func PostVendorRefund(db *gorm.DB, companyID, vrfID uint, actor string, actorID 
 				CompanyID:      companyID,
 				JournalEntryID: je.ID,
 				AccountID:      *vrf.BankAccountID,
+				TxDebit:        txAmount,
+				TxCredit:       decimal.Zero,
 				Debit:          amountBase,
 				Credit:         decimal.Zero,
 				Memo:           vrf.RefundNumber + " – cash received from vendor",
@@ -253,6 +267,8 @@ func PostVendorRefund(db *gorm.DB, companyID, vrfID uint, actor string, actorID 
 				CompanyID:      companyID,
 				JournalEntryID: je.ID,
 				AccountID:      *vrf.CreditAccountID,
+				TxDebit:        decimal.Zero,
+				TxCredit:       txAmount,
 				Debit:          decimal.Zero,
 				Credit:         amountBase,
 				Memo:           vrf.RefundNumber + " – vendor refund source",

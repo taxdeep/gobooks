@@ -253,6 +253,9 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 	totalInvoiceDoc := decimal.Zero    // capped — used for invoice retirement math
 	totalInvoiceBase := decimal.Zero   // capped — used for AR-credit math
 	totalRowOverageDoc := decimal.Zero // sum of auto-overage across rows; rolls into new deposit
+	batchCurrency := ""
+	cashRate := decimal.NewFromInt(1)
+	mixedCurrency := false
 	hasFX := false
 
 	for i, alloc := range in.Allocations {
@@ -274,6 +277,15 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 		}
 
 		isForeign := inv.CurrencyCode != "" && inv.CurrencyCode != baseCurrency
+		invCurrency := normalizeCurrencyCode(inv.CurrencyCode)
+		if invCurrency == "" || invCurrency == normalizeCurrencyCode(baseCurrency) {
+			invCurrency = normalizeCurrencyCode(baseCurrency)
+		}
+		if batchCurrency == "" {
+			batchCurrency = invCurrency
+		} else if batchCurrency != invCurrency {
+			mixedCurrency = true
+		}
 		effBalance, effBalanceBase := effectiveBalances(
 			inv.BalanceDue, inv.BalanceDueBase, inv.Amount, inv.AmountBase, isForeign,
 		)
@@ -301,6 +313,9 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 			}
 			settlementRate = r
 			hasFX = true
+			if cashRate.Equal(decimal.NewFromInt(1)) {
+				cashRate = settlementRate
+			}
 		}
 
 		// Drive computeAllocationAmounts with the *capped* amount so the
@@ -472,6 +487,25 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 	if totalInvoiceDoc.IsZero() && effectiveNewDepositDoc.IsZero() {
 		return 0, fmt.Errorf("receive payment must include at least one invoice allocation or a new deposit amount")
 	}
+	if batchCurrency == "" {
+		batchCurrency = baseCurrency
+	}
+	if mixedCurrency && bank.CurrencyMode == models.CurrencyModeFixedForeign {
+		return 0, fmt.Errorf("foreign-currency bank receipts must use invoices in a single currency")
+	}
+	cash, err := resolveCashPostingCurrency(tx, in.CompanyID, in.BankAccountID, batchCurrency, cashRate)
+	if err != nil {
+		return 0, err
+	}
+	bankTx := bankBase
+	if cash.BankIsForeign {
+		bankTx = totalInvoiceDoc.
+			Add(totalRowOverageDoc).
+			Sub(totalCNDoc).
+			Sub(totalDepositDoc).
+			Add(in.NewDepositAmount).
+			Round(2)
+	}
 
 	// ── Ensure system accounts needed by the JE ───────────────────────────────
 	var fxAccountID uint
@@ -581,11 +615,15 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 		return 0, err
 	}
 	je := models.JournalEntry{
-		CompanyID:  in.CompanyID,
-		EntryDate:  in.EntryDate,
-		JournalNo:  fmt.Sprintf("Receive Payment - %s", cust.Name),
-		Status:     models.JournalEntryStatusPosted,
-		SourceType: models.LedgerSourcePayment,
+		CompanyID:               in.CompanyID,
+		EntryDate:               in.EntryDate,
+		JournalNo:               fmt.Sprintf("Receive Payment - %s", cust.Name),
+		Status:                  models.JournalEntryStatusPosted,
+		TransactionCurrencyCode: cash.TransactionCurrencyCode,
+		ExchangeRate:            cash.ExchangeRate,
+		ExchangeRateDate:        in.EntryDate,
+		ExchangeRateSource:      cashExchangeRateSource(cash),
+		SourceType:              models.LedgerSourcePayment,
 	}
 	if err := tx.Create(&je).Error; err != nil {
 		return 0, err
@@ -604,11 +642,17 @@ func recordReceivePaymentAllocations(tx *gorm.DB, in ReceivePaymentInput) (uint,
 			CompanyID:      in.CompanyID,
 			JournalEntryID: je.ID,
 			AccountID:      frag.AccountID,
+			TxDebit:        frag.Debit,
+			TxCredit:       frag.Credit,
 			Debit:          frag.Debit,
 			Credit:         frag.Credit,
 			Memo:           frag.Memo,
 			PartyType:      models.PartyTypeCustomer,
 			PartyID:        in.CustomerID,
+		}
+		if frag.AccountID == in.BankAccountID {
+			line.TxDebit = bankTx
+			line.TxCredit = decimal.Zero
 		}
 		if err := tx.Create(&line).Error; err != nil {
 			return 0, fmt.Errorf("create journal line: %w", err)
@@ -824,13 +868,21 @@ func recordReceivePaymentLegacy(tx *gorm.DB, in ReceivePaymentInput) (uint, erro
 
 	companyID := in.CompanyID
 	desc := fmt.Sprintf("Receive Payment - %s", cust.Name)
+	cash, err := resolveCashPostingCurrency(tx, companyID, in.BankAccountID, "", decimal.NewFromInt(1))
+	if err != nil {
+		return 0, err
+	}
 
 	je := models.JournalEntry{
-		CompanyID:  companyID,
-		EntryDate:  in.EntryDate,
-		JournalNo:  desc,
-		Status:     models.JournalEntryStatusPosted,
-		SourceType: models.LedgerSourcePayment,
+		CompanyID:               companyID,
+		EntryDate:               in.EntryDate,
+		JournalNo:               desc,
+		Status:                  models.JournalEntryStatusPosted,
+		TransactionCurrencyCode: cash.TransactionCurrencyCode,
+		ExchangeRate:            cash.ExchangeRate,
+		ExchangeRateDate:        in.EntryDate,
+		ExchangeRateSource:      cashExchangeRateSource(cash),
+		SourceType:              models.LedgerSourcePayment,
 	}
 	if err := tx.Create(&je).Error; err != nil {
 		return 0, err
@@ -841,6 +893,8 @@ func recordReceivePaymentLegacy(tx *gorm.DB, in ReceivePaymentInput) (uint, erro
 			CompanyID:      companyID,
 			JournalEntryID: je.ID,
 			AccountID:      in.BankAccountID,
+			TxDebit:        in.Amount,
+			TxCredit:       decimal.Zero,
 			Debit:          in.Amount,
 			Credit:         decimal.Zero,
 			Memo:           in.Memo,
@@ -851,6 +905,8 @@ func recordReceivePaymentLegacy(tx *gorm.DB, in ReceivePaymentInput) (uint, erro
 			CompanyID:      companyID,
 			JournalEntryID: je.ID,
 			AccountID:      in.ARAccountID,
+			TxDebit:        decimal.Zero,
+			TxCredit:       in.Amount,
 			Debit:          decimal.Zero,
 			Credit:         in.Amount,
 			Memo:           in.Memo,

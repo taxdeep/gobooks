@@ -32,7 +32,6 @@ import (
 	"balanciz/internal/models"
 )
 
-
 // ── Errors ────────────────────────────────────────────────────────────────────
 
 var (
@@ -252,15 +251,27 @@ func PostARRefund(db *gorm.DB, companyID, refundID uint, debitAccountID uint, ac
 			rate = decimal.NewFromInt(1)
 		}
 		amountBase := ref.Amount.Mul(rate).Round(2)
+		cash, err := resolveCashPostingCurrency(tx, companyID, *ref.BankAccountID, ref.CurrencyCode, rate)
+		if err != nil {
+			return err
+		}
+		txAmount := amountBase
+		if cash.BankIsForeign {
+			txAmount = ref.Amount.Round(2)
+		}
 
 		// 3. Build journal entry header
 		je := models.JournalEntry{
-			CompanyID:  companyID,
-			EntryDate:  ref.RefundDate,
-			JournalNo:  "RFD – " + ref.RefundNumber,
-			Status:     models.JournalEntryStatusPosted,
-			SourceType: models.LedgerSourceARRefund,
-			SourceID:   ref.ID,
+			CompanyID:               companyID,
+			EntryDate:               ref.RefundDate,
+			JournalNo:               "RFD – " + ref.RefundNumber,
+			Status:                  models.JournalEntryStatusPosted,
+			TransactionCurrencyCode: cash.TransactionCurrencyCode,
+			ExchangeRate:            cash.ExchangeRate,
+			ExchangeRateDate:        ref.RefundDate,
+			ExchangeRateSource:      cashExchangeRateSource(cash),
+			SourceType:              models.LedgerSourceARRefund,
+			SourceID:                ref.ID,
 		}
 		if err := tx.Create(&je).Error; err != nil {
 			return fmt.Errorf("create refund JE: %w", err)
@@ -272,6 +283,8 @@ func PostARRefund(db *gorm.DB, companyID, refundID uint, debitAccountID uint, ac
 				CompanyID:      companyID,
 				JournalEntryID: je.ID,
 				AccountID:      debitAccountID,
+				TxDebit:        txAmount,
+				TxCredit:       decimal.Zero,
 				Debit:          amountBase,
 				Credit:         decimal.Zero,
 				Memo:           ref.RefundNumber + " – refund debit",
@@ -280,6 +293,8 @@ func PostARRefund(db *gorm.DB, companyID, refundID uint, debitAccountID uint, ac
 				CompanyID:      companyID,
 				JournalEntryID: je.ID,
 				AccountID:      *ref.BankAccountID,
+				TxDebit:        decimal.Zero,
+				TxCredit:       txAmount,
 				Debit:          decimal.Zero,
 				Credit:         amountBase,
 				Memo:           ref.RefundNumber + " – bank payout",

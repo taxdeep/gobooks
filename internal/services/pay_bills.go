@@ -89,6 +89,10 @@ func RecordPayBills(tx *gorm.DB, in PayBillsInput) (uint, error) {
 	}
 	records := make([]billRecord, 0, len(in.Bills))
 	totalBankBase := decimal.Zero
+	totalBankTx := decimal.Zero
+	batchCurrency := ""
+	cashRate := decimal.NewFromInt(1)
+	mixedCurrency := false
 	hasFX := false
 	hasOverpayment := false
 
@@ -106,6 +110,15 @@ func RecordPayBills(tx *gorm.DB, in PayBillsInput) (uint, error) {
 		}
 
 		isForeign := bill.CurrencyCode != "" && bill.CurrencyCode != baseCurrency
+		billCurrency := normalizeCurrencyCode(bill.CurrencyCode)
+		if billCurrency == "" || billCurrency == normalizeCurrencyCode(baseCurrency) {
+			billCurrency = normalizeCurrencyCode(baseCurrency)
+		}
+		if batchCurrency == "" {
+			batchCurrency = billCurrency
+		} else if batchCurrency != billCurrency {
+			mixedCurrency = true
+		}
 		effBalance, effBalanceBase := effectiveBalances(
 			bill.BalanceDue, bill.BalanceDueBase, bill.Amount, bill.AmountBase, isForeign,
 		)
@@ -133,15 +146,20 @@ func RecordPayBills(tx *gorm.DB, in PayBillsInput) (uint, error) {
 			}
 			hasFX = true
 		}
+		if isForeign && cashRate.Equal(decimal.NewFromInt(1)) {
+			cashRate = settlementRate
+		}
 
 		result := computeAllocationAmounts(payAmt, effBalance, effBalanceBase, settlementRate)
 		totalBankBase = totalBankBase.Add(result.bankBaseAmount)
+		totalBankTx = totalBankTx.Add(payAmt)
 
 		// Convert overpayment to base and add to bank credit.
 		overpaymentBase := decimal.Zero
 		if overpaymentDoc.IsPositive() {
 			overpaymentBase = overpaymentDoc.Mul(settlementRate).Round(2)
 			totalBankBase = totalBankBase.Add(overpaymentBase)
+			totalBankTx = totalBankTx.Add(overpaymentDoc)
 			hasOverpayment = true
 		}
 
@@ -169,6 +187,19 @@ func RecordPayBills(tx *gorm.DB, in PayBillsInput) (uint, error) {
 
 	if totalBankBase.LessThanOrEqual(decimal.Zero) {
 		return 0, fmt.Errorf("total payment must be > 0")
+	}
+	if batchCurrency == "" {
+		batchCurrency = baseCurrency
+	}
+	if mixedCurrency && bank.CurrencyMode == models.CurrencyModeFixedForeign {
+		return 0, fmt.Errorf("foreign-currency bank payments must use bills in a single currency")
+	}
+	cash, err := resolveCashPostingCurrency(tx, in.CompanyID, in.BankAccountID, batchCurrency, cashRate)
+	if err != nil {
+		return 0, err
+	}
+	if !cash.BankIsForeign {
+		totalBankTx = totalBankBase
 	}
 
 	// Ensure FX gain/loss account exists (only when needed).
@@ -257,11 +288,15 @@ func RecordPayBills(tx *gorm.DB, in PayBillsInput) (uint, error) {
 
 	// ── Create journal entry ──────────────────────────────────────────────────
 	je := models.JournalEntry{
-		CompanyID:  in.CompanyID,
-		EntryDate:  in.EntryDate,
-		JournalNo:  "Pay Bills",
-		Status:     models.JournalEntryStatusPosted,
-		SourceType: models.LedgerSourcePayment,
+		CompanyID:               in.CompanyID,
+		EntryDate:               in.EntryDate,
+		JournalNo:               "Pay Bills",
+		Status:                  models.JournalEntryStatusPosted,
+		TransactionCurrencyCode: cash.TransactionCurrencyCode,
+		ExchangeRate:            cash.ExchangeRate,
+		ExchangeRateDate:        in.EntryDate,
+		ExchangeRateSource:      cashExchangeRateSource(cash),
+		SourceType:              models.LedgerSourcePayment,
 	}
 	if err := tx.Create(&je).Error; err != nil {
 		return 0, err
@@ -273,9 +308,15 @@ func RecordPayBills(tx *gorm.DB, in PayBillsInput) (uint, error) {
 			CompanyID:      in.CompanyID,
 			JournalEntryID: je.ID,
 			AccountID:      frag.AccountID,
+			TxDebit:        frag.Debit,
+			TxCredit:       frag.Credit,
 			Debit:          frag.Debit,
 			Credit:         frag.Credit,
 			Memo:           frag.Memo,
+		}
+		if frag.AccountID == in.BankAccountID {
+			line.TxDebit = decimal.Zero
+			line.TxCredit = totalBankTx.Round(2)
 		}
 		if err := tx.Create(&line).Error; err != nil {
 			return 0, fmt.Errorf("create journal line: %w", err)
