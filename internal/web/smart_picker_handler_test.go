@@ -343,6 +343,26 @@ func TestProductServiceProvider_POPayloadIncludesItemAndAccountCodes(t *testing.
 	}
 }
 
+func TestExpenseAccountProvider_POLineAccountPayloadIncludesCodeAndName(t *testing.T) {
+	db := testRouteDB(t)
+	companyID := seedCompany(t, db, "SP PO Account Co")
+	accountID := seedSPAccount(t, db, companyID, "6100", "Office Supplies", models.RootExpense, true)
+
+	var p ExpenseAccountProvider
+	ctx := SmartPickerContext{CompanyID: companyID, Context: "po_line_account", Limit: 20}
+	result, err := p.Search(db, ctx, "office")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Candidates) != 1 {
+		t.Fatalf("expected one PO account candidate, got %+v", result.Candidates)
+	}
+	item := result.Candidates[0]
+	if item.ID != fmt.Sprintf("%d", accountID) || item.Payload["account_code"] != "6100" || item.Payload["account_name"] != "Office Supplies" {
+		t.Fatalf("expected account code/name payload, got %+v", item)
+	}
+}
+
 func TestSmartPickerRegistry_UnknownEntityReturnsFalse(t *testing.T) {
 	_, ok := defaultSmartPickerRegistry.get("nonexistent_entity")
 	if ok {

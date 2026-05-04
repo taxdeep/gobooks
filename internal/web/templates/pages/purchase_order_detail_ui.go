@@ -92,10 +92,11 @@ func poProductsJSON(products []models.ProductService) string {
 		DefaultTaxCodeID *uint  `json:"default_tax_code_id"`
 		ExpenseAccountID string `json:"expense_account_id"`
 		AccountCode      string `json:"account_code"`
+		AccountName      string `json:"account_name"`
 	}
 	out := make([]row, 0, len(products))
 	for _, p := range products {
-		accountID, accountCode := poProductPurchaseAccount(p)
+		accountID, accountCode, accountName := poProductPurchaseAccount(p)
 		out = append(out, row{
 			ID:               p.ID,
 			Name:             p.Name,
@@ -105,20 +106,21 @@ func poProductsJSON(products []models.ProductService) string {
 			DefaultTaxCodeID: p.DefaultTaxCodeID,
 			ExpenseAccountID: accountID,
 			AccountCode:      accountCode,
+			AccountName:      accountName,
 		})
 	}
 	b, _ := json.Marshal(out)
 	return string(b)
 }
 
-func poProductPurchaseAccount(p models.ProductService) (string, string) {
+func poProductPurchaseAccount(p models.ProductService) (string, string, string) {
 	if p.InventoryAccountID != nil && *p.InventoryAccountID != 0 {
-		return Uitoa(*p.InventoryAccountID), p.InventoryAccount.Code
+		return Uitoa(*p.InventoryAccountID), p.InventoryAccount.Code, p.InventoryAccount.Name
 	}
 	if p.COGSAccountID != nil && *p.COGSAccountID != 0 {
-		return Uitoa(*p.COGSAccountID), p.COGSAccount.Code
+		return Uitoa(*p.COGSAccountID), p.COGSAccount.Code, p.COGSAccount.Name
 	}
-	return "", ""
+	return "", "", ""
 }
 
 // poTaxCodesJSON serialises tax codes. PO doesn't currently expose a per-line
@@ -148,6 +150,8 @@ func poInitialLinesJSON(lines []models.PurchaseOrderLine) string {
 		ProductServiceCode  string `json:"product_service_code"`
 		ExpenseAccountID    string `json:"expense_account_id"`
 		AccountCode         string `json:"account_code"`
+		AccountName         string `json:"account_name"`
+		AccountLabel        string `json:"account_label"`
 		Description         string `json:"description"`
 		Qty                 string `json:"qty"`
 		UnitPrice           string `json:"unit_price"`
@@ -167,9 +171,10 @@ func poInitialLinesJSON(lines []models.PurchaseOrderLine) string {
 			if l.ProductService != nil {
 				r.ProductServiceLabel = l.ProductService.Name
 				r.ProductServiceCode = l.ProductService.SKU
-				if accountID, accountCode := poProductPurchaseAccount(*l.ProductService); accountID != "" {
+				if accountID, accountCode, accountName := poProductPurchaseAccount(*l.ProductService); accountID != "" {
 					r.ExpenseAccountID = accountID
 					r.AccountCode = accountCode
+					r.AccountName = accountName
 				}
 			}
 		}
@@ -177,10 +182,22 @@ func poInitialLinesJSON(lines []models.PurchaseOrderLine) string {
 			r.ExpenseAccountID = Uitoa(*l.ExpenseAccountID)
 			if l.ExpenseAccount != nil {
 				r.AccountCode = l.ExpenseAccount.Code
+				r.AccountName = l.ExpenseAccount.Name
 			}
 		}
+		r.AccountLabel = poAccountLabel(r.AccountCode, r.AccountName)
 		out = append(out, r)
 	}
 	b, _ := json.Marshal(out)
 	return string(b)
+}
+
+func poAccountLabel(code, name string) string {
+	if code != "" && name != "" {
+		return code + " " + name
+	}
+	if code != "" {
+		return code
+	}
+	return name
 }

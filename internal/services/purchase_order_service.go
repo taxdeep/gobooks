@@ -151,6 +151,26 @@ func purchaseOrderCurrencyForVendor(db *gorm.DB, companyID, vendorID uint) (stri
 	return currencyCode, nil
 }
 
+func resolvePurchaseOrderExchangeRate(db *gorm.DB, companyID uint, currencyCode string, poDate time.Time, inputRate decimal.Decimal) (decimal.Decimal, error) {
+	baseCurrency, err := companyBaseCurrencyCode(db, companyID)
+	if err != nil {
+		return decimal.Zero, err
+	}
+	baseCurrency = normalizeCurrencyCode(baseCurrency)
+	currencyCode = normalizeCurrencyCode(currencyCode)
+	if baseCurrency == "" || currencyCode == "" || currencyCode == baseCurrency {
+		return decimal.NewFromInt(1), nil
+	}
+	if inputRate.GreaterThan(decimal.Zero) {
+		return inputRate.RoundBank(8), nil
+	}
+	rate, err := GetExchangeRate(db, &companyID, currencyCode, baseCurrency, poDate)
+	if err != nil {
+		return decimal.Zero, fmt.Errorf("exchange rate is required for %s to %s on %s", currencyCode, baseCurrency, poDate.Format("2006-01-02"))
+	}
+	return rate.RoundBank(8), nil
+}
+
 // CreatePurchaseOrder creates a new draft purchase order with lines.
 func CreatePurchaseOrder(db *gorm.DB, companyID uint, in POInput) (*models.PurchaseOrder, error) {
 	if in.VendorID == 0 {
@@ -165,9 +185,9 @@ func CreatePurchaseOrder(db *gorm.DB, companyID uint, in POInput) (*models.Purch
 		return nil, err
 	}
 
-	rate := in.ExchangeRate
-	if rate.IsZero() {
-		rate = decimal.NewFromInt(1)
+	rate, err := resolvePurchaseOrderExchangeRate(db, companyID, currencyCode, in.PODate, in.ExchangeRate)
+	if err != nil {
+		return nil, err
 	}
 
 	poNumber, settingsCounterUsed := nextPONumber(db, companyID)
@@ -280,12 +300,11 @@ func UpdatePurchaseOrder(db *gorm.DB, companyID, poID uint, in POInput) (*models
 		return nil, fmt.Errorf("%w: only draft purchase orders may be edited", ErrPOInvalidStatus)
 	}
 
-	rate := in.ExchangeRate
-	if rate.IsZero() {
-		rate = decimal.NewFromInt(1)
-	}
-
 	currencyCode, err := purchaseOrderCurrencyForVendor(db, companyID, in.VendorID)
+	if err != nil {
+		return nil, err
+	}
+	rate, err := resolvePurchaseOrderExchangeRate(db, companyID, currencyCode, in.PODate, in.ExchangeRate)
 	if err != nil {
 		return nil, err
 	}

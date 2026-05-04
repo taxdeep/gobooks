@@ -173,6 +173,7 @@ func TestPO_UsesVendorCurrency(t *testing.T) {
 		VendorID:     vendorA,
 		PODate:       time.Now(),
 		CurrencyCode: "CAD",
+		ExchangeRate: decimal.RequireFromString("1.30000000"),
 		Lines:        line,
 	})
 	if err != nil {
@@ -186,6 +187,7 @@ func TestPO_UsesVendorCurrency(t *testing.T) {
 		VendorID:     vendorA,
 		PODate:       time.Now(),
 		CurrencyCode: "CAD",
+		ExchangeRate: decimal.RequireFromString("1.30000000"),
 		Lines:        line,
 	})
 	if err != nil {

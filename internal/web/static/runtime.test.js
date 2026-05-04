@@ -307,6 +307,7 @@ function testDocItemPickerSelectCarriesItemAndAccountCodes() {
       item_code: 'PEN-BLUE',
       expense_account_id: '4',
       account_code: '1300',
+      account_name: 'Inventory',
     },
   };
 
@@ -318,6 +319,8 @@ function testDocItemPickerSelectCarriesItemAndAccountCodes() {
   assert.equal(line.product_service_code, 'PEN-BLUE');
   assert.equal(line.expense_account_id, '4');
   assert.equal(line.account_code, '1300');
+  assert.equal(line.account_name, 'Inventory');
+  assert.equal(line.account_label, '1300 Inventory');
   assert.deepEqual(JSON.parse(JSON.stringify(events[0])), {
     name: 'balanciz-item-picker-select',
     detail: { idx: 2, id: '9', payload: item.payload },
@@ -328,10 +331,55 @@ function testDocItemPickerSelectCarriesItemAndAccountCodes() {
   assert.equal(line.product_service_code, '');
   assert.equal(line.expense_account_id, '');
   assert.equal(line.account_code, '');
+  assert.equal(line.account_name, '');
+  assert.equal(line.account_label, '');
 }
 
-function testDocTransactionEditorLocksCounterpartyCurrencyWhenConfigured() {
-  const context = loadBrowserScripts(['doc_line_items.js', 'doc_transaction_editor.js'], {});
+function testLineAccountPickerSelectsAccountWhenItemIsBlank() {
+  const context = loadBrowserScript('doc_item_picker.js', {});
+  const line = {};
+  const picker = context.balancizLineAccountPicker(line, 0, { context: 'po_line_account' });
+  picker.$watch = () => {};
+
+  picker.init();
+  picker.select({
+    id: '12',
+    primary: 'Office Supplies',
+    secondary: '6100',
+    payload: { account_code: '6100', account_name: 'Office Supplies' },
+  });
+
+  assert.equal(line.expense_account_id, '12');
+  assert.equal(line.account_code, '6100');
+  assert.equal(line.account_name, 'Office Supplies');
+  assert.equal(line.account_label, '6100 Office Supplies');
+  assert.equal(picker.locked(), false);
+
+  line.product_service_id = '9';
+  assert.equal(picker.locked(), true);
+  picker.clear();
+  assert.equal(line.expense_account_id, '12');
+}
+
+async function testDocTransactionEditorLocksCounterpartyCurrencyWhenConfigured() {
+  const fetchCalls = [];
+  const balancizFetch = async (url, options) => {
+    fetchCalls.push({ url, options });
+    return {
+      ok: true,
+      async json() {
+        return {
+          exchange_rate: '1.37000000',
+          exchange_rate_date: '2026-05-04',
+          exchange_rate_source: 'provider_fetched',
+          source_label: 'Provider fetched',
+        };
+      },
+    };
+  };
+  const context = loadBrowserScripts(['doc_line_items.js', 'doc_transaction_editor.js'], {
+    window: { balancizFetch },
+  });
   const editor = context.docTransactionEditor();
 
   const currencyEvents = [];
@@ -349,6 +397,8 @@ function testDocTransactionEditorLocksCounterpartyCurrencyWhenConfigured() {
     value: '7',
     selectedOptions: [{ dataset: { currency: 'usd' } }],
   };
+  const exchangeRateField = { value: '1.000000' };
+  const poDateField = { value: '2026-05-04' };
 
   editor.$el = {
     dataset: {
@@ -361,6 +411,8 @@ function testDocTransactionEditorLocksCounterpartyCurrencyWhenConfigured() {
     querySelector(selector) {
       if (selector === '[data-counterparty-currency-source]') return vendorField;
       if (selector === '[name="currency_code"]') return currencyField;
+      if (selector === '[name="exchange_rate"]') return exchangeRateField;
+      if (selector === '[name="po_date"], [name="bill_date"], [name="invoice_date"], [name="quote_date"], [name="order_date"]') return poDateField;
       return null;
     },
     querySelectorAll(selector) {
@@ -370,10 +422,18 @@ function testDocTransactionEditorLocksCounterpartyCurrencyWhenConfigured() {
   };
 
   editor.init();
+  await new Promise(resolve => setTimeout(resolve, 0));
 
   assert.equal(currencyField.value, 'USD');
   assert.equal(editor.currencyCode, 'USD');
   assert.equal(editor.counterpartyCurrencyLocked, true);
+  assert.equal(editor.exchangeRate, '1.37000000');
+  assert.equal(fetchCalls.length >= 1, true);
+  const requestURL = new URL(fetchCalls[0].url, 'https://example.test');
+  assert.equal(requestURL.pathname, '/api/exchange-rate');
+  assert.equal(requestURL.searchParams.get('transaction_currency_code'), 'USD');
+  assert.equal(requestURL.searchParams.get('date'), '2026-05-04');
+  assert.equal(requestURL.searchParams.get('allow_provider_fetch'), '1');
   assert.deepEqual(currencyEvents, ['change']);
 }
 
@@ -733,6 +793,10 @@ async function run() {
     {
       name: 'document item picker carries item and account codes',
       fn: testDocItemPickerSelectCarriesItemAndAccountCodes,
+    },
+    {
+      name: 'line account picker selects account when item is blank',
+      fn: testLineAccountPickerSelectsAccountWhenItemIsBlank,
     },
     {
       name: 'document transaction editor locks configured counterparty currency',

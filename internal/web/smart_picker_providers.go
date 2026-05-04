@@ -226,6 +226,9 @@ func (p *CompanyProvider) GetByID(db *gorm.DB, ctx SmartPickerContext, id string
 //   - "journal_entry_account" → ALL active accounts in the company, ordered
 //     by code. Used by the JE list page's "filter by account" picker so
 //     accountants can answer "which JEs touched account X?"
+//   - "po_line_account" → expense-root only for pure expense PO lines. Item
+//     lines carry their purchase account from ProductService and lock the
+//     Account field in the editor.
 //
 // The type name still says "Expense" for source-history compat — adding a
 // new Provider type would require touching the registry (one entity →
@@ -243,6 +246,9 @@ func (p *ExpenseAccountProvider) scopedQuery(db *gorm.DB, ctx SmartPickerContext
 	switch ctx.Context {
 	case "journal_entry_account":
 		return db.Where("company_id = ? AND is_active = true", ctx.CompanyID)
+	case "po_line_account":
+		return db.Where("company_id = ? AND root_account_type = ? AND is_active = true",
+			ctx.CompanyID, models.RootExpense)
 	default: // "" or "expense_form_category" → legacy expense-only behaviour
 		return db.Where("company_id = ? AND root_account_type = ? AND is_active = true",
 			ctx.CompanyID, models.RootExpense)
@@ -266,6 +272,10 @@ func (p *ExpenseAccountProvider) Search(db *gorm.DB, ctx SmartPickerContext, que
 			ID:        fmt.Sprintf("%d", a.ID),
 			Primary:   a.Name,
 			Secondary: a.Code,
+			Payload: map[string]string{
+				"account_code": strings.TrimSpace(a.Code),
+				"account_name": strings.TrimSpace(a.Name),
+			},
 		})
 	}
 
@@ -289,6 +299,10 @@ func (p *ExpenseAccountProvider) GetByID(db *gorm.DB, ctx SmartPickerContext, id
 		ID:        fmt.Sprintf("%d", account.ID),
 		Primary:   account.Name,
 		Secondary: account.Code,
+		Payload: map[string]string{
+			"account_code": strings.TrimSpace(account.Code),
+			"account_name": strings.TrimSpace(account.Name),
+		},
 	}, nil
 }
 

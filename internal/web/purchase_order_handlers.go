@@ -296,9 +296,6 @@ func parsePOInput(c *fiber.Ctx) (services.POInput, error) {
 
 	rateStr := strings.TrimSpace(c.FormValue("exchange_rate"))
 	rate, _ := decimal.NewFromString(rateStr)
-	if rate.IsZero() {
-		rate = decimal.NewFromInt(1)
-	}
 
 	// Parse lines from form. Name pattern:
 	//   lines[<i>][product_service_id]

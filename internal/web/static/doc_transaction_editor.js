@@ -1,5 +1,5 @@
 // doc_transaction_editor.js — Alpine factory for "simple" line-item editors.
-// v=2
+// v=3
 //
 // Shared by Quote, Sales Order, Purchase Order, Bill, Expense — every
 // transaction-document editor whose totals are a plain
@@ -27,6 +27,8 @@ function docTransactionEditor() {
         product_service_code:  "",
         expense_account_id:    "",
         account_code:          "",
+        account_name:          "",
+        account_label:         "",
         description:           "",
         qty:                   "1",
         unit_price:            "0.00",
@@ -36,7 +38,7 @@ function docTransactionEditor() {
         line_total:            "0.00",
       },
       isLineComplete: (line) =>
-        (line.product_service_id || "") !== ""
+        ((line.product_service_id || "") !== "" || (line.expense_account_id || "") !== "")
         && (line.qty || "").trim()        !== ""
         && (line.unit_price || "").trim() !== "",
     }),
@@ -48,6 +50,10 @@ function docTransactionEditor() {
       grandTotalStr:   "0.00",
       baseCurrency:    "",
       currencyCode:    "",
+      exchangeRate:    "",
+      exchangeRateHint: "",
+      exchangeRateManual: false,
+      exchangeRateFetchSeq: 0,
       lockCounterpartyCurrency: false,
       counterpartyCurrencyLocked: false,
 
@@ -65,6 +71,11 @@ function docTransactionEditor() {
         const currencyField = this._currencyField();
         if (currencyField) {
           this.currencyCode = String(currencyField.value || "").trim().toUpperCase();
+        }
+        const exchangeRateField = this._exchangeRateField();
+        if (exchangeRateField) {
+          this.exchangeRate = String(exchangeRateField.value || "").trim();
+          this.exchangeRateManual = this.exchangeRate !== "" && !this._isIdentityRate(this.exchangeRate);
         }
 
         const initial = JSON.parse(el.dataset.initialLines || "[]");
@@ -99,15 +110,26 @@ function docTransactionEditor() {
       // Auto-fills description / unit price / tax code from the chosen
       // ProductService, then recomputes totals.
       onProductChange(idx, psId) {
-        if (!psId) return;
+        const line = this.lines[idx];
+        if (!line) return;
+        if (!psId) {
+          line.product_service_code = "";
+          line.expense_account_id = "";
+          line.account_code = "";
+          line.account_name = "";
+          line.account_label = "";
+          this._recalcAll();
+          return;
+        }
         const ps = this._productsById[String(psId)];
         if (!ps) return;
-        const line = this.lines[idx];
         if (!line.description) line.description = ps.description || ps.name;
         line.unit_price = ps.default_price;
         line.product_service_code = ps.item_code || line.product_service_code || "";
-        line.expense_account_id = ps.expense_account_id || line.expense_account_id || "";
-        line.account_code = ps.account_code || line.account_code || "";
+        line.expense_account_id = ps.expense_account_id || "";
+        line.account_code = ps.account_code || "";
+        line.account_name = ps.account_name || "";
+        line.account_label = this._accountLabel(line.account_code, line.account_name);
         if (ps.default_tax_code_id) {
           line.tax_code_id = String(ps.default_tax_code_id);
         }
@@ -131,8 +153,70 @@ function docTransactionEditor() {
         this._applyCounterpartyCurrency(payload.default_currency || payload.currency_code || "");
       },
 
-      onCurrencyFieldChange(value) {
+      onCurrencyFieldChange(value, opts) {
+        opts = opts || {};
         this.currencyCode = String(value || "").trim().toUpperCase();
+        this.exchangeRateManual = false;
+        if (!this.isForeignCurrency()) {
+          this.exchangeRate = "1.000000";
+          this.exchangeRateHint = "";
+          return;
+        }
+        this.lookupExchangeRate({ force: opts.forceLookup === true });
+      },
+
+      onDocumentDateChange() {
+        if (this.isForeignCurrency() && !this.exchangeRateManual) {
+          this.lookupExchangeRate({ force: true });
+        }
+      },
+
+      onExchangeRateInput() {
+        this.exchangeRateManual = String(this.exchangeRate || "").trim() !== "";
+        if (!this.exchangeRateManual && this.isForeignCurrency()) {
+          this.lookupExchangeRate({ force: true });
+        } else {
+          this.exchangeRateHint = "";
+        }
+      },
+
+      isForeignCurrency() {
+        return this.currencyCode !== "" && this.baseCurrency !== "" && this.currencyCode !== this.baseCurrency;
+      },
+
+      async lookupExchangeRate(options) {
+        const opts = options || {};
+        if (!this.isForeignCurrency()) return;
+        if (this.exchangeRateManual && !opts.force) return;
+        const seq = ++this.exchangeRateFetchSeq;
+        const params = new URLSearchParams({
+          transaction_currency_code: this.currencyCode,
+          date: this._documentDateValue(),
+          allow_provider_fetch: "1",
+        });
+        this.exchangeRateHint = "Looking up rate...";
+        try {
+          const fetchFn = window.balancizFetch || fetch;
+          const resp = await fetchFn("/api/exchange-rate?" + params.toString(), {
+            credentials: "same-origin",
+            headers: { Accept: "application/json" },
+          });
+          const data = await resp.json();
+          if (seq !== this.exchangeRateFetchSeq) return;
+          if (!resp.ok) {
+            this.exchangeRate = "";
+            this.exchangeRateHint = data && data.error ? data.error : "No exchange rate found.";
+            return;
+          }
+          this.exchangeRate = String(data.exchange_rate || "");
+          const rateDate = data.exchange_rate_date ? " for " + data.exchange_rate_date : "";
+          const label = data.source_label || data.exchange_rate_source || "rate table";
+          this.exchangeRateHint = "Auto-filled from " + label + rateDate + ".";
+        } catch (_) {
+          if (seq !== this.exchangeRateFetchSeq) return;
+          this.exchangeRate = "";
+          this.exchangeRateHint = "Could not look up exchange rate.";
+        }
       },
 
       calcLine(idx) {
@@ -207,6 +291,8 @@ function docTransactionEditor() {
         if (this.lockCounterpartyCurrency) {
           this.counterpartyCurrencyLocked = true;
         }
+        this.exchangeRateManual = false;
+        this.onCurrencyFieldChange(this.currencyCode, { forceLookup: true });
         field.dispatchEvent(new Event("change", { bubbles: true }));
       },
 
@@ -219,6 +305,29 @@ function docTransactionEditor() {
           if (fields.length > 0) return fields[0];
         }
         return this.$el.querySelector ? this.$el.querySelector('[name="currency_code"]') : null;
+      },
+
+      _exchangeRateField() {
+        if (!this.$el || !this.$el.querySelector) return null;
+        return this.$el.querySelector('[name="exchange_rate"]');
+      },
+
+      _documentDateValue() {
+        if (!this.$el || !this.$el.querySelector) return "";
+        const field = this.$el.querySelector('[name="po_date"], [name="bill_date"], [name="invoice_date"], [name="quote_date"], [name="order_date"]');
+        return field ? String(field.value || "").trim() : "";
+      },
+
+      _isIdentityRate(value) {
+        const n = parseFloat(value);
+        return !isNaN(n) && Math.abs(n - 1) < 0.00000001;
+      },
+
+      _accountLabel(code, name) {
+        code = String(code || "").trim();
+        name = String(name || "").trim();
+        if (code && name) return code + " " + name;
+        return code || name;
       },
 
       _sanitizeDecimalInput(val, maxDp) {

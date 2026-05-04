@@ -1,6 +1,6 @@
 // doc_item_picker.js — shared per-row product/service picker for transaction-
 // document line items (Invoice / Quote / SO / Bill / PO / Expense).
-// v=2
+// v=3
 //
 // Used inside a parent Alpine x-for loop. Receives the row's `line` object
 // + `idx` + an opts bag at construction so it can write through to
@@ -107,6 +107,8 @@ function balancizItemPicker(line, idx, opts) {
       this.line.product_service_code  = this.itemCode(item);
       this.line.expense_account_id    = (item.payload && item.payload.expense_account_id) || "";
       this.line.account_code          = (item.payload && item.payload.account_code) || "";
+      this.line.account_name          = (item.payload && item.payload.account_name) || "";
+      this.line.account_label         = this.accountLabel(this.line.account_code, this.line.account_name);
       this.query = item.primary || "";
       this.open = false;
       this.highlighted = -1;
@@ -125,6 +127,8 @@ function balancizItemPicker(line, idx, opts) {
       this.line.product_service_code  = "";
       this.line.expense_account_id    = "";
       this.line.account_code          = "";
+      this.line.account_name          = "";
+      this.line.account_label         = "";
       this.query = "";
       this.open  = false;
       this.$dispatch("balanciz-item-picker-select", { idx: this.idx, id: "", payload: {} });
@@ -135,6 +139,131 @@ function balancizItemPicker(line, idx, opts) {
       this.highlighted = -1;
       // Reset visible input to the committed label so unfinished typing doesn't linger.
       this.query = this.line.product_service_label || "";
+    },
+
+    accountLabel(code, name) {
+      code = String(code || "").trim();
+      name = String(name || "").trim();
+      if (code && name) return code + " " + name;
+      return code || name;
+    },
+  };
+}
+
+function balancizLineAccountPicker(line, idx, opts) {
+  opts = opts || {};
+  return {
+    line:        line,
+    idx:         idx,
+    context:     opts.context || "po_line_account",
+    entity:      opts.entity  || "account",
+    query:       line.account_label || "",
+    open:        false,
+    loading:     false,
+    failed:      false,
+    items:       [],
+    highlighted: -1,
+    _fetchSeq:   0,
+
+    init() {
+      this.$watch(() => this.line.account_label, (v) => {
+        this.query = v || "";
+      });
+    },
+
+    locked() {
+      return Boolean(this.line.product_service_id);
+    },
+
+    onFocus() {
+      if (this.locked()) return;
+      this.open = true;
+      if (this.items.length === 0 && !this.loading) this._fetch();
+    },
+
+    onInput() {
+      if (this.locked()) return;
+      this.open = true;
+      if (this._inputDebounce) clearTimeout(this._inputDebounce);
+      this._inputDebounce = setTimeout(() => this._fetch(), 250);
+    },
+
+    async _fetch() {
+      const seq = ++this._fetchSeq;
+      this.loading = true;
+      this.failed  = false;
+      try {
+        const q = encodeURIComponent(this.query);
+        const url = "/api/smart-picker/search?entity=" + encodeURIComponent(this.entity) +
+                    "&context=" + encodeURIComponent(this.context) + "&q=" + q + "&limit=20";
+        const fetchFn = window.balancizFetch || fetch;
+        const resp = await fetchFn(url);
+        const data = await resp.json();
+        if (seq !== this._fetchSeq) return;
+        if (!resp.ok) {
+          this.failed = true;
+          this.items = [];
+        } else {
+          this.items = Array.isArray(data.candidates) ? data.candidates : [];
+        }
+      } catch (_) {
+        if (seq !== this._fetchSeq) return;
+        this.failed = true;
+        this.items = [];
+      } finally {
+        if (seq === this._fetchSeq) this.loading = false;
+      }
+    },
+
+    onKeydown(e) {
+      if (this.locked()) return;
+      if (e.key === "Escape") { this.close(); return; }
+      if (e.key === "ArrowDown") { e.preventDefault(); this._move(1); return; }
+      if (e.key === "ArrowUp") { e.preventDefault(); this._move(-1); return; }
+      if (e.key === "Enter" && this.highlighted >= 0 && this.items[this.highlighted]) {
+        e.preventDefault();
+        this.select(this.items[this.highlighted]);
+      }
+    },
+
+    _move(delta) {
+      this.open = true;
+      if (this.items.length === 0) return;
+      this.highlighted = Math.max(0, Math.min(this.items.length - 1, this.highlighted + delta));
+    },
+
+    select(item) {
+      const payload = (item && item.payload) || {};
+      this.line.expense_account_id = String(item.id || "");
+      this.line.account_code = payload.account_code || item.secondary || "";
+      this.line.account_name = payload.account_name || item.primary || "";
+      this.line.account_label = this.accountLabel(this.line.account_code, this.line.account_name);
+      this.query = this.line.account_label;
+      this.open = false;
+      this.highlighted = -1;
+    },
+
+    clear() {
+      if (this.locked()) return;
+      this.line.expense_account_id = "";
+      this.line.account_code = "";
+      this.line.account_name = "";
+      this.line.account_label = "";
+      this.query = "";
+      this.open = false;
+    },
+
+    close() {
+      this.open = false;
+      this.highlighted = -1;
+      this.query = this.line.account_label || "";
+    },
+
+    accountLabel(code, name) {
+      code = String(code || "").trim();
+      name = String(name || "").trim();
+      if (code && name) return code + " " + name;
+      return code || name;
     },
   };
 }
