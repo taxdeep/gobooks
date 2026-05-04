@@ -1,5 +1,5 @@
 // doc_transaction_editor.js — Alpine factory for "simple" line-item editors.
-// v=3
+// v=4
 //
 // Shared by Quote, Sales Order, Purchase Order, Bill, Expense — every
 // transaction-document editor whose totals are a plain
@@ -141,6 +141,10 @@ function docTransactionEditor() {
         if (!option) return;
         if (this.lockCounterpartyCurrency && event.target && !event.target.value) {
           this.counterpartyCurrencyLocked = false;
+          this.currencyCode = "";
+          this.exchangeRate = "";
+          this.exchangeRateHint = "";
+          this.exchangeRateManual = false;
           return;
         }
         this._applyCounterpartyCurrency(option.dataset.currency || option.dataset.defaultCurrency || "");
@@ -182,6 +186,11 @@ function docTransactionEditor() {
 
       isForeignCurrency() {
         return this.currencyCode !== "" && this.baseCurrency !== "" && this.currencyCode !== this.baseCurrency;
+      },
+
+      currencyRateLeftLabel() {
+        const currency = this.currencyCode || this.baseCurrency || "";
+        return currency ? "1 " + currency : "Select vendor";
       },
 
       async lookupExchangeRate(options) {
