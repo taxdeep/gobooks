@@ -502,6 +502,67 @@ async function testDocTransactionEditorHiddenCurrencyUsesVendorRateText() {
   assert.equal(requestURL.searchParams.get('date'), '2026-05-04');
 }
 
+async function testDocTransactionEditorUsesVendorCurrencyMapFallback() {
+  const fetchCalls = [];
+  const balancizFetch = async (url) => {
+    fetchCalls.push(url);
+    return {
+      ok: true,
+      async json() {
+        return {
+          exchange_rate: '1.33330000',
+          exchange_rate_date: '2026-05-04',
+          source_label: 'Rate table',
+        };
+      },
+    };
+  };
+  const context = loadBrowserScripts(['doc_line_items.js', 'doc_transaction_editor.js'], {
+    window: { balancizFetch },
+  });
+  const editor = context.docTransactionEditor();
+  const hiddenCurrencyField = { tagName: 'INPUT', type: 'hidden', value: '', dispatchEvent() {} };
+  const exchangeRateField = { value: '1.000000' };
+  const poDateField = { value: '2026-05-04' };
+  const vendorField = {
+    value: '42',
+    selectedOptions: [{ dataset: {} }],
+    addEventListener() {},
+  };
+
+  editor.$el = {
+    dataset: {
+      products: '[]',
+      taxCodes: '[]',
+      initialLines: '[]',
+      baseCurrency: 'CAD',
+      initialCurrency: '',
+      counterpartyCurrencies: '{"42":"USD"}',
+      lockCounterpartyCurrency: 'true',
+    },
+    querySelector(selector) {
+      if (selector === '[data-counterparty-currency-source]') return vendorField;
+      if (selector === '[name="currency_code"]') return hiddenCurrencyField;
+      if (selector === '[name="exchange_rate"]') return exchangeRateField;
+      if (selector === '[name="po_date"], [name="bill_date"], [name="invoice_date"], [name="quote_date"], [name="order_date"]') return poDateField;
+      return null;
+    },
+    querySelectorAll(selector) {
+      if (selector === '[name="currency_code"]') return [hiddenCurrencyField];
+      return [];
+    },
+  };
+
+  editor.init();
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  assert.equal(hiddenCurrencyField.value, 'USD');
+  assert.equal(editor.currencyCode, 'USD');
+  assert.equal(editor.currencyRateLeftLabel(), '1 USD');
+  assert.equal(editor.exchangeRate, '1.33330000');
+  assert.equal(fetchCalls.length >= 1, true);
+}
+
 function testBillDateFilterInputSanitizesAndNormalizes() {
   const documentListeners = {};
   const context = loadBrowserScript('date_filter_input.js', {
@@ -870,6 +931,10 @@ async function run() {
     {
       name: 'document transaction editor uses hidden vendor currency rate text',
       fn: testDocTransactionEditorHiddenCurrencyUsesVendorRateText,
+    },
+    {
+      name: 'document transaction editor uses vendor currency map fallback',
+      fn: testDocTransactionEditorUsesVendorCurrencyMapFallback,
     },
     {
       name: 'bill date filter input strips letters and normalizes 8-digit dates',

@@ -1,5 +1,5 @@
 // doc_transaction_editor.js — Alpine factory for "simple" line-item editors.
-// v=4
+// v=5
 //
 // Shared by Quote, Sales Order, Purchase Order, Bill, Expense — every
 // transaction-document editor whose totals are a plain
@@ -56,6 +56,7 @@ function docTransactionEditor() {
       exchangeRateFetchSeq: 0,
       lockCounterpartyCurrency: false,
       counterpartyCurrencyLocked: false,
+      counterpartyCurrencies: {},
 
       _taxCodesById:   {},
       _productsById:   {},
@@ -65,12 +66,16 @@ function docTransactionEditor() {
         this.products = JSON.parse(el.dataset.products || "[]");
         this.taxCodes = JSON.parse(el.dataset.taxCodes || "[]");
         this.baseCurrency = String(el.dataset.baseCurrency || "").trim().toUpperCase();
+        this.counterpartyCurrencies = this._parseJSON(el.dataset.counterpartyCurrencies || "{}", {});
         this.lockCounterpartyCurrency = el.dataset.lockCounterpartyCurrency === "true";
         this._taxCodesById = Object.fromEntries(this.taxCodes.map(t => [String(t.id), t]));
         this._productsById = Object.fromEntries(this.products.map(p => [String(p.id), p]));
         const currencyField = this._currencyField();
         if (currencyField) {
-          this.currencyCode = String(currencyField.value || "").trim().toUpperCase();
+          this.currencyCode = String(currencyField.value || el.dataset.initialCurrency || "").trim().toUpperCase();
+          if (currencyField.value !== this.currencyCode) {
+            currencyField.value = this.currencyCode;
+          }
         }
         const exchangeRateField = this._exchangeRateField();
         if (exchangeRateField) {
@@ -86,18 +91,24 @@ function docTransactionEditor() {
         }
         this.assignRowKeys();
         const counterpartyField = el.querySelector('[data-counterparty-currency-source]');
-        if (
-          this.lockCounterpartyCurrency
-          && counterpartyField
-          && counterpartyField.value
-          && counterpartyField.selectedOptions
-          && counterpartyField.selectedOptions[0]
-        ) {
-          this._applyCounterpartyCurrency(
-            counterpartyField.selectedOptions[0].dataset.currency
-              || counterpartyField.selectedOptions[0].dataset.defaultCurrency
-              || "",
-          );
+        if (counterpartyField) {
+          if (typeof counterpartyField.addEventListener === "function") {
+            counterpartyField.addEventListener("change", (event) => this.onCounterpartySelectChange(event));
+          }
+          if (this.lockCounterpartyCurrency) {
+            this._syncCounterpartyCurrencyFromField(counterpartyField);
+            if (!this.currencyCode) {
+              if (this.$nextTick) {
+                this.$nextTick(() => this._syncCounterpartyCurrencyFromField(counterpartyField));
+              } else {
+                setTimeout(() => this._syncCounterpartyCurrencyFromField(counterpartyField), 0);
+              }
+            }
+          } else if (this.currencyCode) {
+            this.onCurrencyFieldChange(this.currencyCode, { forceLookup: false });
+          }
+        } else if (this.currencyCode) {
+          this.onCurrencyFieldChange(this.currencyCode, { forceLookup: false });
         }
         this._recalcAll();
       },
@@ -138,7 +149,6 @@ function docTransactionEditor() {
 
       onCounterpartySelectChange(event) {
         const option = event && event.target ? event.target.selectedOptions[0] : null;
-        if (!option) return;
         if (this.lockCounterpartyCurrency && event.target && !event.target.value) {
           this.counterpartyCurrencyLocked = false;
           this.currencyCode = "";
@@ -147,7 +157,7 @@ function docTransactionEditor() {
           this.exchangeRateManual = false;
           return;
         }
-        this._applyCounterpartyCurrency(option.dataset.currency || option.dataset.defaultCurrency || "");
+        this._applyCounterpartyCurrency(this._counterpartyCurrencyFromSelect(event ? event.target : null, option));
       },
 
       onCounterpartyPickerSelect(event) {
@@ -305,6 +315,22 @@ function docTransactionEditor() {
         field.dispatchEvent(new Event("change", { bubbles: true }));
       },
 
+      _syncCounterpartyCurrencyFromField(field) {
+        if (!field || !field.value) return;
+        this._applyCounterpartyCurrency(this._counterpartyCurrencyFromSelect(field, field.selectedOptions ? field.selectedOptions[0] : null));
+      },
+
+      _counterpartyCurrencyFromSelect(field, option) {
+        let currency = "";
+        if (option && option.dataset) {
+          currency = option.dataset.currency || option.dataset.defaultCurrency || "";
+        }
+        if (!currency && field && field.value) {
+          currency = this.counterpartyCurrencies[String(field.value)] || "";
+        }
+        return currency;
+      },
+
       _currencyField() {
         if (!this.$el) return null;
         if (typeof this.$el.querySelectorAll === "function") {
@@ -319,6 +345,15 @@ function docTransactionEditor() {
       _exchangeRateField() {
         if (!this.$el || !this.$el.querySelector) return null;
         return this.$el.querySelector('[name="exchange_rate"]');
+      },
+
+      _parseJSON(raw, fallback) {
+        try {
+          const parsed = JSON.parse(raw || "");
+          return parsed && typeof parsed === "object" ? parsed : fallback;
+        } catch (_) {
+          return fallback;
+        }
       },
 
       _documentDateValue() {

@@ -57,6 +57,8 @@ templ poEditorContent(vm PurchaseOrderDetailVM) {
 		data-tax-codes={ poTaxCodesJSON(vm.TaxCodes) }
 		data-initial-lines={ poInitialLinesJSON(vm.PurchaseOrder.Lines) }
 		data-base-currency={ poBaseCurrency(vm) }
+		data-initial-currency={ poInitialCurrency(vm) }
+		data-counterparty-currencies={ poVendorCurrenciesJSON(vm) }
 		data-lock-counterparty-currency="true"
 	>
 		if vm.PurchaseOrder.ID != 0 {
@@ -108,7 +110,6 @@ templ poHeaderLeft(vm PurchaseOrderDetailVM) {
 			name="vendor_id"
 			required
 			data-counterparty-currency-source="true"
-			@change="onCounterpartySelectChange($event)"
 			class={ fieldClass(false) }
 		>
 			<option value="">— Select vendor —</option>
@@ -153,7 +154,7 @@ templ poHeaderRight(vm PurchaseOrderDetailVM) {
 		</div>
 		<div class="md:col-span-2">
 			<label class={ compactLabelClass() }>Currency *</label>
-			<input type="hidden" name="currency_code" :value="currencyCode || baseCurrency"/>
+			<input type="hidden" name="currency_code" value={ poInitialCurrency(vm) } :value="currencyCode || baseCurrency"/>
 			<div class="mt-1 flex items-center gap-2 rounded-md border border-border-input bg-background px-3 py-1.5 text-body text-text">
 				<span class="shrink-0 font-mono text-text-muted2" x-text="currencyRateLeftLabel()"></span>
 				<span class="shrink-0 text-text-muted2">=</span>
@@ -201,7 +202,7 @@ templ poLineItemPicker() {
 				x-model="query"
 				@focus="onFocus()"
 				@input="onInput()"
-				class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 pr-8 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
+				class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 pr-10 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
 			/>
 			<button
 				type="button"
@@ -210,8 +211,8 @@ templ poLineItemPicker() {
 				@click="clear()"
 				title="Clear item"
 				aria-label="Clear item"
-				class="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-small text-text-muted3 hover:bg-background hover:text-text"
-			>x</button>
+				class="absolute right-1.5 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md border border-border-input bg-background text-[13px] font-semibold leading-none text-text-muted2 shadow-sm hover:border-primary hover:bg-surface hover:text-text"
+			>&times;</button>
 		</div>
 		<div
 			x-show="open"

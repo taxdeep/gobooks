@@ -3,6 +3,7 @@ package pages
 
 import (
 	"encoding/json"
+	"strings"
 
 	"balanciz/internal/models"
 	"balanciz/internal/web/templates/ui"
@@ -111,6 +112,27 @@ func poProductsJSON(products []models.ProductService) string {
 	}
 	b, _ := json.Marshal(out)
 	return string(b)
+}
+
+func poVendorCurrenciesJSON(vm PurchaseOrderDetailVM) string {
+	out := make(map[string]string, len(vm.Vendors))
+	for _, v := range vm.Vendors {
+		out[Uitoa(v.ID)] = poVendorCurrency(v, vm)
+	}
+	b, _ := json.Marshal(out)
+	return string(b)
+}
+
+func poInitialCurrency(vm PurchaseOrderDetailVM) string {
+	if code := strings.ToUpper(strings.TrimSpace(vm.PurchaseOrder.CurrencyCode)); code != "" {
+		return code
+	}
+	for _, v := range vm.Vendors {
+		if v.ID == vm.PurchaseOrder.VendorID {
+			return poVendorCurrency(v, vm)
+		}
+	}
+	return poBaseCurrency(vm)
 }
 
 func poProductPurchaseAccount(p models.ProductService) (string, string, string) {
