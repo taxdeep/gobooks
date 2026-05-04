@@ -258,7 +258,9 @@ func (s *Server) handlePurchaseOrderClose(c *fiber.Ctx) error {
 func (s *Server) loadPOFormData(companyID uint, vm *pages.PurchaseOrderDetailVM) {
 	vm.Vendors, _ = s.vendorsForCompany(companyID)
 	s.DB.Where("company_id = ? AND is_active = true", companyID).Order("code asc").Find(&vm.Accounts)
-	s.DB.Where("company_id = ? AND is_active = true", companyID).Order("name asc").Find(&vm.Products)
+	s.DB.Preload("InventoryAccount").Preload("COGSAccount").
+		Where("company_id = ? AND is_active = true", companyID).
+		Order("name asc").Find(&vm.Products)
 	s.DB.Where("company_id = ?", companyID).Order("name asc").Find(&vm.TaxCodes)
 
 	// Multi-currency: mirror bills_handlers.loadBillFormData so the
@@ -310,6 +312,7 @@ func parsePOInput(c *fiber.Ctx) (services.POInput, error) {
 	for i := 0; i < 100; i++ {
 		prefix := "lines[" + strconv.Itoa(i) + "]"
 		itemStr := strings.TrimSpace(c.FormValue(prefix + "[product_service_id]"))
+		expenseAccountStr := strings.TrimSpace(c.FormValue(prefix + "[expense_account_id]"))
 		desc := strings.TrimSpace(c.FormValue(prefix + "[description]"))
 		qtyStr := strings.TrimSpace(c.FormValue(prefix + "[qty]"))
 		priceStr := strings.TrimSpace(c.FormValue(prefix + "[unit_price]"))
@@ -327,9 +330,18 @@ func parsePOInput(c *fiber.Ctx) (services.POInput, error) {
 			}
 		}
 
+		var expenseAccountID *uint
+		if expenseAccountStr != "" {
+			if id, err := strconv.ParseUint(expenseAccountStr, 10, 64); err == nil && id > 0 {
+				aid := uint(id)
+				expenseAccountID = &aid
+			}
+		}
+
 		lines = append(lines, services.POLineInput{
 			SortOrder:        uint(i + 1),
 			ProductServiceID: productServiceID,
+			ExpenseAccountID: expenseAccountID,
 			Description:      desc,
 			Qty:              qty,
 			UnitPrice:        price,
@@ -347,4 +359,3 @@ func parsePOInput(c *fiber.Ctx) (services.POInput, error) {
 		Lines:        lines,
 	}, nil
 }
-

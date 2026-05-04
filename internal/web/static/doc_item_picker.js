@@ -1,6 +1,6 @@
 // doc_item_picker.js — shared per-row product/service picker for transaction-
 // document line items (Invoice / Quote / SO / Bill / PO / Expense).
-// v=1
+// v=2
 //
 // Used inside a parent Alpine x-for loop. Receives the row's `line` object
 // + `idx` + an opts bag at construction so it can write through to
@@ -96,9 +96,17 @@ function balancizItemPicker(line, idx, opts) {
       this.highlighted = Math.max(0, Math.min(this.items.length - 1, this.highlighted + delta));
     },
 
+    itemCode(item) {
+      const payload = (item && item.payload) || {};
+      return payload.item_code || "";
+    },
+
     select(item) {
       this.line.product_service_id    = String(item.id);
       this.line.product_service_label = item.primary || "";
+      this.line.product_service_code  = this.itemCode(item);
+      this.line.expense_account_id    = (item.payload && item.payload.expense_account_id) || "";
+      this.line.account_code          = (item.payload && item.payload.account_code) || "";
       this.query = item.primary || "";
       this.open = false;
       this.highlighted = -1;
@@ -114,6 +122,9 @@ function balancizItemPicker(line, idx, opts) {
     clear() {
       this.line.product_service_id    = "";
       this.line.product_service_label = "";
+      this.line.product_service_code  = "";
+      this.line.expense_account_id    = "";
+      this.line.account_code          = "";
       this.query = "";
       this.open  = false;
       this.$dispatch("balanciz-item-picker-select", { idx: this.idx, id: "", payload: {} });

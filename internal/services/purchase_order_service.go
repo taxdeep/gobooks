@@ -225,6 +225,7 @@ func CreatePurchaseOrder(db *gorm.DB, companyID uint, in POInput) (*models.Purch
 func GetPurchaseOrder(db *gorm.DB, companyID, poID uint) (*models.PurchaseOrder, error) {
 	var po models.PurchaseOrder
 	err := db.Preload("Vendor").Preload("Lines").Preload("Lines.ProductService").
+		Preload("Lines.ProductService.InventoryAccount").Preload("Lines.ProductService.COGSAccount").
 		Preload("Lines.TaxCode").Preload("Lines.ExpenseAccount").
 		Where("id = ? AND company_id = ?", poID, companyID).First(&po).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {

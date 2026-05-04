@@ -480,6 +480,8 @@ func (p *ProductServiceProvider) EntityType() string { return "product_service" 
 func (p *ProductServiceProvider) Search(db *gorm.DB, ctx SmartPickerContext, query string) (*SmartPickerResult, error) {
 	var items []models.ProductService
 	q := p.scopedQuery(db, ctx).
+		Preload("InventoryAccount").
+		Preload("COGSAccount").
 		Order("name ASC").
 		Limit(smartPickerLimit(ctx))
 	q = applySmartPickerTextSearch(q, db.Dialector.Name(), query, "name", "sku", "description")
@@ -498,6 +500,8 @@ func (p *ProductServiceProvider) Search(db *gorm.DB, ctx SmartPickerContext, que
 func (p *ProductServiceProvider) GetByID(db *gorm.DB, ctx SmartPickerContext, id string) (*SmartPickerItem, error) {
 	var item models.ProductService
 	err := p.scopedQuery(db, ctx).
+		Preload("InventoryAccount").
+		Preload("COGSAccount").
 		Where("id = ?", id).
 		First(&item).Error
 	if err != nil {
@@ -527,12 +531,28 @@ func productServiceSmartPickerItem(item models.ProductService) SmartPickerItem {
 		// It is not rendered in the dropdown UI.
 		Payload: map[string]string{
 			"default_price": item.DefaultPrice.StringFixed(2),
+			"item_code":     strings.TrimSpace(item.SKU),
 		},
+	}
+	if accountID, accountCode, accountName := productServicePurchaseAccount(item); accountID != 0 {
+		spItem.Payload["expense_account_id"] = fmt.Sprintf("%d", accountID)
+		spItem.Payload["account_code"] = accountCode
+		spItem.Payload["account_name"] = accountName
 	}
 	if strings.TrimSpace(item.SKU) != "" {
 		spItem.Meta = map[string]string{"type": models.ProductServiceTypeLabel(item.Type)}
 	}
 	return spItem
+}
+
+func productServicePurchaseAccount(item models.ProductService) (uint, string, string) {
+	if item.InventoryAccountID != nil && *item.InventoryAccountID != 0 {
+		return *item.InventoryAccountID, strings.TrimSpace(item.InventoryAccount.Code), strings.TrimSpace(item.InventoryAccount.Name)
+	}
+	if item.COGSAccountID != nil && *item.COGSAccountID != 0 {
+		return *item.COGSAccountID, strings.TrimSpace(item.COGSAccount.Code), strings.TrimSpace(item.COGSAccount.Name)
+	}
+	return 0, "", ""
 }
 
 func productServiceSmartPickerSecondary(item models.ProductService) string {

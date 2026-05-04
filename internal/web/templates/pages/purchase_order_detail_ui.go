@@ -86,22 +86,39 @@ func poProductsJSON(products []models.ProductService) string {
 	type row struct {
 		ID               uint   `json:"id"`
 		Name             string `json:"name"`
+		ItemCode         string `json:"item_code"`
 		Description      string `json:"description"`
 		DefaultPrice     string `json:"default_price"`
 		DefaultTaxCodeID *uint  `json:"default_tax_code_id"`
+		ExpenseAccountID string `json:"expense_account_id"`
+		AccountCode      string `json:"account_code"`
 	}
 	out := make([]row, 0, len(products))
 	for _, p := range products {
+		accountID, accountCode := poProductPurchaseAccount(p)
 		out = append(out, row{
 			ID:               p.ID,
 			Name:             p.Name,
+			ItemCode:         p.SKU,
 			Description:      p.Description,
 			DefaultPrice:     p.DefaultPrice.StringFixed(2),
 			DefaultTaxCodeID: p.DefaultTaxCodeID,
+			ExpenseAccountID: accountID,
+			AccountCode:      accountCode,
 		})
 	}
 	b, _ := json.Marshal(out)
 	return string(b)
+}
+
+func poProductPurchaseAccount(p models.ProductService) (string, string) {
+	if p.InventoryAccountID != nil && *p.InventoryAccountID != 0 {
+		return Uitoa(*p.InventoryAccountID), p.InventoryAccount.Code
+	}
+	if p.COGSAccountID != nil && *p.COGSAccountID != 0 {
+		return Uitoa(*p.COGSAccountID), p.COGSAccount.Code
+	}
+	return "", ""
 }
 
 // poTaxCodesJSON serialises tax codes. PO doesn't currently expose a per-line
@@ -128,6 +145,9 @@ func poInitialLinesJSON(lines []models.PurchaseOrderLine) string {
 	type row struct {
 		ProductServiceID    string `json:"product_service_id"`
 		ProductServiceLabel string `json:"product_service_label"`
+		ProductServiceCode  string `json:"product_service_code"`
+		ExpenseAccountID    string `json:"expense_account_id"`
+		AccountCode         string `json:"account_code"`
 		Description         string `json:"description"`
 		Qty                 string `json:"qty"`
 		UnitPrice           string `json:"unit_price"`
@@ -146,6 +166,17 @@ func poInitialLinesJSON(lines []models.PurchaseOrderLine) string {
 			r.ProductServiceID = Uitoa(*l.ProductServiceID)
 			if l.ProductService != nil {
 				r.ProductServiceLabel = l.ProductService.Name
+				r.ProductServiceCode = l.ProductService.SKU
+				if accountID, accountCode := poProductPurchaseAccount(*l.ProductService); accountID != "" {
+					r.ExpenseAccountID = accountID
+					r.AccountCode = accountCode
+				}
+			}
+		}
+		if l.ExpenseAccountID != nil {
+			r.ExpenseAccountID = Uitoa(*l.ExpenseAccountID)
+			if l.ExpenseAccount != nil {
+				r.AccountCode = l.ExpenseAccount.Code
 			}
 		}
 		out = append(out, r)

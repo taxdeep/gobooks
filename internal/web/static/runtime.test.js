@@ -291,6 +291,45 @@ function testDocTransactionEditorCounterpartyCurrencySync() {
   assert.deepEqual(currencyEvents, ['change']);
 }
 
+function testDocItemPickerSelectCarriesItemAndAccountCodes() {
+  const context = loadBrowserScript('doc_item_picker.js', {});
+  const line = {};
+  const events = [];
+  const picker = context.balancizItemPicker(line, 2, { context: 'po_line_item' });
+  picker.$watch = () => {};
+  picker.$dispatch = (name, detail) => events.push({ name, detail });
+
+  picker.init();
+  const item = {
+    id: '9',
+    primary: 'Blue Pen',
+    payload: {
+      item_code: 'PEN-BLUE',
+      expense_account_id: '4',
+      account_code: '1300',
+    },
+  };
+
+  assert.equal(picker.itemCode(item), 'PEN-BLUE');
+  picker.select(item);
+
+  assert.equal(line.product_service_id, '9');
+  assert.equal(line.product_service_label, 'Blue Pen');
+  assert.equal(line.product_service_code, 'PEN-BLUE');
+  assert.equal(line.expense_account_id, '4');
+  assert.equal(line.account_code, '1300');
+  assert.deepEqual(JSON.parse(JSON.stringify(events[0])), {
+    name: 'balanciz-item-picker-select',
+    detail: { idx: 2, id: '9', payload: item.payload },
+  });
+
+  picker.clear();
+  assert.equal(line.product_service_id, '');
+  assert.equal(line.product_service_code, '');
+  assert.equal(line.expense_account_id, '');
+  assert.equal(line.account_code, '');
+}
+
 function testDocTransactionEditorLocksCounterpartyCurrencyWhenConfigured() {
   const context = loadBrowserScripts(['doc_line_items.js', 'doc_transaction_editor.js'], {});
   const editor = context.docTransactionEditor();
@@ -690,6 +729,10 @@ async function run() {
     {
       name: 'document transaction editor syncs currency from selected counterparty',
       fn: testDocTransactionEditorCounterpartyCurrencySync,
+    },
+    {
+      name: 'document item picker carries item and account codes',
+      fn: testDocItemPickerSelectCarriesItemAndAccountCodes,
     },
     {
       name: 'document transaction editor locks configured counterparty currency',

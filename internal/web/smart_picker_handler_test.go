@@ -307,6 +307,42 @@ func TestProductServiceProvider_TaskContextGuardsSearchAndGetByID(t *testing.T) 
 	}
 }
 
+func TestProductServiceProvider_POPayloadIncludesItemAndAccountCodes(t *testing.T) {
+	db := testRouteDB(t)
+	companyID := seedCompany(t, db, "SP PO Product Co")
+	revenueID := seedSPAccount(t, db, companyID, "4100", "Sales", models.RootRevenue, true)
+	inventoryID := seedSPAccount(t, db, companyID, "1300", "Inventory", models.RootAsset, true)
+	itemID := seedSPProductService(t, db, companyID, revenueID, "Blue Pen", "PEN-BLUE", models.ProductServiceTypeInventory, true)
+	if err := db.Model(&models.ProductService{}).Where("id = ?", itemID).Update("inventory_account_id", inventoryID).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	var p ProductServiceProvider
+	ctx := SmartPickerContext{CompanyID: companyID, Context: "po_line_item", Limit: 20}
+	result, err := p.Search(db, ctx, "blue")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Candidates) != 1 {
+		t.Fatalf("expected one PO item candidate, got %+v", result.Candidates)
+	}
+	item := result.Candidates[0]
+	if item.Primary != "Blue Pen" || item.Payload["item_code"] != "PEN-BLUE" {
+		t.Fatalf("expected item name/code payload, got %+v", item)
+	}
+	if item.Payload["expense_account_id"] != fmt.Sprintf("%d", inventoryID) || item.Payload["account_code"] != "1300" {
+		t.Fatalf("expected inventory account payload, got %+v", item.Payload)
+	}
+
+	rehydrated, err := p.GetByID(db, ctx, fmt.Sprintf("%d", itemID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rehydrated == nil || rehydrated.Payload["account_code"] != "1300" {
+		t.Fatalf("expected rehydrated account payload, got %+v", rehydrated)
+	}
+}
+
 func TestSmartPickerRegistry_UnknownEntityReturnsFalse(t *testing.T) {
 	_, ok := defaultSmartPickerRegistry.get("nonexistent_entity")
 	if ok {

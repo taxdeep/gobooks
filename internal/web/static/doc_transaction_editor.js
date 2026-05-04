@@ -24,6 +24,9 @@ function docTransactionEditor() {
       defaults: {
         product_service_id:    "",
         product_service_label: "",
+        product_service_code:  "",
+        expense_account_id:    "",
+        account_code:          "",
         description:           "",
         qty:                   "1",
         unit_price:            "0.00",
@@ -102,6 +105,9 @@ function docTransactionEditor() {
         const line = this.lines[idx];
         if (!line.description) line.description = ps.description || ps.name;
         line.unit_price = ps.default_price;
+        line.product_service_code = ps.item_code || line.product_service_code || "";
+        line.expense_account_id = ps.expense_account_id || line.expense_account_id || "";
+        line.account_code = ps.account_code || line.account_code || "";
         if (ps.default_tax_code_id) {
           line.tax_code_id = String(ps.default_tax_code_id);
         }
