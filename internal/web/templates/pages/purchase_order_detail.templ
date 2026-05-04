@@ -195,15 +195,26 @@ templ poLineItemPicker() {
 		@keydown="onKeydown($event)"
 	>
 		<input type="hidden" :name="'lines[' + idx + '][product_service_id]'" :value="line.product_service_id"/>
-		<input
-			type="text"
-			autocomplete="off"
-			placeholder="Item / service…"
-			x-model="query"
-			@focus="onFocus()"
-			@input="onInput()"
-			class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
-		/>
+		<div class="relative">
+			<input
+				type="text"
+				autocomplete="off"
+				placeholder="Item / service…"
+				x-model="query"
+				@focus="onFocus()"
+				@input="onInput()"
+				class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 pr-8 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"
+			/>
+			<button
+				type="button"
+				x-show="line.product_service_id || query"
+				x-cloak
+				@click="clear()"
+				title="Clear item"
+				aria-label="Clear item"
+				class="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-small text-text-muted3 hover:bg-background hover:text-text"
+			>x</button>
+		</div>
 		<div
 			x-show="open"
 			x-cloak

@@ -791,7 +791,7 @@ func poLineItemPicker() templ.Component {
 			templ_7745c5c3_Var46 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "<div x-data=\"balancizItemPicker(line, idx, { context: 'po_line_item' })\" class=\"relative\" @click.outside=\"close()\" @keydown=\"onKeydown($event)\"><input type=\"hidden\" :name=\"'lines[' + idx + '][product_service_id]'\" :value=\"line.product_service_id\"> <input type=\"text\" autocomplete=\"off\" placeholder=\"Item / service…\" x-model=\"query\" @focus=\"onFocus()\" @input=\"onInput()\" class=\"block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus\"><div x-show=\"open\" x-cloak class=\"absolute z-40 mt-1 w-96 rounded-md border border-border bg-surface shadow-lg\" style=\"display:none\"><div x-show=\"loading\" class=\"px-3 py-2 text-body text-text-muted2\">Searching…</div><div x-show=\"!loading && failed\" class=\"px-3 py-2 text-body text-danger\">Search failed. Try again.</div><ul x-show=\"!loading && !failed && items.length > 0\" class=\"max-h-60 overflow-y-auto py-1\"><template x-for=\"(item, i) in items\" :key=\"item.id\"><li role=\"option\" @click=\"select(item)\" @mouseenter=\"highlighted = i\" :class=\"highlighted === i\r\n\t\t\t\t\t\t\t? 'flex flex-col px-3 py-2 cursor-pointer bg-background'\r\n\t\t\t\t\t\t\t: 'flex flex-col px-3 py-2 cursor-pointer hover:bg-background'\"><div class=\"flex items-center justify-between gap-4\"><span class=\"min-w-0 truncate text-body text-text\" x-text=\"item.primary\"></span> <span x-show=\"itemCode(item)\" class=\"shrink-0 text-small text-text-muted3\">|</span> <span x-show=\"itemCode(item)\" class=\"shrink-0 font-mono text-small text-text-muted2\" x-text=\"itemCode(item)\"></span></div></li></template></ul><div x-show=\"!loading && !failed && items.length === 0\" class=\"px-3 py-2 text-body text-text-muted2\">No matches.</div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "<div x-data=\"balancizItemPicker(line, idx, { context: 'po_line_item' })\" class=\"relative\" @click.outside=\"close()\" @keydown=\"onKeydown($event)\"><input type=\"hidden\" :name=\"'lines[' + idx + '][product_service_id]'\" :value=\"line.product_service_id\"><div class=\"relative\"><input type=\"text\" autocomplete=\"off\" placeholder=\"Item / service…\" x-model=\"query\" @focus=\"onFocus()\" @input=\"onInput()\" class=\"block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 pr-8 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus\"> <button type=\"button\" x-show=\"line.product_service_id || query\" x-cloak @click=\"clear()\" title=\"Clear item\" aria-label=\"Clear item\" class=\"absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-small text-text-muted3 hover:bg-background hover:text-text\">x</button></div><div x-show=\"open\" x-cloak class=\"absolute z-40 mt-1 w-96 rounded-md border border-border bg-surface shadow-lg\" style=\"display:none\"><div x-show=\"loading\" class=\"px-3 py-2 text-body text-text-muted2\">Searching…</div><div x-show=\"!loading && failed\" class=\"px-3 py-2 text-body text-danger\">Search failed. Try again.</div><ul x-show=\"!loading && !failed && items.length > 0\" class=\"max-h-60 overflow-y-auto py-1\"><template x-for=\"(item, i) in items\" :key=\"item.id\"><li role=\"option\" @click=\"select(item)\" @mouseenter=\"highlighted = i\" :class=\"highlighted === i\r\n\t\t\t\t\t\t\t? 'flex flex-col px-3 py-2 cursor-pointer bg-background'\r\n\t\t\t\t\t\t\t: 'flex flex-col px-3 py-2 cursor-pointer hover:bg-background'\"><div class=\"flex items-center justify-between gap-4\"><span class=\"min-w-0 truncate text-body text-text\" x-text=\"item.primary\"></span> <span x-show=\"itemCode(item)\" class=\"shrink-0 text-small text-text-muted3\">|</span> <span x-show=\"itemCode(item)\" class=\"shrink-0 font-mono text-small text-text-muted2\" x-text=\"itemCode(item)\"></span></div></li></template></ul><div x-show=\"!loading && !failed && items.length === 0\" class=\"px-3 py-2 text-body text-text-muted2\">No matches.</div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -820,7 +820,7 @@ func poLineAccountPicker() templ.Component {
 			templ_7745c5c3_Var47 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "<div x-data=\"balancizLineAccountPicker(line, idx, { context: 'po_line_account' })\" class=\"relative\" @click.outside=\"close()\" @keydown=\"onKeydown($event)\"><input type=\"hidden\" :name=\"'lines[' + idx + '][expense_account_id]'\" :value=\"line.expense_account_id\"> <input type=\"text\" autocomplete=\"off\" placeholder=\"Account...\" x-model=\"query\" @focus=\"onFocus()\" @input=\"onInput()\" :readonly=\"locked()\" :title=\"locked() ? 'Controlled by selected item' : ''\" class=\"block w-full rounded-md border px-2 py-1.5 text-body outline-none\" :class=\"locked()\n\t\t\t\t? 'cursor-not-allowed border-border-input bg-background text-text-muted2'\n\t\t\t\t: 'border-border-input bg-surface text-text placeholder:text-text-muted2 focus:ring-2 focus:ring-primary-focus'\"><div x-show=\"open && !locked()\" x-cloak class=\"absolute z-40 mt-1 w-72 rounded-md border border-border bg-surface shadow-lg\" style=\"display:none\"><div x-show=\"loading\" class=\"px-3 py-2 text-body text-text-muted2\">Searching...</div><div x-show=\"!loading && failed\" class=\"px-3 py-2 text-body text-danger\">Search failed. Try again.</div><ul x-show=\"!loading && !failed && items.length > 0\" class=\"max-h-60 overflow-y-auto py-1\"><template x-for=\"(item, i) in items\" :key=\"item.id\"><li role=\"option\" @click=\"select(item)\" @mouseenter=\"highlighted = i\" :class=\"highlighted === i\n\t\t\t\t\t\t\t? 'px-3 py-2 cursor-pointer bg-background'\n\t\t\t\t\t\t\t: 'px-3 py-2 cursor-pointer hover:bg-background'\"><div class=\"flex items-center gap-2\"><span class=\"shrink-0 font-mono text-small text-text-muted2\" x-text=\"item.secondary\"></span> <span class=\"min-w-0 truncate text-body text-text\" x-text=\"item.primary\"></span></div></li></template></ul><div x-show=\"!loading && !failed && items.length === 0\" class=\"px-3 py-2 text-body text-text-muted2\">No matches.</div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "<div x-data=\"balancizLineAccountPicker(line, idx, { context: 'po_line_account' })\" class=\"relative\" @click.outside=\"close()\" @keydown=\"onKeydown($event)\"><input type=\"hidden\" :name=\"'lines[' + idx + '][expense_account_id]'\" :value=\"line.expense_account_id\"> <input type=\"text\" autocomplete=\"off\" placeholder=\"Account...\" x-model=\"query\" @focus=\"onFocus()\" @input=\"onInput()\" :readonly=\"locked()\" :title=\"locked() ? 'Controlled by selected item' : ''\" class=\"block w-full rounded-md border px-2 py-1.5 text-body outline-none\" :class=\"locked()\r\n\t\t\t\t? 'cursor-not-allowed border-border-input bg-background text-text-muted2'\r\n\t\t\t\t: 'border-border-input bg-surface text-text placeholder:text-text-muted2 focus:ring-2 focus:ring-primary-focus'\"><div x-show=\"open && !locked()\" x-cloak class=\"absolute z-40 mt-1 w-72 rounded-md border border-border bg-surface shadow-lg\" style=\"display:none\"><div x-show=\"loading\" class=\"px-3 py-2 text-body text-text-muted2\">Searching...</div><div x-show=\"!loading && failed\" class=\"px-3 py-2 text-body text-danger\">Search failed. Try again.</div><ul x-show=\"!loading && !failed && items.length > 0\" class=\"max-h-60 overflow-y-auto py-1\"><template x-for=\"(item, i) in items\" :key=\"item.id\"><li role=\"option\" @click=\"select(item)\" @mouseenter=\"highlighted = i\" :class=\"highlighted === i\r\n\t\t\t\t\t\t\t? 'px-3 py-2 cursor-pointer bg-background'\r\n\t\t\t\t\t\t\t: 'px-3 py-2 cursor-pointer hover:bg-background'\"><div class=\"flex items-center gap-2\"><span class=\"shrink-0 font-mono text-small text-text-muted2\" x-text=\"item.secondary\"></span> <span class=\"min-w-0 truncate text-body text-text\" x-text=\"item.primary\"></span></div></li></template></ul><div x-show=\"!loading && !failed && items.length === 0\" class=\"px-3 py-2 text-body text-text-muted2\">No matches.</div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1034,7 +1034,7 @@ func poCurrencyOptions(vm PurchaseOrderDetailVM) templ.Component {
 			var templ_7745c5c3_Var53 string
 			templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(code)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 409, Col: 22}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 420, Col: 22}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
 			if templ_7745c5c3_Err != nil {
@@ -1058,7 +1058,7 @@ func poCurrencyOptions(vm PurchaseOrderDetailVM) templ.Component {
 				var templ_7745c5c3_Var54 string
 				templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(code)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 411, Col: 10}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 422, Col: 10}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
 				if templ_7745c5c3_Err != nil {
@@ -1072,7 +1072,7 @@ func poCurrencyOptions(vm PurchaseOrderDetailVM) templ.Component {
 				var templ_7745c5c3_Var55 string
 				templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(code)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 413, Col: 10}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 424, Col: 10}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
 				if templ_7745c5c3_Err != nil {
@@ -1175,7 +1175,7 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 		var templ_7745c5c3_Var60 string
 		templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.JoinStringErrs(models.POStatusLabel(vm.PurchaseOrder.Status))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 429, Col: 111}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 440, Col: 111}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var60))
 		if templ_7745c5c3_Err != nil {
@@ -1193,7 +1193,7 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 			var templ_7745c5c3_Var61 templ.SafeURL
 			templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/purchase-orders/" + Uitoa(vm.PurchaseOrder.ID) + "/pdf-v2"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 432, Col: 89}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 443, Col: 89}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var61))
 			if templ_7745c5c3_Err != nil {
@@ -1233,7 +1233,7 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 		var templ_7745c5c3_Var64 string
 		templ_7745c5c3_Var64, templ_7745c5c3_Err = templ.JoinStringErrs(vm.PurchaseOrder.Vendor.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 443, Col: 74}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 454, Col: 74}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var64))
 		if templ_7745c5c3_Err != nil {
@@ -1246,7 +1246,7 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 		var templ_7745c5c3_Var65 string
 		templ_7745c5c3_Var65, templ_7745c5c3_Err = templ.JoinStringErrs(vm.PurchaseOrder.PODate.Format("2006-01-02"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 447, Col: 90}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 458, Col: 90}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var65))
 		if templ_7745c5c3_Err != nil {
@@ -1264,7 +1264,7 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 			var templ_7745c5c3_Var66 string
 			templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(vm.PurchaseOrder.ExpectedDate.Format("2006-01-02"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 452, Col: 97}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 463, Col: 97}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
 			if templ_7745c5c3_Err != nil {
@@ -1282,7 +1282,7 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 		var templ_7745c5c3_Var67 string
 		templ_7745c5c3_Var67, templ_7745c5c3_Err = templ.JoinStringErrs(vm.PurchaseOrder.CurrencyCode)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 457, Col: 75}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 468, Col: 75}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var67))
 		if templ_7745c5c3_Err != nil {
@@ -1295,7 +1295,7 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 		var templ_7745c5c3_Var68 string
 		templ_7745c5c3_Var68, templ_7745c5c3_Err = templ.JoinStringErrs(vm.PurchaseOrder.Amount.StringFixed(2))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 461, Col: 106}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 472, Col: 106}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var68))
 		if templ_7745c5c3_Err != nil {
@@ -1313,7 +1313,7 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 			var templ_7745c5c3_Var69 string
 			templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.JoinStringErrs(vm.PurchaseOrder.Notes)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 466, Col: 57}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 477, Col: 57}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var69))
 			if templ_7745c5c3_Err != nil {
@@ -1359,7 +1359,7 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 				var templ_7745c5c3_Var72 string
 				templ_7745c5c3_Var72, templ_7745c5c3_Err = templ.JoinStringErrs(line.Description)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 488, Col: 49}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 499, Col: 49}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var72))
 				if templ_7745c5c3_Err != nil {
@@ -1372,7 +1372,7 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 				var templ_7745c5c3_Var73 string
 				templ_7745c5c3_Var73, templ_7745c5c3_Err = templ.JoinStringErrs(poLineQtyDisplay(line))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 489, Col: 88}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 500, Col: 88}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var73))
 				if templ_7745c5c3_Err != nil {
@@ -1385,7 +1385,7 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 				var templ_7745c5c3_Var74 string
 				templ_7745c5c3_Var74, templ_7745c5c3_Err = templ.JoinStringErrs(line.UnitPrice.StringFixed(2))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 490, Col: 95}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 501, Col: 95}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var74))
 				if templ_7745c5c3_Err != nil {
@@ -1398,7 +1398,7 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 				var templ_7745c5c3_Var75 string
 				templ_7745c5c3_Var75, templ_7745c5c3_Err = templ.JoinStringErrs(line.LineNet.StringFixed(2))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 491, Col: 100}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 502, Col: 100}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var75))
 				if templ_7745c5c3_Err != nil {
@@ -1416,7 +1416,7 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 			var templ_7745c5c3_Var76 string
 			templ_7745c5c3_Var76, templ_7745c5c3_Err = templ.JoinStringErrs(vm.PurchaseOrder.Subtotal.StringFixed(2))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 501, Col: 85}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 512, Col: 85}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var76))
 			if templ_7745c5c3_Err != nil {
@@ -1434,7 +1434,7 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 				var templ_7745c5c3_Var77 string
 				templ_7745c5c3_Var77, templ_7745c5c3_Err = templ.JoinStringErrs(vm.PurchaseOrder.TaxTotal.StringFixed(2))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 506, Col: 86}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 517, Col: 86}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var77))
 				if templ_7745c5c3_Err != nil {
@@ -1452,7 +1452,7 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 			var templ_7745c5c3_Var78 string
 			templ_7745c5c3_Var78, templ_7745c5c3_Err = templ.JoinStringErrs(vm.PurchaseOrder.Amount.StringFixed(2))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 511, Col: 83}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 522, Col: 83}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var78))
 			if templ_7745c5c3_Err != nil {
@@ -1465,7 +1465,7 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 			var templ_7745c5c3_Var79 string
 			templ_7745c5c3_Var79, templ_7745c5c3_Err = templ.JoinStringErrs(vm.PurchaseOrder.CurrencyCode)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 511, Col: 117}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 522, Col: 117}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var79))
 			if templ_7745c5c3_Err != nil {
@@ -1488,7 +1488,7 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 			var templ_7745c5c3_Var80 templ.SafeURL
 			templ_7745c5c3_Var80, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/purchase-orders/" + fmt.Sprintf("%d", vm.PurchaseOrder.ID) + "/mark-received"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 520, Col: 127}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 531, Col: 127}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var80))
 			if templ_7745c5c3_Err != nil {
@@ -1501,7 +1501,7 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 			var templ_7745c5c3_Var81 templ.SafeURL
 			templ_7745c5c3_Var81, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/purchase-orders/" + fmt.Sprintf("%d", vm.PurchaseOrder.ID) + "/cancel"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 525, Col: 120}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 536, Col: 120}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var81))
 			if templ_7745c5c3_Err != nil {
@@ -1520,7 +1520,7 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 			var templ_7745c5c3_Var82 templ.SafeURL
 			templ_7745c5c3_Var82, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/purchase-orders/" + fmt.Sprintf("%d", vm.PurchaseOrder.ID) + "/close"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 532, Col: 119}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 543, Col: 119}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var82))
 			if templ_7745c5c3_Err != nil {
@@ -1542,7 +1542,7 @@ func poReadOnlyBody(vm PurchaseOrderDetailVM) templ.Component {
 			var templ_7745c5c3_Var83 templ.SafeURL
 			templ_7745c5c3_Var83, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/bills/new?from_po=" + fmt.Sprintf("%d", vm.PurchaseOrder.ID)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 543, Col: 89}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/purchase_order_detail.templ`, Line: 554, Col: 89}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var83))
 			if templ_7745c5c3_Err != nil {
