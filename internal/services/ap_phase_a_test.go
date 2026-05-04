@@ -158,6 +158,44 @@ func TestPO_CreateDraft(t *testing.T) {
 	}
 }
 
+func TestPO_UsesVendorCurrency(t *testing.T) {
+	db := phaseADB(t)
+	companyID, vendorA, _, _, _, _, _ := phaseASetup(t, db)
+
+	if err := db.Model(&models.Vendor{}).
+		Where("id = ? AND company_id = ?", vendorA, companyID).
+		Update("currency_code", "USD").Error; err != nil {
+		t.Fatal(err)
+	}
+
+	line := []POLineInput{{Description: "Widgets", Qty: decimal.NewFromInt(10), UnitPrice: decimal.NewFromInt(5)}}
+	po, err := CreatePurchaseOrder(db, companyID, POInput{
+		VendorID:     vendorA,
+		PODate:       time.Now(),
+		CurrencyCode: "CAD",
+		Lines:        line,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if po.CurrencyCode != "USD" {
+		t.Fatalf("expected PO currency to follow vendor USD, got %q", po.CurrencyCode)
+	}
+
+	updated, err := UpdatePurchaseOrder(db, companyID, po.ID, POInput{
+		VendorID:     vendorA,
+		PODate:       time.Now(),
+		CurrencyCode: "CAD",
+		Lines:        line,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.CurrencyCode != "USD" {
+		t.Fatalf("expected updated PO currency to remain vendor USD, got %q", updated.CurrencyCode)
+	}
+}
+
 func TestPO_ConfirmAndCancel(t *testing.T) {
 	db := phaseADB(t)
 	companyID, vendorA, _, _, _, _, _ := phaseASetup(t, db)

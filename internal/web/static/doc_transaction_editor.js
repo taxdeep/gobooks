@@ -43,6 +43,10 @@ function docTransactionEditor() {
       subtotalStr:     "0.00",
       totalTaxStr:     "0.00",
       grandTotalStr:   "0.00",
+      baseCurrency:    "",
+      currencyCode:    "",
+      lockCounterpartyCurrency: false,
+      counterpartyCurrencyLocked: false,
 
       _taxCodesById:   {},
       _productsById:   {},
@@ -51,8 +55,14 @@ function docTransactionEditor() {
         const el = this.$el;
         this.products = JSON.parse(el.dataset.products || "[]");
         this.taxCodes = JSON.parse(el.dataset.taxCodes || "[]");
+        this.baseCurrency = String(el.dataset.baseCurrency || "").trim().toUpperCase();
+        this.lockCounterpartyCurrency = el.dataset.lockCounterpartyCurrency === "true";
         this._taxCodesById = Object.fromEntries(this.taxCodes.map(t => [String(t.id), t]));
         this._productsById = Object.fromEntries(this.products.map(p => [String(p.id), p]));
+        const currencyField = this._currencyField();
+        if (currencyField) {
+          this.currencyCode = String(currencyField.value || "").trim().toUpperCase();
+        }
 
         const initial = JSON.parse(el.dataset.initialLines || "[]");
         if (initial.length > 0) {
@@ -61,6 +71,20 @@ function docTransactionEditor() {
           this.addLine();
         }
         this.assignRowKeys();
+        const counterpartyField = el.querySelector('[data-counterparty-currency-source]');
+        if (
+          this.lockCounterpartyCurrency
+          && counterpartyField
+          && counterpartyField.value
+          && counterpartyField.selectedOptions
+          && counterpartyField.selectedOptions[0]
+        ) {
+          this._applyCounterpartyCurrency(
+            counterpartyField.selectedOptions[0].dataset.currency
+              || counterpartyField.selectedOptions[0].dataset.defaultCurrency
+              || "",
+          );
+        }
         this._recalcAll();
       },
 
@@ -87,6 +111,10 @@ function docTransactionEditor() {
       onCounterpartySelectChange(event) {
         const option = event && event.target ? event.target.selectedOptions[0] : null;
         if (!option) return;
+        if (this.lockCounterpartyCurrency && event.target && !event.target.value) {
+          this.counterpartyCurrencyLocked = false;
+          return;
+        }
         this._applyCounterpartyCurrency(option.dataset.currency || option.dataset.defaultCurrency || "");
       },
 
@@ -95,6 +123,10 @@ function docTransactionEditor() {
         if (detail.entity !== "customer" && detail.entity !== "vendor") return;
         const payload = detail.payload || {};
         this._applyCounterpartyCurrency(payload.default_currency || payload.currency_code || "");
+      },
+
+      onCurrencyFieldChange(value) {
+        this.currencyCode = String(value || "").trim().toUpperCase();
       },
 
       calcLine(idx) {
@@ -152,18 +184,35 @@ function docTransactionEditor() {
       },
 
       _applyCounterpartyCurrency(raw) {
-        const currency = String(raw || "").trim().toUpperCase();
+        let currency = String(raw || "").trim().toUpperCase();
+        if (!currency && this.lockCounterpartyCurrency) currency = this.baseCurrency;
         if (!currency) return;
-        const field = this.$el.querySelector('[name="currency_code"]');
+        const field = this._currencyField();
         if (!field) return;
         if (field.tagName === "SELECT") {
           const option = Array.from(field.options).find(o => o.value.toUpperCase() === currency);
           if (!option) return;
           field.value = option.value;
+          this.currencyCode = option.value;
         } else {
           field.value = currency;
+          this.currencyCode = currency;
+        }
+        if (this.lockCounterpartyCurrency) {
+          this.counterpartyCurrencyLocked = true;
         }
         field.dispatchEvent(new Event("change", { bubbles: true }));
+      },
+
+      _currencyField() {
+        if (!this.$el) return null;
+        if (typeof this.$el.querySelectorAll === "function") {
+          const fields = Array.from(this.$el.querySelectorAll('[name="currency_code"]'));
+          const visible = fields.find(f => String(f.type || "").toLowerCase() !== "hidden");
+          if (visible) return visible;
+          if (fields.length > 0) return fields[0];
+        }
+        return this.$el.querySelector ? this.$el.querySelector('[name="currency_code"]') : null;
       },
 
       _sanitizeDecimalInput(val, maxDp) {

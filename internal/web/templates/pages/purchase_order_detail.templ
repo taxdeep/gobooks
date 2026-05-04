@@ -3,6 +3,7 @@ package pages
 
 import (
 	"fmt"
+	"strings"
 	"balanciz/internal/models"
 	"balanciz/internal/web/templates/layout"
 	"balanciz/internal/web/templates/ui"
@@ -55,6 +56,8 @@ templ poEditorContent(vm PurchaseOrderDetailVM) {
 		data-products={ poProductsJSON(vm.Products) }
 		data-tax-codes={ poTaxCodesJSON(vm.TaxCodes) }
 		data-initial-lines={ poInitialLinesJSON(vm.PurchaseOrder.Lines) }
+		data-base-currency={ poBaseCurrency(vm) }
+		data-lock-counterparty-currency="true"
 	>
 		if vm.PurchaseOrder.ID != 0 {
 			<input type="hidden" name="po_id" value={ fmt.Sprintf("%d", vm.PurchaseOrder.ID) }/>
@@ -104,12 +107,13 @@ templ poHeaderLeft(vm PurchaseOrderDetailVM) {
 		<select
 			name="vendor_id"
 			required
+			data-counterparty-currency-source="true"
 			@change="onCounterpartySelectChange($event)"
 			class={ fieldClass(false) }
 		>
 			<option value="">— Select vendor —</option>
 			for _, v := range vm.Vendors {
-				<option value={ fmt.Sprintf("%d", v.ID) } data-currency={ v.CurrencyCode } selected?={ vm.PurchaseOrder.VendorID == v.ID }>{ v.Name }</option>
+				<option value={ fmt.Sprintf("%d", v.ID) } data-currency={ poVendorCurrency(v, vm) } selected?={ vm.PurchaseOrder.VendorID == v.ID }>{ v.Name }</option>
 			}
 		</select>
 	</div>
@@ -148,9 +152,14 @@ templ poHeaderRight(vm PurchaseOrderDetailVM) {
 		</div>
 		<div>
 			<label class={ compactLabelClass() }>Currency *</label>
+			<input type="hidden" name="currency_code" :value="currencyCode" :disabled="!counterpartyCurrencyLocked"/>
 			<select
 				name="currency_code"
 				required
+				x-model="currencyCode"
+				@change="onCurrencyFieldChange($event.target.value)"
+				:disabled="counterpartyCurrencyLocked"
+				:class="counterpartyCurrencyLocked ? 'cursor-not-allowed bg-background text-text-muted2' : ''"
 				class={ fieldClass(false) }
 			>
 				@poCurrencyOptions(vm)
@@ -284,19 +293,60 @@ templ poNotesCard(vm PurchaseOrderDetailVM) {
 	<!-- intentionally empty: notes already rendered in header-left -->
 }
 
-templ poCurrencyOptions(vm PurchaseOrderDetailVM) {
-	{{ base := vm.BaseCurrencyCode }}
+func poBaseCurrency(vm PurchaseOrderDetailVM) string {
+	base := strings.ToUpper(strings.TrimSpace(vm.BaseCurrencyCode))
 	if base == "" {
-		{{ base = "CAD" }}
+		base = "CAD"
 	}
-	{{ current := vm.PurchaseOrder.CurrencyCode }}
-	<option value={ base } selected?={ current == "" || current == base }>{ base } (base)</option>
+	return base
+}
+
+func poVendorCurrency(v models.Vendor, vm PurchaseOrderDetailVM) string {
+	if code := strings.ToUpper(strings.TrimSpace(v.CurrencyCode)); code != "" {
+		return code
+	}
+	return poBaseCurrency(vm)
+}
+
+func poCurrencyOptionCodes(vm PurchaseOrderDetailVM) []string {
+	base := poBaseCurrency(vm)
+	seen := map[string]bool{}
+	out := []string{}
+	add := func(raw string) {
+		code := strings.ToUpper(strings.TrimSpace(raw))
+		if code == "" || seen[code] {
+			return
+		}
+		seen[code] = true
+		out = append(out, code)
+	}
+
+	add(base)
+	add(vm.PurchaseOrder.CurrencyCode)
 	if vm.MultiCurrencyEnabled {
 		for _, cc := range vm.CompanyCurrencies {
-			if cc.IsActive && cc.CurrencyCode != base {
-				<option value={ cc.CurrencyCode } selected?={ cc.CurrencyCode == current }>{ cc.CurrencyCode }</option>
+			if cc.IsActive {
+				add(cc.CurrencyCode)
 			}
 		}
+	}
+	for _, vendor := range vm.Vendors {
+		add(poVendorCurrency(vendor, vm))
+	}
+	return out
+}
+
+templ poCurrencyOptions(vm PurchaseOrderDetailVM) {
+	{{ base := poBaseCurrency(vm) }}
+	{{ current := strings.ToUpper(strings.TrimSpace(vm.PurchaseOrder.CurrencyCode)) }}
+	for _, code := range poCurrencyOptionCodes(vm) {
+		<option value={ code } selected?={ current == code || (current == "" && code == base) }>
+			if code == base {
+				{ code } (base)
+			} else {
+				{ code }
+			}
+		</option>
 	}
 }
 

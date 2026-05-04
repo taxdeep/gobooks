@@ -124,6 +124,33 @@ func computePOLine(db *gorm.DB, companyID uint, in POLineInput) (models.Purchase
 
 // ── Create ────────────────────────────────────────────────────────────────────
 
+func purchaseOrderCurrencyForVendor(db *gorm.DB, companyID, vendorID uint) (string, error) {
+	baseCurrency, err := companyBaseCurrencyCode(db, companyID)
+	if err != nil {
+		return "", err
+	}
+	baseCurrency = normalizeCurrencyCode(baseCurrency)
+	if baseCurrency == "" {
+		baseCurrency = "CAD"
+	}
+
+	var vendor models.Vendor
+	if err := db.Select("id", "company_id", "currency_code").
+		Where("id = ? AND company_id = ?", vendorID, companyID).
+		First(&vendor).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", errors.New("vendor is required")
+		}
+		return "", err
+	}
+
+	currencyCode := normalizeCurrencyCode(vendor.CurrencyCode)
+	if currencyCode == "" {
+		return baseCurrency, nil
+	}
+	return currencyCode, nil
+}
+
 // CreatePurchaseOrder creates a new draft purchase order with lines.
 func CreatePurchaseOrder(db *gorm.DB, companyID uint, in POInput) (*models.PurchaseOrder, error) {
 	if in.VendorID == 0 {
@@ -131,6 +158,11 @@ func CreatePurchaseOrder(db *gorm.DB, companyID uint, in POInput) (*models.Purch
 	}
 	if len(in.Lines) == 0 {
 		return nil, errors.New("at least one line is required")
+	}
+
+	currencyCode, err := purchaseOrderCurrencyForVendor(db, companyID, in.VendorID)
+	if err != nil {
+		return nil, err
 	}
 
 	rate := in.ExchangeRate
@@ -146,7 +178,7 @@ func CreatePurchaseOrder(db *gorm.DB, companyID uint, in POInput) (*models.Purch
 		Status:       models.POStatusDraft,
 		PODate:       in.PODate,
 		ExpectedDate: in.ExpectedDate,
-		CurrencyCode: in.CurrencyCode,
+		CurrencyCode: currencyCode,
 		ExchangeRate: rate,
 		Notes:        in.Notes,
 		Memo:         in.Memo,
@@ -252,6 +284,11 @@ func UpdatePurchaseOrder(db *gorm.DB, companyID, poID uint, in POInput) (*models
 		rate = decimal.NewFromInt(1)
 	}
 
+	currencyCode, err := purchaseOrderCurrencyForVendor(db, companyID, in.VendorID)
+	if err != nil {
+		return nil, err
+	}
+
 	return &po, db.Transaction(func(tx *gorm.DB) error {
 		// Delete existing lines
 		if err := tx.Where("purchase_order_id = ?", poID).Delete(&models.PurchaseOrderLine{}).Error; err != nil {
@@ -287,7 +324,7 @@ func UpdatePurchaseOrder(db *gorm.DB, companyID, poID uint, in POInput) (*models
 			"vendor_id":     in.VendorID,
 			"po_date":       in.PODate,
 			"expected_date": in.ExpectedDate,
-			"currency_code": in.CurrencyCode,
+			"currency_code": currencyCode,
 			"exchange_rate": rate,
 			"subtotal":      subtotal,
 			"tax_total":     taxTotal,

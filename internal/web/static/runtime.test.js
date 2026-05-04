@@ -291,6 +291,53 @@ function testDocTransactionEditorCounterpartyCurrencySync() {
   assert.deepEqual(currencyEvents, ['change']);
 }
 
+function testDocTransactionEditorLocksCounterpartyCurrencyWhenConfigured() {
+  const context = loadBrowserScripts(['doc_line_items.js', 'doc_transaction_editor.js'], {});
+  const editor = context.docTransactionEditor();
+
+  const currencyEvents = [];
+  const hiddenCurrencyField = { type: 'hidden', value: '' };
+  const currencyField = {
+    tagName: 'SELECT',
+    type: 'select-one',
+    value: 'CAD',
+    options: [{ value: 'CAD' }, { value: 'USD' }],
+    dispatchEvent(event) {
+      currencyEvents.push(event.type);
+    },
+  };
+  const vendorField = {
+    value: '7',
+    selectedOptions: [{ dataset: { currency: 'usd' } }],
+  };
+
+  editor.$el = {
+    dataset: {
+      products: '[]',
+      taxCodes: '[]',
+      initialLines: '[]',
+      baseCurrency: 'CAD',
+      lockCounterpartyCurrency: 'true',
+    },
+    querySelector(selector) {
+      if (selector === '[data-counterparty-currency-source]') return vendorField;
+      if (selector === '[name="currency_code"]') return currencyField;
+      return null;
+    },
+    querySelectorAll(selector) {
+      if (selector === '[name="currency_code"]') return [hiddenCurrencyField, currencyField];
+      return [];
+    },
+  };
+
+  editor.init();
+
+  assert.equal(currencyField.value, 'USD');
+  assert.equal(editor.currencyCode, 'USD');
+  assert.equal(editor.counterpartyCurrencyLocked, true);
+  assert.deepEqual(currencyEvents, ['change']);
+}
+
 function testBillDateFilterInputSanitizesAndNormalizes() {
   const documentListeners = {};
   const context = loadBrowserScript('date_filter_input.js', {
@@ -643,6 +690,10 @@ async function run() {
     {
       name: 'document transaction editor syncs currency from selected counterparty',
       fn: testDocTransactionEditorCounterpartyCurrencySync,
+    },
+    {
+      name: 'document transaction editor locks configured counterparty currency',
+      fn: testDocTransactionEditorLocksCounterpartyCurrencyWhenConfigured,
     },
     {
       name: 'bill date filter input strips letters and normalizes 8-digit dates',
