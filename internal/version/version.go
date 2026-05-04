@@ -10,9 +10,9 @@ const (
 	ChannelCode = "00"
 
 	// BuildCode is a fixed-width uppercase base36 build counter.
-	BuildCode = "0014"
+	BuildCode = "0015"
 
 	// Version format: M.CC.PPP.BBBB
 	// M/PPP are decimal; CC/BBBB are uppercase base36-style codes.
-	Version = "0.00.000.0014"
+	Version = "0.00.000.0015"
 )
