@@ -75,6 +75,9 @@ func (s *Server) handleVRSNewGet(c *fiber.Ctx) error {
 		Vendors:    vendors,
 		Warehouses: warehouses,
 	}
+	if whID, ok := parseWarehouseIDQuery(c.Query("warehouse_id"), warehouses); ok {
+		vm.WarehouseID = whID
+	}
 
 	if vcnIDStr := c.Query("vendor_credit_note_id"); vcnIDStr != "" {
 		if vcnID, err := strconv.ParseUint(vcnIDStr, 10, 64); err == nil && vcnID > 0 {
@@ -88,7 +91,7 @@ func (s *Server) handleVRSNewGet(c *fiber.Ctx) error {
 					vid := vcn.VendorID
 					vm.VendorID = &vid
 				}
-				if len(warehouses) > 0 {
+				if vm.WarehouseID == 0 && len(warehouses) > 0 {
 					vm.WarehouseID = warehouses[0].ID
 				}
 				for _, ln := range vcn.Lines {
@@ -238,10 +241,10 @@ func (s *Server) handleVRSDetail(c *fiber.Ctx) error {
 		return c.Redirect("/vendor-return-shipments", fiber.StatusSeeOther)
 	}
 	return pages.VRSDetail(pages.VRSDetailVM{
-		HasCompany:    true,
+		HasCompany:     true,
 		ReturnShipment: full,
-		Saved:         c.Query("saved") == "1",
-		FormError:     c.Query("err"),
+		Saved:          c.Query("saved") == "1",
+		FormError:      c.Query("err"),
 	}).Render(c.Context(), c)
 }
 

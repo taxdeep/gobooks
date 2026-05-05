@@ -82,6 +82,9 @@ func (s *Server) handleARReturnReceiptNewGet(c *fiber.Ctx) error {
 		Customers:  customers,
 		Warehouses: warehouses,
 	}
+	if whID, ok := parseWarehouseIDQuery(c.Query("warehouse_id"), warehouses); ok {
+		vm.WarehouseID = whID
+	}
 
 	if cnIDStr := c.Query("credit_note_id"); cnIDStr != "" {
 		if cnID, err := strconv.ParseUint(cnIDStr, 10, 64); err == nil && cnID > 0 {
@@ -92,7 +95,7 @@ func (s *Server) handleARReturnReceiptNewGet(c *fiber.Ctx) error {
 				vm.CreditNoteID = uint(cnID)
 				vm.CreditNoteNumber = cn.CreditNoteNumber
 				vm.CustomerID = cn.CustomerID
-				if len(warehouses) > 0 {
+				if vm.WarehouseID == 0 && len(warehouses) > 0 {
 					vm.WarehouseID = warehouses[0].ID
 				}
 				for _, ln := range cn.Lines {
@@ -116,6 +119,19 @@ func (s *Server) handleARReturnReceiptNewGet(c *fiber.Ctx) error {
 	}
 
 	return pages.ARReturnReceiptForm(vm).Render(c.Context(), c)
+}
+
+func parseWarehouseIDQuery(raw string, warehouses []models.Warehouse) (uint, bool) {
+	whID, err := strconv.ParseUint(strings.TrimSpace(raw), 10, 64)
+	if err != nil || whID == 0 {
+		return 0, false
+	}
+	for _, wh := range warehouses {
+		if wh.ID == uint(whID) {
+			return wh.ID, true
+		}
+	}
+	return 0, false
 }
 
 func productDisplayName(p *models.ProductService) string {

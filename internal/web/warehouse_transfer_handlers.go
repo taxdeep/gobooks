@@ -44,6 +44,12 @@ func (s *Server) handleTransferNew(c *fiber.Ctx) error {
 	}
 	vm := pages.WarehouseTransferDetailVM{HasCompany: true}
 	vm.Transfer.TransferDate = time.Now()
+	if fromID, err := strconv.ParseUint(strings.TrimSpace(c.Query("from_warehouse_id")), 10, 64); err == nil {
+		vm.Transfer.FromWarehouseID = uint(fromID)
+	}
+	if toID, err := strconv.ParseUint(strings.TrimSpace(c.Query("to_warehouse_id")), 10, 64); err == nil {
+		vm.Transfer.ToWarehouseID = uint(toID)
+	}
 	s.loadTransferFormData(companyID, &vm)
 	return pages.WarehouseTransferDetail(vm).Render(c.Context(), c)
 }

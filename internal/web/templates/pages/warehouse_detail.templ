@@ -18,9 +18,18 @@ templ WarehouseDetail(vm WarehouseDetailVM) {
 
 templ bodyWarehouseDetail(vm WarehouseDetailVM) {
 	<div class="max-w-3xl">
-		<div class="mb-6">
+		<div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+			<div class="min-w-0 flex-1">
 			<a href="/warehouses" class="text-small text-text-muted2 hover:text-text hover:underline">← Warehouses</a>
 			<h1 class="mt-1 text-title font-semibold text-text">{ warehouseDetailTitle(vm) }</h1>
+			</div>
+			if vm.Warehouse.ID != 0 {
+				<div class="flex shrink-0 flex-wrap items-center gap-2">
+					<a href={ templ.SafeURL(warehouseTransferActionHref(vm)) } class={ warehouseDetailActionButtonClass(false) }>Warehouse Transfer</a>
+					<a href={ templ.SafeURL(warehouseReceivedActionHref(vm)) } class={ warehouseDetailActionButtonClass(false) }>Received</a>
+					<a href={ templ.SafeURL(warehouseShipmentActionHref(vm)) } class={ warehouseDetailActionButtonClass(false) }>Shipment</a>
+				</div>
+			}
 		</div>
 
 		if vm.Saved {
@@ -225,6 +234,25 @@ func warehouseFormAction(vm WarehouseDetailVM) string {
 		return "/warehouses/save"
 	}
 	return fmt.Sprintf("/warehouses/%d/save", vm.Warehouse.ID)
+}
+
+func warehouseTransferActionHref(vm WarehouseDetailVM) string {
+	return fmt.Sprintf("/inventory/transfers/new?from_warehouse_id=%d", vm.Warehouse.ID)
+}
+
+func warehouseReceivedActionHref(vm WarehouseDetailVM) string {
+	return fmt.Sprintf("/ar-return-receipts/new?warehouse_id=%d", vm.Warehouse.ID)
+}
+
+func warehouseShipmentActionHref(vm WarehouseDetailVM) string {
+	return fmt.Sprintf("/vendor-return-shipments/new?warehouse_id=%d", vm.Warehouse.ID)
+}
+
+func warehouseDetailActionButtonClass(primary bool) string {
+	if primary {
+		return "inline-block rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
+	}
+	return "inline-block rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text"
 }
 
 // warehouseOverShipmentMode returns the warehouse's saved mode, or
