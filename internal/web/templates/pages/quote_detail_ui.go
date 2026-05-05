@@ -34,7 +34,7 @@ func quoteShellVM(vm QuoteDetailVM) ui.DocEditorShellVM {
 func quoteFooterVM(vm QuoteDetailVM) ui.DocEditorFooterVM {
 	footer := ui.DocEditorFooterVM{
 		Buttons: []ui.DocEditorFooterButton{
-			{Label: "Save", Variant: ui.FooterBtnPrimary, Type: "submit"},
+			{Label: "Save", Variant: ui.FooterBtnPrimary, Type: "submit", FormAction: "/quotes/save"},
 		},
 	}
 	if vm.Quote.ID == 0 {

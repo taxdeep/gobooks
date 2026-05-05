@@ -127,6 +127,7 @@ func TestQuoteDraftFooterHasLifecycleActions(t *testing.T) {
 	for _, want := range []string{
 		`formaction="/quotes/5/cancel"`,
 		`formaction="/quotes/5/send"`,
+		`formaction="/quotes/save"`,
 		"Cancel",
 		"Mark as Sent",
 		"Save",

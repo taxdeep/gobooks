@@ -652,6 +652,8 @@ templ soEditorFooter(vm SalesOrderDetailVM) {
 				}
 				<button
 					type="submit"
+					formaction="/sales-orders/save"
+					formmethod="post"
 					class={ ui.ButtonPrimaryBaseClass() }
 				>
 					Save Order
