@@ -34,6 +34,7 @@ func TestPurchaseOrderEditorVendorCurrencyIsRenderedForSync(t *testing.T) {
 		`data-base-currency="CAD"`,
 		`data-initial-currency="USD"`,
 		`data-counterparty-currencies=`,
+		`name="po_date" value="2026-05-04" required @input.debounce.300ms="onDocumentDateChange()" @change="onDocumentDateChange()"`,
 		`value="7" data-currency="USD" selected`,
 		`name="currency_code" value="USD" :value="currencyCode || baseCurrency"`,
 		`x-text="currencyRateLeftLabel()"`,

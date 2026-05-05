@@ -606,7 +606,7 @@ func poHeaderRight(vm PurchaseOrderDetailVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\" required @change=\"onDocumentDateChange()\" style=\"color-scheme: dark;\" class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\" required @input.debounce.300ms=\"onDocumentDateChange()\" @change=\"onDocumentDateChange()\" style=\"color-scheme: dark;\" class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

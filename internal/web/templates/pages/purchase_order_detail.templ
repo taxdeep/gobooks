@@ -139,6 +139,7 @@ templ poHeaderRight(vm PurchaseOrderDetailVM) {
 				name="po_date"
 				value={ poDateVal(vm.PurchaseOrder) }
 				required
+				@input.debounce.300ms="onDocumentDateChange()"
 				@change="onDocumentDateChange()"
 				style="color-scheme: dark;"
 				class={ fieldClass(false) }

@@ -584,7 +584,7 @@ async function testDocTransactionEditorCustomerPickerCurrencyLookup() {
   const editor = context.docTransactionEditor();
   const hiddenCurrencyField = { tagName: 'INPUT', type: 'hidden', value: '', dispatchEvent() {} };
   const exchangeRateField = { value: '1.000000' };
-  const quoteDateField = { value: '2026-05-04' };
+  const quoteDateField = { value: '2026/02/06' };
 
   editor.$el = {
     dataset: {
@@ -595,6 +595,7 @@ async function testDocTransactionEditorCustomerPickerCurrencyLookup() {
       initialCurrency: '',
       lockCounterpartyCurrency: 'true',
       counterpartyLabel: 'customer',
+      exchangeRateDateOffsetDays: '-1',
     },
     querySelector(selector) {
       if (selector === '[data-counterparty-currency-source]') return null;
@@ -625,7 +626,7 @@ async function testDocTransactionEditorCustomerPickerCurrencyLookup() {
   assert.equal(fetchCalls.length, 1);
   const requestURL = new URL(fetchCalls[0], 'https://example.test');
   assert.equal(requestURL.searchParams.get('transaction_currency_code'), 'USD');
-  assert.equal(requestURL.searchParams.get('date'), '2026-05-04');
+  assert.equal(requestURL.searchParams.get('date'), '2026-02-05');
 }
 
 async function testDocTransactionEditorDateChangeRefreshesOffsetRate() {

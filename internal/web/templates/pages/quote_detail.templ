@@ -185,6 +185,7 @@ templ quoteHeaderRight(vm QuoteDetailVM) {
 				name="quote_date"
 				value={ vm.Quote.QuoteDate.Format("2006-01-02") }
 				required
+				@input.debounce.300ms="onDocumentDateChange()"
 				@change="onDocumentDateChange()"
 				style="color-scheme:dark"
 				class={ fieldClass(false) }

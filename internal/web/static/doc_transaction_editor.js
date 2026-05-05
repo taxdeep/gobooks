@@ -1,5 +1,5 @@
 // doc_transaction_editor.js — Alpine factory for "simple" line-item editors.
-// v=7
+// v=8
 //
 // Shared by Quote, Sales Order, Purchase Order, Bill, Expense — every
 // transaction-document editor whose totals are a plain
@@ -369,12 +369,39 @@ function docTransactionEditor() {
 
       _exchangeRateLookupDateValue() {
         const raw = this._documentDateValue();
-        if (!raw || !this.exchangeRateDateOffsetDays) return raw;
-        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
-        if (!match) return raw;
+        const normalized = this._normalizeDocumentDate(raw);
+        if (!normalized || !this.exchangeRateDateOffsetDays) return normalized;
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(normalized);
+        if (!match) return normalized;
         const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
         date.setUTCDate(date.getUTCDate() + this.exchangeRateDateOffsetDays);
         return date.toISOString().slice(0, 10);
+      },
+
+      _normalizeDocumentDate(raw) {
+        const value = String(raw || "").trim();
+        if (!value) return "";
+        let match = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/.exec(value);
+        if (!match) {
+          match = /^(\d{4})(\d{2})(\d{2})$/.exec(value);
+        }
+        if (!match) return value;
+        const year = Number(match[1]);
+        const month = Number(match[2]);
+        const day = Number(match[3]);
+        const date = new Date(Date.UTC(year, month - 1, day));
+        if (
+          date.getUTCFullYear() !== year ||
+          date.getUTCMonth() !== month - 1 ||
+          date.getUTCDate() !== day
+        ) {
+          return value;
+        }
+        return [
+          String(year).padStart(4, "0"),
+          String(month).padStart(2, "0"),
+          String(day).padStart(2, "0"),
+        ].join("-");
       },
 
       _isIdentityRate(value) {
