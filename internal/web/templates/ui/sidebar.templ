@@ -199,7 +199,8 @@ templ sidebarShell(vm SidebarVM) {
 						</svg>
 					</button>
 					<div class="sidebar-section-panel mt-1 space-y-0.5" data-sidebar-panel>
-						@navItem("/settings", "Settings", "company", IsSettingsNavActive(vm.Active))
+						@navItem("/settings", "Settings", "company", IsSettingsNavActive(vm.Active) && vm.Active != "Templates")
+						@navItem("/settings/templates", "Templates", "invoice", vm.Active == "Templates")
 					</div>
 				</div>
 			}

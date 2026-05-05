@@ -154,6 +154,7 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Post("/settings/accounting-books/:id/change-standard", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleAccountingBookChangeStandard)
 	app.Post("/settings/accounting-books/:id/add-period", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleAccountingBookAddPeriod)
 	app.Post("/settings/accounting-books/:id/close-period/:period_id", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleAccountingBookClosePeriod)
+	app.Get("/settings/templates", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handlePDFTemplatesList)
 
 	// ── 设置：AR/AP Control Accounts ──────────────────────────────────────────
 	app.Get("/settings/ar-ap-control", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleARAPControlGet)

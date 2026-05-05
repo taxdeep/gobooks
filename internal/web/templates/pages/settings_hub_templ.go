@@ -90,8 +90,8 @@ func bodySettingsHub(vm SettingsHubVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = settingsHubCard(
-			"/pdf-templates",
-			"Print Templates",
+			"/settings/templates",
+			"Templates",
 			"Manage PDF and print templates, clone system presets, preview output, and edit custom document layouts.",
 		).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {

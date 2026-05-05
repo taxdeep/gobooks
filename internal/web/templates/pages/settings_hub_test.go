@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestSettingsHubIncludesPrintTemplatesEntry(t *testing.T) {
+func TestSettingsHubIncludesTemplatesEntry(t *testing.T) {
 	var sb strings.Builder
 	vm := SettingsHubVM{HasCompany: true}
 
@@ -16,8 +16,8 @@ func TestSettingsHubIncludesPrintTemplatesEntry(t *testing.T) {
 	html := sb.String()
 
 	for _, want := range []string{
-		"Print Templates",
-		`href="/pdf-templates"`,
+		"Templates",
+		`href="/settings/templates"`,
 		"Manage PDF and print templates",
 	} {
 		if !strings.Contains(html, want) {

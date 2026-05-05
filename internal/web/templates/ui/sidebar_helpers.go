@@ -32,6 +32,7 @@ func SectionKeyForActivePage(active string) string {
 func IsSettingsNavActive(active string) bool {
 	switch active {
 	case "Settings Hub",
+		"Templates",
 		"AI Connect Settings", "Members Settings", "Audit Log",
 		"Channels",
 		"Payment Gateways", "Gateway Settlement Review", "Gateway Payouts", "Gateway Disputes",

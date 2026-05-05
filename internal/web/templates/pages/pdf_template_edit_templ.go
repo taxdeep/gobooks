@@ -43,7 +43,7 @@ func PDFTemplateEdit(vm PDFTemplateEditVM) templ.Component {
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = layout.Layout(
 			"Balanciz - Editing PDF Template",
-			ui.SidebarVM{Active: "Settings", HasCompany: vm.HasCompany},
+			ui.SidebarVM{Active: "Templates", HasCompany: vm.HasCompany},
 			bodyPDFTemplateEdit(vm),
 		).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
@@ -259,7 +259,7 @@ func bodyPDFTemplateEdit(vm PDFTemplateEditVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" data-templates-url=\"/pdf-templates\"><div class=\"max-w-[100%] space-y-4\"><div class=\"flex flex-wrap items-center justify-between gap-4\"><div><h1 class=\"text-title font-semibold\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" data-templates-url=\"/settings/templates\"><div class=\"max-w-[100%] space-y-4\"><div class=\"flex flex-wrap items-center justify-between gap-4\"><div><h1 class=\"text-title font-semibold\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -272,7 +272,7 @@ func bodyPDFTemplateEdit(vm PDFTemplateEditVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, " Template - Edit</h1><p class=\"mt-1 text-text-muted2\">Loading visual template editor...</p></div><a href=\"/pdf-templates\" class=\"rounded-md border border-border-input px-3 py-2 text-body font-medium text-text-muted3 hover:bg-background hover:text-text\">Back</a></div><div class=\"rounded-lg border border-border bg-surface p-8 text-center text-body text-text-muted2 shadow-sm\">Preparing React + GrapesJS editor...</div></div></div><script type=\"module\" src=\"/static/react/pdf_template_editor.js?v=1\"></script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, " Template - Edit</h1><p class=\"mt-1 text-text-muted2\">Loading visual template editor...</p></div><a href=\"/settings/templates\" class=\"rounded-md border border-border-input px-3 py-2 text-body font-medium text-text-muted3 hover:bg-background hover:text-text\">Back</a></div><div class=\"rounded-lg border border-border bg-surface p-8 text-center text-body text-text-muted2 shadow-sm\">Preparing React + GrapesJS editor...</div></div></div><script type=\"module\" src=\"/static/react/pdf_template_editor.js?v=1\"></script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

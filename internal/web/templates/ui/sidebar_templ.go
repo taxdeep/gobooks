@@ -400,7 +400,11 @@ func sidebarShell(vm SidebarVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = navItem("/settings", "Settings", "company", IsSettingsNavActive(vm.Active)).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = navItem("/settings", "Settings", "company", IsSettingsNavActive(vm.Active) && vm.Active != "Templates").Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = navItem("/settings/templates", "Templates", "invoice", vm.Active == "Templates").Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
