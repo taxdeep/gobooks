@@ -100,6 +100,7 @@ func seedSOTrackingFixture(t *testing.T, db *gorm.DB) soTrackingFixture {
 // seedSOWithTwoLines creates a confirmed SO with two lines:
 //   - Widget × 10 @ $50 = $500
 //   - Gizmo × 5 @ $20 = $100
+//
 // Returns (soID, widgetLineID, gizmoLineID).
 func seedSOWithTwoLines(t *testing.T, db *gorm.DB, fx soTrackingFixture) (uint, uint, uint) {
 	t.Helper()
@@ -302,6 +303,84 @@ func TestApplyInvoicePostToSalesOrder_FullyInvoiced_TwoInvoices(t *testing.T) {
 }
 
 // ── Scenario 4: Reverse → rolls status back ─────────────────────────────────
+
+func TestApplyInvoicePostToSalesOrder_FullyInvoiced_IgnoresDefaultBlankLine(t *testing.T) {
+	db := soTrackingDB(t)
+	fx := seedSOTrackingFixture(t, db)
+	soID, _, _ := seedSOWithTwoLines(t, db, fx)
+
+	if err := db.Where("sales_order_id = ? AND product_service_id = ?", soID, fx.ProductID2).
+		Delete(&models.SalesOrderLine{}).Error; err != nil {
+		t.Fatalf("remove second substantive line: %v", err)
+	}
+	blank := models.SalesOrderLine{
+		SalesOrderID: soID,
+		Quantity:     decimal.NewFromInt(1),
+		UnitPrice:    decimal.Zero,
+		LineNet:      decimal.Zero,
+		TaxAmount:    decimal.Zero,
+		LineTotal:    decimal.Zero,
+		SortOrder:    99,
+	}
+	if err := db.Create(&blank).Error; err != nil {
+		t.Fatalf("create default blank line: %v", err)
+	}
+
+	invID := seedDraftInvoice(t, db, fx, soID, []invLineSpec{
+		{ProductID: fx.ProductID1, Qty: 10, UnitPrice: 50},
+	})
+	if err := MatchInvoiceLinesToSalesOrder(db, fx.CompanyID, invID); err != nil {
+		t.Fatalf("match: %v", err)
+	}
+	var inv models.Invoice
+	db.Preload("Lines").First(&inv, invID)
+	if err := ApplyInvoicePostToSalesOrder(db, inv); err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+
+	var so models.SalesOrder
+	db.First(&so, soID)
+	if so.Status != models.SalesOrderStatusFullyInvoiced {
+		t.Fatalf("status: got %s want fully_invoiced", so.Status)
+	}
+}
+
+func TestGetSalesOrderNormalizesHistoricalBlankLineStatus(t *testing.T) {
+	db := soTrackingDB(t)
+	fx := seedSOTrackingFixture(t, db)
+	soID, widgetLineID, _ := seedSOWithTwoLines(t, db, fx)
+
+	if err := db.Where("sales_order_id = ? AND product_service_id = ?", soID, fx.ProductID2).
+		Delete(&models.SalesOrderLine{}).Error; err != nil {
+		t.Fatalf("remove second substantive line: %v", err)
+	}
+	if err := db.Create(&models.SalesOrderLine{
+		SalesOrderID: soID,
+		Quantity:     decimal.NewFromInt(1),
+		SortOrder:    99,
+	}).Error; err != nil {
+		t.Fatalf("create historical blank line: %v", err)
+	}
+	if err := db.Model(&models.SalesOrderLine{}).Where("id = ?", widgetLineID).
+		Update("invoiced_qty", decimal.NewFromInt(10)).Error; err != nil {
+		t.Fatalf("mark widget invoiced: %v", err)
+	}
+	if err := db.Model(&models.SalesOrder{}).Where("id = ?", soID).
+		Updates(map[string]any{
+			"status":          string(models.SalesOrderStatusPartiallyInvoiced),
+			"invoiced_amount": decimal.NewFromInt(500),
+		}).Error; err != nil {
+		t.Fatalf("seed partial status: %v", err)
+	}
+
+	so, err := GetSalesOrder(db, fx.CompanyID, soID)
+	if err != nil {
+		t.Fatalf("get sales order: %v", err)
+	}
+	if so.Status != models.SalesOrderStatusFullyInvoiced {
+		t.Fatalf("status: got %s want fully_invoiced", so.Status)
+	}
+}
 
 func TestReverseInvoicePostOnSalesOrder_RollsBackStatus(t *testing.T) {
 	db := soTrackingDB(t)

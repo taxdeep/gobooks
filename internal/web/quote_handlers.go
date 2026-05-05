@@ -384,7 +384,8 @@ func parseDocumentLines(c *fiber.Ctx) []documentLine {
 		desc := strings.TrimSpace(c.FormValue("line_description_" + strconv.Itoa(i)))
 		qtyStr := strings.TrimSpace(c.FormValue("line_qty_" + strconv.Itoa(i)))
 		priceStr := strings.TrimSpace(c.FormValue("line_price_" + strconv.Itoa(i)))
-		if psIDStr == "" && desc == "" && qtyStr == "" && priceStr == "" {
+		taxStr := strings.TrimSpace(c.FormValue("line_tax_" + strconv.Itoa(i)))
+		if psIDStr == "" && desc == "" && qtyStr == "" && priceStr == "" && taxStr == "" {
 			continue
 		}
 
@@ -396,10 +397,13 @@ func parseDocumentLines(c *fiber.Ctx) []documentLine {
 		if err != nil {
 			price = decimal.Zero
 		}
+		if psIDStr == "" && desc == "" && taxStr == "" && price.IsZero() {
+			continue
+		}
 
 		var taxCodeID *uint
-		if tc := strings.TrimSpace(c.FormValue("line_tax_" + strconv.Itoa(i))); tc != "" {
-			if id, err := strconv.ParseUint(tc, 10, 64); err == nil && id > 0 {
+		if taxStr != "" {
+			if id, err := strconv.ParseUint(taxStr, 10, 64); err == nil && id > 0 {
 				uid := uint(id)
 				taxCodeID = &uid
 			}

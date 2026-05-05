@@ -65,6 +65,7 @@ package services
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -327,15 +328,23 @@ func recomputeSOStatus(current models.SalesOrderStatus, lines []models.SalesOrde
 	if len(lines) == 0 {
 		return current
 	}
+	anySubstantiveLine := false
 	anyInvoiced := false
 	allFullyInvoiced := true
 	for _, l := range lines {
+		if !salesOrderLineCountsForInvoiceStatus(l) {
+			continue
+		}
+		anySubstantiveLine = true
 		if l.InvoicedQty.IsPositive() {
 			anyInvoiced = true
 		}
 		if l.InvoicedQty.LessThan(l.Quantity) {
 			allFullyInvoiced = false
 		}
+	}
+	if !anySubstantiveLine {
+		return current
 	}
 	switch {
 	case allFullyInvoiced:
@@ -351,6 +360,16 @@ func recomputeSOStatus(current models.SalesOrderStatus, lines []models.SalesOrde
 
 // ── small sort helpers (package-local; avoid importing sort just
 // for this narrow use) ───────────────────────────────────────────
+
+func salesOrderLineCountsForInvoiceStatus(l models.SalesOrderLine) bool {
+	if l.ProductServiceID != nil && *l.ProductServiceID != 0 {
+		return true
+	}
+	if strings.TrimSpace(l.Description) != "" {
+		return true
+	}
+	return !l.UnitPrice.IsZero() || !l.LineNet.IsZero() || !l.TaxAmount.IsZero() || !l.LineTotal.IsZero()
+}
 
 func sortOrderAsc(lines []models.SalesOrderLine) {
 	// Simple insertion sort — input is always small (lines per SO).

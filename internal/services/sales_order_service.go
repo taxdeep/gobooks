@@ -178,7 +178,27 @@ func GetSalesOrder(db *gorm.DB, companyID, orderID uint) (*models.SalesOrder, er
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrSalesOrderNotFound
 	}
+	if err == nil {
+		_ = normalizeSalesOrderInvoiceStatus(db, companyID, &so)
+	}
 	return &so, err
+}
+
+func normalizeSalesOrderInvoiceStatus(db *gorm.DB, companyID uint, so *models.SalesOrder) error {
+	if so == nil || so.Status == models.SalesOrderStatusDraft || so.Status == models.SalesOrderStatusCancelled {
+		return nil
+	}
+	next := recomputeSOStatus(so.Status, so.Lines)
+	if next == so.Status {
+		return nil
+	}
+	if err := db.Model(&models.SalesOrder{}).
+		Where("id = ? AND company_id = ?", so.ID, companyID).
+		Update("status", string(next)).Error; err != nil {
+		return err
+	}
+	so.Status = next
+	return nil
 }
 
 // SalesOrderListFilter bundles the optional list-page filters. Zero
