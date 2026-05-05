@@ -56,8 +56,8 @@ func TestSalesOrderDraftEditorDoesNotNestStatusForms(t *testing.T) {
 	if !strings.Contains(html, `href="/sales-orders"`) || !strings.Contains(html, `>Back</a>`) {
 		t.Fatal("draft editor footer should render a Back link")
 	}
-	if !strings.Contains(html, `>Save Order</button>`) {
-		t.Fatal("draft editor footer should render Save Order in the same action bar")
+	if !strings.Contains(html, `>Save Draft</button>`) {
+		t.Fatal("draft editor footer should render Save Draft in the same action bar")
 	}
 }
 
