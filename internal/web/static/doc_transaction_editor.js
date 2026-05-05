@@ -1,5 +1,5 @@
 // doc_transaction_editor.js — Alpine factory for "simple" line-item editors.
-// v=10
+// v=11
 //
 // Shared by Quote, Sales Order, Purchase Order, Bill, Expense — every
 // transaction-document editor whose totals are a plain
@@ -381,7 +381,18 @@ function docTransactionEditor() {
       _documentDateValue() {
         if (!this.$el || !this.$el.querySelector) return "";
         const field = this.$el.querySelector('[name="po_date"], [name="bill_date"], [name="invoice_date"], [name="quote_date"], [name="order_date"]');
-        return field ? String(field.value || "").trim() : "";
+        if (!field) return "";
+        const raw = String(field.value || "").trim();
+        if (raw) return raw;
+        const valueAsDate = field.valueAsDate;
+        if (valueAsDate && typeof valueAsDate.getTime === "function" && !isNaN(valueAsDate.getTime())) {
+          return [
+            String(valueAsDate.getUTCFullYear()).padStart(4, "0"),
+            String(valueAsDate.getUTCMonth() + 1).padStart(2, "0"),
+            String(valueAsDate.getUTCDate()).padStart(2, "0"),
+          ].join("-");
+        }
+        return "";
       },
 
       _exchangeRateLookupDateValue() {

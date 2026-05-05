@@ -830,6 +830,65 @@ async function testDocTransactionEditorParsesLocalizedDateForOffsetRate() {
   assert.equal(editor.exchangeRateHint, 'Auto-filled from Rate table for 2026-04-16.');
 }
 
+async function testDocTransactionEditorUsesDateInputValueAsDateForPurchaseOrders() {
+  const fetchCalls = [];
+  const balancizFetch = async (url) => {
+    fetchCalls.push(url);
+    const requestURL = new URL(url, 'https://example.test');
+    const rateDate = requestURL.searchParams.get('date');
+    return {
+      ok: true,
+      async json() {
+        return {
+          exchange_rate: '1.36200000',
+          exchange_rate_date: rateDate,
+          source_label: 'Rate table',
+        };
+      },
+    };
+  };
+  const context = loadBrowserScripts(['doc_line_items.js', 'doc_transaction_editor.js'], {
+    window: { balancizFetch },
+  });
+  const editor = context.docTransactionEditor();
+  const hiddenCurrencyField = { tagName: 'INPUT', type: 'hidden', value: 'USD', dispatchEvent() {} };
+  const exchangeRateField = { value: '1.362' };
+  const poDateField = { value: '', valueAsDate: new Date(Date.UTC(2026, 4, 8)) };
+
+  editor.$el = {
+    dataset: {
+      products: '[]',
+      taxCodes: '[]',
+      initialLines: '[]',
+      baseCurrency: 'CAD',
+      initialCurrency: 'USD',
+      lockCounterpartyCurrency: 'true',
+      exchangeRateDateOffsetDays: '-1',
+    },
+    querySelector(selector) {
+      if (selector === '[data-counterparty-currency-source]') return null;
+      if (selector === '[name="currency_code"]') return hiddenCurrencyField;
+      if (selector === '[name="exchange_rate"]') return exchangeRateField;
+      if (selector === '[name="po_date"], [name="bill_date"], [name="invoice_date"], [name="quote_date"], [name="order_date"]') return poDateField;
+      return null;
+    },
+    querySelectorAll(selector) {
+      if (selector === '[name="currency_code"]') return [hiddenCurrencyField];
+      return [];
+    },
+  };
+
+  editor.init();
+  editor.onDocumentDateChange();
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  assert.equal(fetchCalls.length > 0, true);
+  const requestURL = new URL(fetchCalls[fetchCalls.length - 1], 'https://example.test');
+  assert.equal(requestURL.searchParams.get('transaction_currency_code'), 'USD');
+  assert.equal(requestURL.searchParams.get('date'), '2026-05-07');
+  assert.equal(editor.exchangeRateHint, 'Auto-filled from Rate table for 2026-05-07.');
+}
+
 function testBillDateFilterInputSanitizesAndNormalizes() {
   const documentListeners = {};
   const context = loadBrowserScript('date_filter_input.js', {
@@ -1218,6 +1277,10 @@ async function run() {
     {
       name: 'document transaction editor parses localized date for prior-close rate',
       fn: testDocTransactionEditorParsesLocalizedDateForOffsetRate,
+    },
+    {
+      name: 'document transaction editor uses date input valueAsDate for purchase orders',
+      fn: testDocTransactionEditorUsesDateInputValueAsDateForPurchaseOrders,
     },
     {
       name: 'bill date filter input strips letters and normalizes 8-digit dates',
