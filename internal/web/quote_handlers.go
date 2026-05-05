@@ -258,7 +258,25 @@ func (s *Server) handleQuoteConvert(c *fiber.Ctx) error {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 func (s *Server) loadQuoteFormData(companyID uint, vm *pages.QuoteDetailVM) {
+	var company models.Company
+	if err := s.DB.Select("id", "base_currency_code").First(&company, companyID).Error; err == nil {
+		vm.BaseCurrencyCode = strings.ToUpper(strings.TrimSpace(company.BaseCurrencyCode))
+	}
+	if vm.BaseCurrencyCode == "" {
+		vm.BaseCurrencyCode = "CAD"
+	}
 	vm.Customers, _ = s.customersForCompany(companyID)
+	if strings.TrimSpace(vm.Quote.CurrencyCode) == "" {
+		for _, customer := range vm.Customers {
+			if customer.ID == vm.Quote.CustomerID && strings.TrimSpace(customer.CurrencyCode) != "" {
+				vm.Quote.CurrencyCode = strings.ToUpper(strings.TrimSpace(customer.CurrencyCode))
+				break
+			}
+		}
+	}
+	if strings.TrimSpace(vm.Quote.CurrencyCode) == "" {
+		vm.Quote.CurrencyCode = vm.BaseCurrencyCode
+	}
 	s.DB.Where("company_id = ? AND is_active = true AND scope != ?",
 		companyID, models.TaxScopePurchase).Order("name asc").Find(&vm.TaxCodes)
 	s.DB.Where("company_id = ? AND is_active = true", companyID).

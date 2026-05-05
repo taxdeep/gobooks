@@ -49,14 +49,15 @@ func TestQuoteReadOnlyLineItemsShowProductService(t *testing.T) {
 }
 
 func TestQuoteEditorCustomerUsesSmartPicker(t *testing.T) {
-	customer := models.Customer{ID: 11, Name: "Smart Quote Customer", Email: "smart@example.com"}
+	customer := models.Customer{ID: 11, Name: "Smart Quote Customer", Email: "smart@example.com", CurrencyCode: "USD"}
 	var sb strings.Builder
 	vm := QuoteDetailVM{
-		HasCompany: true,
+		HasCompany:       true,
+		BaseCurrencyCode: "CAD",
 		Quote: models.Quote{
 			Status:       models.QuoteStatusDraft,
 			QuoteDate:    time.Date(2026, 4, 28, 0, 0, 0, 0, time.UTC),
-			CurrencyCode: "CAD",
+			CurrencyCode: "USD",
 			CustomerID:   customer.ID,
 			Customer:     customer,
 		},
@@ -73,6 +74,16 @@ func TestQuoteEditorCustomerUsesSmartPicker(t *testing.T) {
 		`data-field-name="customer_id"`,
 		`data-value="11"`,
 		`data-selected-label="Smart Quote Customer"`,
+		`data-base-currency="CAD"`,
+		`data-initial-currency="USD"`,
+		`data-lock-counterparty-currency="true"`,
+		`data-counterparty-label="customer"`,
+		`data-counterparty-currencies=`,
+		`name="currency_code" value="USD" :value="currencyCode || baseCurrency"`,
+		`name="exchange_rate"`,
+		`x-text="currencyRateLeftLabel()"`,
+		`x-text="baseCurrency"`,
+		`Select a customer to load its currency.`,
 		`<noscript><select name="customer_id"`,
 		`name="customer_id"`,
 		`— Select Customer —`,
@@ -83,5 +94,8 @@ func TestQuoteEditorCustomerUsesSmartPicker(t *testing.T) {
 	}
 	if strings.Contains(html, `x-init="var s=$el.querySelector('select')`) {
 		t.Fatal("expected quote customer fallback select to be hidden in noscript, not Alpine-controlled")
+	}
+	if strings.Contains(html, `maxlength="3"`) {
+		t.Fatal("expected quote currency to be locked to customer currency, not freeform text")
 	}
 }

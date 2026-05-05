@@ -49,8 +49,8 @@ func TestLayout_UsesSmartPickerV8(t *testing.T) {
 	if !strings.Contains(html, `/static/doc_item_picker.js?v=3`) {
 		t.Fatalf("expected main layout to reference doc_item_picker.js?v=3, got %q", html)
 	}
-	if !strings.Contains(html, `/static/doc_transaction_editor.js?v=5`) {
-		t.Fatalf("expected main layout to reference doc_transaction_editor.js?v=5, got %q", html)
+	if !strings.Contains(html, `/static/doc_transaction_editor.js?v=7`) {
+		t.Fatalf("expected main layout to reference doc_transaction_editor.js?v=7, got %q", html)
 	}
 	if !strings.Contains(html, `window.balancizFetch`) {
 		t.Fatalf("expected main layout to expose balancizFetch, got %q", html)

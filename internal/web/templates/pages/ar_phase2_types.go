@@ -31,6 +31,7 @@ type QuoteDetailVM struct {
 	TaxCodes         []models.TaxCode
 	ProductServices  []models.ProductService
 	Accounts         []models.Account // revenue accounts
+	BaseCurrencyCode string
 	FormError        string
 	Saved            bool
 	Sent             bool
@@ -49,11 +50,11 @@ type SalesOrdersVM struct {
 
 	// Echoed filter values — feed back into the form inputs so the URL
 	// fully describes the result set and is shareable.
-	FilterStatus         string
-	FilterCustomer       string // raw customer_id query param
-	FilterCustomerLabel  string // resolved customer name for SmartPicker echo display
-	FilterDateFrom       string // YYYY-MM-DD
-	FilterDateTo         string // YYYY-MM-DD
+	FilterStatus        string
+	FilterCustomer      string // raw customer_id query param
+	FilterCustomerLabel string // resolved customer name for SmartPicker echo display
+	FilterDateFrom      string // YYYY-MM-DD
+	FilterDateTo        string // YYYY-MM-DD
 
 	Created   bool
 	Saved     bool

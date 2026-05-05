@@ -96,6 +96,41 @@ func TestResolveExchangeRateSnapshot_LocalMissFetchesAndStoresProviderRate(t *te
 	}
 }
 
+func TestResolveExchangeRateSnapshot_ProviderFetchBypassesStalePriorLocalRate(t *testing.T) {
+	db := testCurrencyDB(t)
+	companyID := uint(7)
+	insertRate(t, db, nil, "USD", "CAD", fxRate(1.38), fxDate(2026, 4, 11))
+	provider := &fakeExchangeRateProvider{
+		quote: ExchangeRateProviderQuote{
+			BaseCurrencyCode:   "USD",
+			TargetCurrencyCode: "CAD",
+			Rate:               decimal.RequireFromString("1.33333333"),
+			EffectiveDate:      fxDate(2026, 4, 30),
+		},
+	}
+
+	snapshot, err := ResolveExchangeRateSnapshot(context.Background(), db, ExchangeRateResolveOptions{
+		CompanyID:               companyID,
+		TransactionCurrencyCode: "USD",
+		BaseCurrencyCode:        "CAD",
+		Date:                    fxDate(2026, 4, 30),
+		AllowProviderFetch:      true,
+		Provider:                provider,
+	})
+	if err != nil {
+		t.Fatalf("ResolveExchangeRateSnapshot: %v", err)
+	}
+	if provider.calls != 1 {
+		t.Fatalf("expected provider to be called for exact-date miss, got %d calls", provider.calls)
+	}
+	if !snapshot.ExchangeRate.Equal(decimal.RequireFromString("1.33333333")) {
+		t.Fatalf("expected fetched 1.33333333, got %s", snapshot.ExchangeRate)
+	}
+	if !snapshot.ExchangeRateDate.Equal(fxDate(2026, 4, 30)) {
+		t.Fatalf("expected fetched date 2026-04-30, got %s", snapshot.ExchangeRateDate.Format("2006-01-02"))
+	}
+}
+
 func TestResolveExchangeRateSnapshot_ProviderFailureReturnsError(t *testing.T) {
 	db := testCurrencyDB(t)
 	provider := &fakeExchangeRateProvider{err: errors.New("boom")}

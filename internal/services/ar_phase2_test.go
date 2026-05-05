@@ -67,6 +67,15 @@ func p2Customer(t *testing.T, db *gorm.DB, companyID uint) uint {
 	return c.ID
 }
 
+func p2CustomerWithCurrency(t *testing.T, db *gorm.DB, companyID uint, currencyCode string) uint {
+	t.Helper()
+	c := models.Customer{CompanyID: companyID, Name: "Currency Customer", CurrencyCode: currencyCode}
+	if err := db.Create(&c).Error; err != nil {
+		t.Fatal(err)
+	}
+	return c.ID
+}
+
 func p2TaxCode(t *testing.T, db *gorm.DB, companyID uint, rate float64) uint {
 	t.Helper()
 	tc := models.TaxCode{
@@ -157,6 +166,40 @@ func TestPhase2_CreateQuote(t *testing.T) {
 	}
 	if q.QuoteNumber == "" {
 		t.Error("QuoteNumber must be set")
+	}
+}
+
+func TestPhase2_QuoteCurrencyFollowsCustomer(t *testing.T) {
+	db := phase2DB(t)
+	cid := p2Company(t, db, "Quote Currency Co")
+	custID := p2CustomerWithCurrency(t, db, cid, "USD")
+
+	in := QuoteInput{
+		CustomerID:   custID,
+		CurrencyCode: "CAD",
+		QuoteDate:    time.Now(),
+		Lines: []QuoteLineInput{
+			{
+				Description: "Item A",
+				Quantity:    decimal.NewFromInt(1),
+				UnitPrice:   decimal.NewFromInt(100),
+			},
+		},
+	}
+	q, err := CreateQuote(db, cid, in)
+	if err != nil {
+		t.Fatalf("CreateQuote: %v", err)
+	}
+	if q.CurrencyCode != "USD" {
+		t.Fatalf("expected quote currency to follow customer USD, got %q", q.CurrencyCode)
+	}
+
+	updated, err := UpdateQuote(db, cid, q.ID, in)
+	if err != nil {
+		t.Fatalf("UpdateQuote: %v", err)
+	}
+	if updated.CurrencyCode != "USD" {
+		t.Fatalf("expected updated quote currency to remain customer USD, got %q", updated.CurrencyCode)
 	}
 }
 

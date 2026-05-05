@@ -60,6 +60,8 @@ templ poEditorContent(vm PurchaseOrderDetailVM) {
 		data-initial-currency={ poInitialCurrency(vm) }
 		data-counterparty-currencies={ poVendorCurrenciesJSON(vm) }
 		data-lock-counterparty-currency="true"
+		data-counterparty-label="vendor"
+		data-exchange-rate-date-offset-days="-1"
 	>
 		if vm.PurchaseOrder.ID != 0 {
 			<input type="hidden" name="po_id" value={ fmt.Sprintf("%d", vm.PurchaseOrder.ID) }/>

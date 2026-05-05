@@ -43,6 +43,12 @@ templ quoteEditorContent(vm QuoteDetailVM) {
 		data-products={ quoteProductsJSON(vm.ProductServices) }
 		data-tax-codes={ quoteTaxCodesJSON(vm.TaxCodes) }
 		data-initial-lines={ quoteInitialLinesJSON(vm.Quote.Lines) }
+		data-base-currency={ quoteBaseCurrency(vm) }
+		data-initial-currency={ quoteInitialCurrency(vm) }
+		data-counterparty-currencies={ quoteCustomerCurrenciesJSON(vm) }
+		data-lock-counterparty-currency="true"
+		data-counterparty-label="customer"
+		data-exchange-rate-date-offset-days="-1"
 	>
 		if vm.Quote.ID != 0 {
 			<input type="hidden" name="quote_id" value={ Uitoa(vm.Quote.ID) }/>
@@ -179,6 +185,7 @@ templ quoteHeaderRight(vm QuoteDetailVM) {
 				name="quote_date"
 				value={ vm.Quote.QuoteDate.Format("2006-01-02") }
 				required
+				@change="onDocumentDateChange()"
 				style="color-scheme:dark"
 				class={ fieldClass(false) }
 			/>
@@ -194,15 +201,32 @@ templ quoteHeaderRight(vm QuoteDetailVM) {
 			/>
 		</div>
 		<div class="md:col-span-2">
-			<label class={ compactLabelClass() }>Currency</label>
-			<input
-				type="text"
-				name="currency_code"
-				value={ vm.Quote.CurrencyCode }
-				maxlength="3"
-				placeholder="CAD"
-				class={ fieldClass(false) + " uppercase" }
-			/>
+			<label class={ compactLabelClass() }>Currency *</label>
+			<input type="hidden" name="currency_code" value={ quoteInitialCurrency(vm) } :value="currencyCode || baseCurrency"/>
+			<div class="mt-1 flex items-center gap-2 rounded-md border border-border-input bg-background px-3 py-1.5 text-body text-text">
+				<span class="shrink-0 font-mono text-text-muted2" x-text="currencyRateLeftLabel()"></span>
+				<span class="shrink-0 text-text-muted2">=</span>
+				<div class="min-w-[120px] max-w-[180px] flex-1">
+					<input
+						type="text"
+						name="exchange_rate"
+						value="1.000000"
+						x-model="exchangeRate"
+						@input="onExchangeRateInput()"
+						:readonly="!isForeignCurrency()"
+						placeholder="auto-lookup"
+						autocomplete="off"
+						inputmode="decimal"
+						class="block w-full rounded-md border border-border-input bg-surface px-2 py-1 text-right font-mono text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-50"
+					/>
+				</div>
+				<span class="shrink-0 font-mono text-text-muted2" x-text="baseCurrency"></span>
+			</div>
+			<p class="mt-1 text-small text-text-muted2">
+				<span x-show="!currencyCode" x-cloak>Select a customer to load its currency.</span>
+				<span x-show="currencyCode && !isForeignCurrency()" x-cloak>Base currency uses a fixed 1.000000 rate.</span>
+				<span x-show="exchangeRateHint" x-cloak x-text="exchangeRateHint"></span>
+			</p>
 		</div>
 	</div>
 }

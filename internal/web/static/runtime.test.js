@@ -563,6 +563,131 @@ async function testDocTransactionEditorUsesVendorCurrencyMapFallback() {
   assert.equal(fetchCalls.length >= 1, true);
 }
 
+async function testDocTransactionEditorCustomerPickerCurrencyLookup() {
+  const fetchCalls = [];
+  const balancizFetch = async (url) => {
+    fetchCalls.push(url);
+    return {
+      ok: true,
+      async json() {
+        return {
+          exchange_rate: '1.33333333',
+          exchange_rate_date: '2026-05-04',
+          source_label: 'Rate table',
+        };
+      },
+    };
+  };
+  const context = loadBrowserScripts(['doc_line_items.js', 'doc_transaction_editor.js'], {
+    window: { balancizFetch },
+  });
+  const editor = context.docTransactionEditor();
+  const hiddenCurrencyField = { tagName: 'INPUT', type: 'hidden', value: '', dispatchEvent() {} };
+  const exchangeRateField = { value: '1.000000' };
+  const quoteDateField = { value: '2026-05-04' };
+
+  editor.$el = {
+    dataset: {
+      products: '[]',
+      taxCodes: '[]',
+      initialLines: '[]',
+      baseCurrency: 'CAD',
+      initialCurrency: '',
+      lockCounterpartyCurrency: 'true',
+      counterpartyLabel: 'customer',
+    },
+    querySelector(selector) {
+      if (selector === '[data-counterparty-currency-source]') return null;
+      if (selector === '[name="currency_code"]') return hiddenCurrencyField;
+      if (selector === '[name="exchange_rate"]') return exchangeRateField;
+      if (selector === '[name="po_date"], [name="bill_date"], [name="invoice_date"], [name="quote_date"], [name="order_date"]') return quoteDateField;
+      return null;
+    },
+    querySelectorAll(selector) {
+      if (selector === '[name="currency_code"]') return [hiddenCurrencyField];
+      return [];
+    },
+  };
+
+  editor.init();
+  editor.onCounterpartyPickerSelect({
+    detail: {
+      entity: 'customer',
+      payload: { default_currency: 'usd' },
+    },
+  });
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  assert.equal(hiddenCurrencyField.value, 'USD');
+  assert.equal(editor.currencyCode, 'USD');
+  assert.equal(editor.currencyRateLeftLabel(), '1 USD');
+  assert.equal(editor.exchangeRate, '1.33333333');
+  assert.equal(fetchCalls.length, 1);
+  const requestURL = new URL(fetchCalls[0], 'https://example.test');
+  assert.equal(requestURL.searchParams.get('transaction_currency_code'), 'USD');
+  assert.equal(requestURL.searchParams.get('date'), '2026-05-04');
+}
+
+async function testDocTransactionEditorDateChangeRefreshesOffsetRate() {
+  const fetchCalls = [];
+  const balancizFetch = async (url) => {
+    fetchCalls.push(url);
+    return {
+      ok: true,
+      async json() {
+        return {
+          exchange_rate: '1.33333333',
+          exchange_rate_date: '2026-04-30',
+          source_label: 'Latest',
+        };
+      },
+    };
+  };
+  const context = loadBrowserScripts(['doc_line_items.js', 'doc_transaction_editor.js'], {
+    window: { balancizFetch },
+  });
+  const editor = context.docTransactionEditor();
+  const hiddenCurrencyField = { tagName: 'INPUT', type: 'hidden', value: 'USD', dispatchEvent() {} };
+  const exchangeRateField = { value: '1.38330000' };
+  const poDateField = { value: '2026-05-01' };
+
+  editor.$el = {
+    dataset: {
+      products: '[]',
+      taxCodes: '[]',
+      initialLines: '[]',
+      baseCurrency: 'CAD',
+      initialCurrency: 'USD',
+      lockCounterpartyCurrency: 'true',
+      exchangeRateDateOffsetDays: '-1',
+    },
+    querySelector(selector) {
+      if (selector === '[data-counterparty-currency-source]') return null;
+      if (selector === '[name="currency_code"]') return hiddenCurrencyField;
+      if (selector === '[name="exchange_rate"]') return exchangeRateField;
+      if (selector === '[name="po_date"], [name="bill_date"], [name="invoice_date"], [name="quote_date"], [name="order_date"]') return poDateField;
+      return null;
+    },
+    querySelectorAll(selector) {
+      if (selector === '[name="currency_code"]') return [hiddenCurrencyField];
+      return [];
+    },
+  };
+
+  editor.init();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const callsAfterInit = fetchCalls.length;
+  editor.onDocumentDateChange();
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  assert.equal(editor.exchangeRateManual, false);
+  assert.equal(editor.exchangeRate, '1.33333333');
+  assert.equal(fetchCalls.length > callsAfterInit, true);
+  const requestURL = new URL(fetchCalls[fetchCalls.length - 1], 'https://example.test');
+  assert.equal(requestURL.searchParams.get('transaction_currency_code'), 'USD');
+  assert.equal(requestURL.searchParams.get('date'), '2026-04-30');
+}
+
 function testBillDateFilterInputSanitizesAndNormalizes() {
   const documentListeners = {};
   const context = loadBrowserScript('date_filter_input.js', {
@@ -935,6 +1060,14 @@ async function run() {
     {
       name: 'document transaction editor uses vendor currency map fallback',
       fn: testDocTransactionEditorUsesVendorCurrencyMapFallback,
+    },
+    {
+      name: 'document transaction editor customer picker triggers quote currency lookup',
+      fn: testDocTransactionEditorCustomerPickerCurrencyLookup,
+    },
+    {
+      name: 'document transaction editor date change refreshes prior-close rate',
+      fn: testDocTransactionEditorDateChangeRefreshesOffsetRate,
     },
     {
       name: 'bill date filter input strips letters and normalizes 8-digit dates',

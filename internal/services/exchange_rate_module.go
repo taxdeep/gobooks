@@ -21,11 +21,11 @@ const (
 	ExchangeRateRowSourceProviderFetched = "provider_fetched"
 	ExchangeRateRowSourceLegacyUnknown   = "legacy_unknown"
 
-	JournalEntryExchangeRateSourceIdentity        = "identity"
-	JournalEntryExchangeRateSourceManual          = "manual"
-	JournalEntryExchangeRateSourceCompanyOverride = "company_override"
-	JournalEntryExchangeRateSourceSystemStored    = "system_stored"
-	JournalEntryExchangeRateSourceProviderFetched = "provider_fetched"
+	JournalEntryExchangeRateSourceIdentity          = "identity"
+	JournalEntryExchangeRateSourceManual            = "manual"
+	JournalEntryExchangeRateSourceCompanyOverride   = "company_override"
+	JournalEntryExchangeRateSourceSystemStored      = "system_stored"
+	JournalEntryExchangeRateSourceProviderFetched   = "provider_fetched"
 	JournalEntryExchangeRateSourceLegacyUnavailable = "legacy_unavailable"
 )
 
@@ -138,12 +138,12 @@ func (p *FrankfurterProvider) FetchRate(ctx context.Context, baseCurrencyCode, t
 }
 
 type ExchangeRateResolveOptions struct {
-	CompanyID              uint
+	CompanyID               uint
 	TransactionCurrencyCode string
-	BaseCurrencyCode       string
-	Date                   time.Time
-	AllowProviderFetch     bool
-	Provider               ExchangeRateProvider
+	BaseCurrencyCode        string
+	Date                    time.Time
+	AllowProviderFetch      bool
+	Provider                ExchangeRateProvider
 }
 
 // ResolveExchangeRateSnapshot performs local-first FX lookup and returns reusable snapshot semantics.
@@ -159,13 +159,18 @@ func ResolveExchangeRateSnapshot(ctx context.Context, db *gorm.DB, opts Exchange
 		return IdentityExchangeRateSnapshot(txCurrency, day), nil
 	}
 
-	if row, found, err := lookupExchangeRateRow(db, opts.CompanyID, txCurrency, baseCurrency, day); err != nil {
+	if row, found, err := lookupExchangeRateRowExact(db, opts.CompanyID, txCurrency, baseCurrency, day); err != nil {
 		return ExchangeRateSnapshot{}, err
 	} else if found {
 		return snapshotFromExchangeRateRow(row, opts.CompanyID), nil
 	}
 
 	if !opts.AllowProviderFetch {
+		if row, found, err := lookupExchangeRateRow(db, opts.CompanyID, txCurrency, baseCurrency, day); err != nil {
+			return ExchangeRateSnapshot{}, err
+		} else if found {
+			return snapshotFromExchangeRateRow(row, opts.CompanyID), nil
+		}
 		return ExchangeRateSnapshot{}, ErrNoRate
 	}
 
@@ -290,6 +295,35 @@ func lookupExchangeRateRow(db *gorm.DB, companyID uint, baseCurrencyCode, target
 		}
 		var row models.ExchangeRate
 		if err := q.Order("effective_date DESC, id DESC").First(&row).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return models.ExchangeRate{}, false, nil
+			}
+			return models.ExchangeRate{}, false, err
+		}
+		return row, true, nil
+	}
+
+	if row, found, err := lookup(&companyID); err != nil {
+		return models.ExchangeRate{}, false, err
+	} else if found {
+		return row, true, nil
+	}
+	return lookup(nil)
+}
+
+func lookupExchangeRateRowExact(db *gorm.DB, companyID uint, baseCurrencyCode, targetCurrencyCode string, date time.Time) (models.ExchangeRate, bool, error) {
+	day := normalizeDate(date)
+	lookup := func(scopeCompanyID *uint) (models.ExchangeRate, bool, error) {
+		q := db.Model(&models.ExchangeRate{}).
+			Where("base_currency_code = ? AND target_currency_code = ?", baseCurrencyCode, targetCurrencyCode).
+			Where("effective_date = ?", day)
+		if scopeCompanyID == nil {
+			q = q.Where("company_id IS NULL")
+		} else {
+			q = q.Where("company_id = ?", *scopeCompanyID)
+		}
+		var row models.ExchangeRate
+		if err := q.Order("id DESC").First(&row).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				return models.ExchangeRate{}, false, nil
 			}

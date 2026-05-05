@@ -1,5 +1,5 @@
 // doc_transaction_editor.js — Alpine factory for "simple" line-item editors.
-// v=5
+// v=7
 //
 // Shared by Quote, Sales Order, Purchase Order, Bill, Expense — every
 // transaction-document editor whose totals are a plain
@@ -57,6 +57,8 @@ function docTransactionEditor() {
       lockCounterpartyCurrency: false,
       counterpartyCurrencyLocked: false,
       counterpartyCurrencies: {},
+      counterpartyLabel: "counterparty",
+      exchangeRateDateOffsetDays: 0,
 
       _taxCodesById:   {},
       _productsById:   {},
@@ -68,6 +70,8 @@ function docTransactionEditor() {
         this.baseCurrency = String(el.dataset.baseCurrency || "").trim().toUpperCase();
         this.counterpartyCurrencies = this._parseJSON(el.dataset.counterpartyCurrencies || "{}", {});
         this.lockCounterpartyCurrency = el.dataset.lockCounterpartyCurrency === "true";
+        this.counterpartyLabel = String(el.dataset.counterpartyLabel || "counterparty").trim().toLowerCase() || "counterparty";
+        this.exchangeRateDateOffsetDays = parseInt(el.dataset.exchangeRateDateOffsetDays || "0", 10) || 0;
         this._taxCodesById = Object.fromEntries(this.taxCodes.map(t => [String(t.id), t]));
         this._productsById = Object.fromEntries(this.products.map(p => [String(p.id), p]));
         const currencyField = this._currencyField();
@@ -180,7 +184,8 @@ function docTransactionEditor() {
       },
 
       onDocumentDateChange() {
-        if (this.isForeignCurrency() && !this.exchangeRateManual) {
+        if (this.isForeignCurrency()) {
+          this.exchangeRateManual = false;
           this.lookupExchangeRate({ force: true });
         }
       },
@@ -200,7 +205,7 @@ function docTransactionEditor() {
 
       currencyRateLeftLabel() {
         const currency = this.currencyCode || this.baseCurrency || "";
-        return currency ? "1 " + currency : "Select vendor";
+        return currency ? "1 " + currency : "Select " + this.counterpartyLabel;
       },
 
       async lookupExchangeRate(options) {
@@ -210,7 +215,7 @@ function docTransactionEditor() {
         const seq = ++this.exchangeRateFetchSeq;
         const params = new URLSearchParams({
           transaction_currency_code: this.currencyCode,
-          date: this._documentDateValue(),
+          date: this._exchangeRateLookupDateValue(),
           allow_provider_fetch: "1",
         });
         this.exchangeRateHint = "Looking up rate...";
@@ -360,6 +365,16 @@ function docTransactionEditor() {
         if (!this.$el || !this.$el.querySelector) return "";
         const field = this.$el.querySelector('[name="po_date"], [name="bill_date"], [name="invoice_date"], [name="quote_date"], [name="order_date"]');
         return field ? String(field.value || "").trim() : "";
+      },
+
+      _exchangeRateLookupDateValue() {
+        const raw = this._documentDateValue();
+        if (!raw || !this.exchangeRateDateOffsetDays) return raw;
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+        if (!match) return raw;
+        const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+        date.setUTCDate(date.getUTCDate() + this.exchangeRateDateOffsetDays);
+        return date.toISOString().slice(0, 10);
       },
 
       _isIdentityRate(value) {

@@ -95,6 +95,33 @@ func loadTaxRate(db *gorm.DB, taxCodeID *uint) decimal.Decimal {
 	return tc.Rate
 }
 
+func quoteCurrencyForCustomer(db *gorm.DB, companyID, customerID uint) (string, error) {
+	baseCurrency, err := companyBaseCurrencyCode(db, companyID)
+	if err != nil {
+		return "", err
+	}
+	baseCurrency = normalizeCurrencyCode(baseCurrency)
+	if baseCurrency == "" {
+		baseCurrency = "CAD"
+	}
+
+	var customer models.Customer
+	if err := db.Select("id", "company_id", "currency_code").
+		Where("id = ? AND company_id = ? AND is_active = true", customerID, companyID).
+		First(&customer).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", errors.New("customer is required")
+		}
+		return "", err
+	}
+
+	currencyCode := normalizeCurrencyCode(customer.CurrencyCode)
+	if currencyCode == "" {
+		return baseCurrency, nil
+	}
+	return currencyCode, nil
+}
+
 // ── Create ────────────────────────────────────────────────────────────────────
 
 // CreateQuote creates a new draft quote with its line items.
@@ -106,6 +133,10 @@ func CreateQuote(db *gorm.DB, companyID uint, in QuoteInput) (*models.Quote, err
 	if len(in.Lines) == 0 {
 		return nil, errors.New("at least one line item is required")
 	}
+	currencyCode, err := quoteCurrencyForCustomer(db, companyID, in.CustomerID)
+	if err != nil {
+		return nil, err
+	}
 
 	quoteNumber, settingsCounterUsed := nextQuoteNumber(db, companyID)
 	quote := models.Quote{
@@ -115,7 +146,7 @@ func CreateQuote(db *gorm.DB, companyID uint, in QuoteInput) (*models.Quote, err
 		Status:       models.QuoteStatusDraft,
 		QuoteDate:    in.QuoteDate,
 		ExpiryDate:   in.ExpiryDate,
-		CurrencyCode: in.CurrencyCode,
+		CurrencyCode: currencyCode,
 		Notes:        in.Notes,
 		Memo:         in.Memo,
 	}
@@ -228,6 +259,10 @@ func UpdateQuote(db *gorm.DB, companyID, quoteID uint, in QuoteInput) (*models.Q
 	if len(in.Lines) == 0 {
 		return nil, errors.New("at least one line item is required")
 	}
+	currencyCode, err := quoteCurrencyForCustomer(db, companyID, in.CustomerID)
+	if err != nil {
+		return nil, err
+	}
 
 	var subtotal, taxTotal decimal.Decimal
 	var newLines []models.QuoteLine
@@ -258,7 +293,7 @@ func UpdateQuote(db *gorm.DB, companyID, quoteID uint, in QuoteInput) (*models.Q
 		}
 		updates := map[string]any{
 			"customer_id":   in.CustomerID,
-			"currency_code": in.CurrencyCode,
+			"currency_code": currencyCode,
 			"quote_date":    in.QuoteDate,
 			"expiry_date":   in.ExpiryDate,
 			"notes":         in.Notes,
@@ -406,8 +441,8 @@ func ConvertQuoteToSalesOrder(db *gorm.DB, companyID, quoteID uint, actor string
 		}
 		// Mark quote as converted.
 		if err := tx.Model(&q).Updates(map[string]any{
-			"status":          string(models.QuoteStatusConverted),
-			"sales_order_id":  so.ID,
+			"status":         string(models.QuoteStatusConverted),
+			"sales_order_id": so.ID,
 		}).Error; err != nil {
 			return fmt.Errorf("update quote status: %w", err)
 		}

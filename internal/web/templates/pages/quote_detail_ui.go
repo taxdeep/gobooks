@@ -3,6 +3,7 @@ package pages
 
 import (
 	"encoding/json"
+	"strings"
 
 	"balanciz/internal/models"
 	"balanciz/internal/web/templates/ui"
@@ -78,6 +79,41 @@ func quoteTaxCodesJSON(codes []models.TaxCode) string {
 	}
 	b, _ := json.Marshal(out)
 	return string(b)
+}
+
+func quoteCustomerCurrenciesJSON(vm QuoteDetailVM) string {
+	out := make(map[string]string, len(vm.Customers))
+	for _, customer := range vm.Customers {
+		out[Uitoa(customer.ID)] = quoteCustomerCurrency(customer, vm)
+	}
+	b, _ := json.Marshal(out)
+	return string(b)
+}
+
+func quoteInitialCurrency(vm QuoteDetailVM) string {
+	if code := strings.ToUpper(strings.TrimSpace(vm.Quote.CurrencyCode)); code != "" {
+		return code
+	}
+	for _, customer := range vm.Customers {
+		if customer.ID == vm.Quote.CustomerID {
+			return quoteCustomerCurrency(customer, vm)
+		}
+	}
+	return quoteBaseCurrency(vm)
+}
+
+func quoteCustomerCurrency(customer models.Customer, vm QuoteDetailVM) string {
+	if code := strings.ToUpper(strings.TrimSpace(customer.CurrencyCode)); code != "" {
+		return code
+	}
+	return quoteBaseCurrency(vm)
+}
+
+func quoteBaseCurrency(vm QuoteDetailVM) string {
+	if code := strings.ToUpper(strings.TrimSpace(vm.BaseCurrencyCode)); code != "" {
+		return code
+	}
+	return "CAD"
 }
 
 // quoteInitialLinesJSON converts existing QuoteLines into the shape the
