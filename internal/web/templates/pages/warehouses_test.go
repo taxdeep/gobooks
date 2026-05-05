@@ -24,11 +24,25 @@ func TestWarehousesPageShowsTransferEntryAction(t *testing.T) {
 	for _, want := range []string{
 		`href="/inventory/transfers"`,
 		"Warehouse Transfer",
+		`border border-border-input`,
 		`href="/warehouses/new"`,
-		"+ New Warehouse",
+		"New Warehouse",
+		`bg-primary px-4 py-2`,
+		"All Warehouses",
+		`bg-surface-tableHeader`,
+		`hover:bg-surface-rowHover`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("expected warehouses page HTML to contain %q", want)
+		}
+	}
+	for _, notWant := range []string{
+		`btn btn-primary`,
+		`table table-zebra`,
+		`badge badge-`,
+	} {
+		if strings.Contains(html, notWant) {
+			t.Fatalf("expected warehouses page HTML not to contain legacy class %q", notWant)
 		}
 	}
 }
