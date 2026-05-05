@@ -41,7 +41,10 @@ templ bodyWarehouses(vm WarehousesVM) {
 	<div class="max-w-5xl">
 		<div class="flex items-center justify-between mb-6">
 			<h1 class="text-title font-semibold">Warehouses</h1>
-			<a href="/warehouses/new" class="btn btn-primary btn-sm">+ New Warehouse</a>
+			<div class="flex items-center gap-2">
+				<a href="/inventory/transfers" class="btn btn-outline btn-sm">Warehouse Transfer</a>
+				<a href="/warehouses/new" class="btn btn-primary btn-sm">+ New Warehouse</a>
+			</div>
 		</div>
 
 		if vm.Created {

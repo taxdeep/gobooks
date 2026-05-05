@@ -92,7 +92,7 @@ func bodyWarehouses(vm WarehousesVM) templ.Component {
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"max-w-5xl\"><div class=\"flex items-center justify-between mb-6\"><h1 class=\"text-title font-semibold\">Warehouses</h1><a href=\"/warehouses/new\" class=\"btn btn-primary btn-sm\">+ New Warehouse</a></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"max-w-5xl\"><div class=\"flex items-center justify-between mb-6\"><h1 class=\"text-title font-semibold\">Warehouses</h1><div class=\"flex items-center gap-2\"><a href=\"/inventory/transfers\" class=\"btn btn-outline btn-sm\">Warehouse Transfer</a><a href=\"/warehouses/new\" class=\"btn btn-primary btn-sm\">+ New Warehouse</a></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
