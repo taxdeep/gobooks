@@ -284,12 +284,12 @@ func parsePOInput(c *fiber.Ctx) (services.POInput, error) {
 	dateStr := strings.TrimSpace(c.FormValue("po_date"))
 	var poDate time.Time
 	if dateStr != "" {
-		poDate, _ = time.Parse("2006-01-02", dateStr)
+		poDate, _ = parseDocumentDateValue(dateStr)
 	}
 
 	var expectedDate *time.Time
 	if expStr := strings.TrimSpace(c.FormValue("expected_date")); expStr != "" {
-		if t, err := time.Parse("2006-01-02", expStr); err == nil {
+		if t, ok := parseDocumentDateValue(expStr); ok {
 			expectedDate = &t
 		}
 	}

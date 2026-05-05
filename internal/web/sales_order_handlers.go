@@ -293,14 +293,14 @@ func parseSalesOrderInput(c *fiber.Ctx) (services.SalesOrderInput, error) {
 	orderDateStr := strings.TrimSpace(c.FormValue("order_date"))
 	orderDate := time.Now()
 	if orderDateStr != "" {
-		if d, e := time.Parse("2006-01-02", orderDateStr); e == nil {
+		if d, ok := parseDocumentDateValue(orderDateStr); ok {
 			orderDate = d
 		}
 	}
 
 	var requiredBy *time.Time
 	if rb := strings.TrimSpace(c.FormValue("required_by")); rb != "" {
-		if d, e := time.Parse("2006-01-02", rb); e == nil {
+		if d, ok := parseDocumentDateValue(rb); ok {
 			requiredBy = &d
 		}
 	}

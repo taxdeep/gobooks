@@ -296,14 +296,14 @@ func parseQuoteInput(c *fiber.Ctx) (services.QuoteInput, error) {
 	quoteDateStr := strings.TrimSpace(c.FormValue("quote_date"))
 	quoteDate := time.Now()
 	if quoteDateStr != "" {
-		if d, e := time.Parse("2006-01-02", quoteDateStr); e == nil {
+		if d, ok := parseDocumentDateValue(quoteDateStr); ok {
 			quoteDate = d
 		}
 	}
 
 	var expiryDate *time.Time
 	if ed := strings.TrimSpace(c.FormValue("expiry_date")); ed != "" {
-		if d, e := time.Parse("2006-01-02", ed); e == nil {
+		if d, ok := parseDocumentDateValue(ed); ok {
 			expiryDate = &d
 		}
 	}
@@ -342,6 +342,19 @@ func parseQuoteInput(c *fiber.Ctx) (services.QuoteInput, error) {
 		})
 	}
 	return in, nil
+}
+
+func parseDocumentDateValue(raw string) (time.Time, bool) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return time.Time{}, false
+	}
+	for _, layout := range []string{"2006-01-02", "2006/01/02", "2006.01.02", "20060102", "02/01/2006", "02-01-2006", "02.01.2006"} {
+		if d, err := time.Parse(layout, value); err == nil {
+			return d, true
+		}
+	}
+	return time.Time{}, false
 }
 
 // documentLine is an internal helper for parsing form line items.

@@ -1,5 +1,5 @@
 // doc_transaction_editor.js — Alpine factory for "simple" line-item editors.
-// v=9
+// v=10
 //
 // Shared by Quote, Sales Order, Purchase Order, Bill, Expense — every
 // transaction-document editor whose totals are a plain
@@ -402,10 +402,20 @@ function docTransactionEditor() {
         if (!match) {
           match = /^(\d{4})(\d{2})(\d{2})$/.exec(value);
         }
-        if (!match) return value;
-        const year = Number(match[1]);
-        const month = Number(match[2]);
-        const day = Number(match[3]);
+        let year;
+        let month;
+        let day;
+        if (match) {
+          year = Number(match[1]);
+          month = Number(match[2]);
+          day = Number(match[3]);
+        } else {
+          match = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/.exec(value);
+          if (!match) return value;
+          day = Number(match[1]);
+          month = Number(match[2]);
+          year = Number(match[3]);
+        }
         const date = new Date(Date.UTC(year, month - 1, day));
         if (
           date.getUTCFullYear() !== year ||
