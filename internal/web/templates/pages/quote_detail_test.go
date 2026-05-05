@@ -73,11 +73,15 @@ func TestQuoteEditorCustomerUsesSmartPicker(t *testing.T) {
 		`data-field-name="customer_id"`,
 		`data-value="11"`,
 		`data-selected-label="Smart Quote Customer"`,
+		`<noscript><select name="customer_id"`,
 		`name="customer_id"`,
 		`— Select Customer —`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("expected quote editor HTML to contain %q", want)
 		}
+	}
+	if strings.Contains(html, `x-init="var s=$el.querySelector('select')`) {
+		t.Fatal("expected quote customer fallback select to be hidden in noscript, not Alpine-controlled")
 	}
 }

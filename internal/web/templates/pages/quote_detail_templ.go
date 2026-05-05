@@ -369,7 +369,7 @@ func quoteHeaderLeft(vm QuoteDetailVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\">Customer *</label><!-- No-JS fallback: Alpine disables this select and removes its name\r\n\t\t     on init, so only the SmartPicker hidden input submits when JS is\r\n\t\t     active. Without JS the select retains name=\"customer_id\". --><div x-data=\"{}\" x-init=\"var s=$el.querySelector('select');if(s){s.removeAttribute('name');s.disabled=true;}$el.style.display='none';\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\">Customer *</label><!-- No-JS fallback. Normal browsers use the SmartPicker below, so the\r\n\t\t     customer field appears as one combined search/select control. --><noscript>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -450,7 +450,7 @@ func quoteHeaderLeft(vm QuoteDetailVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</select></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</select></noscript>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

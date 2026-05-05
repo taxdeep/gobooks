@@ -108,10 +108,9 @@ templ quoteFlashBanners(vm QuoteDetailVM) {
 templ quoteHeaderLeft(vm QuoteDetailVM) {
 	<div>
 		<label class={ compactLabelClass() }>Customer *</label>
-		<!-- No-JS fallback: Alpine disables this select and removes its name
-		     on init, so only the SmartPicker hidden input submits when JS is
-		     active. Without JS the select retains name="customer_id". -->
-		<div x-data="{}" x-init="var s=$el.querySelector('select');if(s){s.removeAttribute('name');s.disabled=true;}$el.style.display='none';">
+		<!-- No-JS fallback. Normal browsers use the SmartPicker below, so the
+		     customer field appears as one combined search/select control. -->
+		<noscript>
 			<select
 				name="customer_id"
 				required
@@ -122,7 +121,7 @@ templ quoteHeaderLeft(vm QuoteDetailVM) {
 					<option value={ Uitoa(c.ID) } data-currency={ c.CurrencyCode } selected?={ c.ID == vm.Quote.CustomerID }>{ c.Name }</option>
 				}
 			</select>
-		</div>
+		</noscript>
 		@ui.SmartPicker(quoteCustomerSmartPickerVM(vm))
 	</div>
 	<div>
