@@ -53,6 +53,9 @@ type DocEditorShellVM struct {
 type DocEditorFooterVM struct {
 	// Cancel — typically a back link to the list page.
 	Cancel *DocEditorFooterLink
+	// LeftButtons are left-aligned submit buttons, usually destructive
+	// document actions that should sit where Cancel normally appears.
+	LeftButtons []DocEditorFooterButton
 	// SecondaryLinks — centered, e.g. Print, Duplicate, Make recurring.
 	SecondaryLinks []DocEditorFooterLink
 	// Buttons — right-aligned primary CTAs (Save, Submit, etc.).
@@ -286,6 +289,12 @@ func DocEditorFooter(vm DocEditorFooterVM) templ.Component {
 		}
 		if vm.Cancel != nil {
 			templ_7745c5c3_Err = docEditorFooterLink(*vm.Cancel).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		for _, btn := range vm.LeftButtons {
+			templ_7745c5c3_Err = docEditorFooterButton(btn).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

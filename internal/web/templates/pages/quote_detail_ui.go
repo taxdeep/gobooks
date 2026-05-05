@@ -30,18 +30,39 @@ func quoteShellVM(vm QuoteDetailVM) ui.DocEditorShellVM {
 }
 
 // quoteFooterVM is the sticky bottom action bar for the Quote editor.
-// Single Save button — Quote has no review-mode toggle (lifecycle moves
-// happen via the action-buttons row below the form).
+// Draft lifecycle actions live here so the page has one consistent footer.
 func quoteFooterVM(vm QuoteDetailVM) ui.DocEditorFooterVM {
-	return ui.DocEditorFooterVM{
-		Cancel: &ui.DocEditorFooterLink{
-			Label: "Cancel",
-			Href:  "/quotes",
-		},
+	footer := ui.DocEditorFooterVM{
 		Buttons: []ui.DocEditorFooterButton{
-			{Label: "Save Quote", Variant: ui.FooterBtnPrimary, Type: "submit"},
+			{Label: "Save", Variant: ui.FooterBtnPrimary, Type: "submit"},
 		},
 	}
+	if vm.Quote.ID == 0 {
+		footer.Cancel = &ui.DocEditorFooterLink{
+			Label:   "Cancel",
+			Href:    "/quotes",
+			Variant: ui.FooterLinkDanger,
+		}
+		return footer
+	}
+	footer.LeftButtons = []ui.DocEditorFooterButton{
+		{
+			Label:      "Cancel",
+			Variant:    ui.FooterBtnDanger,
+			Type:       "submit",
+			FormAction: "/quotes/" + Uitoa(vm.Quote.ID) + "/cancel",
+			OnClick:    "if (!confirm('Cancel this quote?')) $event.preventDefault()",
+		},
+	}
+	footer.Buttons = append([]ui.DocEditorFooterButton{
+		{
+			Label:      "Mark as Sent",
+			Variant:    ui.FooterBtnSecondary,
+			Type:       "submit",
+			FormAction: "/quotes/" + Uitoa(vm.Quote.ID) + "/send",
+		},
+	}, footer.Buttons...)
+	return footer
 }
 
 // quoteProductsJSON serialises the product/service catalogue for the

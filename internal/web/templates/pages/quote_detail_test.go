@@ -101,3 +101,46 @@ func TestQuoteEditorCustomerUsesSmartPicker(t *testing.T) {
 		t.Fatal("expected quote currency to be locked to customer currency, not freeform text")
 	}
 }
+
+func TestQuoteDraftFooterHasLifecycleActions(t *testing.T) {
+	customer := models.Customer{ID: 11, Name: "Smart Quote Customer", CurrencyCode: "USD"}
+	var sb strings.Builder
+	vm := QuoteDetailVM{
+		HasCompany:       true,
+		BaseCurrencyCode: "CAD",
+		Quote: models.Quote{
+			ID:           5,
+			QuoteNumber:  "QUO-0005",
+			Status:       models.QuoteStatusDraft,
+			QuoteDate:    time.Date(2026, 4, 28, 0, 0, 0, 0, time.UTC),
+			CurrencyCode: "USD",
+			CustomerID:   customer.ID,
+			Customer:     customer,
+		},
+		Customers: []models.Customer{customer},
+	}
+
+	if err := QuoteDetail(vm).Render(context.Background(), &sb); err != nil {
+		t.Fatalf("render quote editor: %v", err)
+	}
+	html := sb.String()
+	for _, want := range []string{
+		`formaction="/quotes/5/cancel"`,
+		`formaction="/quotes/5/send"`,
+		"Cancel",
+		"Mark as Sent",
+		"Save",
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("expected quote editor HTML to contain %q", want)
+		}
+	}
+	for _, notWant := range []string{
+		"Cancel Quote",
+		"Save Quote",
+	} {
+		if strings.Contains(html, notWant) {
+			t.Fatalf("expected quote editor HTML not to contain %q", notWant)
+		}
+	}
+}

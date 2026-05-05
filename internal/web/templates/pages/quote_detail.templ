@@ -76,13 +76,6 @@ templ quoteEditorContent(vm QuoteDetailVM) {
 		)
 		@quoteMemoCard(vm)
 
-		// Action buttons stay above the sticky save bar so the existing
-		// status-transition POST forms remain available for non-draft
-		// quotes (only the editor's draft form persists field edits).
-		if vm.Quote.ID != 0 {
-			@quoteActionButtons(vm)
-		}
-
 		@ui.DocEditorFooter(quoteFooterVM(vm))
 	</form>
 }
