@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/shopspring/decimal"
+
 	"balanciz/internal/models"
 	"balanciz/internal/web/templates/ui"
 )
@@ -100,6 +102,13 @@ func quoteInitialCurrency(vm QuoteDetailVM) string {
 		}
 	}
 	return quoteBaseCurrency(vm)
+}
+
+func quoteExchangeRateValue(vm QuoteDetailVM) string {
+	if vm.Quote.ExchangeRate.GreaterThan(decimal.Zero) {
+		return vm.Quote.ExchangeRate.StringFixed(8)
+	}
+	return decimal.NewFromInt(1).StringFixed(8)
 }
 
 func quoteCustomerCurrency(customer models.Customer, vm QuoteDetailVM) string {

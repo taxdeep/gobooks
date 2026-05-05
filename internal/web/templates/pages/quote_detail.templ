@@ -211,7 +211,7 @@ templ quoteHeaderRight(vm QuoteDetailVM) {
 					<input
 						type="text"
 						name="exchange_rate"
-						value="1.000000"
+						value={ quoteExchangeRateValue(vm) }
 						x-model="exchangeRate"
 						@input="onExchangeRateInput()"
 						:readonly="!isForeignCurrency()"

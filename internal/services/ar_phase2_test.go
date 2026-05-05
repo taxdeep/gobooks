@@ -203,6 +203,44 @@ func TestPhase2_QuoteCurrencyFollowsCustomer(t *testing.T) {
 	}
 }
 
+func TestPhase2_QuotePersistsSubmittedExchangeRate(t *testing.T) {
+	db := phase2DB(t)
+	cid := p2Company(t, db, "Quote FX Co")
+	custID := p2CustomerWithCurrency(t, db, cid, "USD")
+
+	q, err := CreateQuote(db, cid, QuoteInput{
+		CustomerID:   custID,
+		CurrencyCode: "USD",
+		ExchangeRate: decimal.RequireFromString("1.33333333"),
+		QuoteDate:    time.Now(),
+		Lines: []QuoteLineInput{
+			{Description: "Item A", Quantity: decimal.NewFromInt(1), UnitPrice: decimal.NewFromInt(100)},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateQuote: %v", err)
+	}
+	if !q.ExchangeRate.Equal(decimal.RequireFromString("1.33333333")) {
+		t.Fatalf("expected quote exchange rate 1.33333333, got %s", q.ExchangeRate)
+	}
+
+	updated, err := UpdateQuote(db, cid, q.ID, QuoteInput{
+		CustomerID:   custID,
+		CurrencyCode: "USD",
+		ExchangeRate: decimal.RequireFromString("1.44444444"),
+		QuoteDate:    q.QuoteDate,
+		Lines: []QuoteLineInput{
+			{Description: "Item A", Quantity: decimal.NewFromInt(1), UnitPrice: decimal.NewFromInt(100)},
+		},
+	})
+	if err != nil {
+		t.Fatalf("UpdateQuote: %v", err)
+	}
+	if !updated.ExchangeRate.Equal(decimal.RequireFromString("1.44444444")) {
+		t.Fatalf("expected updated quote exchange rate 1.44444444, got %s", updated.ExchangeRate)
+	}
+}
+
 func TestPhase2_GetQuotePreloadsLineProductService(t *testing.T) {
 	db := phase2DB(t)
 	cid := p2Company(t, db, "Test Co")
@@ -436,6 +474,7 @@ func TestPhase2_ConvertQuoteToSalesOrder(t *testing.T) {
 	q, _ := CreateQuote(db, cid, QuoteInput{
 		CustomerID:   custID,
 		CurrencyCode: "CAD",
+		ExchangeRate: decimal.RequireFromString("1.25000000"),
 		QuoteDate:    time.Now(),
 		Lines: []QuoteLineInput{
 			{
@@ -460,6 +499,9 @@ func TestPhase2_ConvertQuoteToSalesOrder(t *testing.T) {
 	// SalesOrder should mirror Quote totals.
 	if !so.Total.Equal(q.Total) {
 		t.Errorf("SO.Total %s ≠ Quote.Total %s", so.Total, q.Total)
+	}
+	if !so.ExchangeRate.Equal(decimal.RequireFromString("1.25000000")) {
+		t.Errorf("SO.ExchangeRate %s does not mirror Quote.ExchangeRate", so.ExchangeRate)
 	}
 	if so.Status != models.SalesOrderStatusDraft {
 		t.Errorf("SO should be draft; got %s", so.Status)

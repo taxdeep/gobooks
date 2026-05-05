@@ -43,6 +43,7 @@ type QuoteLineInput struct {
 type QuoteInput struct {
 	CustomerID   uint
 	CurrencyCode string
+	ExchangeRate decimal.Decimal
 	QuoteDate    time.Time
 	ExpiryDate   *time.Time
 	Notes        string
@@ -122,6 +123,13 @@ func quoteCurrencyForCustomer(db *gorm.DB, companyID, customerID uint) (string, 
 	return currencyCode, nil
 }
 
+func normalizeDocumentExchangeRate(rate decimal.Decimal) decimal.Decimal {
+	if !rate.GreaterThan(decimal.Zero) {
+		return decimal.NewFromInt(1)
+	}
+	return rate.RoundBank(8)
+}
+
 // ── Create ────────────────────────────────────────────────────────────────────
 
 // CreateQuote creates a new draft quote with its line items.
@@ -147,6 +155,7 @@ func CreateQuote(db *gorm.DB, companyID uint, in QuoteInput) (*models.Quote, err
 		QuoteDate:    in.QuoteDate,
 		ExpiryDate:   in.ExpiryDate,
 		CurrencyCode: currencyCode,
+		ExchangeRate: normalizeDocumentExchangeRate(in.ExchangeRate),
 		Notes:        in.Notes,
 		Memo:         in.Memo,
 	}
@@ -294,6 +303,7 @@ func UpdateQuote(db *gorm.DB, companyID, quoteID uint, in QuoteInput) (*models.Q
 		updates := map[string]any{
 			"customer_id":   in.CustomerID,
 			"currency_code": currencyCode,
+			"exchange_rate": normalizeDocumentExchangeRate(in.ExchangeRate),
 			"quote_date":    in.QuoteDate,
 			"expiry_date":   in.ExpiryDate,
 			"notes":         in.Notes,
@@ -404,6 +414,7 @@ func ConvertQuoteToSalesOrder(db *gorm.DB, companyID, quoteID uint, actor string
 		Status:       models.SalesOrderStatusDraft,
 		OrderDate:    time.Now(),
 		CurrencyCode: q.CurrencyCode,
+		ExchangeRate: normalizeDocumentExchangeRate(q.ExchangeRate),
 		Subtotal:     q.Subtotal,
 		TaxTotal:     q.TaxTotal,
 		Total:        q.Total,

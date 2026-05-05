@@ -768,7 +768,20 @@ func quoteHeaderRight(vm QuoteDetailVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "\" :value=\"currencyCode || baseCurrency\"><div class=\"mt-1 flex items-center gap-2 rounded-md border border-border-input bg-background px-3 py-1.5 text-body text-text\"><span class=\"shrink-0 font-mono text-text-muted2\" x-text=\"currencyRateLeftLabel()\"></span> <span class=\"shrink-0 text-text-muted2\">=</span><div class=\"min-w-[120px] max-w-[180px] flex-1\"><input type=\"text\" name=\"exchange_rate\" value=\"1.000000\" x-model=\"exchangeRate\" @input=\"onExchangeRateInput()\" :readonly=\"!isForeignCurrency()\" placeholder=\"auto-lookup\" autocomplete=\"off\" inputmode=\"decimal\" class=\"block w-full rounded-md border border-border-input bg-surface px-2 py-1 text-right font-mono text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-50\"></div><span class=\"shrink-0 font-mono text-text-muted2\" x-text=\"baseCurrency\"></span></div><p class=\"mt-1 text-small text-text-muted2\"><span x-show=\"!currencyCode\" x-cloak>Select a customer to load its currency.</span> <span x-show=\"currencyCode && !isForeignCurrency()\" x-cloak>Base currency uses a fixed 1.000000 rate.</span> <span x-show=\"exchangeRateHint\" x-cloak x-text=\"exchangeRateHint\"></span></p></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "\" :value=\"currencyCode || baseCurrency\"><div class=\"mt-1 flex items-center gap-2 rounded-md border border-border-input bg-background px-3 py-1.5 text-body text-text\"><span class=\"shrink-0 font-mono text-text-muted2\" x-text=\"currencyRateLeftLabel()\"></span> <span class=\"shrink-0 text-text-muted2\">=</span><div class=\"min-w-[120px] max-w-[180px] flex-1\"><input type=\"text\" name=\"exchange_rate\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var42 string
+		templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(quoteExchangeRateValue(vm))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/quote_detail.templ`, Line: 214, Col: 42}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "\" x-model=\"exchangeRate\" @input=\"onExchangeRateInput()\" :readonly=\"!isForeignCurrency()\" placeholder=\"auto-lookup\" autocomplete=\"off\" inputmode=\"decimal\" class=\"block w-full rounded-md border border-border-input bg-surface px-2 py-1 text-right font-mono text-body text-text outline-none focus:ring-2 focus:ring-primary-focus disabled:opacity-50\"></div><span class=\"shrink-0 font-mono text-text-muted2\" x-text=\"baseCurrency\"></span></div><p class=\"mt-1 text-small text-text-muted2\"><span x-show=\"!currencyCode\" x-cloak>Select a customer to load its currency.</span> <span x-show=\"currencyCode && !isForeignCurrency()\" x-cloak>Base currency uses a fixed 1.000000 rate.</span> <span x-show=\"exchangeRateHint\" x-cloak x-text=\"exchangeRateHint\"></span></p></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

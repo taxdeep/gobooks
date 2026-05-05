@@ -308,6 +308,15 @@ func parseQuoteInput(c *fiber.Ctx) (services.QuoteInput, error) {
 		}
 	}
 
+	exchangeRate := decimal.NewFromInt(1)
+	if rateRaw := strings.TrimSpace(c.FormValue("exchange_rate")); rateRaw != "" {
+		rate, err := decimal.NewFromString(rateRaw)
+		if err != nil || !rate.GreaterThan(decimal.Zero) {
+			return services.QuoteInput{}, fiber.NewError(fiber.StatusBadRequest, "exchange rate must be greater than 0")
+		}
+		exchangeRate = rate.RoundBank(8)
+	}
+
 	lines := parseDocumentLines(c)
 	if len(lines) == 0 {
 		return services.QuoteInput{}, fiber.NewError(fiber.StatusBadRequest, "at least one line is required")
@@ -316,6 +325,7 @@ func parseQuoteInput(c *fiber.Ctx) (services.QuoteInput, error) {
 	in := services.QuoteInput{
 		CustomerID:   uint(cid),
 		CurrencyCode: strings.ToUpper(strings.TrimSpace(c.FormValue("currency_code"))),
+		ExchangeRate: exchangeRate,
 		QuoteDate:    quoteDate,
 		ExpiryDate:   expiryDate,
 		Notes:        strings.TrimSpace(c.FormValue("notes")),

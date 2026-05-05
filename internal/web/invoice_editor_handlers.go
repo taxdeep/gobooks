@@ -220,6 +220,7 @@ func (s *Server) prefillInvoiceFromSalesOrder(companyID, soID uint, vm *pages.In
 
 	vm.CustomerID = strconv.FormatUint(uint64(so.CustomerID), 10)
 	vm.CurrencyCode = so.CurrencyCode
+	vm.ExchangeRate = displayDocumentExchangeRate(so.CurrencyCode, so.ExchangeRate)
 	vm.SalesOrderID = so.ID
 	vm.SalesOrderNumber = so.OrderNumber
 	vm.CustomerPONumber = so.CustomerPONumber

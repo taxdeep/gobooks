@@ -95,7 +95,8 @@ type Quote struct {
 	ExpiryDate  *time.Time
 
 	// Currency — defaults to customer default currency or company base currency.
-	CurrencyCode string `gorm:"type:varchar(3);not null;default:''"`
+	CurrencyCode string          `gorm:"type:varchar(3);not null;default:''"`
+	ExchangeRate decimal.Decimal `gorm:"type:numeric(20,8);not null;default:1"`
 
 	Subtotal decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`
 	TaxTotal decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`
@@ -120,7 +121,7 @@ type QuoteLine struct {
 	QuoteID uint `gorm:"not null;index"`
 
 	// ProductServiceID is optional; free-text description is allowed.
-	ProductServiceID *uint          `gorm:"index"`
+	ProductServiceID *uint           `gorm:"index"`
 	ProductService   *ProductService `gorm:"foreignKey:ProductServiceID"`
 
 	// RevenueAccountID is the AR revenue account hint (informational only at quote stage).

@@ -91,7 +91,8 @@ type SalesOrder struct {
 	RequiredBy  *time.Time
 
 	// Currency — inherited from Quote or set directly.
-	CurrencyCode string `gorm:"type:varchar(3);not null;default:''"`
+	CurrencyCode string          `gorm:"type:varchar(3);not null;default:''"`
+	ExchangeRate decimal.Decimal `gorm:"type:numeric(20,8);not null;default:1"`
 
 	Subtotal decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`
 	TaxTotal decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`

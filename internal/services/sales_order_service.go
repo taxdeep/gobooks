@@ -42,6 +42,7 @@ type SalesOrderLineInput struct {
 type SalesOrderInput struct {
 	CustomerID       uint
 	CurrencyCode     string
+	ExchangeRate     decimal.Decimal
 	OrderDate        time.Time
 	RequiredBy       *time.Time
 	Notes            string
@@ -102,13 +103,14 @@ func CreateSalesOrder(db *gorm.DB, companyID uint, in SalesOrderInput) (*models.
 
 	soNumber, settingsCounterUsed := nextSalesOrderNumber(db, companyID)
 	so := models.SalesOrder{
-		CompanyID:    companyID,
-		CustomerID:   in.CustomerID,
-		OrderNumber:  soNumber,
-		Status:       models.SalesOrderStatusDraft,
-		OrderDate:    in.OrderDate,
-		RequiredBy:   in.RequiredBy,
+		CompanyID:        companyID,
+		CustomerID:       in.CustomerID,
+		OrderNumber:      soNumber,
+		Status:           models.SalesOrderStatusDraft,
+		OrderDate:        in.OrderDate,
+		RequiredBy:       in.RequiredBy,
 		CurrencyCode:     in.CurrencyCode,
+		ExchangeRate:     normalizeDocumentExchangeRate(in.ExchangeRate),
 		Notes:            in.Notes,
 		Memo:             in.Memo,
 		CustomerPONumber: in.CustomerPONumber,
@@ -264,6 +266,7 @@ func UpdateSalesOrder(db *gorm.DB, companyID, orderID uint, in SalesOrderInput) 
 		updates := map[string]any{
 			"customer_id":        in.CustomerID,
 			"currency_code":      in.CurrencyCode,
+			"exchange_rate":      normalizeDocumentExchangeRate(in.ExchangeRate),
 			"order_date":         in.OrderDate,
 			"required_by":        in.RequiredBy,
 			"notes":              in.Notes,

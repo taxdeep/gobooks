@@ -1,5 +1,5 @@
 // doc_transaction_editor.js — Alpine factory for "simple" line-item editors.
-// v=8
+// v=9
 //
 // Shared by Quote, Sales Order, Purchase Order, Bill, Expense — every
 // transaction-document editor whose totals are a plain
@@ -174,7 +174,9 @@ function docTransactionEditor() {
       onCurrencyFieldChange(value, opts) {
         opts = opts || {};
         this.currencyCode = String(value || "").trim().toUpperCase();
-        this.exchangeRateManual = false;
+        if (!opts.preserveManual) {
+          this.exchangeRateManual = false;
+        }
         if (!this.isForeignCurrency()) {
           this.exchangeRate = "1.000000";
           this.exchangeRateHint = "";
@@ -212,10 +214,16 @@ function docTransactionEditor() {
         const opts = options || {};
         if (!this.isForeignCurrency()) return;
         if (this.exchangeRateManual && !opts.force) return;
+        const lookupDate = this._exchangeRateLookupDateValue();
+        if (!this._isLookupDateReady(lookupDate)) {
+          this.exchangeRateFetchSeq++;
+          this.exchangeRateHint = "Enter a valid document date to load its exchange rate.";
+          return;
+        }
         const seq = ++this.exchangeRateFetchSeq;
         const params = new URLSearchParams({
           transaction_currency_code: this.currencyCode,
-          date: this._exchangeRateLookupDateValue(),
+          date: lookupDate,
           allow_provider_fetch: "1",
         });
         this.exchangeRateHint = "Looking up rate...";
@@ -297,7 +305,8 @@ function docTransactionEditor() {
         return parseFloat(tc.rate) || 0;
       },
 
-      _applyCounterpartyCurrency(raw) {
+      _applyCounterpartyCurrency(raw, opts) {
+        opts = opts || {};
         let currency = String(raw || "").trim().toUpperCase();
         if (!currency && this.lockCounterpartyCurrency) currency = this.baseCurrency;
         if (!currency) return;
@@ -315,14 +324,22 @@ function docTransactionEditor() {
         if (this.lockCounterpartyCurrency) {
           this.counterpartyCurrencyLocked = true;
         }
-        this.exchangeRateManual = false;
-        this.onCurrencyFieldChange(this.currencyCode, { forceLookup: true });
+        if (!opts.preserveManual) {
+          this.exchangeRateManual = false;
+        }
+        this.onCurrencyFieldChange(this.currencyCode, {
+          forceLookup: opts.forceLookup !== false,
+          preserveManual: opts.preserveManual === true,
+        });
         field.dispatchEvent(new Event("change", { bubbles: true }));
       },
 
       _syncCounterpartyCurrencyFromField(field) {
         if (!field || !field.value) return;
-        this._applyCounterpartyCurrency(this._counterpartyCurrencyFromSelect(field, field.selectedOptions ? field.selectedOptions[0] : null));
+        this._applyCounterpartyCurrency(
+          this._counterpartyCurrencyFromSelect(field, field.selectedOptions ? field.selectedOptions[0] : null),
+          { forceLookup: false, preserveManual: true }
+        );
       },
 
       _counterpartyCurrencyFromSelect(field, option) {
@@ -402,6 +419,11 @@ function docTransactionEditor() {
           String(month).padStart(2, "0"),
           String(day).padStart(2, "0"),
         ].join("-");
+      },
+
+      _isLookupDateReady(value) {
+        if (!value) return false;
+        return /^\d{4}-\d{2}-\d{2}$/.test(String(value));
       },
 
       _isIdentityRate(value) {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 
 	"balanciz/internal/models"
 	"balanciz/internal/searchprojection/producers"
@@ -304,6 +305,15 @@ func parseSalesOrderInput(c *fiber.Ctx) (services.SalesOrderInput, error) {
 		}
 	}
 
+	exchangeRate := decimal.NewFromInt(1)
+	if rateRaw := strings.TrimSpace(c.FormValue("exchange_rate")); rateRaw != "" {
+		rate, err := decimal.NewFromString(rateRaw)
+		if err != nil || !rate.GreaterThan(decimal.Zero) {
+			return services.SalesOrderInput{}, fiber.NewError(fiber.StatusBadRequest, "exchange rate must be greater than 0")
+		}
+		exchangeRate = rate.RoundBank(8)
+	}
+
 	lines := parseDocumentLines(c)
 	if len(lines) == 0 {
 		return services.SalesOrderInput{}, fiber.NewError(fiber.StatusBadRequest, "at least one line is required")
@@ -312,6 +322,7 @@ func parseSalesOrderInput(c *fiber.Ctx) (services.SalesOrderInput, error) {
 	in := services.SalesOrderInput{
 		CustomerID:       uint(cid),
 		CurrencyCode:     strings.ToUpper(strings.TrimSpace(c.FormValue("currency_code"))),
+		ExchangeRate:     exchangeRate,
 		OrderDate:        orderDate,
 		RequiredBy:       requiredBy,
 		Notes:            strings.TrimSpace(c.FormValue("notes")),

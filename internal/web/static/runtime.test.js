@@ -563,6 +563,66 @@ async function testDocTransactionEditorUsesVendorCurrencyMapFallback() {
   assert.equal(fetchCalls.length >= 1, true);
 }
 
+async function testDocTransactionEditorPreservesManualRateOnInit() {
+  const fetchCalls = [];
+  const balancizFetch = async (url) => {
+    fetchCalls.push(url);
+    return {
+      ok: true,
+      async json() {
+        return {
+          exchange_rate: '9.99990000',
+          exchange_rate_date: '2026-05-04',
+          source_label: 'Rate table',
+        };
+      },
+    };
+  };
+  const context = loadBrowserScripts(['doc_line_items.js', 'doc_transaction_editor.js'], {
+    window: { balancizFetch },
+  });
+  const editor = context.docTransactionEditor();
+  const hiddenCurrencyField = { tagName: 'INPUT', type: 'hidden', value: 'USD', dispatchEvent() {} };
+  const exchangeRateField = { value: '1.45670000' };
+  const quoteDateField = { value: '2026-05-05' };
+  const customerField = {
+    value: '42',
+    selectedOptions: [{ dataset: {} }],
+    addEventListener() {},
+  };
+
+  editor.$el = {
+    dataset: {
+      products: '[]',
+      taxCodes: '[]',
+      initialLines: '[]',
+      baseCurrency: 'CAD',
+      initialCurrency: 'USD',
+      counterpartyCurrencies: '{"42":"USD"}',
+      lockCounterpartyCurrency: 'true',
+    },
+    querySelector(selector) {
+      if (selector === '[data-counterparty-currency-source]') return customerField;
+      if (selector === '[name="currency_code"]') return hiddenCurrencyField;
+      if (selector === '[name="exchange_rate"]') return exchangeRateField;
+      if (selector === '[name="po_date"], [name="bill_date"], [name="invoice_date"], [name="quote_date"], [name="order_date"]') return quoteDateField;
+      return null;
+    },
+    querySelectorAll(selector) {
+      if (selector === '[name="currency_code"]') return [hiddenCurrencyField];
+      return [];
+    },
+  };
+
+  editor.init();
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  assert.equal(editor.currencyCode, 'USD');
+  assert.equal(editor.exchangeRateManual, true);
+  assert.equal(editor.exchangeRate, '1.45670000');
+  assert.equal(fetchCalls.length, 0);
+}
+
 async function testDocTransactionEditorCustomerPickerCurrencyLookup() {
   const fetchCalls = [];
   const balancizFetch = async (url) => {
@@ -633,12 +693,18 @@ async function testDocTransactionEditorDateChangeRefreshesOffsetRate() {
   const fetchCalls = [];
   const balancizFetch = async (url) => {
     fetchCalls.push(url);
+    const requestURL = new URL(url, 'https://example.test');
+    const rateDate = requestURL.searchParams.get('date');
+    const rates = {
+      '2026-04-30': '1.36650000',
+      '2026-05-01': '1.36560000',
+    };
     return {
       ok: true,
       async json() {
         return {
-          exchange_rate: '1.33333333',
-          exchange_rate_date: '2026-04-30',
+          exchange_rate: rates[rateDate] || '9.99990000',
+          exchange_rate_date: rateDate,
           source_label: 'Latest',
         };
       },
@@ -682,11 +748,27 @@ async function testDocTransactionEditorDateChangeRefreshesOffsetRate() {
   await new Promise(resolve => setTimeout(resolve, 0));
 
   assert.equal(editor.exchangeRateManual, false);
-  assert.equal(editor.exchangeRate, '1.33333333');
+  assert.equal(editor.exchangeRate, '1.36650000');
   assert.equal(fetchCalls.length > callsAfterInit, true);
-  const requestURL = new URL(fetchCalls[fetchCalls.length - 1], 'https://example.test');
+  let requestURL = new URL(fetchCalls[fetchCalls.length - 1], 'https://example.test');
   assert.equal(requestURL.searchParams.get('transaction_currency_code'), 'USD');
   assert.equal(requestURL.searchParams.get('date'), '2026-04-30');
+  const callsAfterFirstDateChange = fetchCalls.length;
+
+  poDateField.value = '';
+  editor.onDocumentDateChange();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(fetchCalls.length, callsAfterFirstDateChange);
+  assert.equal(new URL(fetchCalls[fetchCalls.length - 1], 'https://example.test').searchParams.get('date'), '2026-04-30');
+  assert.equal(editor.exchangeRate, '1.36650000');
+  assert.equal(editor.exchangeRateHint, 'Enter a valid document date to load its exchange rate.');
+
+  poDateField.value = '2026-05-02';
+  editor.onDocumentDateChange();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  requestURL = new URL(fetchCalls[fetchCalls.length - 1], 'https://example.test');
+  assert.equal(requestURL.searchParams.get('date'), '2026-05-01');
+  assert.equal(editor.exchangeRate, '1.36560000');
 }
 
 function testBillDateFilterInputSanitizesAndNormalizes() {
@@ -1061,6 +1143,10 @@ async function run() {
     {
       name: 'document transaction editor uses vendor currency map fallback',
       fn: testDocTransactionEditorUsesVendorCurrencyMapFallback,
+    },
+    {
+      name: 'document transaction editor preserves saved manual exchange rate on init',
+      fn: testDocTransactionEditorPreservesManualRateOnInit,
     },
     {
       name: 'document transaction editor customer picker triggers quote currency lookup',
