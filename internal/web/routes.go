@@ -458,6 +458,7 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	app.Get("/warehouses", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleWarehouseList)
 	app.Get("/warehouses/new", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleWarehouseNew)
 	app.Post("/warehouses/save", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleWarehouseCreate)
+	app.Get("/warehouses/:id/stock", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleWarehouseStock)
 	app.Get("/warehouses/:id", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleWarehouseDetail)
 	app.Post("/warehouses/:id/save", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleWarehouseUpdate)
 

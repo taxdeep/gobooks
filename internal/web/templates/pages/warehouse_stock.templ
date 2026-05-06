@@ -1,0 +1,159 @@
+// éµå¾ªproject_guide.md
+package pages
+
+import (
+	"fmt"
+	"balanciz/internal/services"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
+)
+
+templ WarehouseStock(vm WarehouseStockVM) {
+	@layout.Layout(
+		"Balanciz - "+warehouseStockTitle(vm),
+		ui.SidebarVM{Active: "Warehouses", HasCompany: vm.HasCompany},
+		bodyWarehouseStock(vm),
+	)
+}
+
+templ bodyWarehouseStock(vm WarehouseStockVM) {
+	<div class="max-w-[95%] space-y-5">
+		<div class="flex flex-wrap items-start justify-between gap-4">
+			<div class="min-w-0 flex-1">
+				<a href="/warehouses" class="text-small text-text-muted2 hover:text-text hover:underline">&larr; Warehouses</a>
+				<h1 class="mt-1 text-title font-semibold text-text">{ warehouseStockTitle(vm) }</h1>
+				if vm.Report != nil {
+					<p class="mt-1 text-small text-text-muted2">
+						Stock item balances for { vm.Report.Warehouse.Name }.
+					</p>
+				}
+			</div>
+			if vm.Report != nil {
+				<div class="flex shrink-0 flex-wrap items-center gap-2">
+					<a href={ templ.SafeURL(fmt.Sprintf("/inventory/transfers/new?from_warehouse_id=%d", vm.Report.Warehouse.ID)) } class="inline-block rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text">
+						Warehouse Transfer
+					</a>
+					<a href={ templ.SafeURL(fmt.Sprintf("/warehouses/%d", vm.Report.Warehouse.ID)) } class="inline-block rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text">
+						Edit Warehouse
+					</a>
+				</div>
+			}
+		</div>
+
+		if vm.Report == nil || len(vm.Report.Rows) == 0 {
+			@warehouseStockEmptyState()
+		} else {
+			@warehouseStockKPIs(vm.Report)
+			@ui.SectionCard("Items in Warehouse", "", warehouseStockTable(vm.Report))
+		}
+	</div>
+}
+
+templ warehouseStockKPIs(report *services.WarehouseStockReport) {
+	<div class="grid grid-cols-1 gap-4 md:grid-cols-4">
+		@warehouseStockKPICard("Stock items", fmt.Sprintf("%d", len(report.Rows)), fmt.Sprintf("%d with on-hand stock", report.ItemsWithStock))
+		@warehouseStockKPICard("On hand", report.TotalOnHand.String(), "Total units in this warehouse")
+		@warehouseStockKPICard("Available", report.TotalAvailable.String(), "On hand minus reserved")
+		@warehouseStockKPICard("Inventory value", report.TotalValue.StringFixed(2), "Qty times average cost")
+	</div>
+}
+
+templ warehouseStockKPICard(label, value, hint string) {
+	<div class="rounded-lg border border-border bg-surface p-5 shadow-sm">
+		<div class="text-small font-medium uppercase text-text-muted">{ label }</div>
+		<div class="mt-2 text-title font-semibold text-text tabular-nums" data-numfmt>{ value }</div>
+		<div class="mt-1 text-small text-text-muted2">{ hint }</div>
+	</div>
+}
+
+templ warehouseStockTable(report *services.WarehouseStockReport) {
+	<div class="overflow-x-auto">
+		<table class="w-full text-left text-body">
+			<thead>
+				<tr class="border-b border-border bg-surface-tableHeader">
+					<th class="py-2.5 pr-4 text-small font-semibold text-text-muted2">Item</th>
+					<th class="py-2.5 pr-4 text-small font-semibold text-text-muted2">SKU</th>
+					<th class="py-2.5 pr-4 text-right text-small font-semibold text-text-muted2">On hand</th>
+					<th class="py-2.5 pr-4 text-right text-small font-semibold text-text-muted2">Reserved</th>
+					<th class="py-2.5 pr-4 text-right text-small font-semibold text-text-muted2">Available</th>
+					<th class="py-2.5 pr-4 text-right text-small font-semibold text-text-muted2">Avg cost</th>
+					<th class="py-2.5 pr-4 text-right text-small font-semibold text-text-muted2">Value</th>
+					<th class="py-2.5 text-right text-small font-semibold text-text-muted2">Status</th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-border-subtle">
+				for _, row := range report.Rows {
+					<tr class="transition-colors duration-75 hover:bg-surface-rowHover">
+						<td class="py-2.5 pr-4 font-medium text-text">{ row.ItemName }</td>
+						<td class="py-2.5 pr-4 font-mono text-small text-text-muted2">
+							if row.SKU != "" {
+								{ row.SKU }
+							} else {
+								<span class="text-text-muted3">-</span>
+							}
+						</td>
+						<td class="py-2.5 pr-4 text-right tabular-nums" data-numfmt>{ row.QuantityOnHand.String() }</td>
+						<td class="py-2.5 pr-4 text-right tabular-nums text-text-muted2" data-numfmt>{ row.QuantityReserved.String() }</td>
+						<td class="py-2.5 pr-4 text-right font-medium tabular-nums" data-numfmt>{ row.QuantityAvailable.String() }</td>
+						<td class="py-2.5 pr-4 text-right tabular-nums text-text-muted2" data-numfmt>{ row.AverageCost.StringFixed(4) }</td>
+						<td class="py-2.5 pr-4 text-right font-medium tabular-nums" data-numfmt>{ row.TotalValue.StringFixed(2) }</td>
+						<td class="py-2.5 text-right">
+							<span class={ warehouseStockItemStatusClass(row) }>{ warehouseStockItemStatusLabel(row) }</span>
+						</td>
+					</tr>
+				}
+			</tbody>
+			<tfoot class="border-t border-border bg-surface-tableHeader">
+				<tr>
+					<td colspan="2" class="py-2.5 pr-4 text-right font-medium text-text">Total</td>
+					<td class="py-2.5 pr-4 text-right font-semibold tabular-nums text-text" data-numfmt>{ report.TotalOnHand.String() }</td>
+					<td class="py-2.5 pr-4 text-right font-semibold tabular-nums text-text-muted2" data-numfmt>{ report.TotalReserved.String() }</td>
+					<td class="py-2.5 pr-4 text-right font-semibold tabular-nums text-text" data-numfmt>{ report.TotalAvailable.String() }</td>
+					<td class="py-2.5 pr-4"></td>
+					<td class="py-2.5 pr-4 text-right font-semibold tabular-nums text-text" data-numfmt>{ report.TotalValue.StringFixed(2) }</td>
+					<td class="py-2.5"></td>
+				</tr>
+			</tfoot>
+		</table>
+	</div>
+}
+
+templ warehouseStockEmptyState() {
+	<div class="rounded-lg border border-border bg-surface p-10 text-center">
+		<h2 class="text-section font-semibold text-text">No stock items yet</h2>
+		<p class="mt-1 text-body text-text-muted2">Create inventory items to track stock by warehouse.</p>
+		<div class="mt-4">
+			<a href="/product-services" class="inline-block rounded-md border border-border-input px-4 py-2 text-body font-medium text-text hover:bg-background">
+				Manage Items
+			</a>
+		</div>
+	</div>
+}
+
+func warehouseStockTitle(vm WarehouseStockVM) string {
+	if vm.Report == nil {
+		return "Warehouse Stock"
+	}
+	return vm.Report.Warehouse.Name + " Stock"
+}
+
+func warehouseStockItemStatusClass(row services.WarehouseStockRow) string {
+	const base = "inline-block rounded px-2 py-0.5 text-small font-medium "
+	if !row.IsActive {
+		return base + "bg-background text-text-muted border border-border"
+	}
+	if row.QuantityOnHand.IsPositive() {
+		return base + "bg-success-soft text-success-hover border border-success-border"
+	}
+	return base + "bg-surface-tableHeader text-text-muted2 border border-border"
+}
+
+func warehouseStockItemStatusLabel(row services.WarehouseStockRow) string {
+	if !row.IsActive {
+		return "Inactive"
+	}
+	if row.QuantityOnHand.IsPositive() {
+		return "In stock"
+	}
+	return "Zero"
+}

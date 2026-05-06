@@ -31,6 +31,9 @@ func TestWarehousesPageShowsTransferEntryAction(t *testing.T) {
 		"All Warehouses",
 		`bg-surface-tableHeader`,
 		`hover:bg-surface-rowHover`,
+		`href="/warehouses/1/stock"`,
+		`href="/warehouses/1"`,
+		"Edit",
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("expected warehouses page HTML to contain %q", want)

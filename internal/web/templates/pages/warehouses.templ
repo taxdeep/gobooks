@@ -93,7 +93,7 @@ templ warehouseListTable(vm WarehousesVM) {
 					<tr class="transition-colors duration-75 hover:bg-surface-rowHover">
 						<td class="py-2.5 pr-4 font-mono text-small font-semibold text-text">{ w.Code }</td>
 						<td class="py-2.5 pr-4 font-medium">
-							<a href={ templ.SafeURL(fmt.Sprintf("/warehouses/%d", w.ID)) } class="text-primary hover:underline">{ w.Name }</a>
+							<a href={ templ.SafeURL(fmt.Sprintf("/warehouses/%d/stock", w.ID)) } class="text-primary hover:underline">{ w.Name }</a>
 						</td>
 						<td class="py-2.5 pr-4 text-small text-text-muted2">
 							if w.City != "" && w.Country != "" {
