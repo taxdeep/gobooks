@@ -63,6 +63,27 @@ func (s *Server) handleWarehouseDetail(c *fiber.Ctx) error {
 	}).Render(c.Context(), c)
 }
 
+func (s *Server) handleWarehouseStock(c *fiber.Ctx) error {
+	companyID, ok := ActiveCompanyIDFromCtx(c)
+	if !ok {
+		return c.Redirect("/select-company", fiber.StatusSeeOther)
+	}
+	id, err := parseIDParam(c)
+	if err != nil {
+		return c.Redirect("/warehouses", fiber.StatusSeeOther)
+	}
+
+	report, err := services.GetWarehouseStockReport(s.DB, companyID, id)
+	if err != nil {
+		return c.Redirect("/warehouses", fiber.StatusSeeOther)
+	}
+
+	return pages.WarehouseStock(pages.WarehouseStockVM{
+		HasCompany: true,
+		Report:     report,
+	}).Render(c.Context(), c)
+}
+
 // ── Save (create) ─────────────────────────────────────────────────────────────
 
 func (s *Server) handleWarehouseCreate(c *fiber.Ctx) error {

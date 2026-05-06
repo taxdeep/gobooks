@@ -1,7 +1,10 @@
 // 遵循project_guide.md
 package pages
 
-import "balanciz/internal/models"
+import (
+	"balanciz/internal/models"
+	"balanciz/internal/services"
+)
 
 // WarehousesVM is the view-model for the warehouse list page.
 type WarehousesVM struct {
@@ -16,4 +19,10 @@ type WarehouseDetailVM struct {
 	Warehouse  models.Warehouse
 	FormError  string
 	Saved      bool
+}
+
+// WarehouseStockVM is the view-model for the warehouse stock detail page.
+type WarehouseStockVM struct {
+	HasCompany bool
+	Report     *services.WarehouseStockReport
 }
