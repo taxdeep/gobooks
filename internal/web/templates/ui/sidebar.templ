@@ -160,10 +160,6 @@ templ sidebarShell(vm SidebarVM) {
 					<div class="sidebar-section-panel mt-1 space-y-0.5" data-sidebar-panel>
 						@navItem("/products-services", "Products & Services", "bill", vm.Active == "Products & Services")
 						@navItem("/warehouses", "Warehouses", "warehouse", vm.Active == "Warehouses")
-						@navItem("/inventory/transfers", "Warehouse Transfers", "warehouse", vm.Active == "Warehouse Transfers")
-						@navItem("/ar-return-receipts", "Return Receipts", "receive", vm.Active == "Return Receipts")
-						@navItem("/vendor-return-shipments", "Returns to Vendor", "warehouse", vm.Active == "Returns to Vendor")
-						@navItem("/inventory/stock", "Stock Report", "reports", vm.Active == "Stock Report")
 					</div>
 				</div>
 
