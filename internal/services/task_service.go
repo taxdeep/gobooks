@@ -56,6 +56,7 @@ type TaskListFilter struct {
 }
 
 func CreateTask(db *gorm.DB, in TaskInput) (*models.Task, error) {
+	in.UnitType = normalizeTaskUnitType(in.UnitType)
 	if err := validateTaskInput(db, in); err != nil {
 		return nil, err
 	}
@@ -88,6 +89,11 @@ func UpdateTask(db *gorm.DB, companyID, taskID uint, in TaskInput) (*models.Task
 		if err != nil {
 			return err
 		}
+		if strings.TrimSpace(in.UnitType) == "" {
+			in.UnitType = normalizeTaskUnitType(task.UnitType)
+		} else {
+			in.UnitType = normalizeTaskUnitType(in.UnitType)
+		}
 
 		switch task.Status {
 		case models.TaskStatusCancelled:
@@ -107,7 +113,7 @@ func UpdateTask(db *gorm.DB, companyID, taskID uint, in TaskInput) (*models.Task
 			task.Title = strings.TrimSpace(in.Title)
 			task.TaskDate = in.TaskDate
 			task.Quantity = in.Quantity
-			task.UnitType = strings.TrimSpace(in.UnitType)
+			task.UnitType = normalizeTaskUnitType(in.UnitType)
 			task.Rate = in.Rate
 			task.CurrencyCode = strings.ToUpper(strings.TrimSpace(in.CurrencyCode))
 			task.IsBillable = in.IsBillable
@@ -244,10 +250,8 @@ func validateTaskInput(db *gorm.DB, in TaskInput) error {
 	if in.TaskDate.IsZero() {
 		return ErrTaskDateRequired
 	}
-	if strings.TrimSpace(in.UnitType) == "" {
-		return ErrTaskUnitTypeRequired
-	}
-	if !models.IsValidTaskUnitType(strings.TrimSpace(in.UnitType)) {
+	unitType := normalizeTaskUnitType(in.UnitType)
+	if !models.IsValidTaskUnitType(unitType) {
 		return ErrTaskUnitTypeInvalid
 	}
 	if strings.TrimSpace(in.CurrencyCode) == "" {
@@ -282,6 +286,14 @@ func validateTaskInput(db *gorm.DB, in TaskInput) error {
 		}
 	}
 	return nil
+}
+
+func normalizeTaskUnitType(unitType string) string {
+	unitType = strings.TrimSpace(unitType)
+	if unitType == "" {
+		return models.TaskUnitTypeHour
+	}
+	return unitType
 }
 
 func completedTaskCoreChanged(task models.Task, in TaskInput) bool {

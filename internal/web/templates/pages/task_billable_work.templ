@@ -1,6 +1,5 @@
 package pages
 
-import "balanciz/internal/models"
 import "balanciz/internal/web/templates/layout"
 import "balanciz/internal/web/templates/ui"
 
@@ -102,7 +101,7 @@ templ taskBillableSectionTasks(vm BillableWorkVM) {
 									<a href={ "/tasks/" + Uitoa(task.ID) } class="font-medium text-primary hover:text-primary-hover hover:underline">{ task.Title }</a>
 								</td>
 								<td class="py-3 pr-4">{ task.TaskDate.Format("2006-01-02") }</td>
-								<td class="py-3 pr-4 text-right tabular-nums">{ task.Quantity.String() } <span class="text-small text-text-muted2">{ models.TaskUnitTypeLabel(task.UnitType) }</span></td>
+								<td class="py-3 pr-4 text-right tabular-nums">{ task.Quantity.String() }</td>
 								<td class="py-3 pr-4 text-right tabular-nums">{ taskMoney(task.Rate, task.CurrencyCode) }</td>
 								<td class="py-3 pr-0 text-right tabular-nums font-medium">{ taskMoney(task.BillableAmount(), task.CurrencyCode) }</td>
 							</tr>

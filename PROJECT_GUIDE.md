@@ -12,7 +12,7 @@ Any implementation that conflicts with this document must be corrected.
 
 Related executable specifications currently include:
 
-- [PROJECT_GUIDE_CHANGELOG.md](./PROJECT_GUIDE_CHANGELOG.md)
+- [PROJECT_GUIDE_CHANGELOG](./PROJECT_GUIDE_CHANGELOG)
 - [PROJECT_GUIDE_EXEC_SUMMARY.md](./PROJECT_GUIDE_EXEC_SUMMARY.md)
 - [AI_PRODUCT_ARCHITECTURE.md](./AI_PRODUCT_ARCHITECTURE.md)
 
@@ -44,483 +44,46 @@ Balanciz aims to provide a system that is:
 - disciplined in AI usage
 - stable enough for long-term expansion
 
-### 1.4 核心技术栈（Go 治理版，贴合当前仓库并支持渐进演进）
-核心语言：Go 1.26+
-- Go 是当前 Balanciz 的核心实现语言。
-- 优先保持部署简单、结构清晰、后端权威、事务边界明确。
-- 技术栈选择必须服务于 accounting truth，而不是追求框架复杂度。
-总体架构：Modular Monolith + DDD（核心域） + Vertical Slice（简单模块）
-Balanciz 采用模块化单体作为长期主架构。
-Accounting / Posting / Tax / FX / Reconciliation / Reporting semantics 等强规则核心域，严格采用 DDD 思维，保持领域规则集中、后端权威、可测试。
-Settings / Profile / Notifications / simple admin pages / low-risk CRUD modules 采用务实的 Vertical Slice，避免过度工程。
-不为了模式而模式；结构必须服务于 correctness、auditability、company isolation 和 engine truth。
-HTTP / Web 框架：Fiber + Templ + HTMX + Alpine
-增强架构：React + TypeScript Islands
-Fiber 负责请求路由、中间件、会话承载、页面与接口编排。
-Fiber 属于承载层，不拥有 accounting truth、posting legality 或 business lifecycle authority。
-普通页面：Templ
-简单交互：Alpine
-局部刷新：HTMX
-复杂工作台 / 复杂表格：React + TypeScript
-所有 truth / validation / posting：仍然后端权威
-数据库：PostgreSQL
-PostgreSQL 是唯一正式主数据库。
-所有 accounting truth、company-owned settings、audit trail、FX snapshot、reporting truth 都必须以 PostgreSQL 为正式持久化基础。
-
-数据访问策略：GORM 为当前主实现；显式 SQL 为报表与复杂查询主补充；Ent 作为受控渐进迁移方向
-当前正式主数据访问层：GORM
-适用于当前仓库现实、既有模型、现有业务推进节奏。
-负责多数主数据、普通 command path、基础关系加载、事务配合。
-显式 SQL / SQLX / pgx 用于：
-财务报表
-Aging
-大分页
-复杂聚合
-Revaluation selection
-Reconciliation workspace
-其他经确认的性能热点查询
-核心原则：
-Posting truth、tax truth、FX truth、reconciliation legality 不得隐藏在 ORM 黑盒行为中。
-ORM 是 persistence tool，不是 accounting engine。
-Ent 定位：
-Ent 不是当前立即全量替换方案。
-Ent 可作为未来渐进式迁移方向，优先用于新模块、低风险主数据模块、边界清晰的治理模块。
-不允许长期无边界地在同一核心子域中混乱并存多个 ORM 写路径。
-数据库迁移策略：SQL Migration 为权威，自动迁移为受控辅助
-数据库 schema truth 必须由受审查的 migration 控制。
-对核心表、关键约束、索引、唯一性、外键、状态字段、会计相关字段：
-优先使用显式 SQL migration。
-自动迁移能力只能作为低风险辅助，不得成为 accounting schema authority。
-任何影响 posting、ledger、AR/AP、FX、revaluation、report truth 的 schema 变更都必须可审计、可回顾、可测试。
-数据处理:采用shopspring/decimal,保持精度.
-
-前端形态：Templ + HTMX + Alpine.js；React + TypeScript Islands 作为受控增强层
-Balanciz 当前前端采用服务端驱动路线，而不是前后端完全分裂的 SPA 主路线。
-Templ 负责类型化模板与页面组件表达。
-HTMX 负责局部交互、局部刷新、表单与列表增强。
-Alpine.js 负责轻量前端状态与交互补充。
-React + TypeScript 仅用于复杂工作台、高信息密度复杂表格与高交互局部岛屿，例如 Dashboard / Action Center、Report Workspace、General Ledger / Account Transactions、Sales Transactions、AI / Learning Debug、PDF Template Editor、OCR / Copilot draft review 等。
-React island 不接管主路由、session、company context 或 accounting validation；其数据输入必须来自 Fiber / 后端 API 或 Templ 注入的受控 props，所有 mutation 必须回到后端 service。
-不得将普通 CRUD、核心 posting flow、invoice / bill / journal validation 或 SmartPicker legality 移入前端。React 只能提升交互密度与局部状态表达，不能拥有 accounting truth。
-复杂表格可以由 React + TypeScript island 承载，用于列排序、列宽调整、列显示配置、冻结列、虚拟滚动、批量选择、行内展开、drilldown side panel、用户视图偏好与 AI explanation / trace 展示。但表格的数据集、金额、状态、权限、report truth、aging bucket、tax amount、open balance 和 business legality 必须来自后端 API。
-该路线更符合 ERP / Back Office 长时工作场景，也更符合当前仓库现状与维护成本目标。
-前端资源构建：Node 工具链仅用于前端资源构建
-Node / npm 的角色是构建 CSS 与前端静态资源，不是主业务运行时。
-不将“存在 package.json”解释为系统进入 SPA 或 TS 前端主架构。
-前端工具链必须保持轻量，避免反客为主。
-认证与会话策略：Server-side Session 优先
-首期认证与业务会话以 server-side session 为主。
-这更符合当前服务端渲染架构、active company context、owner/user 权限切换、maintenance mode 等产品需求。
-JWT 不作为首期主模式；如未来出现外部 API 客户端、第三方集成或独立 token 场景，再引入受控 token 体系。
-权限治理：业务权限与业务合法性分层
-访问控制可使用轻量权限策略组件（如 Casbin 或自研 policy layer）辅助实现。
-但必须明确：
-permission controls access
-domain rules control legality
-Posting、period close、cross-company rejection、reconciliation completion、FX policy legality 仍必须由后端 domain / engine 决定，不得外包给通用权限框架。
-依赖装配：Constructor Injection + Manual Composition Root
-Balanciz 采用 Go 原生、可读、可审查的依赖装配方式。
-优先使用构造函数注入和清晰的 composition root。
-不强制引入重量级运行时 DI 容器。
-所有模块装配必须以边界清楚、依赖显式、便于 AI 和人工复核为原则。
-配置管理：运行配置与业务配置严格分离
-运行时配置可使用轻量配置管理方案（如环境变量 + 配置文件 + Viper 类工具）。
-但必须严格区分：
-runtime config：端口、数据库连接、Redis、SMTP、OTEL、provider credentials
-company/business config：base currency、FX policy、book config、numbering、tax setup、template settings
-所有会影响 accounting truth、posting behavior、report semantics 的配置，必须进入 domain tables，而不是仅存于配置文件。
-缓存策略：In-memory + Redis 分层缓存
-缓存只用于 acceleration，不得成为 truth。
-可用于：
-SmartPicker acceleration
-report acceleration
-dictionary / reference data
-short-lived derived views
-所有缓存 key 必须包含 company scope；未来启用 tenant/workspace 时，必须同时包含 tenant scope。
-写操作后必须主动失效；禁止把缓存当成 accounting truth、authorization truth 或 validation truth。
-异步 / 后台任务：River 为默认方向
-Balanciz 的后台任务应优先选择支持 PostgreSQL 事务一致性的方案。
-默认推荐 River 作为后台任务框架：
-适用于通知发送
-report export generation
-FX rate refresh
-AI summary generation
-audit/event outbox processing
-原则：账务真相提交成功后，相关后台任务必须可靠入队；不得出现“账记了但任务没发出”的治理漏洞。
-后台任务属于非实时辅助层，不得改变正式会计真相。
-审计与事件记录：基础实体审计 + 业务事件审计双层并存
-基础实体变更可通过 ORM hooks / service layer 辅助记录。
-但正式审计能力不能只依赖 ORM hooks。
-必须同时存在显式业务事件审计层，记录：
-posting
-apply / unapply
-revaluation
-status transitions
-setting changes
-FX override decisions
-report basis usage
-standard/book governance actions
-监控 / 可观测性：Structured Logging + OpenTelemetry
-可观测性必须服务于：
-request tracing
-job tracing
-posting latency
-report latency
-FX lookup visibility
-cache source visibility
-failure diagnosis
-日志必须结构化。
-OpenTelemetry 是推荐标准；监控体系必须帮助定位跨模块、跨引擎、跨任务的真实问题。
-测试策略：Engine Truth First
-所有涉及：
-company isolation
-posting
-tax
-FX
-revaluation
-reconciliation
-numbering
-auditability
-的改动，都必须配套测试。
-测试优先保护后端真相，而不是只保护页面展示。
-AI 生成代码不是通过条件；测试与规则一致性才是通过条件。
-#### 1.4.1 当前阶段的技术治理结论
-当前阶段，Fiber + GORM + PostgreSQL + Templ + HTMX + Alpine.js 是符合 Balanciz 现实与目标的正式主路线。
-当前最重要的不是盲目替换 ORM，而是继续稳固：
-Posting Engine
-Tax Engine
-FX / Multi-Currency / Revaluation
-Reporting semantics
-Company isolation
-Audit trail
-Ent 可作为渐进迁移方向，但不得打断现有核心业务推进节奏。
-渐进迁移必须采用模块边界清晰、迁移责任清晰、事务边界清晰、schema authority 清晰的方式进行。
-技术栈服务于产品目标；不得为了框架整齐感而牺牲 accounting correctness、historical honesty 或 delivery stability。
-
-#### 1.4.2 GORM → Ent 渐进迁移治理规则
-
-Balanciz 允许从当前 GORM 主实现 逐步演进到 Ent 驱动的受控数据访问架构，但迁移必须服从以下原则：
-
-Accounting correctness > ORM purity
-Delivery stability > large-scale rewrite
-Module boundary clarity > mixed persistence convenience
-Schema authority > tool convenience
-Engine truth > ORM abstraction
-
-渐进迁移的目标不是“尽快把全仓库改成 Ent”，而是：
-
-在不破坏现有业务推进节奏的前提下，
-逐步提升结构清晰度、类型约束、模块边界和长期治理能力，
-同时避免形成更大的双栈技术债。
-##### 1.4.2.1 迁移总原则
-
-GORM → Ent 迁移必须遵守以下总原则：
-
-迁移是受控演进，不是一次性重写。
-迁移必须按模块边界推进，不得无边界蔓延。
-迁移必须保持：
-posting truth 不变
-tax truth 不变
-FX truth 不变
-report semantics 不变
-company isolation 不变
-audit trail 不变
-迁移不得为了 ORM 统一感而打断核心业务交付。
-迁移不得把核心会计语义下沉为 ORM 魔法行为。
-##### 1.4.2.2 当前正式状态
-
-当前阶段正式状态如下：
-
-GORM 是当前正式主数据访问实现
-显式 SQL / SQLX / pgx 是报表与复杂查询的正式补充
-Ent 是受控渐进迁移方向，不是立即全量替换标准
-
-因此：
-
-新代码不得默认假设“全项目已经进入 Ent-only 状态”
-旧模块不得因为存在 Ent 而被强制立即重写
-任何迁移都必须显式说明：
-当前模块是否仍由 GORM 主导
-是否进入 Ent 迁移阶段
-schema authority 在哪里
-transaction boundary 由谁控制
-##### 1.4.2.3 允许的迁移单位
-
-正式允许的迁移单位只有以下两类：
-
-1）模块级迁移（首选）
-
-以一个清晰边界的模块为单位迁移，例如：
-
-Company
-CompanyAccess
-Notifications
-Currencies / Exchange Rates
-Product / Service
-其他边界清晰、依赖受控的主数据模块
-
-规则：
-
-一个模块一旦进入 Ent 迁移阶段，应尽量在该模块内部形成清晰主实现
-同一模块不得长期同时维持“GORM 主写 + Ent 主写”双中心状态
-模块迁移完成后，应尽快收口新写路径
-2）新模块优先使用 Ent
-
-对于全新模块，如其满足以下条件，可优先采用 Ent：
-
-边界清晰
-与核心 posting engine 耦合低
-schema 结构稳定
-事务边界明确
-不会迫使旧核心链路同步重写
-##### 1.4.2.4 不推荐的迁移方式
-
-以下方式默认不被推荐：
-
-1）同一核心表长期双写
-
-禁止长期出现以下状态：
-
-同一张核心表由 GORM 和 Ent 同时承担主写职责
-两套 ORM 都可以独立创建 / 更新同类会计核心记录
-开发时无法明确某张表的正式写入权威
-
-这会造成：
-
-事务边界混乱
-hook / interceptor 行为不一致
-迁移与约束管理失控
-审计语义分裂
-AI 生成代码路径越来越不确定
-2）以 Posting / Ledger / Revaluation Core 作为首批迁移对象
-
-以下子域不应作为第一批迁移对象：
-
-Journal Entries
-Ledger Entries
-Posting core persistence
-Settlement allocation core
-Remeasurement core
-Reconciliation core truth tables
-
-原因：
-
-这些区域风险最高
-这些区域最依赖既有测试与历史行为一致性
-这些区域最不适合用迁移实验打断推进节奏
-##### 1.4.2.5 推荐迁移顺序
-
-推荐顺序如下：
-
-Phase A：低风险治理模块 / 主数据模块
-
-优先考虑：
-
-currencies
-exchange_rates
-company-level reference data
-notification configs
-security configs
-templates
-low-risk settings tables
-
-目标：
-
-验证 Ent schema 建模方式
-验证 migration review 流程
-验证 repository / service boundary
-验证 AI 在 Ent 代码生成上的一致性
-Phase B：公司治理与边界控制模块
-
-优先考虑：
-
-Company
-CompanyAccess
-memberships
-invitations
-company-scoped configuration ownership
-
-目标：
-
-用更清晰 schema 与边界表达 company isolation
-提升治理一致性
-避免先动会计核心
-Phase C：AR/AP 辅助主数据与外围域
-
-可考虑：
-
-customer / vendor master
-product/service catalog
-payment metadata
-connector metadata
-SmartPicker source tables
-Phase D：是否迁移核心会计域，必须单独重新评估
-
-以下区域是否迁移，不预设为必然：
-
-posting persistence
-journal entries
-ledger entries
-revaluation runs
-settlement allocations
-
-系统目标是更稳，不是“全仓库纯 Ent”。
-
-##### 1.4.2.6 Schema Authority 规则
-
-无论模块由 GORM 还是 Ent 驱动，数据库 schema truth 必须只有一个权威来源。
-
-正式规则：
-
-核心 schema 仍以显式 SQL migrations 为权威
-Ent schema 可以作为代码侧结构表达
-但任何关键 schema 变更都必须经过受审查 migration
-
-尤其以下内容不得依赖自动推断作为最终权威：
-
-posting-related columns
-status columns
-foreign keys
-unique constraints
-partial indexes
-duplicate-post prevention constraints
-company isolation constraints
-book / FX / revaluation related fields
-
-任何迁移方案都不得让：
-
-GORM AutoMigrate
-Ent automatic schema sync
-手工临时改库
-
-三者并存且无清晰主次。
-
-##### 1.4.2.7 Transaction Boundary 规则
-
-在混合迁移阶段，事务边界必须统一由 service / use case layer 控制。
-
-规则：
-
-不允许把事务控制下沉为 ORM 自己的隐式习惯
-不允许一个 use case 中出现多个互不知晓的事务边界
-不允许用 ORM convenience API 替代显式业务事务设计
-
-正式要求：
-
-transaction boundary must be explicit
-business use case owns the transaction intent
-persistence tools participate in the transaction, but do not define business truth
-
-任何跨模块写操作都必须先明确：
-
-谁开启事务
-谁提交事务
-谁负责失败回滚
-谁负责 outbox / background task enqueue timing
-##### 1.4.2.8 Domain Rule Placement 规则
-
-Balanciz 的核心业务规则不得藏在 ORM hooks / interceptors / callbacks 中。
-
-可以使用 ORM hook/interceptor 做的事：
-
-辅助默认值
-基础字段补充
-低风险审计辅助
-通用技术性保护
-
-不得依赖 ORM hook/interceptor 作为最终真相来源的事：
-
-posting legality
-tax legality
-FX legality
-company isolation legality
-period-close legality
-reconciliation completion legality
-remeasurement eligibility
-report semantics
-
-正式原则：
-
-domain services / engines decide legality
-ORM only supports persistence and limited technical safeguards
-##### 1.4.2.9 报表与复杂查询规则
-
-无论 GORM 或 Ent 迁移到什么程度，以下原则保持不变：
-
-报表与复杂聚合查询可以长期保持显式 SQL 主导
-不要求为了 ORM 统一而强行把报表逻辑改写成 ORM 风格
-报表 truth 属于 backend report services，不属于 ORM abstraction layer
-
-以下场景默认允许继续使用显式 SQL：
-
-AR Aging
-AP Aging
-Profit & Loss
-Balance Sheet
-trial balance-like summaries
-revaluation candidate selection
-investigation workspace
-reconciliation drill-down
-export-oriented datasets
-##### 1.4.2.10 模块收口规则
-
-一个模块一旦正式进入 Ent 迁移阶段，必须尽快完成收口。
-
-收口至少包括：
-
-明确 repository ownership
-明确 schema ownership
-明确 tests ownership
-明确 new write path ownership
-禁止该模块继续无序新增 GORM 写路径
-
-允许短期过渡，但不允许长期悬而不决。
-
-##### 1.4.2.11 AI Assisted Migration 规则
-
-AI 参与 GORM → Ent 渐进迁移时，必须额外遵守以下规则：
-
-AI 不得一次性重写整个仓库的数据访问层
-AI 必须按模块 / 用例 / 表边界逐步迁移
-AI 在开始迁移前必须先列出：
-目标模块
-涉及表
-计划修改文件
-事务边界
-schema authority
-回归测试范围
-AI 生成的 Ent schema、repository、service、migration 都必须经过人工复核
-任何触及 posting / tax / FX / reconciliation / report semantics 的迁移，必须配套测试与人工审计
-##### 1.4.2.12 迁移完成判定标准
-
-一个模块不能因为“已经写了 Ent schema”就算迁移完成。
-
-正式完成至少要求：
-
-主写路径已明确归一
-schema authority 已明确
-事务边界已明确
-GORM/Ent 双写风险已消除
-测试覆盖已更新
-审计与事件语义未被破坏
-company isolation 未被削弱
-现有 UI / report / business behavior 未出现语义回退
-##### 1.4.2.13 最终治理结论
-
-GORM → Ent 渐进迁移是允许且合理的，但必须被视为长期治理工程，而不是风格化重构。
-
-最终原则如下：
-
-当前主线交付稳定性优先
-模块边界优先于 ORM 纯度
-会计核心真相优先于技术统一感
-渐进迁移必须减少未来技术债，而不是制造新的双栈混乱
-系统可以长期存在：
-部分模块由 GORM 主导
-部分模块由 Ent 主导
-报表与复杂查询继续由显式 SQL 主导
-
-只要边界清晰、责任明确、schema authority 明确、事务治理明确，这种状态是可接受的，并且比一次性大迁移更符合 Balanciz 的现实需求
+### 1.4 Core Technology Stack (Go Governance Version)
+
+Balanciz is a Go-based modular monolith. The technology stack must serve accounting truth, company isolation, auditability, and delivery stability.
+
+Current primary stack:
+
+- Language: Go
+- Web: Fiber
+- Templates/UI: Templ, HTMX, Alpine.js
+- Styling/build: TailwindCSS and Node tooling for static assets only
+- Database: PostgreSQL as the formal production database
+- Persistence: GORM for the current main implementation, explicit SQL for reporting and complex queries, Ent only as a controlled gradual migration option
+- Money: `shopspring/decimal` in Go and `NUMERIC` in PostgreSQL
+- Session: server-side session with an explicit active company context
+
+Architecture rules:
+
+- Fiber owns routing, middleware, sessions, request binding, and response composition. It does not own accounting legality.
+- Templ/HTMX/Alpine own presentation and local interaction. They must not become the source of truth for amounts, posting status, tax, FX, permissions, or lifecycle decisions.
+- React/TypeScript islands are allowed only for high-density workspaces where they materially improve interaction, such as report workspaces, ledger drilldowns, PDF/template editing, AI review panels, and complex table experiences. They must not take over routing, session, company context, or accounting validation.
+- Node/npm exist for frontend asset builds. They are not a business runtime.
+- PostgreSQL migrations are schema authority. Production schema changes must be explicit, reviewable, and testable.
+- GORM `AutoMigrate` and Ent automatic schema sync must not be treated as production schema truth.
+- Service/use-case code owns transaction boundaries. ORM calls participate in transactions; they do not define business truth.
+- Report and search hot paths may use explicit SQL when query shape, correctness, or performance requires it.
+- Cache is acceleration only. Cache keys must include company scope, and future tenant/workspace scope when applicable.
+- Background work should use a PostgreSQL-consistent outbox/job approach when accounting-adjacent side effects must be reliable.
+- Audit has two layers: operational audit for requests/actions and domain audit for business events such as posting, apply/unapply, void, reverse, sensitive settings changes, and permission changes.
+
+GORM -> Ent governance:
+
+- Ent is allowed as a gradual migration direction, not as a reason for a whole-repo rewrite.
+- Do not create two independent write authorities for the same core table.
+- Do not move Posting, Ledger, Reconciliation truth, Tax truth, FX truth, or settlement allocation into Ent first.
+- New or low-risk governance modules may use Ent only when schema ownership, migration ownership, transaction boundaries, and tests are clear.
+- Accounting correctness is more important than ORM purity.
+
+Testing rule:
+
+Any change touching company isolation, posting, tax, FX, reconciliation, numbering, permissions, auditability, search visibility, or sensitive settings must include targeted tests or a written manual verification path.
 
 ### 1.5 Multi-Book Accounting 支持（single-book first, multi-book capable；NetSuite 风格，但术语更严格，IFRS / US GAAP / ASPE 友好）
 
@@ -653,13 +216,14 @@ Balanciz must remain:
 - module-based
 - connector-ready
 - AI-assisted, not AI-driven
-- ABP-governed for platform concerns, domain-sovereign for accounting truth
+- platform-governed for cross-cutting concerns
+- domain-sovereign for accounting truth
 
 Core truth belongs to engines.
 Business workflows belong to modules.
 External integrations belong to connectors.
 AI belongs to the suggestion layer.
-ABP belongs to platform governance and reusable infrastructure.
+Platform services belong to authentication, sessions, permissions, feature flags, settings shells, audit plumbing, background jobs, and operational administration.
 
 ### 3.3 Shared Architecture Layers
 
@@ -714,21 +278,19 @@ User-facing business surfaces such as Journal Entry、Chart of Accounts、Invoic
 - channels
 - external rate providers
 
-### 3.4 ABP Governance Boundary
+### 3.4 Platform Governance Boundary
 
-ABP / ABP Commercial should be treated as the platform governance layer.
-
-It may own:
+Platform services may own:
 
 - authentication / account UI
-- permission persistence and management
-- feature flags / edition controls
-- setting persistence and hierarchy
+- permission persistence and management UI
+- feature flags and module enablement
+- setting shells and hierarchy
 - request/action/entity audit logs
 - background jobs and workers
 - blob storage abstraction
-- text template editing
-- SaaS / tenant administration where applicable
+- text/template editing
+- tenant/workspace administration if future SaaS packaging enables it
 
 Balanciz domain modules must remain the authority for:
 
@@ -739,9 +301,9 @@ Balanciz domain modules must remain the authority for:
 - accounting lifecycle truth
 - report semantics
 - company-level accounting rules
+- permission-sensitive business result filtering, including search and exports
 
-No other module may bypass the Posting Engine or replace accounting domain rules.
-
+No platform module may bypass the Posting Engine or replace accounting domain rules.
 ### 3.5 Official Code Boundary Names
 
 User-facing navigation labels and code boundary names are not the same thing.
@@ -800,19 +362,19 @@ Mapping rules:
 Balanciz must explicitly distinguish three boundaries:
 
 - **Host / Platform** = the system owner and platform administration boundary
-- **Tenant / Workspace** = the SaaS customer or workspace boundary managed by ABP multi-tenancy when enabled
+- **Tenant / Workspace** = the SaaS customer or workspace boundary managed by a future tenant/workspace layer when enabled
 - **Company** = the legal accounting entity boundary inside a tenant / workspace
 
 **Default future direction:** `tenant/workspace != company`
 
 One tenant / workspace may contain multiple companies.
-A company is not the same thing as an ABP tenant by default.
+A company is not the same thing as an tenant/workspace by default.
 
 ### 4.2 Membership Model
 
 - one user may belong to multiple companies
 - one company may have multiple users
-- when ABP multi-tenancy is enabled, these memberships are expected to be **within the same tenant / workspace** unless explicitly governed otherwise
+- when tenant/workspace isolation is enabled, these memberships are expected to be **within the same tenant / workspace** unless explicitly governed otherwise
 - every authenticated business session must have a clear active company context
 
 Session must include:
@@ -827,7 +389,7 @@ All core accounting and business objects must have:
 
 - `company_id NOT NULL`
 
-When ABP multi-tenancy is enabled, all tenant-owned business objects should also be tenant-aware through `TenantId` / `tenant_id`.
+When tenant/workspace isolation is enabled, all tenant-owned business objects should also be tenant-aware through `TenantId` / `tenant_id`.
 
 All reads, writes, relations, reports, exports, caches, and AI context must be company-scoped.
 When multi-tenancy is enabled, they must also be tenant-scoped first.
@@ -865,7 +427,7 @@ Every write path must validate both tenant/workspace consistency (when enabled) 
 - `journal_entry.company_id == source.company_id`
 - `party.company_id == session.active_company_id`
 
-When ABP multi-tenancy is enabled:
+When tenant/workspace isolation is enabled:
 
 - runtime `CurrentTenant.Id` must match the tenant ownership of the target data
 - tenant switch is not equivalent to company switch
@@ -886,7 +448,7 @@ The following are forbidden:
 - shared tax objects across companies
 - shared business documents across companies
 - business documents referencing accounting objects from another company
-- treating ABP tenant features/settings as a substitute for company-level accounting ownership
+- treating tenant/workspace features/settings as a substitute for company-level accounting ownership
 
 ### 4.6 UI Behavior
 
@@ -932,37 +494,38 @@ Minimum recommended permission domains:
 - company accounting settings / books
 - reconciliation-related access
 
-### 5.2 ABP Permission Boundary
+### 5.2 Permission Boundary
 
-ABP Permission Management should be the canonical platform store for permission values and grant management.
+Permission storage and grant management are platform concerns. Business legality remains domain-owned.
 
 Recommended use:
 
-- ABP permissions control whether a user can access an operation, page, endpoint, or menu
+- platform permissions control whether a user can access an operation, page, endpoint, menu, export, or search provider
 - Balanciz domain policies control whether a business action is valid in the current company, state, period, and workflow
 
 This means:
 
 - permission allows an attempt
+- company isolation scopes the data
 - domain rules decide whether the attempt is legal
 
-Approval logic, posting authority, period-close restrictions, and reconciliation completion rules must remain domain-owned, not only permission-owned.
+Approval logic, posting authority, period-close restrictions, void/reverse rules, search-result visibility, export visibility, and reconciliation completion rules must be enforced on the backend, not only in the UI.
+### 5.3 Feature / Module Enablement Control
 
-### 5.3 Feature / Edition Control
-
-When ABP SaaS / Feature Management is enabled, feature flags and editions may be used to control commercial packaging and tenant/workspace-level capability rollout.
+Feature flags may be used to control module rollout and company-level capability enablement.
 
 Examples:
 
 - multi-currency enabled
+- inventory enabled
+- task enabled
 - AI assist enabled
 - advanced reports enabled
 - attachments enabled
 - customer portal enabled
 
 Feature flags may enable or disable capabilities.
-Feature flags may not rewrite historical accounting truth or bypass engines.
-
+Feature flags may not rewrite historical accounting truth, bypass engines, or expose search/export results to users who lack permission.
 ### 5.4 SysAdmin / Host Admin Role
 
 SysAdmin / Host Admin is not a business-company extension.
@@ -1603,7 +1166,7 @@ It must continue to improve in:
 
 ### 13.4 Payment Gateway Layer
 
-Citus should evolve toward a provider-agnostic payment gateway module plus provider-specific payment connectors.
+Balanciz should evolve toward a provider-agnostic payment gateway module plus provider-specific payment connectors.
 
 Planned direction includes:
 
@@ -2154,37 +1717,40 @@ Void means rollback of control state while preserving history.
 
 ### 16.1 Audit Is Two-Layered
 
-Citus auditability must distinguish between:
+Balanciz auditability must distinguish between:
 
-#### 1) Platform Audit (ABP Audit Logging)
+#### 1) Platform / Operational Audit
 
 Used for:
 
 - request / response traces
-- executed actions and application-service calls
+- executed actions and handler/service calls
 - entity change visibility where supported
 - exception visibility
 - request duration and operational diagnostics
+- login, security, maintenance, and sysadmin activity
 
-#### 2) Domain Audit (Citus Business Event Trail)
+#### 2) Domain Audit / Business Event Trail
 
 Used for:
 
+- posting events
+- apply / unapply
+- void / reverse
 - match / unmatch
 - suggestion accept / reject
 - reconciliation finish
 - reconciliation void
 - auto-match run
-- posting events
 - status transitions
 - sensitive settings changes
-- sysadmin actions
+- permission changes
+- sysadmin actions that affect company access or availability
 - FX snapshot selection / override where appropriate
 - legacy reversal block decisions where applicable
 
-ABP audit logging does not replace the business event trail.
+Operational audit does not replace the business event trail.
 The business event trail does not replace platform request audit.
-
 ### 16.2 Observability
 
 The platform should progressively support:
@@ -2261,11 +1827,11 @@ Settings should reserve room for future rules such as:
 
 Settings is a structured control surface, not a dumping ground.
 
-### 19.2 ABP Setting Hierarchy vs Citus Domain Settings
+### 19.2 Platform Settings vs Balanciz Domain Settings
 
 The system should distinguish four configuration layers:
 
-#### 1) Host / Global Settings (ABP Global)
+#### 1) Host / Global Settings
 
 Used for platform-wide behavior, such as:
 
@@ -2275,7 +1841,7 @@ Used for platform-wide behavior, such as:
 - global AI provider defaults
 - system SMTP defaults
 
-#### 2) Tenant / Workspace Settings (ABP Tenant Settings)
+#### 2) Tenant / Workspace Settings (future SaaS boundary when enabled)
 
 Used for workspace-level behavior, such as:
 
@@ -2284,7 +1850,7 @@ Used for workspace-level behavior, such as:
 - tenant-level feature defaults
 - workspace-level security policies
 
-#### 3) User Preferences (ABP User Settings)
+#### 3) User Preferences
 
 Used for user-specific behavior, such as:
 
@@ -2293,7 +1859,7 @@ Used for user-specific behavior, such as:
 - table density
 - personal dashboard preferences
 
-#### 4) Company Accounting Settings (Citus Domain Tables)
+#### 4) Company Accounting Settings (Balanciz Domain Tables)
 
 Used for accounting truth and company-owned business control, such as:
 
@@ -2306,14 +1872,13 @@ Used for accounting truth and company-owned business control, such as:
 - inventory control and costing policy
 - receiving-accounting mode / GRNI policy where applicable
 - multi-currency control behavior
-- Multi-Book Configuration：账簿列表、每本账簿的 Accounting Standard（ASPE / IFRS / US GAAP）、Book Role、Book Base Currency、Functional Currency binding、Presentation Currency、Rate Type Policy、Revaluation Policy、Rounding Policy、Account Mapping Profile、ASPE foreign operation classification、default primary book、effective-dated change policy、governed migration policy 等。
+- Multi-Book Configuration: book list, accounting standard, book role, book base currency, functional currency binding, presentation currency, rate type policy, revaluation policy, rounding policy, account mapping profile, default primary book, effective-dated change policy, and governed migration policy
 
-**Important rules:**
+Important rules:
 
-- company accounting settings must not be hidden inside generic ABP setting storage if they are part of accounting truth or posting behavior.
-- accounting standard selection、book policy、functional currency binding、revaluation policy、以及 migration governance 不是 user preference，也不是 report-only toggle。
-- 一旦存在 posted history，这类治理性设置变更必须是 **effective-dated、auditable、company-owned** 的；原地重写历史 posted truth 是禁止的。
-
+- company accounting settings must not be hidden inside generic platform setting storage if they are part of accounting truth or posting behavior
+- accounting standard selection, book policy, functional currency binding, revaluation policy, and migration governance are not user preferences and are not report-only toggles
+- once posted history exists, these governed settings must change through effective-dated, auditable, company-owned flows; rewriting historical posted truth in place is forbidden
 ### 19.3 Company Settings Direction
 
 Settings > Company should progressively organize into clear domains such as:
@@ -2354,7 +1919,7 @@ Rules:
 
 ### 20.1 Overall Style
 
-Citus must feel:
+Balanciz must feel:
 
 - clean
 - stable
@@ -2522,7 +2087,8 @@ Rules:
 - cached/source/freshness semantics must be visible on supported report surfaces
 
 ### 23.5 Report Type / Accounting Basis Selection
-Citus 必须支持多种报表会计基础（Report Type），以满足不同用户、税务申报和内部管理的需求。
+
+Balanciz must support multiple report accounting bases (Report Type) for formal financial reporting, tax filing, and internal management needs.
 Report Type 下拉选项（必须实现）：
 
 - Accrual (Paid & Unpaid)（默认推荐）：采用权责发生制（Accrual Basis）。收入在赚取时确认，费用在发生时确认，无论是否实际收付。这应该是大多数正式财务报表（Profit & Loss、Balance Sheet、Aging Reports 等）的默认选项，提供最完整的财务状况视图。
@@ -2534,7 +2100,7 @@ Report Type 下拉选项（必须实现）：
 
 Report Type 是报表级参数，而非公司全局默认会计方法（公司可有默认偏好，但用户生成报表时可切换）。
 所有报表（尤其是 AR Aging、AP Aging、Profit & Loss、Balance Sheet 等）必须支持这三种 Report Type。
-Backend Authority：报表的计算逻辑必须由后端引擎决定（使用 Dapper 或专用 Report Service），前端只负责传递选择参数和展示结果。不能让前端自行计算差异。
+Backend Authority: report calculation must be decided by backend services, using explicit SQL or a dedicated Report Service where appropriate. The frontend only passes selected parameters and displays results; it must not calculate accounting-basis differences itself.
 - 一致性：同一 Report Type 下，不同报表（例如 Invoice 列表 vs P&L）必须使用相同的确认规则。
 - Accounting Book / Accounting Standard 选择与 Report Type 是两个不同维度；切换报表基础或列报视图不得改写底层 book truth。
 - 公司隔离：Report Type 选择必须在当前 active company 上下文中生效。
@@ -2546,7 +2112,7 @@ Backend Authority：报表的计算逻辑必须由后端引擎决定（使用 Da
 
 - 符合 “Engine Truth > UI Presentation” —— 报表真相由后端 Posting Engine 和查询逻辑决定。
 - 符合 “Historical Honesty” —— 如果数据来自不同期间，应清晰显示使用的会计基础。
-- 与 ABP 集成：可将 Report Type 作为查询参数传入 Application Service，或使用 ABP 的 Setting Management 保存公司默认值。
+- Report Type should be passed as a backend query parameter; company defaults belong in company settings, not in user-only preferences.
 
 #### 可选扩展（未来可考虑）：
 
@@ -2746,8 +2312,8 @@ Before implementing any feature, verify:
 6. does it avoid polluting unrelated modules
 7. does it preserve historical honesty when data is uncertain
 8. does it keep cache / AI / provider layers subordinate to backend truth
-9. does it keep ABP governance concerns separate from accounting truth
-10. does it preserve upgradeability of ABP modules
+9. does it keep platform governance concerns separate from accounting truth
+10. does it preserve platform upgradeability and module boundaries
 
 ### 28.2 Default Build Order
 
@@ -2777,136 +2343,35 @@ Important capabilities should cover:
 For AI-assisted development, the following rules are mandatory:
 
 - AI may draft code, tests, SQL, UI, and refactors, but human review remains required for accounting correctness.
-- Any feature touching company isolation, posting, tax, FX, reconciliation, permissions, numbering, or auditability must be implemented together with tests.
+- Any feature touching company isolation, posting, tax, FX, reconciliation, permissions, search visibility, numbering, or auditability must be implemented together with tests or a written manual verification path.
 - Prompts must reference this document and the related executable specifications.
 - AI should work slice-by-slice, not through large unbounded rewrites.
 - Each task should preferably target one use case / one screen / one command-query pair.
 - Generated code must preserve naming, folder conventions, and module boundaries.
 - Generated migrations and SQL must be manually reviewed before execution on shared environments.
 - AI may assist implementation, but engine rules and tests remain the final authority.
+- Before creating or modifying files, AI should identify the exact target paths when the change is non-trivial.
 
-All new projects, namespaces, folders, and files must follow the approved naming grammar.
+### 28.5 Go Module and File Placement Rules
 
-Project naming grammar:
+Balanciz is currently a Go modular monolith. New code should fit the existing repo shape unless a dedicated migration plan approves otherwise.
 
-`Citus.<Category>[.<RootName>][.<Layer>]`
+Current approved placement patterns:
 
-Allowed categories:
+- `cmd/balanciz`: main application entry point
+- `cmd/*`: bounded operational CLIs, migration helpers, smoke tools, and backfill/reconcile tools
+- `internal/models`: persistence models and stable data shapes
+- `internal/services`: business use cases, domain services, validation, transaction boundaries, and accounting-adjacent logic
+- `internal/web`: Fiber handlers, middleware, request/response orchestration, route-level permission checks, and web integration tests
+- `internal/web/templates/pages`: Templ page templates and generated page code
+- `internal/web/templates/ui`: reusable UI components such as SmartPicker
+- `internal/web/static`: browser JavaScript and static assets
+- `internal/searchprojection` or equivalent search packages: search document projection and indexing support
+- `migrations`: explicit SQL migrations, reviewed before production use
+- `ent`: Ent-generated or Ent-owned code only for modules explicitly approved for Ent usage
 
-- `Web`
-- `SysAdmin`
-- `DbMigrator`
-- `SharedKernel`
-- `Modules`
-- `Engines`
-- `Infrastructure`
-- `Connectors`
-- `Tests`
+Approved logical module roots:
 
-Approved root business modules:
-
-- `Company`
-- `CompanyAccess`
-- `GL`
-- `AR`
-- `AP`
-- `Inventory`
-- `PaymentGateway`
-- `Reconciliation`
-- `Reports`
-- `Tasks`
-
-Approved root engines:
-
-- `Posting`
-- `Tax`
-- `FX`
-- `Costing`
-- `Numbering`
-- `ReconciliationControl`
-
-Approved root infrastructure names:
-
-- `AIAssist`
-- `Notifications`
-- `Caching`
-- `SmartPicker`
-- `Reporting`
-
-Approved connector root names include patterns such as:
-
-- `Payment.<Provider>`
-- `Channel.<Provider>`
-- `Rates.<Provider>`
-
-Examples:
-
-- `Citus.Modules.GL.Domain`
-- `Citus.Modules.GL.Application`
-- `Citus.Modules.CompanyAccess.Blazor`
-- `Citus.Modules.Inventory.Domain`
-- `Citus.Modules.PaymentGateway.Application`
-- `Citus.Engines.Posting`
-- `Citus.Engines.Costing`
-- `Citus.Infrastructure.AIAssist`
-- `Citus.Connectors.Payment.Stripe`
-
-Allowed layers for business modules:
-
-- `Domain.Shared`
-- `Domain`
-- `Application.Contracts`
-- `Application`
-- `EntityFrameworkCore`
-- `Blazor`
-
-Forbidden root or utility names:
-
-- `Users`
-- `UserManagement`
-- `Identity`
-- `AccountingCore`
-- `LedgerEngine`
-- `Common`
-- `Utils`
-- `Helpers`
-- `Misc`
-- `Temp`
-- `Manager`
-- `Processor`
-
-Rules:
-
-- AI must not invent new root categories, root module names, or layer names without explicit approval
-- file name must match the primary type name exactly
-- one public type per file is the default rule
-- new use cases must stay inside an approved root module boundary
-- Journal Entry code must live under `GL`, not under a standalone `JournalEntry` root module
-- inventory quantity, cost-layer, valuation, and COGS source logic must live under `Inventory`, not under `AR` or `AP`
-- provider-specific gateway logic must live under `PaymentGateway` and/or `Connectors.Payment.<Provider>`, not inside AR/AP truth objects
-- company membership and company-scoped authorization code must live under `CompanyAccess`, not under a generic `Users` root module
-- before generating code, AI must first list the exact target file paths it plans to create or modify
-- if no approved target path exists, AI must stop and report: `No approved target path found.`
-
-## 28.5 Module Naming and File Placement Rules
-
-All new projects, folders, namespaces, and files must follow the approved naming grammar and must remain consistent with Sections 3.5 and 28.4.
-
-### Project name grammar
-`Citus.<Category>[.<RootName>][.<Layer>]`
-
-Allowed categories:
-- Web
-- SysAdmin
-- DbMigrator
-- SharedKernel
-- Modules
-- Engines
-- Infrastructure
-- Connectors
-- Tests
-
-Approved root business modules:
 - Company
 - CompanyAccess
 - GL
@@ -2918,7 +2383,8 @@ Approved root business modules:
 - Reports
 - Tasks
 
-Approved root engines:
+Approved engine roots:
+
 - Posting
 - Tax
 - FX
@@ -2926,53 +2392,31 @@ Approved root engines:
 - Numbering
 - ReconciliationControl
 
-Approved root infrastructure names:
+Approved infrastructure roots:
+
 - AIAssist
 - Notifications
 - Caching
 - SmartPicker
+- Search
 - Reporting
 
-Approved connector root names include patterns such as:
-- Payment.<Provider>
-- Channel.<Provider>
-- Rates.<Provider>
-
-Allowed layers for business modules:
-- Domain.Shared
-- Domain
-- Application.Contracts
-- Application
-- EntityFrameworkCore
-- Blazor
-
-Forbidden names:
-- Users
-- UserManagement
-- Identity
-- AccountingCore
-- LedgerEngine
-- Common
-- Helpers
-- Utils
-- Temp
-- Misc
-- Manager
-- Processor
-- ServiceImpl
-
 Rules:
-- AI must not invent new project categories, root module names, root engine names, or layer names without explicit approval.
-- AI must not create files outside approved module boundaries.
-- One public type per file is the default rule.
-- File name must match the main type name exactly.
-- Vertical Slice use cases must be grouped by feature / use-case folder.
 
+- Do not invent a new root module for a navigation label.
+- Journal Entry and Chart of Accounts belong to GL.
+- Customers, invoices, receipts, credit notes, returns, and AR control outputs belong to AR.
+- Vendors, bills, pay bills, vendor credits, vendor returns, and AP control outputs belong to AP.
+- Products & Services owns unit-of-measure and sell/buy item setup. Task may reference a service item but must not duplicate unit-type setup.
+- Task owns work tracking, billable task flow, and billable-work handoff. It must not duplicate Products & Services catalog setup or Quote lifecycle logic.
+- Company membership, invitations, owner/user assignment, active company context, and company-scoped authorization belong to CompanyAccess.
+- Search providers must enforce company isolation and permission filtering in the backend before results are returned.
+- UI hiding is not authorization. Handlers/services must enforce permission and company boundaries.
+- Avoid generic packages named `common`, `utils`, `helpers`, `misc`, `temp`, `manager`, or `processor` unless there is a clear existing local pattern and no better module boundary.
 
 ## 29. Performance Strategy and Constraints
 
-Performance must be designed, measured, and observed.
-It must not be assumed merely because a certain stack or pattern is present.
+Performance must be designed, measured, and observed. Correctness remains the first priority.
 
 ### 29.1 Write Path Discipline
 
@@ -2980,19 +2424,20 @@ ERP write paths must prioritize correctness and transaction safety.
 
 Rules:
 
-- transactional writes use EF Core + Unit of Work semantics
+- transactional writes use explicit Go service/use-case transactions
 - posting path must stay synchronous, atomic, and local to the transaction
 - live provider calls are forbidden on save/post
-- report generation, notifications, and heavy secondary work must be offloaded
+- report generation, notifications, exports, AI summaries, and heavy secondary work must be offloaded after the accounting transaction is safe
+- duplicate-post prevention should use database constraints and idempotency where applicable
 
 ### 29.2 Read Path Strategy
 
 Default read strategy:
 
-- start with EF Core projections and `AsNoTracking`
-- use Dapper only for proven hot paths
-- create report-specific read models only when needed
-- prefer materialized views / summary tables only after semantics are stable
+- start with focused GORM queries and explicit preload discipline
+- use explicit SQL / pgx-style queries for proven reporting, aging, reconciliation, search, or large-list hot paths
+- create report-specific read models only when semantics are stable
+- prefer materialized views / summary tables only after correctness and invalidation rules are clear
 
 ### 29.3 Cache Strategy
 
@@ -3001,27 +2446,18 @@ Cache is acceleration only.
 Rules:
 
 - cache keys must be namespaced
-- when multi-tenancy is enabled, keys should include both `tenant_id` and `company_id`
+- keys must include `company_id`; when tenant/workspace isolation is enabled, keys must include that scope as well
 - query/result versioning or equivalent invalidation primitives should be used
 - write-side invalidation is mandatory
-- cached data must never become accounting truth
+- cached data must never become accounting truth, authorization truth, or validation truth
 
 ### 29.4 Async Strategy
 
 Preferred path:
 
-- ABP Background Jobs / Workers for non-real-time work
-- Outbox for reliable post-commit processing
-- MassTransit / RabbitMQ only after real complexity justifies it
-
-Typical async candidates:
-
-- report generation
-- invoice email sending
-- notification dispatch
-- FX rate refresh
-- audit-log cleanup / archival
-- AI summary generation
+- PostgreSQL-consistent outbox/job processing for non-real-time work
+- background jobs for reports, exports, notifications, FX refresh, AI summaries, and audit archival
+- external queues only after real complexity justifies them
 
 ### 29.5 Database Strategy
 
@@ -3032,38 +2468,42 @@ Performance work should typically prioritize:
 - query-shape review
 - projection trimming
 - duplicate-post prevention indexes
+- company-scoped search indexes
+- pagination and result limits for lists, dropdowns, SmartPicker, and global search
 - concurrency control for drafts and hot master data
 - partitioning / materialized views only after real evidence
 
 ### 29.6 UI Read Strategy
 
-Blazor pages must avoid over-fetching.
+Templ/HTMX/Alpine pages and React islands must avoid over-fetching.
 
 Rules:
 
 - lists should paginate
 - large tables should virtualize where appropriate
 - detail pages should load focused view models, not giant aggregates
-- posting preview and audit panels may use separate optimized read models
+- posting preview, audit panels, search results, and report drilldowns may use separate optimized read models
 
-## 30. ABP Integration and Upgrade Governance
+## 30. Platform Governance and Future SaaS Boundary
 
-### 30.1 Adoption Boundary
+### 30.1 Current Adoption Boundary
 
-ABP / ABP Commercial should primarily govern platform concerns:
+Balanciz currently uses a Go/Fiber platform shell. Platform concerns should remain separate from accounting truth.
+
+Platform concerns include:
 
 - identity / account
-- tenant / workspace management
+- session management
+- tenant / workspace management when future SaaS packaging enables it
 - permission management
-- feature management
-- setting management
-- audit logging
+- feature/module enablement
+- setting shells and hierarchy
+- operational audit logging
 - background jobs
-- blob storage
+- blob/file storage
 - text templates
-- optional OpenIddict-based auth infrastructure
 
-Citus-owned modules should govern business truth:
+Balanciz-owned modules govern business truth:
 
 - GL
 - AR
@@ -3073,13 +2513,14 @@ Citus-owned modules should govern business truth:
 - reconciliation
 - reports semantics
 - company accounting settings
+- tasks and billable-work handoff
 
 ### 30.2 Tenant / Workspace Strategy
 
 For future SaaS control:
 
-- use **tenant / workspace** as the commercial and deployment boundary
-- use **company** as the accounting/legal boundary inside that workspace
+- use tenant/workspace as the commercial and deployment boundary
+- use company as the accounting/legal boundary inside that workspace
 - use editions/features for packaging and rollout
 - do not collapse tenant and company into the same concept unless the deployment model truly requires it
 
@@ -3089,40 +2530,40 @@ Preferred customization order:
 
 1. configuration
 2. module options
-3. extension points / extra properties for ABP-owned objects
-4. replaceable services / adapters
-5. source inclusion or fork as the last resort
+3. explicit extension points or adapters
+4. replaceable services behind interfaces
+5. source fork as the last resort
 
 ### 30.4 Source-of-Truth Rule
 
-ABP may provide infrastructure, UI, and administration.
-ABP may not redefine accounting truth.
+Platform services may provide infrastructure, UI, and administration.
+Platform services may not redefine accounting truth.
 
 Therefore:
 
-- ABP settings may configure behavior, but may not rewrite posted history
-- ABP permissions may gate access, but may not decide accounting legality alone
-- ABP features may enable modules, but may not bypass posting/tax/FX engines
-- ABP audit logs may record operations, but may not replace the accounting event trail
+- platform settings may configure behavior, but may not rewrite posted history
+- platform permissions may gate access, but may not decide accounting legality alone
+- platform features may enable modules, but may not bypass posting/tax/FX engines
+- platform audit logs may record operations, but may not replace the accounting event trail
 
 ### 30.5 Upgradeability Rule
 
 To preserve future control:
 
-- keep business rules in Citus modules, not inside ABP package internals
+- keep business rules in Balanciz modules and services, not inside platform package internals
 - isolate overrides behind interfaces/adapters
-- record all non-trivial ABP customizations
+- record all non-trivial platform customizations
 - prefer package updates over long-lived source forks wherever possible
 
 ## 31. Final Product Summary
 
-Citus is:
+Balanciz is:
 
 - a strictly isolated multi-company system
 - a strong-rule accounting engine
 - a control-layer-driven finance platform
 - a modular business application
-- an ABP-governed platform shell for cross-cutting concerns
+- a Go-based platform shell for cross-cutting concerns
 - an AI suggestion layer, not an AI execution layer
 - a long-term extensible architecture
 

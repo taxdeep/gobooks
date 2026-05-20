@@ -59,6 +59,10 @@ type SmartPickerVM struct {
 	Disabled bool
 	// HelpText is an optional hint rendered below the picker and error message.
 	HelpText string
+	// StaticName renders the interactive hidden input with a server-side name
+	// attribute. Use this only when the picker is the sole form control for the
+	// field; leave false when a separate no-JS fallback control shares FieldName.
+	StaticName bool
 }
 
 func smartPickerPlaceholder(vm SmartPickerVM) string {

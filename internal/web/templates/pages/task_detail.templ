@@ -107,10 +107,7 @@ templ bodyTaskDetail(vm TaskDetailVM) {
 				</div>
 				<div>
 					<p class="text-small font-medium uppercase tracking-wider text-text-muted">Quantity</p>
-					<p class="mt-1 text-body text-text">
-						{ vm.Task.Quantity.String() }
-						<span class="text-small text-text-muted2">{ models.TaskUnitTypeLabel(vm.Task.UnitType) }</span>
-					</p>
+					<p class="mt-1 text-body text-text">{ vm.Task.Quantity.String() }</p>
 				</div>
 				<div>
 					<p class="text-small font-medium uppercase tracking-wider text-text-muted">Rate</p>
