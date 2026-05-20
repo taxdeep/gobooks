@@ -152,7 +152,6 @@ templ bodyTasks(vm TasksVM) {
 								</td>
 								<td class="py-3 pr-4 text-right tabular-nums">
 									{ task.Quantity.String() }
-									<span class="text-small text-text-muted2">{ models.TaskUnitTypeLabel(task.UnitType) }</span>
 								</td>
 								<td class="py-3 pr-4 text-right tabular-nums">
 									{ taskMoney(task.Rate, task.CurrencyCode) }

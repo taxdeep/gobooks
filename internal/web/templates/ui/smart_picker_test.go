@@ -86,6 +86,18 @@ func TestSmartPicker_EditRehydration(t *testing.T) {
 	}
 }
 
+func TestSmartPicker_StaticName(t *testing.T) {
+	html := renderSP(t, ui.SmartPickerVM{
+		FieldName:  "customer_id",
+		Entity:     "customer",
+		StaticName: true,
+	})
+
+	if !strings.Contains(html, `<input type="hidden" name="customer_id"`) {
+		t.Error("static-name picker must render a named hidden input")
+	}
+}
+
 // TestSmartPicker_RequiredOmitsClearButton verifies that Required=true omits the clear button.
 func TestSmartPicker_RequiredOmitsClearButton(t *testing.T) {
 	html := renderSP(t, ui.SmartPickerVM{

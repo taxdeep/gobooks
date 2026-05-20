@@ -32,14 +32,16 @@ func TestTaskFormCustomerSmartPickerIntegration(t *testing.T) {
 		`data-entity="customer"`,
 		`data-context="task_form_customer"`,
 		`data-field-name="customer_id"`,
-		`name="customer_id"`,
 	} {
 		if !strings.Contains(newBody, want) {
 			t.Fatalf("expected new task customer SmartPicker HTML to contain %q, got %q", want, newBody)
 		}
 	}
-	if strings.Contains(newBody, `<input type="hidden" name="customer_id"`) {
-		t.Fatalf("interactive customer SmartPicker hidden input must not have a static customer_id name, got %q", newBody)
+	if !strings.Contains(newBody, `<input type="hidden" name="customer_id"`) {
+		t.Fatalf("expected task customer SmartPicker to submit customer_id directly, got %q", newBody)
+	}
+	if strings.Contains(newBody, `<select name="customer_id"`) {
+		t.Fatalf("task form should render a single customer SmartPicker input without a fallback select, got %q", newBody)
 	}
 
 	postTask := func(title string, customerID uint) *http.Response {
@@ -50,7 +52,6 @@ func TestTaskFormCustomerSmartPickerIntegration(t *testing.T) {
 			"title":         {title},
 			"task_date":     {"2026-04-10"},
 			"quantity":      {"1.00"},
-			"unit_type":     {models.TaskUnitTypeHour},
 			"rate":          {"110.00"},
 			"currency_code": {"CAD"},
 			"is_billable":   {"1"},
@@ -113,7 +114,6 @@ func TestTaskFormCustomerSmartPickerIntegration(t *testing.T) {
 		"title":         {""},
 		"task_date":     {"2026-04-10"},
 		"quantity":      {"1.00"},
-		"unit_type":     {models.TaskUnitTypeHour},
 		"rate":          {"110.00"},
 		"currency_code": {"CAD"},
 		"is_billable":   {"1"},

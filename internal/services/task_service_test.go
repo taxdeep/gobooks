@@ -140,6 +140,22 @@ func TestCreateTaskStoresSnapshotFields(t *testing.T) {
 	}
 }
 
+func TestCreateTaskDefaultsMissingUnitType(t *testing.T) {
+	db := taskServiceDB(t)
+	companyID := seedTaskServiceCompany(t, db, "Task Unit Default Co")
+	customerID := seedTaskServiceCustomer(t, db, companyID, "Acme")
+	input := baseTaskInput(companyID, customerID)
+	input.UnitType = ""
+
+	task, err := CreateTask(db, input)
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	if task.UnitType != models.TaskUnitTypeHour {
+		t.Fatalf("expected default unit_type %q, got %q", models.TaskUnitTypeHour, task.UnitType)
+	}
+}
+
 func TestUpdateTaskOpenUpdatesCoreFields(t *testing.T) {
 	db := taskServiceDB(t)
 	companyID := seedTaskServiceCompany(t, db, "Task Update Co")

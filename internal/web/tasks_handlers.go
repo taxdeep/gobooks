@@ -583,7 +583,11 @@ func (s *Server) buildTaskFormVMFromRequest(c *fiber.Ctx, companyID uint, existi
 	vm.Title = strings.TrimSpace(c.FormValue("title"))
 	vm.TaskDate = strings.TrimSpace(c.FormValue("task_date"))
 	vm.Quantity = strings.TrimSpace(c.FormValue("quantity"))
-	vm.UnitType = strings.TrimSpace(c.FormValue("unit_type"))
+	if existing != nil && strings.TrimSpace(existing.UnitType) != "" {
+		vm.UnitType = existing.UnitType
+	} else {
+		vm.UnitType = models.TaskUnitTypeHour
+	}
 	vm.Rate = strings.TrimSpace(c.FormValue("rate"))
 	vm.CurrencyCode = strings.ToUpper(strings.TrimSpace(c.FormValue("currency_code")))
 	vm.IsBillable = c.FormValue("is_billable") == "1"
@@ -592,9 +596,6 @@ func (s *Server) buildTaskFormVMFromRequest(c *fiber.Ctx, companyID uint, existi
 
 	if vm.Quantity == "" {
 		vm.Quantity = "1"
-	}
-	if vm.UnitType == "" && existing != nil {
-		vm.UnitType = existing.UnitType
 	}
 	if vm.Rate == "" {
 		vm.Rate = "0.00"
@@ -663,14 +664,6 @@ func (s *Server) buildTaskFormVMFromRequest(c *fiber.Ctx, companyID uint, existi
 		hasErr = true
 	} else {
 		input.Quantity = qty
-	}
-
-	if vm.UnitType == "" {
-		vm.UnitTypeError = "Unit type is required."
-		hasErr = true
-	} else if !models.IsValidTaskUnitType(vm.UnitType) {
-		vm.UnitTypeError = "Unit type is invalid."
-		hasErr = true
 	}
 
 	rate, err := decimal.NewFromString(vm.Rate)

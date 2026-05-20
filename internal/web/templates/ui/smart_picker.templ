@@ -65,15 +65,23 @@ templ smartPickerInteractive(vm SmartPickerVM) {
 		@keydown="onKeydown($event)"
 		@click.outside="close()"
 	>
-		<!-- Hidden input: no static name attribute. Alpine init() assigns name
-		     dynamically so a no-JS fallback select with the same field name
-		     does not cause a double-submit. Alpine keeps value in sync via
-		     :value="selectedId". -->
-		<input
-			type="hidden"
-			value={ vm.Value }
-			:value="selectedId"
-		/>
+		<!-- Hidden input: most pickers rely on Alpine init() to assign name so a
+		     separate no-JS fallback control can share FieldName safely. Pickers
+		     without a fallback can opt into StaticName. -->
+		if vm.StaticName {
+			<input
+				type="hidden"
+				name={ vm.FieldName }
+				value={ vm.Value }
+				:value="selectedId"
+			/>
+		} else {
+			<input
+				type="hidden"
+				value={ vm.Value }
+				:value="selectedId"
+			/>
+		}
 
 		<!-- Visible search input + optional clear button (required fields omit clear) -->
 		<div class="relative">

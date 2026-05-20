@@ -39,7 +39,6 @@ func TestTaskPagesHappyPath(t *testing.T) {
 		"title":         {"April consulting"},
 		"task_date":     {"2026-04-03"},
 		"quantity":      {"2.50"},
-		"unit_type":     {models.TaskUnitTypeHour},
 		"rate":          {"150.00"},
 		"currency_code": {"CAD"},
 		"is_billable":   {"1"},
@@ -200,21 +199,20 @@ func TestTaskFormServiceItemHandlerIntegration(t *testing.T) {
 		`data-entity="product_service"`,
 		`data-context="task_form_service_item"`,
 		`data-field-name="product_service_id"`,
-		`name="product_service_id"`,
 	} {
 		if !strings.Contains(newBody, want) {
-			t.Fatalf("expected new task SmartPicker/fallback HTML to contain %q, got %q", want, newBody)
+			t.Fatalf("expected new task SmartPicker HTML to contain %q, got %q", want, newBody)
 		}
 	}
-	if strings.Contains(newBody, `<input type="hidden" name="product_service_id"`) {
-		t.Fatalf("interactive SmartPicker hidden input must not have a static product_service_id name, got %q", newBody)
+	if !strings.Contains(newBody, `<input type="hidden" name="product_service_id"`) {
+		t.Fatalf("expected task service SmartPicker to submit product_service_id directly, got %q", newBody)
 	}
-	if !strings.Contains(newBody, "Task Service A") {
-		t.Fatalf("expected active same-company service item on new task page, got %q", newBody)
+	if strings.Contains(newBody, `<select name="product_service_id"`) {
+		t.Fatalf("task form should render a single service SmartPicker input without a fallback select, got %q", newBody)
 	}
-	for _, notWant := range []string{"Other Co Service", "Task Widget", "Inactive Task Service"} {
+	for _, notWant := range []string{"Task Service A", "Other Co Service", "Task Widget", "Inactive Task Service"} {
 		if strings.Contains(newBody, notWant) {
-			t.Fatalf("expected new task page to hide %q, got %q", notWant, newBody)
+			t.Fatalf("expected new task page picker shell to avoid pre-rendering %q, got %q", notWant, newBody)
 		}
 	}
 
@@ -226,7 +224,6 @@ func TestTaskFormServiceItemHandlerIntegration(t *testing.T) {
 			"title":              {title},
 			"task_date":          {"2026-04-09"},
 			"quantity":           {"1.00"},
-			"unit_type":          {models.TaskUnitTypeHour},
 			"rate":               {"125.00"},
 			"currency_code":      {"CAD"},
 			"is_billable":        {"1"},
@@ -312,7 +309,6 @@ func TestTaskFormServiceItemHandlerIntegration(t *testing.T) {
 		"title":              {""},
 		"task_date":          {"2026-04-09"},
 		"quantity":           {"1.00"},
-		"unit_type":          {models.TaskUnitTypeHour},
 		"rate":               {"125.00"},
 		"currency_code":      {"CAD"},
 		"is_billable":        {"1"},
@@ -876,7 +872,7 @@ func TestTasksExportYearMonthFiltersCurrentMonth(t *testing.T) {
 	if len(records) != 2 {
 		t.Fatalf("expected header plus 1 April task, got %d records: %v", len(records), records)
 	}
-	if strings.Join(records[0], "|") != "Task ID|Date|Customer|Description|Quantity|Unit Type|Rate|Currency|Amount|Billable|Status|Notes" {
+	if strings.Join(records[0], "|") != "Task ID|Date|Customer|Description|Quantity|Rate|Currency|Amount|Billable|Status|Notes" {
 		t.Fatalf("unexpected header: %v", records[0])
 	}
 	if records[1][3] != "April export task" {

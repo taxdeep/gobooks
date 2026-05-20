@@ -1,7 +1,6 @@
 // 遵循project_guide.md
 package pages
 
-import "balanciz/internal/models"
 import "balanciz/internal/web/templates/layout"
 import "balanciz/internal/web/templates/ui"
 
@@ -50,18 +49,6 @@ templ bodyTaskForm(vm TaskFormVM) {
 						if vm.ReadOnlyCore {
 							<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">{ taskSelectedCustomerName(vm) }</div>
 						} else {
-							<!-- No-JS fallback: Alpine disables this select and removes its name
-							     on init, so only the SmartPicker hidden input submits when JS is
-							     active. Without JS the select retains name="customer_id"
-							     and is the sole submitter. -->
-							<div x-data="{}" x-init="var s=$el.querySelector('select');if(s){s.removeAttribute('name');s.disabled=true;}$el.style.display='none';">
-								<select name="customer_id" class={ taskInputClass(vm.CustomerError != "") }>
-									<option value="">-- Select customer --</option>
-									for _, customer := range vm.Customers {
-										<option value={ Uitoa(customer.ID) } selected?={ Uitoa(customer.ID) == vm.CustomerID }>{ customer.Name }</option>
-									}
-								</select>
-							</div>
 							@ui.SmartPicker(ui.SmartPickerVM{
 								Label:         "",
 								FieldName:     "customer_id",
@@ -73,6 +60,7 @@ templ bodyTaskForm(vm TaskFormVM) {
 								Required:      true,
 								Error:         vm.CustomerError,
 								Limit:         20,
+								StaticName:    true,
 							})
 						}
 						if vm.CustomerError != "" {
@@ -100,18 +88,6 @@ templ bodyTaskForm(vm TaskFormVM) {
 								<div class="mt-1 text-body text-danger">{ vm.ServiceItemError }</div>
 							}
 						} else {
-							<!-- No-JS fallback: Alpine disables this select and removes its name
-							     on init, so only the SmartPicker hidden input submits when JS is
-							     active. Without JS the select retains name="product_service_id"
-							     and is the sole submitter. -->
-							<div x-data="{}" x-init="var s=$el.querySelector('select');if(s){s.removeAttribute('name');s.disabled=true;}$el.style.display='none';">
-								<select name="product_service_id" class={ taskInputClass(vm.ServiceItemError != "") }>
-									<option value="">-- None --</option>
-									for _, item := range vm.ServiceItems {
-										<option value={ Uitoa(item.ID) } selected?={ Uitoa(item.ID) == vm.ServiceItemID }>{ item.Name }</option>
-									}
-								</select>
-							</div>
 							@ui.SmartPicker(ui.SmartPickerVM{
 								Label:         "",
 								FieldName:     "product_service_id",
@@ -121,6 +97,7 @@ templ bodyTaskForm(vm TaskFormVM) {
 								SelectedLabel: vm.ServiceItemLabel,
 								Placeholder:   "Search service items...",
 								Error:         vm.ServiceItemError,
+								StaticName:    true,
 							})
 						}
 					</div>
@@ -164,22 +141,6 @@ templ bodyTaskForm(vm TaskFormVM) {
 						}
 						if vm.QuantityError != "" {
 							<div class="mt-1 text-body text-danger">{ vm.QuantityError }</div>
-						}
-					</div>
-
-					<div>
-						<label class="block text-body font-medium text-text">Unit Type</label>
-						if vm.ReadOnlyCore {
-							<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">{ models.TaskUnitTypeLabel(vm.UnitType) }</div>
-						} else {
-							<select name="unit_type" class={ taskInputClass(vm.UnitTypeError != "") }>
-								for _, unit := range models.AllTaskUnitTypes() {
-									<option value={ unit } selected?={ unit == vm.UnitType }>{ models.TaskUnitTypeLabel(unit) }</option>
-								}
-							</select>
-						}
-						if vm.UnitTypeError != "" {
-							<div class="mt-1 text-body text-danger">{ vm.UnitTypeError }</div>
 						}
 					</div>
 
