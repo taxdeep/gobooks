@@ -162,6 +162,19 @@ templ bodyTasks(vm TasksVM) {
 										<span class="inline-block px-1 text-text-muted3">|</span>
 										<a href={ "/tasks/" + Uitoa(task.ID) + "/edit" } class="text-small font-medium text-primary hover:text-primary-hover">Edit</a>
 									}
+									if vm.CanUpdate && taskCanCompleteAction(task.Status) {
+										<span class="inline-block px-1 text-text-muted3">|</span>
+										<form
+											method="post"
+											action={ "/tasks/" + Uitoa(task.ID) + "/complete" }
+											class="inline"
+											data-gb-dirty-guard="false"
+											onsubmit="return confirm('Mark this task as completed? Completed tasks become billing candidates and core billing fields will be locked.');"
+										>
+											<input type="hidden" name="return_to" value="tasks"/>
+											<button type="submit" class="text-small font-medium text-success-hover hover:text-success-hover hover:underline">Complete</button>
+										</form>
+									}
 								</td>
 							</tr>
 						}
@@ -208,6 +221,10 @@ func taskStatusBadgeClass(status models.TaskStatus) string {
 
 func taskCanEditLink(status models.TaskStatus) bool {
 	return status == models.TaskStatusOpen || status == models.TaskStatusCompleted
+}
+
+func taskCanCompleteAction(status models.TaskStatus) bool {
+	return status == models.TaskStatusOpen
 }
 
 func taskExportURL(vm TasksVM) string {

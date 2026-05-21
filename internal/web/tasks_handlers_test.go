@@ -846,6 +846,7 @@ func TestTasksListActionsUseTaskPermissions(t *testing.T) {
 		`href="/tasks/new"`,
 		`href="/tasks/billable-work"`,
 		fmt.Sprintf(`href="/tasks/%d/edit"`, taskID),
+		fmt.Sprintf(`action="/tasks/%d/complete"`, taskID),
 	} {
 		if strings.Contains(body, forbidden) {
 			t.Fatalf("did not expect denied task action %q in page body", forbidden)
@@ -853,6 +854,59 @@ func TestTasksListActionsUseTaskPermissions(t *testing.T) {
 	}
 	if !strings.Contains(body, "Visible task") {
 		t.Fatalf("expected read access to keep task visible, got %q", body)
+	}
+}
+
+func TestTasksListCompleteActionMarksOpenTaskAndReturnsToList(t *testing.T) {
+	db := testRouteDB(t)
+	companyID := seedCompany(t, db, "Task List Complete Co")
+	user, rawToken := seedUserSession(t, db, &companyID)
+	seedMembership(t, db, user.ID, companyID)
+	customerID := seedValidationCustomer(t, db, companyID, "Task Customer")
+	openTaskID := seedTaskForWeb(t, db, companyID, customerID, models.TaskStatusOpen, "Open task")
+	completedTaskID := seedTaskForWeb(t, db, companyID, customerID, models.TaskStatusCompleted, "Completed task")
+
+	app := testRouteApp(t, db)
+	resp := performRequest(t, app, "/tasks", rawToken)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected %d, got %d", http.StatusOK, resp.StatusCode)
+	}
+	body := readResponseBody(t, resp)
+	openCompleteAction := fmt.Sprintf(`action="/tasks/%d/complete"`, openTaskID)
+	if !strings.Contains(body, openCompleteAction) || !strings.Contains(body, `value="tasks"`) || !strings.Contains(body, ">Complete</button>") {
+		t.Fatalf("expected open task complete action in list, got %q", body)
+	}
+	completedCompleteAction := fmt.Sprintf(`action="/tasks/%d/complete"`, completedTaskID)
+	if strings.Contains(body, completedCompleteAction) {
+		t.Fatalf("did not expect completed task complete action in list, got %q", body)
+	}
+
+	csrf := newCSRFToken(t)
+	form := url.Values{}
+	form.Set(CSRFFormField, csrf)
+	form.Set("return_to", "tasks")
+	completeResp := performSecurityRequest(
+		t,
+		app,
+		http.MethodPost,
+		fmt.Sprintf("/tasks/%d/complete", openTaskID),
+		[]byte(form.Encode()),
+		"application/x-www-form-urlencoded",
+		&http.Cookie{Name: SessionCookieName, Value: rawToken, Path: "/"},
+		&http.Cookie{Name: CSRFCookieName, Value: csrf, Path: "/"},
+	)
+	if completeResp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("expected %d, got %d", http.StatusSeeOther, completeResp.StatusCode)
+	}
+	if got, want := completeResp.Header.Get("Location"), "/tasks?completed=1"; got != want {
+		t.Fatalf("expected redirect to %q, got %q", want, got)
+	}
+	var task models.Task
+	if err := db.First(&task, openTaskID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if task.Status != models.TaskStatusCompleted {
+		t.Fatalf("expected completed status, got %q", task.Status)
 	}
 }
 

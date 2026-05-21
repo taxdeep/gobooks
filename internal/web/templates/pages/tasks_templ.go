@@ -439,12 +439,31 @@ func bodyTasks(vm TasksVM) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "</td></tr>")
+			if vm.CanUpdate && taskCanCompleteAction(task.Status) {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "<span class=\"inline-block px-1 text-text-muted3\">|</span> <form method=\"post\" action=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var21 templ.SafeURL
+				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinURLErrs("/tasks/" + Uitoa(task.ID) + "/complete")
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/tasks.templ`, Line: 173, Col: 60}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "\" class=\"inline\" data-gb-dirty-guard=\"false\" onsubmit=\"return confirm('Mark this task as completed? Completed tasks become billing candidates and core billing fields will be locked.');\"><input type=\"hidden\" name=\"return_to\" value=\"tasks\"> <button type=\"submit\" class=\"text-small font-medium text-success-hover hover:text-success-hover hover:underline\">Complete</button></form>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "</td></tr>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "</tbody></table></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "</tbody></table></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -488,6 +507,10 @@ func taskStatusBadgeClass(status models.TaskStatus) string {
 
 func taskCanEditLink(status models.TaskStatus) bool {
 	return status == models.TaskStatusOpen || status == models.TaskStatusCompleted
+}
+
+func taskCanCompleteAction(status models.TaskStatus) bool {
+	return status == models.TaskStatusOpen
 }
 
 func taskExportURL(vm TasksVM) string {

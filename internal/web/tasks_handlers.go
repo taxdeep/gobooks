@@ -380,6 +380,9 @@ func (s *Server) handleTaskComplete(c *fiber.Ctx) error {
 		return redirectErr(c, fmt.Sprintf("/tasks/%d", taskID), err.Error())
 	}
 	_ = producers.ProjectTask(c.Context(), s.DB, s.SearchProjector, companyID, task.ID)
+	if strings.TrimSpace(c.FormValue("return_to")) == "tasks" {
+		return redirectTo(c, "/tasks?completed=1")
+	}
 	return redirectTo(c, fmt.Sprintf("/tasks/%d?completed=1", task.ID))
 }
 
