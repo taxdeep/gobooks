@@ -31,6 +31,7 @@ func taskSystemItemsDB(t *testing.T) *gorm.DB {
 		&models.Invoice{},
 		&models.InvoiceLine{},
 		&models.Task{},
+		&models.TaskLine{},
 		&models.Expense{},
 		&models.TaskInvoiceSource{},
 	); err != nil {
@@ -275,10 +276,10 @@ func TestTaskStatusConstants(t *testing.T) {
 // TestReinvoiceStatusConstants ensures the reinvoice status string values are stable.
 func TestReinvoiceStatusConstants(t *testing.T) {
 	cases := map[models.ReinvoiceStatus]string{
-		models.ReinvoiceStatusNone:      "",
+		models.ReinvoiceStatusNone:       "",
 		models.ReinvoiceStatusUninvoiced: "uninvoiced",
-		models.ReinvoiceStatusInvoiced:  "invoiced",
-		models.ReinvoiceStatusExcluded:  "excluded",
+		models.ReinvoiceStatusInvoiced:   "invoiced",
+		models.ReinvoiceStatusExcluded:   "excluded",
 	}
 	for status, want := range cases {
 		if string(status) != want {

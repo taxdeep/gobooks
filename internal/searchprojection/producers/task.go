@@ -30,6 +30,8 @@ func ProjectTask(ctx context.Context, db *gorm.DB, p searchprojection.Projector,
 	err := db.Where("id = ? AND company_id = ?", taskID, companyID).
 		Preload("Customer").
 		Preload("ProductService").
+		Preload("Lines", func(db *gorm.DB) *gorm.DB { return db.Order("sort_order asc, id asc") }).
+		Preload("Lines.ProductService").
 		First(&task).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -71,6 +73,13 @@ func TaskDocument(task models.Task) searchprojection.Document {
 	if task.ProductService != nil && task.ProductService.Name != "" {
 		subtitle += " - " + task.ProductService.Name
 	}
+	memo := task.Title + " " + task.Notes
+	for _, line := range task.Lines {
+		memo += " " + line.Description
+		if line.ProductService != nil {
+			memo += " " + line.ProductService.Name
+		}
+	}
 
 	return searchprojection.Document{
 		CompanyID:  task.CompanyID,
@@ -79,7 +88,7 @@ func TaskDocument(task models.Task) searchprojection.Document {
 		DocNumber:  "TASK-" + strconv.FormatUint(uint64(task.ID), 10),
 		Title:      title,
 		Subtitle:   subtitle,
-		Memo:       task.Title + " " + task.Notes,
+		Memo:       memo,
 		DocDate:    &docDate,
 		Amount:     task.BillableAmount().StringFixed(2),
 		Currency:   task.CurrencyCode,

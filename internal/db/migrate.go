@@ -187,6 +187,7 @@ func Migrate(db *gorm.DB) error {
 		&models.PaymentAllocation{},
 		// Task + Billable Expense module (Batch 1: data foundation)
 		&models.Task{},
+		&models.TaskLine{},
 		&models.Expense{},
 		&models.TaskInvoiceSource{},
 		// Employee / Payroll / Cheque module foundation
@@ -365,6 +366,9 @@ func Migrate(db *gorm.DB) error {
 	// Batch 28 task service item: link tasks to Products & Services catalogue.
 	// AutoMigrate above handles fresh installs; this guard adds the column on live DBs.
 	if err := migrateTaskServiceItem(db); err != nil {
+		return err
+	}
+	if err := migrateTaskLines(db); err != nil {
 		return err
 	}
 	// Phase 6: accounting_standard_profiles + accounting_books tables;

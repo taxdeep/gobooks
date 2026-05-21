@@ -135,7 +135,7 @@ func newTaskProducerTestDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&models.Customer{}, &models.ProductService{}, &models.Task{}); err != nil {
+	if err := db.AutoMigrate(&models.Customer{}, &models.ProductService{}, &models.Task{}, &models.TaskLine{}); err != nil {
 		t.Fatal(err)
 	}
 	return db

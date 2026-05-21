@@ -26,6 +26,7 @@ func testExpenseServiceDB(t *testing.T) *gorm.DB {
 		&models.Vendor{},
 		&models.Account{},
 		&models.Task{},
+		&models.TaskLine{},
 		&models.Expense{},
 		&models.ExpenseLine{},
 		&models.Bill{},

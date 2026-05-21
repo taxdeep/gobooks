@@ -115,3 +115,50 @@ func TestGenerateMonthlyTaskReportDoesNotJoinCrossCompanyCustomerNames(t *testin
 		}
 	}
 }
+
+func TestGenerateMonthlyTaskReportUsesTaskLinesWhenPresent(t *testing.T) {
+	db := taskServiceDB(t)
+	companyID := seedTaskServiceCompany(t, db, "Report Multi-Line Co")
+	customerID := seedTaskServiceCustomer(t, db, companyID, "Acme")
+	accountID := seedTaskRevenueAccount(t, db, companyID, "4000")
+	firstItemID := seedTaskServiceItem(t, db, companyID, accountID, "Discovery", models.ProductServiceTypeService, true)
+	secondItemID := seedTaskServiceItem(t, db, companyID, accountID, "Build", models.ProductServiceTypeService, true)
+
+	input := baseTaskInput(companyID, customerID)
+	input.Title = "Multi-line report task"
+	input.TaskDate = time.Date(2026, 4, 10, 0, 0, 0, 0, time.UTC)
+	input.Lines = []TaskLineInput{
+		{
+			ProductServiceID: &firstItemID,
+			Description:      "Discovery",
+			Quantity:         decimal.RequireFromString("2.00"),
+			Rate:             decimal.RequireFromString("100.00"),
+		},
+		{
+			ProductServiceID: &secondItemID,
+			Description:      "Build",
+			Quantity:         decimal.RequireFromString("3.00"),
+			Rate:             decimal.RequireFromString("50.00"),
+		},
+	}
+	createTaskForTest(t, db, input)
+
+	summary, err := GenerateMonthlyTaskReport(db, companyID, 2026, 4)
+	if err != nil {
+		t.Fatalf("GenerateMonthlyTaskReport: %v", err)
+	}
+	if !summary.TotalQuantity.Equal(decimal.RequireFromString("5.00")) {
+		t.Fatalf("expected task-line quantity 5.00, got %s", summary.TotalQuantity)
+	}
+	if !summary.TotalBillableAmount.Equal(decimal.RequireFromString("350.00")) {
+		t.Fatalf("expected task-line amount 350.00, got %s", summary.TotalBillableAmount)
+	}
+	if len(summary.ByCustomer) != 1 {
+		t.Fatalf("expected one customer summary, got %+v", summary.ByCustomer)
+	}
+	for _, customerSummary := range summary.ByCustomer {
+		if !customerSummary.Quantity.Equal(decimal.RequireFromString("5.00")) || !customerSummary.Amount.Equal(decimal.RequireFromString("350.00")) {
+			t.Fatalf("unexpected customer summary: %+v", customerSummary)
+		}
+	}
+}

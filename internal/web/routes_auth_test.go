@@ -52,6 +52,7 @@ func testRouteDB(t *testing.T) *gorm.DB {
 		&models.BillLine{},
 		&models.ProductService{},
 		&models.Task{},
+		&models.TaskLine{},
 		&models.Expense{},
 		&models.ExpenseLine{},
 		&models.TaskInvoiceSource{},

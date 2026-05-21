@@ -196,19 +196,17 @@ func TestTaskFormServiceItemHandlerIntegration(t *testing.T) {
 	}
 	newBody := readResponseBody(t, newResp)
 	for _, want := range []string{
-		`data-entity="product_service"`,
-		`data-context="task_form_service_item"`,
-		`data-field-name="product_service_id"`,
+		`x-data="balancizTaskLines()"`,
+		`context: 'task_form_service_item'`,
+		`name="line_product_service_id"`,
+		`Service Lines`,
 	} {
 		if !strings.Contains(newBody, want) {
-			t.Fatalf("expected new task SmartPicker HTML to contain %q, got %q", want, newBody)
+			t.Fatalf("expected new task service-line HTML to contain %q, got %q", want, newBody)
 		}
 	}
-	if !strings.Contains(newBody, `<input type="hidden" name="product_service_id"`) {
-		t.Fatalf("expected task service SmartPicker to submit product_service_id directly, got %q", newBody)
-	}
 	if strings.Contains(newBody, `<select name="product_service_id"`) {
-		t.Fatalf("task form should render a single service SmartPicker input without a fallback select, got %q", newBody)
+		t.Fatalf("task form should render service-line picker inputs without a fallback select, got %q", newBody)
 	}
 	for _, notWant := range []string{"Task Service A", "Other Co Service", "Task Widget", "Inactive Task Service"} {
 		if strings.Contains(newBody, notWant) {
@@ -253,16 +251,23 @@ func TestTaskFormServiceItemHandlerIntegration(t *testing.T) {
 	if created.ProductServiceID == nil || *created.ProductServiceID != validServiceID {
 		t.Fatalf("expected ProductServiceID %d, got %+v", validServiceID, created.ProductServiceID)
 	}
+	var createdLines []models.TaskLine
+	if err := db.Where("task_id = ?", created.ID).Order("sort_order asc").Find(&createdLines).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(createdLines) != 1 || createdLines[0].ProductServiceID == nil || *createdLines[0].ProductServiceID != validServiceID {
+		t.Fatalf("expected one service line linked to %d, got %+v", validServiceID, createdLines)
+	}
 
 	editResp := performRequest(t, app, fmt.Sprintf("/tasks/%d/edit", created.ID), rawToken)
 	if editResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected %d, got %d", http.StatusOK, editResp.StatusCode)
 	}
 	editBody := readResponseBody(t, editResp)
-	if !strings.Contains(editBody, fmt.Sprintf(`data-context="task_form_service_item" data-field-name="product_service_id" data-value="%d"`, validServiceID)) {
-		t.Fatalf("expected edit page data-value to rehydrate service item %d, got %q", validServiceID, editBody)
+	if !strings.Contains(editBody, fmt.Sprintf(`product_service_id&#34;:&#34;%d`, validServiceID)) {
+		t.Fatalf("expected edit page line JSON to rehydrate service item %d, got %q", validServiceID, editBody)
 	}
-	if !strings.Contains(editBody, `data-selected-label="Task Service A"`) {
+	if !strings.Contains(editBody, `Task Service A`) {
 		t.Fatalf("expected edit page data-selected-label to rehydrate service item, got %q", editBody)
 	}
 	if strings.Contains(editBody, fmt.Sprintf(">%d<", validServiceID)) {
@@ -287,11 +292,8 @@ func TestTaskFormServiceItemHandlerIntegration(t *testing.T) {
 			if !strings.Contains(body, services.ErrTaskServiceItemInvalid.Error()) {
 				t.Fatalf("expected service item error, got %q", body)
 			}
-			if !strings.Contains(body, `data-context="task_form_service_item" data-field-name="product_service_id" data-value=""`) {
-				t.Fatalf("expected rejected service item to clear SmartPicker data-value, got %q", body)
-			}
-			if strings.Contains(body, fmt.Sprintf(`data-context="task_form_service_item" data-field-name="product_service_id" data-value="%d"`, tc.productServiceID)) {
-				t.Fatalf("illegal service item ID %d must not be retained in data-value, got %q", tc.productServiceID, body)
+			if strings.Contains(body, fmt.Sprintf(`product_service_id&#34;:&#34;%d`, tc.productServiceID)) {
+				t.Fatalf("illegal service item ID %d must not be retained in service-line JSON, got %q", tc.productServiceID, body)
 			}
 			var count int64
 			if err := db.Model(&models.Task{}).Where("company_id = ? AND title = ?", companyID, tc.title).Count(&count).Error; err != nil {
@@ -329,10 +331,10 @@ func TestTaskFormServiceItemHandlerIntegration(t *testing.T) {
 		t.Fatalf("expected other-field error re-render %d, got %d", http.StatusOK, badTitleResp.StatusCode)
 	}
 	badTitleBody := readResponseBody(t, badTitleResp)
-	if !strings.Contains(badTitleBody, fmt.Sprintf(`data-context="task_form_service_item" data-field-name="product_service_id" data-value="%d"`, validServiceID)) {
-		t.Fatalf("valid service item data-value must be preserved on other-field error, got %q", badTitleBody)
+	if !strings.Contains(badTitleBody, fmt.Sprintf(`product_service_id&#34;:&#34;%d`, validServiceID)) {
+		t.Fatalf("valid service item line value must be preserved on other-field error, got %q", badTitleBody)
 	}
-	if !strings.Contains(badTitleBody, `data-selected-label="Task Service A"`) {
+	if !strings.Contains(badTitleBody, `Task Service A`) {
 		t.Fatalf("valid service item label must be preserved on other-field error, got %q", badTitleBody)
 	}
 
@@ -344,11 +346,8 @@ func TestTaskFormServiceItemHandlerIntegration(t *testing.T) {
 		t.Fatalf("expected stale edit form %d, got %d", http.StatusOK, staleEditResp.StatusCode)
 	}
 	staleEditBody := readResponseBody(t, staleEditResp)
-	if !strings.Contains(staleEditBody, `data-context="task_form_service_item" data-field-name="product_service_id" data-value=""`) {
-		t.Fatalf("stale service item must clear SmartPicker data-value, got %q", staleEditBody)
-	}
-	if strings.Contains(staleEditBody, fmt.Sprintf(`data-context="task_form_service_item" data-field-name="product_service_id" data-value="%d"`, validServiceID)) {
-		t.Fatalf("stale service item ID %d must not be retained in data-value, got %q", validServiceID, staleEditBody)
+	if strings.Contains(staleEditBody, fmt.Sprintf(`product_service_id&#34;:&#34;%d`, validServiceID)) {
+		t.Fatalf("stale service item ID %d must not be retained in service-line JSON, got %q", validServiceID, staleEditBody)
 	}
 	if !strings.Contains(staleEditBody, "Previously selected service item is no longer available") {
 		t.Fatalf("expected stale service item error, got %q", staleEditBody)

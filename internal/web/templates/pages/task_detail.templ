@@ -154,6 +154,44 @@ templ bodyTaskDetail(vm TaskDetailVM) {
 			</div>
 		</div>
 
+		<div class="mt-6 rounded-lg border border-border bg-surface p-6">
+			<h2 class="text-section font-semibold text-text">Service Lines</h2>
+			<div class="mt-4 overflow-x-auto">
+				<table class="w-full text-left text-body">
+					<thead class="text-small uppercase tracking-wider text-text-muted">
+						<tr class="border-b border-border">
+							<th class="py-3 pr-4">Service Item</th>
+							<th class="py-3 pr-4">Description</th>
+							<th class="py-3 pr-4 text-right">Qty</th>
+							<th class="py-3 pr-4 text-right">Rate</th>
+							<th class="py-3 pr-0 text-right">Amount</th>
+						</tr>
+					</thead>
+					<tbody class="text-text">
+						if len(vm.Task.Lines) == 0 {
+							<tr class="border-b border-border-subtle">
+								<td class="py-3 pr-4">{ taskDetailServiceName(vm.Task) }</td>
+								<td class="py-3 pr-4">{ vm.Task.Title }</td>
+								<td class="py-3 pr-4 text-right tabular-nums">{ vm.Task.Quantity.String() }</td>
+								<td class="py-3 pr-4 text-right tabular-nums">{ taskMoney(vm.Task.Rate, vm.Task.CurrencyCode) }</td>
+								<td class="py-3 pr-0 text-right tabular-nums font-semibold">{ taskMoney(vm.Task.BillableAmount(), vm.Task.CurrencyCode) }</td>
+							</tr>
+						} else {
+							for _, line := range vm.Task.Lines {
+								<tr class="border-b border-border-subtle">
+									<td class="py-3 pr-4">{ taskDetailLineServiceName(line) }</td>
+									<td class="py-3 pr-4">{ line.Description }</td>
+									<td class="py-3 pr-4 text-right tabular-nums">{ line.Quantity.String() }</td>
+									<td class="py-3 pr-4 text-right tabular-nums">{ taskMoney(line.Rate, vm.Task.CurrencyCode) }</td>
+									<td class="py-3 pr-0 text-right tabular-nums font-semibold">{ taskMoney(line.BillableAmount(), vm.Task.CurrencyCode) }</td>
+								</tr>
+							}
+						}
+					</tbody>
+				</table>
+			</div>
+		</div>
+
 		<div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
 			<div class="rounded-lg border border-border bg-surface p-6 xl:col-span-2">
 				<h2 class="text-section font-semibold text-text">Task Billing Trace</h2>
@@ -323,6 +361,20 @@ func taskBillLineMoney(line models.BillLine) string {
 		return taskMoney(line.LineNet, line.Bill.CurrencyCode)
 	}
 	return taskMoney(line.LineNet, "")
+}
+
+func taskDetailServiceName(task models.Task) string {
+	if task.ProductService != nil && task.ProductService.Name != "" {
+		return task.ProductService.Name
+	}
+	return "—"
+}
+
+func taskDetailLineServiceName(line models.TaskLine) string {
+	if line.ProductService != nil && line.ProductService.Name != "" {
+		return line.ProductService.Name
+	}
+	return "—"
 }
 
 templ taskInvoiceTraceSection(title string, emptyText string, rows []services.TaskInvoiceTraceRow) {

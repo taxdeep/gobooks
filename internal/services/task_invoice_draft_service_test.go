@@ -48,6 +48,7 @@ func testTaskInvoiceDraftDB(t *testing.T) *gorm.DB {
 		&models.Bill{},
 		&models.BillLine{},
 		&models.Task{},
+		&models.TaskLine{},
 		&models.Expense{},
 		&models.ExpenseLine{},
 		&models.TaskInvoiceSource{},
@@ -405,6 +406,102 @@ func TestGenerateInvoiceDraft_UsesTaskServiceItemAndRejectsNonServiceAtDraftTime
 	}
 	if *staleLine.ProductServiceID == staleServiceID {
 		t.Fatalf("expected non-service task item %d to be rejected at draft time", staleServiceID)
+	}
+}
+
+func TestGenerateInvoiceDraft_CreatesInvoiceLinesFromTaskServiceLines(t *testing.T) {
+	db := testTaskInvoiceDraftDB(t)
+	fixture := seedTaskDraftFixture(t, db)
+
+	discoveryID := seedDraftProductServiceItem(t, db, fixture.companyID, "4200", "Discovery Service", models.ProductServiceTypeService)
+	buildID := seedDraftProductServiceItem(t, db, fixture.companyID, "4201", "Build Service", models.ProductServiceTypeService)
+	task, err := CreateTask(db, TaskInput{
+		CompanyID:    fixture.companyID,
+		CustomerID:   fixture.customerID,
+		Title:        "Multi-service task",
+		TaskDate:     time.Date(2026, 4, 9, 0, 0, 0, 0, time.UTC),
+		Quantity:     decimal.NewFromInt(1),
+		UnitType:     models.TaskUnitTypeHour,
+		Rate:         decimal.Zero,
+		CurrencyCode: "CAD",
+		IsBillable:   true,
+		Lines: []TaskLineInput{
+			{
+				ProductServiceID: &discoveryID,
+				Description:      "Discovery workshop",
+				Quantity:         decimal.RequireFromString("2.00"),
+				Rate:             decimal.RequireFromString("100.00"),
+			},
+			{
+				ProductServiceID: &buildID,
+				Description:      "Build session",
+				Quantity:         decimal.RequireFromString("3.00"),
+				Rate:             decimal.RequireFromString("50.00"),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	if _, err := CompleteTask(db, fixture.companyID, task.ID); err != nil {
+		t.Fatalf("CompleteTask: %v", err)
+	}
+
+	result, err := GenerateInvoiceDraft(db, GenerateInvoiceDraftInput{
+		CompanyID:  fixture.companyID,
+		CustomerID: fixture.customerID,
+		TaskIDs:    []uint{task.ID},
+		Actor:      "tester",
+	})
+	if err != nil {
+		t.Fatalf("GenerateInvoiceDraft: %v", err)
+	}
+	if result.LineCount != 2 {
+		t.Fatalf("expected two invoice lines, got %+v", result)
+	}
+
+	var invoice models.Invoice
+	if err := db.Preload("Lines", func(db *gorm.DB) *gorm.DB { return db.Order("sort_order asc") }).
+		First(&invoice, result.InvoiceID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(invoice.Lines) != 2 {
+		t.Fatalf("expected two invoice lines, got %d", len(invoice.Lines))
+	}
+	if invoice.Lines[0].ProductServiceID == nil || *invoice.Lines[0].ProductServiceID != discoveryID {
+		t.Fatalf("expected first invoice line service item %d, got %+v", discoveryID, invoice.Lines[0].ProductServiceID)
+	}
+	if invoice.Lines[1].ProductServiceID == nil || *invoice.Lines[1].ProductServiceID != buildID {
+		t.Fatalf("expected second invoice line service item %d, got %+v", buildID, invoice.Lines[1].ProductServiceID)
+	}
+	if !invoice.Lines[0].LineNet.Equal(decimal.RequireFromString("200.00")) || !invoice.Lines[1].LineNet.Equal(decimal.RequireFromString("150.00")) {
+		t.Fatalf("unexpected invoice line amounts: %+v", invoice.Lines)
+	}
+
+	var bridges []models.TaskInvoiceSource
+	if err := db.Where("company_id = ? AND invoice_id = ? AND source_type = ? AND voided_at IS NULL",
+		fixture.companyID, invoice.ID, models.TaskInvoiceSourceTaskLine).
+		Order("source_id asc").
+		Find(&bridges).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(bridges) != 2 {
+		t.Fatalf("expected two task-line source bridges, got %+v", bridges)
+	}
+
+	var lines []models.TaskLine
+	if err := db.Where("company_id = ? AND task_id = ?", fixture.companyID, task.ID).
+		Order("sort_order asc").
+		Find(&lines).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(lines) != 2 {
+		t.Fatalf("expected two stored task lines, got %d", len(lines))
+	}
+	for _, line := range lines {
+		if line.InvoiceID == nil || *line.InvoiceID != invoice.ID || line.InvoiceLineID == nil {
+			t.Fatalf("expected task line invoice refs to be populated, got %+v", line)
+		}
 	}
 }
 

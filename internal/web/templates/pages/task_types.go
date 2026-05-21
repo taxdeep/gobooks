@@ -46,6 +46,7 @@ type TaskFormVM struct {
 	CurrencyCode string
 	IsBillable   bool
 	Notes        string
+	Lines        []TaskFormLineVM
 	// ServiceItemID is the string form of ProductServiceID (empty = none selected).
 	ServiceItemID string
 	// ServiceItemLabel is the human-readable ProductService label for SmartPicker rehydration.
@@ -68,6 +69,17 @@ type TaskFormVM struct {
 	// ServiceItems holds the active service-type items for the company, used to
 	// populate the Service Item dropdown in the New / Edit Task form.
 	ServiceItems []models.ProductService
+}
+
+type TaskFormLineVM struct {
+	ServiceItemID    string `json:"product_service_id"`
+	ServiceItemLabel string `json:"product_service_label"`
+	Description      string `json:"description"`
+	Quantity         string `json:"quantity"`
+	Rate             string `json:"rate"`
+	ServiceItemError string `json:"-"`
+	QuantityError    string `json:"-"`
+	RateError        string `json:"-"`
 }
 
 type TaskDetailVM struct {

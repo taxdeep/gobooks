@@ -77,6 +77,29 @@ func GenerateMonthlyTaskReport(db *gorm.DB, companyID uint, year, month int) (*M
 		return nil, err
 	}
 
+	taskIDs := make([]uint, 0, len(tasks))
+	for _, task := range tasks {
+		taskIDs = append(taskIDs, task.ID)
+	}
+	taskLineAmounts := map[uint]struct {
+		Quantity decimal.Decimal
+		Amount   decimal.Decimal
+	}{}
+	if len(taskIDs) > 0 {
+		var lines []models.TaskLine
+		if err := db.
+			Where("company_id = ? AND task_id IN ? AND is_billable = ?", companyID, taskIDs, true).
+			Find(&lines).Error; err != nil {
+			return nil, err
+		}
+		for _, line := range lines {
+			amount := taskLineAmounts[line.TaskID]
+			amount.Quantity = amount.Quantity.Add(line.Quantity)
+			amount.Amount = amount.Amount.Add(line.BillableAmount())
+			taskLineAmounts[line.TaskID] = amount
+		}
+	}
+
 	// Aggregate by customer
 	totalQty := decimal.NewFromInt(0)
 	totalAmount := decimal.NewFromInt(0)
@@ -85,9 +108,9 @@ func GenerateMonthlyTaskReport(db *gorm.DB, companyID uint, year, month int) (*M
 		summary.TotalTasks++
 
 		if task.IsBillable {
-			billableAmount := task.Quantity.Mul(task.Rate)
+			quantity, billableAmount := taskReportQuantityAndAmount(task.ID, task.Quantity, task.Rate, taskLineAmounts)
 			totalAmount = totalAmount.Add(billableAmount)
-			totalQty = totalQty.Add(task.Quantity)
+			totalQty = totalQty.Add(quantity)
 			summary.BillableTasksCount++
 		}
 
@@ -111,8 +134,9 @@ func GenerateMonthlyTaskReport(db *gorm.DB, companyID uint, year, month int) (*M
 		cust := summary.ByCustomer[key]
 		cust.TaskCount++
 		if task.IsBillable {
-			cust.Quantity = cust.Quantity.Add(task.Quantity)
-			cust.Amount = cust.Amount.Add(task.Quantity.Mul(task.Rate))
+			quantity, billableAmount := taskReportQuantityAndAmount(task.ID, task.Quantity, task.Rate, taskLineAmounts)
+			cust.Quantity = cust.Quantity.Add(quantity)
+			cust.Amount = cust.Amount.Add(billableAmount)
 		}
 	}
 
@@ -135,10 +159,22 @@ func ListTasksByMonth(db *gorm.DB, companyID uint, year, month int) ([]models.Ta
 		Where("task_date >= ? AND task_date < ?", startDate, endDate).
 		Preload("Customer").
 		Preload("ProductService").
+		Preload("Lines", func(db *gorm.DB) *gorm.DB { return db.Order("sort_order asc, id asc") }).
+		Preload("Lines.ProductService").
 		Order("task_date DESC").
 		Find(&tasks).Error
 
 	return tasks, err
+}
+
+func taskReportQuantityAndAmount(taskID uint, legacyQuantity, legacyRate decimal.Decimal, lineAmounts map[uint]struct {
+	Quantity decimal.Decimal
+	Amount   decimal.Decimal
+}) (decimal.Decimal, decimal.Decimal) {
+	if amount, ok := lineAmounts[taskID]; ok {
+		return amount.Quantity, amount.Amount
+	}
+	return legacyQuantity, legacyQuantity.Mul(legacyRate)
 }
 
 func taskMonthBounds(companyID uint, year, month int) (time.Time, time.Time, error) {

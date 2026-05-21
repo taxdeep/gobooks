@@ -57,6 +57,7 @@ func testExpenseIN2DB(t *testing.T) *gorm.DB {
 		&models.Expense{},
 		&models.ExpenseLine{},
 		&models.Task{},
+		&models.TaskLine{},
 		&models.TaskInvoiceSource{},
 		&models.JournalEntry{},
 		&models.JournalLine{},

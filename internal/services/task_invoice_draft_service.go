@@ -52,6 +52,7 @@ type GenerateInvoiceDraftResult struct {
 
 type draftTaskSource struct {
 	Task     models.Task
+	TaskLine *models.TaskLine
 	Line     models.InvoiceLine
 	Amount   decimal.Decimal
 	Currency string
@@ -333,6 +334,8 @@ func loadDraftableTasks(tx *gorm.DB, companyID, customerID uint, ids []uint) (ma
 	if err := applyLockForUpdate(tx.
 		Preload("Customer").
 		Preload("ProductService").
+		Preload("Lines", func(db *gorm.DB) *gorm.DB { return db.Order("sort_order asc, id asc") }).
+		Preload("Lines.ProductService").
 		Where("company_id = ? AND id IN ?", companyID, ids)).
 		Find(&tasks).Error; err != nil {
 		return nil, err
@@ -341,6 +344,16 @@ func loadDraftableTasks(tx *gorm.DB, companyID, customerID uint, ids []uint) (ma
 		return nil, ErrTaskNotFound
 	}
 	active, err := loadActiveSourceSet(tx, companyID, models.TaskInvoiceSourceTask, ids)
+	if err != nil {
+		return nil, err
+	}
+	taskLineIDs := make([]uint, 0)
+	for _, task := range tasks {
+		for _, line := range task.Lines {
+			taskLineIDs = append(taskLineIDs, line.ID)
+		}
+	}
+	activeLines, err := loadActiveSourceSet(tx, companyID, models.TaskInvoiceSourceTaskLine, taskLineIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -353,6 +366,11 @@ func loadDraftableTasks(tx *gorm.DB, companyID, customerID uint, ids []uint) (ma
 		}
 		if task.InvoiceID != nil || task.InvoiceLineID != nil || active[task.ID] {
 			return nil, ErrBillableWorkSourceAlreadyUsed
+		}
+		for _, line := range task.Lines {
+			if line.InvoiceID != nil || line.InvoiceLineID != nil || activeLines[line.ID] {
+				return nil, ErrBillableWorkSourceAlreadyUsed
+			}
 		}
 		out[task.ID] = task
 	}
@@ -440,24 +458,58 @@ func buildTaskDraftSources(tx *gorm.DB, companyID uint, item *models.ProductServ
 		// The item must still be active at draft-generation time — if it was
 		// deactivated since then, we fall back to the TASK_LABOR system item so
 		// the draft can still be generated (the editor can correct it before issuing).
-		lineItem := item
-		if task.ProductService != nil && task.ProductService.IsActive &&
-			task.ProductService.CompanyID == companyID &&
-			task.ProductService.Type == models.ProductServiceTypeService {
-			lineItem = task.ProductService
+		if len(task.Lines) == 0 {
+			lineItem := taskDraftLineItem(companyID, item, task.ProductService)
+			line, amount, currency, err := buildDraftInvoiceLine(tx, companyID, lineItem, strings.TrimSpace(task.Title), task.Quantity, task.Rate, task.CurrencyCode)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, draftTaskSource{
+				Task:     task,
+				Line:     line,
+				Amount:   amount,
+				Currency: currency,
+			})
+			continue
 		}
-		line, amount, currency, err := buildDraftInvoiceLine(tx, companyID, lineItem, strings.TrimSpace(task.Title), task.Quantity, task.Rate, task.CurrencyCode)
-		if err != nil {
-			return nil, err
+		for i := range task.Lines {
+			taskLine := task.Lines[i]
+			if !taskLine.IsBillable {
+				continue
+			}
+			lineItem := taskDraftLineItem(companyID, item, taskLine.ProductService)
+			description := strings.TrimSpace(taskLine.Description)
+			if description == "" {
+				description = strings.TrimSpace(task.Title)
+			}
+			line, amount, currency, err := buildDraftInvoiceLine(tx, companyID, lineItem, description, taskLine.Quantity, taskLine.Rate, task.CurrencyCode)
+			if err != nil {
+				return nil, err
+			}
+			if strings.TrimSpace(taskLine.LineUOM) != "" {
+				line.LineUOM = taskLine.LineUOM
+				line.LineUOMFactor = taskLine.LineUOMFactor
+				line.QtyInStockUOM = taskLine.QtyInStockUOM
+			}
+			out = append(out, draftTaskSource{
+				Task:     task,
+				TaskLine: &taskLine,
+				Line:     line,
+				Amount:   amount,
+				Currency: currency,
+			})
 		}
-		out = append(out, draftTaskSource{
-			Task:     task,
-			Line:     line,
-			Amount:   amount,
-			Currency: currency,
-		})
 	}
 	return out, nil
+}
+
+func taskDraftLineItem(companyID uint, fallback *models.ProductService, candidate *models.ProductService) *models.ProductService {
+	if candidate != nil && candidate.IsActive &&
+		candidate.CompanyID == companyID &&
+		candidate.Type == models.ProductServiceTypeService {
+		return candidate
+	}
+	return fallback
 }
 
 func buildExpenseDraftSources(tx *gorm.DB, companyID uint, item *models.ProductService, sourceMap map[uint]models.Expense) ([]draftExpenseSource, error) {
@@ -616,15 +668,31 @@ func ensureInvoiceNumberAvailable(db *gorm.DB, companyID uint, invoiceNumber str
 func attachTaskSourceToInvoice(tx *gorm.DB, companyID, invoiceID uint, src draftTaskSource) error {
 	invoiceIDCopy := invoiceID
 	invoiceLineID := src.Line.ID
+	sourceType := models.TaskInvoiceSourceTask
+	sourceID := src.Task.ID
+	if src.TaskLine != nil {
+		sourceType = models.TaskInvoiceSourceTaskLine
+		sourceID = src.TaskLine.ID
+	}
 	if err := tx.Create(&models.TaskInvoiceSource{
 		CompanyID:      companyID,
 		InvoiceID:      &invoiceIDCopy,
 		InvoiceLineID:  &invoiceLineID,
-		SourceType:     models.TaskInvoiceSourceTask,
-		SourceID:       src.Task.ID,
+		SourceType:     sourceType,
+		SourceID:       sourceID,
 		AmountSnapshot: src.Amount,
 	}).Error; err != nil {
 		return fmt.Errorf("write task invoice source bridge: %w", err)
+	}
+	if src.TaskLine != nil {
+		if err := tx.Model(&models.TaskLine{}).
+			Where("id = ? AND company_id = ?", src.TaskLine.ID, companyID).
+			Updates(map[string]any{
+				"invoice_id":      invoiceID,
+				"invoice_line_id": src.Line.ID,
+			}).Error; err != nil {
+			return err
+		}
 	}
 	return tx.Model(&models.Task{}).
 		Where("id = ? AND company_id = ?", src.Task.ID, companyID).

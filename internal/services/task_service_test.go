@@ -30,6 +30,7 @@ func taskServiceDB(t *testing.T) *gorm.DB {
 		&models.Invoice{},
 		&models.InvoiceLine{},
 		&models.Task{},
+		&models.TaskLine{},
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -376,6 +377,61 @@ func TestCreateTask_WithServiceItem_Saves(t *testing.T) {
 	}
 	if fetched.ProductService.Name != "Consulting" {
 		t.Fatalf("expected name %q, got %q", "Consulting", fetched.ProductService.Name)
+	}
+}
+
+func TestCreateTask_WithMultipleServiceLines_SavesLinesAndLegacySnapshot(t *testing.T) {
+	db := taskServiceDB(t)
+	companyID := seedTaskServiceCompany(t, db, "Task Multi-Line Co")
+	customerID := seedTaskServiceCustomer(t, db, companyID, "Acme")
+	acctID := seedTaskRevenueAccount(t, db, companyID, "4000")
+	discoveryID := seedTaskServiceItem(t, db, companyID, acctID, "Discovery", models.ProductServiceTypeService, true)
+	buildID := seedTaskServiceItem(t, db, companyID, acctID, "Build", models.ProductServiceTypeService, true)
+
+	in := baseTaskInput(companyID, customerID)
+	in.Lines = []TaskLineInput{
+		{
+			ProductServiceID: &discoveryID,
+			Description:      "Discovery workshop",
+			Quantity:         decimal.RequireFromString("2.00"),
+			Rate:             decimal.RequireFromString("100.00"),
+		},
+		{
+			ProductServiceID: &buildID,
+			Description:      "Build session",
+			Quantity:         decimal.RequireFromString("3.00"),
+			Rate:             decimal.RequireFromString("50.00"),
+		},
+	}
+
+	task, err := CreateTask(db, in)
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	if task.ProductServiceID == nil || *task.ProductServiceID != discoveryID {
+		t.Fatalf("expected legacy ProductServiceID to mirror first line %d, got %+v", discoveryID, task.ProductServiceID)
+	}
+	if !task.Quantity.Equal(decimal.RequireFromString("2.00")) || !task.Rate.Equal(decimal.RequireFromString("100.00")) {
+		t.Fatalf("expected legacy quantity/rate to mirror first line, got %s/%s", task.Quantity, task.Rate)
+	}
+	if len(task.Lines) != 2 {
+		t.Fatalf("expected two task lines preloaded, got %d", len(task.Lines))
+	}
+	if !task.BillableAmount().Equal(decimal.RequireFromString("350.00")) {
+		t.Fatalf("expected multi-line billable amount 350.00, got %s", task.BillableAmount())
+	}
+
+	var stored []models.TaskLine
+	if err := db.Where("company_id = ? AND task_id = ?", companyID, task.ID).
+		Order("sort_order asc").
+		Find(&stored).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(stored) != 2 {
+		t.Fatalf("expected two stored lines, got %d", len(stored))
+	}
+	if stored[0].ProductServiceID == nil || *stored[0].ProductServiceID != discoveryID || stored[1].ProductServiceID == nil || *stored[1].ProductServiceID != buildID {
+		t.Fatalf("unexpected stored line service items: %+v", stored)
 	}
 }
 

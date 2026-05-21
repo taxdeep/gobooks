@@ -1,8 +1,12 @@
 // 遵循project_guide.md
 package pages
 
-import "balanciz/internal/web/templates/layout"
-import "balanciz/internal/web/templates/ui"
+import (
+	"encoding/json"
+	"github.com/shopspring/decimal"
+	"balanciz/internal/web/templates/layout"
+	"balanciz/internal/web/templates/ui"
+)
 
 templ TaskForm(vm TaskFormVM) {
 	@layout.Layout(
@@ -38,9 +42,9 @@ templ bodyTaskForm(vm TaskFormVM) {
 		}
 
 		<form method="post" action={ taskFormAction(vm) } class="mt-6 space-y-6"
-			x-data="balancizTaskRateSync()"
-			data-init-rate={ vm.Rate }
-			@balanciz-picker-select="onServiceItemSelect($event)">
+			x-data="balancizTaskLines()"
+			data-initial-lines={ taskFormLinesJSON(vm) }
+			@balanciz-item-picker-select="onServiceItemSelect($event)">
 			<div class="rounded-lg border border-border bg-surface p-6">
 				<h2 class="text-section font-semibold text-text">Task Details</h2>
 				<div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -81,28 +85,6 @@ templ bodyTaskForm(vm TaskFormVM) {
 					</div>
 
 					<div>
-						<label class="block text-body font-medium text-text">Service Item</label>
-						if vm.ReadOnlyCore {
-							<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">{ taskSelectedServiceItemName(vm) }</div>
-							if vm.ServiceItemError != "" {
-								<div class="mt-1 text-body text-danger">{ vm.ServiceItemError }</div>
-							}
-						} else {
-							@ui.SmartPicker(ui.SmartPickerVM{
-								Label:         "",
-								FieldName:     "product_service_id",
-								Entity:        "product_service",
-								Context:       "task_form_service_item",
-								Value:         vm.ServiceItemID,
-								SelectedLabel: vm.ServiceItemLabel,
-								Placeholder:   "Search service items...",
-								Error:         vm.ServiceItemError,
-								StaticName:    true,
-							})
-						}
-					</div>
-
-					<div>
 						<label class="block text-body font-medium text-text">Task Date *</label>
 						if vm.ReadOnlyCore {
 							<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">{ vm.TaskDate }</div>
@@ -133,30 +115,6 @@ templ bodyTaskForm(vm TaskFormVM) {
 					</div>
 
 					<div>
-						<label class="block text-body font-medium text-text">Quantity</label>
-						if vm.ReadOnlyCore {
-							<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">{ vm.Quantity }</div>
-						} else {
-							<input type="text" name="quantity" value={ vm.Quantity } inputmode="decimal" class={ taskInputClass(vm.QuantityError != "") }/>
-						}
-						if vm.QuantityError != "" {
-							<div class="mt-1 text-body text-danger">{ vm.QuantityError }</div>
-						}
-					</div>
-
-					<div>
-						<label class="block text-body font-medium text-text">Rate</label>
-						if vm.ReadOnlyCore {
-							<div class="mt-2 rounded-md border border-border bg-background px-3 py-2 text-body text-text">{ vm.Rate }</div>
-						} else {
-							<input type="text" name="rate" value={ vm.Rate } x-model="rate" inputmode="decimal" class={ taskInputClass(vm.RateError != "") }/>
-						}
-						if vm.RateError != "" {
-							<div class="mt-1 text-body text-danger">{ vm.RateError }</div>
-						}
-					</div>
-
-					<div>
 						<label class="block text-body font-medium text-text">Currency</label>
 						if vm.MultiCurrency {
 							if vm.ReadOnlyCore {
@@ -182,6 +140,91 @@ templ bodyTaskForm(vm TaskFormVM) {
 			</div>
 
 			<div class="rounded-lg border border-border bg-surface p-6">
+				<div class="flex flex-wrap items-center justify-between gap-3">
+					<h2 class="text-section font-semibold text-text">Service Lines</h2>
+					if !vm.ReadOnlyCore {
+						<button type="button" @click="addLine()" class="rounded-md border border-border-input px-3 py-1.5 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text">Add Line</button>
+					}
+				</div>
+				if vm.QuantityError != "" || vm.RateError != "" || vm.ServiceItemError != "" {
+					<div class="mt-3 text-body text-danger">
+						if vm.ServiceItemError != "" {
+							{ vm.ServiceItemError }
+						} else if vm.QuantityError != "" {
+							{ vm.QuantityError }
+						} else {
+							{ vm.RateError }
+						}
+					</div>
+				}
+				if vm.ReadOnlyCore {
+					<div class="mt-4 overflow-x-auto">
+						<table class="w-full text-left text-body">
+							<thead class="text-small uppercase tracking-wider text-text-muted">
+								<tr class="border-b border-border">
+									<th class="py-2 pr-4">Service Item</th>
+									<th class="py-2 pr-4">Description</th>
+									<th class="py-2 pr-4 text-right">Qty</th>
+									<th class="py-2 pr-4 text-right">Rate</th>
+									<th class="py-2 pr-0 text-right">Amount</th>
+								</tr>
+							</thead>
+							<tbody>
+								for _, line := range taskFormDisplayLines(vm) {
+									<tr class="border-b border-border-subtle align-top">
+										<td class="py-3 pr-4 text-text">{ taskLineServiceLabel(line) }</td>
+										<td class="py-3 pr-4 text-text">{ line.Description }</td>
+										<td class="py-3 pr-4 text-right tabular-nums">{ line.Quantity }</td>
+										<td class="py-3 pr-4 text-right tabular-nums">{ line.Rate }</td>
+										<td class="py-3 pr-0 text-right tabular-nums">{ taskLineAmount(line) }</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				} else {
+					<div class="mt-4 overflow-x-auto">
+						<table class="w-full text-left text-body">
+							<thead class="text-small uppercase tracking-wider text-text-muted">
+								<tr class="border-b border-border">
+									<th class="py-2 pr-3 min-w-64">Service Item</th>
+									<th class="py-2 pr-3 min-w-72">Description</th>
+									<th class="py-2 pr-3 w-28 text-right">Qty</th>
+									<th class="py-2 pr-3 w-32 text-right">Rate</th>
+									<th class="py-2 pr-3 w-32 text-right">Amount</th>
+									<th class="py-2 pr-0 w-20"></th>
+								</tr>
+							</thead>
+							<tbody>
+								<template x-for="(line, idx) in lines" :key="line._rowKey">
+									<tr class="border-b border-border-subtle align-top">
+										<td class="py-3 pr-3">
+											@taskLineItemPicker()
+										</td>
+										<td class="py-3 pr-3">
+											<input type="text" name="line_description" x-model="line.description" placeholder="Work performed" autocomplete="off" class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"/>
+										</td>
+										<td class="py-3 pr-3">
+											<input type="text" name="line_quantity" x-model="line.quantity" @input="calcLine(idx)" inputmode="decimal" class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-right text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"/>
+										</td>
+										<td class="py-3 pr-3">
+											<input type="text" name="line_rate" x-model="line.rate" @input="calcLine(idx)" inputmode="decimal" class="block w-full rounded-md border border-border-input bg-surface px-2 py-1.5 text-right text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"/>
+										</td>
+										<td class="py-3 pr-3 text-right tabular-nums text-text">
+											<span x-text="line.amount"></span>
+										</td>
+										<td class="py-3 pr-0 text-right">
+											<button type="button" @click="removeLine(idx)" x-show="lines.length > 1" x-cloak class="rounded-md border border-border-input px-2 py-1 text-small text-text-muted3 hover:bg-background hover:text-text">Remove</button>
+										</td>
+									</tr>
+								</template>
+							</tbody>
+						</table>
+					</div>
+				}
+			</div>
+
+			<div class="rounded-lg border border-border bg-surface p-6">
 				<h2 class="text-section font-semibold text-text">Notes</h2>
 				<textarea name="notes" rows="5" placeholder="Optional internal notes about the work performed." class={ taskInputClass(false) }>{ vm.Notes }</textarea>
 			</div>
@@ -197,6 +240,7 @@ templ bodyTaskForm(vm TaskFormVM) {
 				</button>
 			</div>
 		</form>
+		@taskLinesScript()
 	</div>
 }
 
@@ -262,4 +306,117 @@ func taskSelectedServiceItemName(vm TaskFormVM) string {
 		}
 	}
 	return "—"
+}
+templ taskLineItemPicker() {
+	<div x-data="balancizItemPicker(line, idx, { context: 'task_form_service_item' })" class="relative" @click.outside="close()" @keydown="onKeydown($event)">
+		<input type="hidden" name="line_product_service_id" :value="line.product_service_id"/>
+		<div class="flex items-center gap-1.5">
+			<input type="text" autocomplete="off" placeholder="Search service items..." x-model="query" @focus="onFocus()" @input="onInput()" class="block min-w-0 flex-1 rounded-md border border-border-input bg-surface px-2 py-1.5 text-body text-text outline-none focus:ring-2 focus:ring-primary-focus"/>
+			<button type="button" x-show="line.product_service_id || query" x-cloak @click="clear()" title="Clear item" aria-label="Clear item" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border-input bg-background text-body font-semibold leading-none text-text-muted2 hover:border-primary hover:bg-surface hover:text-text">&times;</button>
+		</div>
+		<div x-show="open" x-cloak class="absolute z-40 mt-1 w-96 rounded-md border border-border bg-surface shadow-lg" style="display:none">
+			<div x-show="loading" class="px-3 py-2 text-body text-text-muted2">Searching...</div>
+			<div x-show="!loading && failed" class="px-3 py-2 text-body text-danger">Search failed. Try again.</div>
+			<ul x-show="!loading && !failed && items.length > 0" class="max-h-60 overflow-y-auto py-1">
+				<template x-for="(item, i) in items" :key="item.id">
+					<li role="option" @click="select(item)" @mouseenter="highlighted = i" :class="highlighted === i ? 'flex flex-col px-3 py-2 cursor-pointer bg-background' : 'flex flex-col px-3 py-2 cursor-pointer hover:bg-background'">
+						<span class="text-body text-text" x-text="item.primary"></span>
+						<span x-show="item.secondary" class="text-small text-text-muted2" x-text="item.secondary"></span>
+					</li>
+				</template>
+			</ul>
+			<div x-show="!loading && !failed && items.length === 0" class="px-3 py-2 text-body text-text-muted2">No matches.</div>
+		</div>
+	</div>
+}
+
+func taskFormLinesJSON(vm TaskFormVM) string {
+	lines := taskFormDisplayLines(vm)
+	b, err := json.Marshal(lines)
+	if err != nil {
+		return "[]"
+	}
+	return string(b)
+}
+
+func taskFormDisplayLines(vm TaskFormVM) []TaskFormLineVM {
+	if len(vm.Lines) > 0 {
+		return vm.Lines
+	}
+	return []TaskFormLineVM{{
+		ServiceItemID:    vm.ServiceItemID,
+		ServiceItemLabel: vm.ServiceItemLabel,
+		Description:      vm.Title,
+		Quantity:         vm.Quantity,
+		Rate:             vm.Rate,
+	}}
+}
+
+func taskLineServiceLabel(line TaskFormLineVM) string {
+	if line.ServiceItemLabel != "" {
+		return line.ServiceItemLabel
+	}
+	return "—"
+}
+
+func taskLineAmount(line TaskFormLineVM) string {
+	qty, qErr := decimal.NewFromString(line.Quantity)
+	rate, rErr := decimal.NewFromString(line.Rate)
+	if qErr != nil || rErr != nil {
+		return ""
+	}
+	return qty.Mul(rate).StringFixed(2)
+}
+
+templ taskLinesScript() {
+	<script>
+		function balancizTaskLines() {
+			return Object.assign(balancizLineItems({
+				defaults: { product_service_id: "", product_service_label: "", description: "", quantity: "1", rate: "0.00", amount: "0.00" },
+				isLineComplete: (line) => (line.product_service_id || line.description) && line.quantity && line.rate,
+			}), {
+				init() {
+					try {
+						this.lines = JSON.parse(this.$el.dataset.initialLines || "[]");
+					} catch (_) {
+						this.lines = [];
+					}
+					if (!Array.isArray(this.lines) || this.lines.length === 0) {
+						this.lines = [this._blankLine()];
+					}
+					for (const line of this.lines) {
+						line.product_service_id = String(line.product_service_id || "");
+						line.product_service_label = line.product_service_label || "";
+						line.description = line.description || "";
+						line.quantity = line.quantity || "1";
+						line.rate = line.rate || "0.00";
+						line.amount = this.lineAmount(line);
+					}
+					this.assignRowKeys();
+				},
+				lineAmount(line) {
+					const qty = parseFloat(String(line.quantity || "0").replace(/,/g, ""));
+					const rate = parseFloat(String(line.rate || "0").replace(/,/g, ""));
+					if (!isFinite(qty) || !isFinite(rate)) return "0.00";
+					return (qty * rate).toFixed(2);
+				},
+				calcLine(idx) {
+					if (!this.lines[idx]) return;
+					this.lines[idx].amount = this.lineAmount(this.lines[idx]);
+				},
+				onServiceItemSelect(event) {
+					const detail = event.detail || {};
+					if (detail.idx === undefined || !this.lines[detail.idx]) return;
+					const line = this.lines[detail.idx];
+					const payload = detail.payload || {};
+					if (!line.description && payload.name) line.description = payload.name;
+					if (payload.default_price && (!line.rate || line.rate === "0.00" || line.rate === "0")) {
+						line.rate = String(payload.default_price);
+					}
+					this.calcLine(detail.idx);
+					this._autoGrowIfComplete(detail.idx);
+				},
+			});
+		}
+	</script>
 }

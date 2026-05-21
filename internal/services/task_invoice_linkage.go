@@ -59,6 +59,7 @@ func releaseTaskInvoiceSourcesForInvoice(tx *gorm.DB, companyID, invoiceID uint,
 
 	now := time.Now().UTC()
 	taskIDs := make([]uint, 0)
+	taskLineIDs := make([]uint, 0)
 	expenseIDs := make([]uint, 0)
 	billLineIDs := make([]uint, 0)
 	bridgeIDs := make([]uint, 0, len(bridges))
@@ -68,6 +69,8 @@ func releaseTaskInvoiceSourcesForInvoice(tx *gorm.DB, companyID, invoiceID uint,
 		switch bridge.SourceType {
 		case models.TaskInvoiceSourceTask:
 			taskIDs = append(taskIDs, bridge.SourceID)
+		case models.TaskInvoiceSourceTaskLine:
+			taskLineIDs = append(taskLineIDs, bridge.SourceID)
 		case models.TaskInvoiceSourceExpense:
 			expenseIDs = append(expenseIDs, bridge.SourceID)
 		case models.TaskInvoiceSourceBillLine:
@@ -95,6 +98,37 @@ func releaseTaskInvoiceSourcesForInvoice(tx *gorm.DB, companyID, invoiceID uint,
 				"invoice_line_id": nil,
 			}).Error; err != nil {
 			return err
+		}
+	}
+	if len(taskLineIDs) > 0 {
+		var lines []models.TaskLine
+		if err := tx.Select("id", "task_id").
+			Where("company_id = ? AND id IN ?", companyID, dedupeUintIDs(taskLineIDs)).
+			Find(&lines).Error; err != nil {
+			return err
+		}
+		lineTaskIDs := make([]uint, 0, len(lines))
+		for _, line := range lines {
+			lineTaskIDs = append(lineTaskIDs, line.TaskID)
+		}
+		if err := tx.Model(&models.TaskLine{}).
+			Where("company_id = ? AND id IN ?", companyID, dedupeUintIDs(taskLineIDs)).
+			Updates(map[string]any{
+				"invoice_id":      nil,
+				"invoice_line_id": nil,
+			}).Error; err != nil {
+			return err
+		}
+		if len(lineTaskIDs) > 0 {
+			if err := tx.Model(&models.Task{}).
+				Where("company_id = ? AND id IN ?", companyID, dedupeUintIDs(lineTaskIDs)).
+				Updates(map[string]any{
+					"status":          string(models.TaskStatusCompleted),
+					"invoice_id":      nil,
+					"invoice_line_id": nil,
+				}).Error; err != nil {
+				return err
+			}
 		}
 	}
 	if len(expenseIDs) > 0 {

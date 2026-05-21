@@ -39,6 +39,7 @@ func testEditorFlowDB(t *testing.T) *gorm.DB {
 		&models.PaymentTerm{},
 		&models.CompanyCurrency{},
 		&models.Task{},
+		&models.TaskLine{},
 		&models.Expense{},
 		&models.TaskInvoiceSource{},
 		&models.Invoice{},
@@ -453,17 +454,17 @@ func TestInvoiceEditorTaskGeneratedDraftIsReadOnlyAndDeleteStillReleasesSources(
 	}
 
 	form := url.Values{
-		"invoice_id":                {fmt.Sprintf("%d", invoice.ID)},
-		"invoice_number":            {invoice.InvoiceNumber},
-		"customer_id":               {fmt.Sprintf("%d", customerID)},
-		"invoice_date":              {"2026-04-04"},
-		"terms":                     {"DOC"},
-		"memo":                      {"should not save"},
-		"line_count":                {"1"},
-		"line_description[0]":       {"Changed line"},
-		"line_qty[0]":               {"1"},
-		"line_unit_price[0]":        {"125.00"},
-		"line_tax_code_id[0]":       {""},
+		"invoice_id":                 {fmt.Sprintf("%d", invoice.ID)},
+		"invoice_number":             {invoice.InvoiceNumber},
+		"customer_id":                {fmt.Sprintf("%d", customerID)},
+		"invoice_date":               {"2026-04-04"},
+		"terms":                      {"DOC"},
+		"memo":                       {"should not save"},
+		"line_count":                 {"1"},
+		"line_description[0]":        {"Changed line"},
+		"line_qty[0]":                {"1"},
+		"line_unit_price[0]":         {"125.00"},
+		"line_tax_code_id[0]":        {""},
 		"line_product_service_id[0]": {""},
 	}
 	saveResp := performFormRequest(t, app, http.MethodPost, "/invoices/save-draft", form, "")

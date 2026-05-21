@@ -209,6 +209,28 @@ func GetTaskBillingTrace(db *gorm.DB, companyID, taskID uint) (*TaskBillingTrace
 	if err != nil {
 		return nil, err
 	}
+	if len(task.Lines) > 0 {
+		lineIDs := make([]uint, 0, len(task.Lines))
+		lineLabels := make(map[uint]string, len(task.Lines))
+		lineCurrencies := make(map[uint]string, len(task.Lines))
+		for _, line := range task.Lines {
+			lineIDs = append(lineIDs, line.ID)
+			label := strings.TrimSpace(line.Description)
+			if label == "" {
+				label = task.Title
+			}
+			lineLabels[line.ID] = label
+			lineCurrencies[line.ID] = normalizeVisibilityCurrency(task.CurrencyCode, baseCurrency)
+		}
+		lineRows, err := listTaskInvoiceTraceRows(db, companyID, models.TaskInvoiceSourceTaskLine, lineIDs, lineLabels, lineCurrencies)
+		if err != nil {
+			return nil, err
+		}
+		taskRows = append(taskRows, lineRows...)
+		sort.SliceStable(taskRows, func(i, j int) bool {
+			return taskRows[i].CreatedAt.After(taskRows[j].CreatedAt)
+		})
+	}
 	trace.TaskHistory = taskRows
 
 	expenseIDs := make([]uint, 0, len(expenses))
@@ -292,6 +314,7 @@ func GetTaskBillingTrace(db *gorm.DB, companyID, taskID uint) (*TaskBillingTrace
 func listUnbilledTasks(db *gorm.DB, companyID uint, customerID *uint) ([]models.Task, error) {
 	q := db.
 		Preload("Customer").
+		Preload("Lines", func(db *gorm.DB) *gorm.DB { return db.Order("sort_order asc, id asc") }).
 		Where(`company_id = ? AND status = ? AND is_billable = ? AND invoice_id IS NULL AND invoice_line_id IS NULL`,
 			companyID, models.TaskStatusCompleted, true)
 	if customerID != nil && *customerID > 0 {
@@ -352,9 +375,26 @@ func filterTasksWithoutActiveLinkage(db *gorm.DB, companyID uint, tasks []models
 	if err != nil {
 		return nil, err
 	}
+	lineIDs := make([]uint, 0)
+	for _, task := range tasks {
+		for _, line := range task.Lines {
+			lineIDs = append(lineIDs, line.ID)
+		}
+	}
+	activeLines, err := loadActiveSourceSet(db, companyID, models.TaskInvoiceSourceTaskLine, lineIDs)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]models.Task, 0, len(tasks))
 	for _, task := range tasks {
-		if !active[task.ID] {
+		hasActiveLine := false
+		for _, line := range task.Lines {
+			if activeLines[line.ID] {
+				hasActiveLine = true
+				break
+			}
+		}
+		if !active[task.ID] && !hasActiveLine {
 			out = append(out, task)
 		}
 	}

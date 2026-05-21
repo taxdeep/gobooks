@@ -473,6 +473,104 @@ func (s *Server) rehydrateTaskServiceItemLabel(companyID uint, idStr string) str
 	return item.Primary
 }
 
+func (s *Server) taskFormLinesFromTask(companyID uint, task *models.Task) []pages.TaskFormLineVM {
+	if task == nil {
+		return nil
+	}
+	if len(task.Lines) == 0 {
+		line := pages.TaskFormLineVM{
+			Description: task.Title,
+			Quantity:    task.Quantity.String(),
+			Rate:        task.Rate.StringFixed(2),
+		}
+		if task.ProductServiceID != nil {
+			line.ServiceItemID = strconv.FormatUint(uint64(*task.ProductServiceID), 10)
+			line.ServiceItemLabel = s.rehydrateTaskServiceItemLabel(companyID, line.ServiceItemID)
+			if line.ServiceItemLabel == "" {
+				line.ServiceItemID = ""
+				line.ServiceItemError = "Previously selected service item is no longer available. Please choose a new one."
+			}
+		}
+		return []pages.TaskFormLineVM{line}
+	}
+	out := make([]pages.TaskFormLineVM, 0, len(task.Lines))
+	for _, taskLine := range task.Lines {
+		line := pages.TaskFormLineVM{
+			Description: taskLine.Description,
+			Quantity:    taskLine.Quantity.String(),
+			Rate:        taskLine.Rate.StringFixed(2),
+		}
+		if taskLine.ProductServiceID != nil {
+			line.ServiceItemID = strconv.FormatUint(uint64(*taskLine.ProductServiceID), 10)
+			line.ServiceItemLabel = s.rehydrateTaskServiceItemLabel(companyID, line.ServiceItemID)
+			if line.ServiceItemLabel == "" {
+				line.ServiceItemID = ""
+				line.ServiceItemError = "Previously selected service item is no longer available. Please choose a new one."
+			}
+		}
+		out = append(out, line)
+	}
+	return out
+}
+
+func (s *Server) parseTaskLineVMs(c *fiber.Ctx, companyID uint) []pages.TaskFormLineVM {
+	productIDs := repeatedPostArgStrings(c, "line_product_service_id")
+	descriptions := repeatedPostArgStrings(c, "line_description")
+	quantities := repeatedPostArgStrings(c, "line_quantity")
+	rates := repeatedPostArgStrings(c, "line_rate")
+	n := maxInt(len(productIDs), len(descriptions), len(quantities), len(rates))
+	out := make([]pages.TaskFormLineVM, 0, n)
+	for i := 0; i < n; i++ {
+		line := pages.TaskFormLineVM{
+			ServiceItemID: strings.TrimSpace(valueAt(productIDs, i)),
+			Description:   strings.TrimSpace(valueAt(descriptions, i)),
+			Quantity:      strings.TrimSpace(valueAt(quantities, i)),
+			Rate:          strings.TrimSpace(valueAt(rates, i)),
+		}
+		if line.Quantity == "" {
+			line.Quantity = "1"
+		}
+		if line.Rate == "" {
+			line.Rate = "0.00"
+		}
+		if line.ServiceItemID != "" {
+			line.ServiceItemLabel = s.rehydrateTaskServiceItemLabel(companyID, line.ServiceItemID)
+		}
+		if line.ServiceItemID == "" && line.Description == "" && (line.Quantity == "1" || line.Quantity == "1.00") && (line.Rate == "0" || line.Rate == "0.00") {
+			continue
+		}
+		out = append(out, line)
+	}
+	return out
+}
+
+func repeatedPostArgStrings(c *fiber.Ctx, key string) []string {
+	values := make([]string, 0)
+	c.Request().PostArgs().VisitAll(func(k, v []byte) {
+		if string(k) == key {
+			values = append(values, string(v))
+		}
+	})
+	return values
+}
+
+func valueAt(values []string, idx int) string {
+	if idx < 0 || idx >= len(values) {
+		return ""
+	}
+	return values[idx]
+}
+
+func maxInt(values ...int) int {
+	max := 0
+	for _, value := range values {
+		if value > max {
+			max = value
+		}
+	}
+	return max
+}
+
 func (s *Server) newTaskFormVM(companyID uint) (pages.TaskFormVM, error) {
 	vm := pages.TaskFormVM{
 		HasCompany: true,
@@ -481,6 +579,10 @@ func (s *Server) newTaskFormVM(companyID uint) (pages.TaskFormVM, error) {
 		UnitType:   models.TaskUnitTypeHour,
 		Rate:       "0.00",
 		IsBillable: true,
+		Lines: []pages.TaskFormLineVM{{
+			Quantity: "1",
+			Rate:     "0.00",
+		}},
 	}
 	if err := s.loadTaskFormContext(companyID, &vm); err != nil {
 		return vm, err
@@ -508,6 +610,13 @@ func (s *Server) taskFormVMFromTask(companyID uint, task *models.Task) (pages.Ta
 		CurrencyCode: task.CurrencyCode,
 		IsBillable:   task.IsBillable,
 		Notes:        task.Notes,
+	}
+	vm.Lines = s.taskFormLinesFromTask(companyID, task)
+	for _, line := range vm.Lines {
+		if line.ServiceItemError != "" {
+			vm.ServiceItemError = line.ServiceItemError
+			break
+		}
 	}
 	if label := s.rehydrateTaskCustomerLabel(companyID, vm.CustomerID); label == "" {
 		vm.CustomerID = ""
@@ -552,6 +661,7 @@ func (s *Server) buildTaskFormVMFromRequest(c *fiber.Ctx, companyID uint, existi
 		vm.CurrencyCode = existing.CurrencyCode
 		vm.IsBillable = existing.IsBillable
 		vm.Notes = strings.TrimSpace(c.FormValue("notes"))
+		vm.Lines = s.taskFormLinesFromTask(companyID, existing)
 		if existing.ProductServiceID != nil {
 			idStr := strconv.FormatUint(uint64(*existing.ProductServiceID), 10)
 			label := s.rehydrateTaskServiceItemLabel(companyID, idStr)
@@ -593,12 +703,26 @@ func (s *Server) buildTaskFormVMFromRequest(c *fiber.Ctx, companyID uint, existi
 	vm.IsBillable = c.FormValue("is_billable") == "1"
 	vm.Notes = strings.TrimSpace(c.FormValue("notes"))
 	vm.ServiceItemID = strings.TrimSpace(c.FormValue("product_service_id"))
+	vm.Lines = s.parseTaskLineVMs(c, companyID)
+	if len(vm.Lines) > 0 {
+		vm.ServiceItemID = vm.Lines[0].ServiceItemID
+		vm.ServiceItemLabel = vm.Lines[0].ServiceItemLabel
+	}
 
 	if vm.Quantity == "" {
 		vm.Quantity = "1"
 	}
 	if vm.Rate == "" {
 		vm.Rate = "0.00"
+	}
+	if len(vm.Lines) == 0 {
+		vm.Lines = []pages.TaskFormLineVM{{
+			ServiceItemID:    vm.ServiceItemID,
+			ServiceItemLabel: vm.ServiceItemLabel,
+			Description:      vm.Title,
+			Quantity:         vm.Quantity,
+			Rate:             vm.Rate,
+		}}
 	}
 	if vm.CurrencyCode == "" {
 		vm.CurrencyCode = vm.BaseCurrencyCode
@@ -632,6 +756,65 @@ func (s *Server) buildTaskFormVMFromRequest(c *fiber.Ctx, companyID uint, existi
 			vm.ServiceItemError = "Service item is invalid."
 			hasErr = true
 		}
+	}
+	input.Lines = make([]services.TaskLineInput, 0, len(vm.Lines))
+	for i := range vm.Lines {
+		line := &vm.Lines[i]
+		if strings.TrimSpace(line.Quantity) == "" {
+			line.Quantity = "1"
+		}
+		if strings.TrimSpace(line.Rate) == "" {
+			line.Rate = "0.00"
+		}
+		var lineInput services.TaskLineInput
+		lineInput.Description = strings.TrimSpace(line.Description)
+		lineInput.IsBillable = vm.IsBillable
+		if line.ServiceItemID != "" {
+			if id64, err := services.ParseUint(line.ServiceItemID); err == nil && id64 > 0 {
+				label := s.rehydrateTaskServiceItemLabel(companyID, line.ServiceItemID)
+				if label != "" {
+					id := uint(id64)
+					lineInput.ProductServiceID = &id
+					line.ServiceItemLabel = label
+				} else {
+					line.ServiceItemID = ""
+					line.ServiceItemLabel = ""
+					line.ServiceItemError = services.ErrTaskServiceItemInvalid.Error()
+					vm.ServiceItemError = services.ErrTaskServiceItemInvalid.Error()
+					hasErr = true
+				}
+			} else {
+				line.ServiceItemID = ""
+				line.ServiceItemLabel = ""
+				line.ServiceItemError = "Service item is invalid."
+				vm.ServiceItemError = "Service item is invalid."
+				hasErr = true
+			}
+		}
+		qty, err := decimal.NewFromString(line.Quantity)
+		if err != nil || qty.IsNegative() {
+			line.QuantityError = "Quantity must be zero or greater."
+			vm.QuantityError = line.QuantityError
+			hasErr = true
+		} else {
+			lineInput.Quantity = qty
+		}
+		rate, err := decimal.NewFromString(line.Rate)
+		if err != nil || rate.IsNegative() {
+			line.RateError = "Rate must be zero or greater."
+			vm.RateError = line.RateError
+			hasErr = true
+		} else {
+			lineInput.Rate = rate
+		}
+		input.Lines = append(input.Lines, lineInput)
+	}
+	if len(input.Lines) > 0 {
+		input.ProductServiceID = input.Lines[0].ProductServiceID
+		input.Quantity = input.Lines[0].Quantity
+		input.Rate = input.Lines[0].Rate
+		vm.Quantity = vm.Lines[0].Quantity
+		vm.Rate = vm.Lines[0].Rate
 	}
 	if id64, err := services.ParseUint(vm.CustomerID); err == nil && id64 > 0 {
 		if label := s.rehydrateTaskCustomerLabel(companyID, vm.CustomerID); label != "" {

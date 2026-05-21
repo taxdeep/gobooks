@@ -128,6 +128,7 @@ type TaskInvoiceSourceType string
 
 const (
 	TaskInvoiceSourceTask     TaskInvoiceSourceType = "task"
+	TaskInvoiceSourceTaskLine TaskInvoiceSourceType = "task_line"
 	TaskInvoiceSourceExpense  TaskInvoiceSourceType = "expense"
 	TaskInvoiceSourceBillLine TaskInvoiceSourceType = "bill_line"
 )
@@ -159,6 +160,7 @@ type Task struct {
 	// Only active, service-type items belonging to the same company are valid.
 	ProductServiceID *uint           `gorm:"index"`
 	ProductService   *ProductService `gorm:"foreignKey:ProductServiceID"`
+	Lines            []TaskLine      `gorm:"foreignKey:TaskID"`
 
 	// Title is the human-readable work description.
 	// It becomes the invoice line Description when the task is billed.
@@ -191,7 +193,53 @@ type Task struct {
 // BillableAmount returns quantity × rate as the computed labor billing amount.
 // This is the amount that will appear on the invoice line when the task is billed.
 func (t Task) BillableAmount() decimal.Decimal {
+	if len(t.Lines) > 0 {
+		total := decimal.Zero
+		for _, line := range t.Lines {
+			if line.IsBillable {
+				total = total.Add(line.BillableAmount())
+			}
+		}
+		return total
+	}
 	return t.Quantity.Mul(t.Rate)
+}
+
+// TaskLine is one billable service row inside a task.
+//
+// The task header owns customer/date/status/currency. Lines own the service item,
+// description, quantity, rate, and UOM snapshot that later become invoice lines.
+type TaskLine struct {
+	ID        uint  `gorm:"primaryKey"`
+	CompanyID uint  `gorm:"not null;index"`
+	TaskID    uint  `gorm:"not null;index"`
+	Task      *Task `gorm:"foreignKey:TaskID"`
+
+	ProductServiceID *uint           `gorm:"index"`
+	ProductService   *ProductService `gorm:"foreignKey:ProductServiceID"`
+
+	Description string          `gorm:"type:text;not null;default:''"`
+	Quantity    decimal.Decimal `gorm:"type:numeric(18,6);not null;default:1"`
+	Rate        decimal.Decimal `gorm:"type:numeric(18,6);not null;default:0"`
+
+	LineUOM       string          `gorm:"type:text;not null;default:''"`
+	LineUOMFactor decimal.Decimal `gorm:"type:numeric(18,6);not null;default:1"`
+	QtyInStockUOM decimal.Decimal `gorm:"type:numeric(18,6);not null;default:0"`
+
+	SortOrder  uint `gorm:"not null;default:1"`
+	IsBillable bool `gorm:"not null;default:true"`
+
+	InvoiceID     *uint        `gorm:"index"`
+	Invoice       *Invoice     `gorm:"foreignKey:InvoiceID"`
+	InvoiceLineID *uint        `gorm:"index"`
+	InvoiceLine   *InvoiceLine `gorm:"foreignKey:InvoiceLineID"`
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (l TaskLine) BillableAmount() decimal.Decimal {
+	return l.Quantity.Mul(l.Rate)
 }
 
 // ── TaskInvoiceSource bridge table ────────────────────────────────────────────
