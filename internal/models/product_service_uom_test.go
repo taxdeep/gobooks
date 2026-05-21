@@ -121,9 +121,8 @@ func TestValidateUOMs(t *testing.T) {
 				Name: "Consulting", IsStockItem: false,
 				ItemStructureType: ItemStructureSingle,
 				StockUOM:          "EA", SellUOM: "HOUR", SellUOMFactor: decimal.NewFromInt(1),
-				PurchaseUOM: "EA", PurchaseUOMFactor: decimal.NewFromInt(1),
+				PurchaseUOM: "HOUR", PurchaseUOMFactor: decimal.NewFromInt(1),
 			},
-			wantErr: "UOM customisation only applies to stock-tracked items or bundles",
 		},
 		{
 			name: "non-stock service with all defaults — ok",
@@ -151,7 +150,7 @@ func TestValidateUOMs(t *testing.T) {
 				StockUOM:          "PACK", SellUOM: "EA", SellUOMFactor: decimal.NewFromInt(1),
 				PurchaseUOM: "EA", PurchaseUOMFactor: decimal.NewFromInt(1),
 			},
-			wantErr: "non-stock items can only customise SellUOM",
+			wantErr: "non-stock items must keep StockUOM=EA",
 		},
 		{
 			name: "bundle parent with custom SellUOMFactor — reject (no stock to convert from)",
@@ -161,7 +160,7 @@ func TestValidateUOMs(t *testing.T) {
 				StockUOM:          "EA", SellUOM: "PACK", SellUOMFactor: decimal.NewFromInt(3),
 				PurchaseUOM: "EA", PurchaseUOMFactor: decimal.NewFromInt(1),
 			},
-			wantErr: "non-stock items can only customise SellUOM",
+			wantErr: "non-stock items must keep StockUOM=EA",
 		},
 	}
 	for _, tc := range cases {

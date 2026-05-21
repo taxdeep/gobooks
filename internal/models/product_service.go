@@ -209,24 +209,12 @@ func (ps *ProductService) ValidateUOMs() error {
 			ps.StockUOM, ps.PurchaseUOMFactor.String())
 	}
 	if !ps.IsStockItem {
-		// Non-stock items don't have a real stock unit. Two sub-rules:
-		//
-		//   * Bundle parents (per design §6.4 / §9.7) MAY carry a
-		//     custom SellUOM purely as a display label (e.g. "Gift Box"
-		//     sells as 1 EA — but a kit could also be "PACK"). They
-		//     still have no Stock or Purchase unit and no factor — both
-		//     factors are pinned to 1.
-		//   * All other non-stock items (Service / NonInventory single /
-		//     OtherCharge) must keep every UOM at the EA default. UOM
-		//     customisation on a service line makes no sense.
-		isBundle := ps.ItemStructureType == ItemStructureBundle
-		if !isBundle && ps.SellUOM != "EA" {
-			return fmt.Errorf("UOM customisation only applies to stock-tracked items or bundles; %q is %s",
-				ps.Name, ps.ItemStructureType)
-		}
-		if ps.StockUOM != "EA" || ps.PurchaseUOM != "EA" ||
-			!ps.SellUOMFactor.Equal(one) || !ps.PurchaseUOMFactor.Equal(one) {
-			return fmt.Errorf("non-stock items can only customise SellUOM (and only when bundle); StockUOM / PurchaseUOM / factors must stay at defaults — got %q",
+		// Non-stock items don't have a real stock unit, but their sales and
+		// purchase lines still need a display unit such as HOUR, DAY, or UNIT.
+		// Keep all non-stock factors pinned to 1 so the unit is descriptive and
+		// never drives inventory conversion math.
+		if ps.StockUOM != "EA" || !ps.SellUOMFactor.Equal(one) || !ps.PurchaseUOMFactor.Equal(one) {
+			return fmt.Errorf("non-stock items must keep StockUOM=EA and UOM factors=1 — got %q",
 				ps.Name)
 		}
 	}
@@ -257,9 +245,9 @@ type ProductService struct {
 	PurchasePrice decimal.Decimal `gorm:"type:numeric(18,4);not null;default:0"`
 
 	// Capability flags — set from Type on create via ApplyTypeDefaults.
-	CanBeSold     bool `gorm:"not null;default:true"`
+	CanBeSold      bool `gorm:"not null;default:true"`
 	CanBePurchased bool `gorm:"not null;default:false"`
-	IsStockItem   bool `gorm:"not null;default:false"`
+	IsStockItem    bool `gorm:"not null;default:false"`
 
 	// Structure type: single | bundle | assembly. Default single.
 	ItemStructureType ItemStructureType `gorm:"type:text;not null;default:'single'"`

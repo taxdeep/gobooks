@@ -30,9 +30,9 @@ func snapshotDB(t *testing.T) *gorm.DB {
 }
 
 type snapFix struct {
-	CompanyID    uint
-	StockItemID  uint
-	ServiceID    uint
+	CompanyID   uint
+	StockItemID uint
+	ServiceID   uint
 }
 
 func seedSnapFix(t *testing.T, db *gorm.DB) snapFix {
@@ -64,6 +64,8 @@ func seedSnapFix(t *testing.T, db *gorm.DB) snapFix {
 		Type: models.ProductServiceTypeService, RevenueAccountID: rev.ID, IsActive: true,
 	}
 	svc.ApplyTypeDefaults()
+	svc.SellUOM = "HOUR"
+	svc.PurchaseUOM = "HOUR"
 	db.Create(&svc)
 
 	return snapFix{CompanyID: co.ID, StockItemID: stock.ID, ServiceID: svc.ID}
@@ -84,8 +86,11 @@ func TestSnapshotLineUOM_ServiceItem(t *testing.T) {
 	db := snapshotDB(t)
 	f := seedSnapFix(t, db)
 	got := SnapshotLineUOM(db, f.CompanyID, &f.ServiceID, LineUOMSell, decimal.RequireFromString("1.5"), "", decimal.Zero)
-	if got.LineUOM != "EA" {
-		t.Errorf("service item should fall back to EA, got %s", got.LineUOM)
+	if got.LineUOM != "HOUR" {
+		t.Errorf("service item should use its sell UOM, got %s", got.LineUOM)
+	}
+	if !got.LineUOMFactor.Equal(decimal.NewFromInt(1)) {
+		t.Errorf("service LineUOMFactor = %s, want 1", got.LineUOMFactor)
 	}
 	if !got.QtyInStockUOM.Equal(decimal.RequireFromString("1.5")) {
 		t.Errorf("service QtyInStockUOM = %s, want 1.5", got.QtyInStockUOM)

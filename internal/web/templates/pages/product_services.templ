@@ -6,6 +6,10 @@ import "balanciz/internal/web/templates/layout"
 import "balanciz/internal/web/templates/ui"
 import "fmt"
 
+func productServiceUnitTypeOptions() []string {
+	return []string{"EA", "HOUR", "DAY", "UNIT", "FIXED", "BOX", "CASE", "PACK", "KG", "LB"}
+}
+
 templ ProductServices(vm ProductServicesVM) {
 	@layout.Layout(
 		"Balanciz - Products & Services",
@@ -298,22 +302,44 @@ templ psFormFields(vm ProductServicesVM) {
 			}
 		</div>
 
-		// Type
-		<div>
-			<label class="block text-body font-medium text-text">Type *</label>
-			<select
-				name="type"
-				x-model="itemType"
-				class={ psInputClass(vm.TypeError != "") }
-			>
-				<option value="">-- Select --</option>
-				for _, t := range models.AllProductServiceTypes() {
-					<option value={ string(t) } selected?={ string(t) == vm.Type }>{ models.ProductServiceTypeLabel(t) }</option>
+		<div class="grid gap-4 md:grid-cols-2">
+			// Type
+			<div>
+				<label class="block text-body font-medium text-text">Type *</label>
+				<select
+					name="type"
+					x-model="itemType"
+					class={ psInputClass(vm.TypeError != "") }
+				>
+					<option value="">-- Select --</option>
+					for _, t := range models.AllProductServiceTypes() {
+						<option value={ string(t) } selected?={ string(t) == vm.Type }>{ models.ProductServiceTypeLabel(t) }</option>
+					}
+				</select>
+				if vm.TypeError != "" {
+					<div class="mt-1 text-body text-danger">{ vm.TypeError }</div>
 				}
-			</select>
-			if vm.TypeError != "" {
-				<div class="mt-1 text-body text-danger">{ vm.TypeError }</div>
-			}
+			</div>
+
+			// Unit Type
+			<div>
+				<label class="block text-body font-medium text-text">Unit Type</label>
+				<input
+					type="text"
+					name="unit_type"
+					value={ vm.UnitType }
+					placeholder="EA, HOUR, DAY"
+					maxlength="16"
+					autocomplete="off"
+					class={ psInputClass(false) + " uppercase" }
+					list="product-service-unit-types"
+				/>
+				<datalist id="product-service-unit-types">
+					for _, u := range productServiceUnitTypeOptions() {
+						<option value={ u }></option>
+					}
+				</datalist>
+			</div>
 		</div>
 
 		// SKU
@@ -359,21 +385,6 @@ templ psFormFields(vm ProductServicesVM) {
 				<div class="mt-1 text-body text-danger">{ vm.DefaultPriceError }</div>
 			}
 			<p class="mt-1 text-small text-text-muted2">Pre-fills the unit price on new invoice lines.</p>
-		</div>
-
-		// Purchase Price — inventory only
-		<div x-show="itemType === 'inventory'" x-cloak>
-			<label class="block text-body font-medium text-text">Purchase price</label>
-			<input
-				type="text"
-				name="purchase_price"
-				value={ vm.PurchasePrice }
-				placeholder="0.00"
-				inputmode="decimal"
-				autocomplete="off"
-				class={ psInputClass(false) }
-			/>
-			<p class="mt-1 text-small text-text-muted2">Default cost used for purchase bills.</p>
 		</div>
 
 		// Account Code — Revenue for standard items; Expense/COGS for Other Charge items.

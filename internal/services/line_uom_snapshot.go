@@ -37,7 +37,8 @@ const (
 // SnapshotLineUOM resolves the UOM defaults for a single line:
 //   - When productServiceID is nil (free-text line) or the product can't be
 //     loaded: return EA / 1 / qty (1:1 fallback).
-//   - When ProductService is non-stock: same fallback (UOM is meaningless).
+//   - When ProductService is non-stock: return its sell/purchase display UOM
+//     with factor 1. Non-stock UOMs label the line; they do not drive inventory.
 //   - When stock-tracked: return SellUOM/PurchaseUOM + factor + qty×factor.
 //
 // Pass overrideLineUOM/overrideLineUOMFactor when the operator's form
@@ -75,14 +76,6 @@ func SnapshotLineUOM(
 		}
 	}
 
-	if !ps.IsStockItem {
-		return LineUOMSnapshot{
-			LineUOM:       "EA",
-			LineUOMFactor: one,
-			QtyInStockUOM: qty.Round(4),
-		}
-	}
-
 	// Default to the product's side UOM.
 	defaultUOM := ps.SellUOM
 	defaultFactor := ps.SellUOMFactor
@@ -92,6 +85,9 @@ func SnapshotLineUOM(
 	}
 	if defaultUOM == "" {
 		defaultUOM = "EA"
+	}
+	if !ps.IsStockItem {
+		defaultFactor = one
 	}
 	if !defaultFactor.IsPositive() {
 		defaultFactor = one

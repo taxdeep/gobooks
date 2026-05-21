@@ -349,6 +349,11 @@ func TestGenerateInvoiceDraft_UsesTaskServiceItemAndRejectsNonServiceAtDraftTime
 	fixture := seedTaskDraftFixture(t, db)
 
 	customServiceID := seedDraftProductServiceItem(t, db, fixture.companyID, "4100", "Implementation Service", models.ProductServiceTypeService)
+	if err := db.Model(&models.ProductService{}).
+		Where("id = ?", customServiceID).
+		Updates(map[string]any{"sell_uom": "HOUR", "purchase_uom": "HOUR"}).Error; err != nil {
+		t.Fatal(err)
+	}
 	task := seedDraftTask(t, db, fixture.companyID, fixture.customerID, models.TaskStatusCompleted, "Custom service task", true)
 	if err := db.Model(&task).Update("product_service_id", customServiceID).Error; err != nil {
 		t.Fatal(err)
@@ -369,6 +374,9 @@ func TestGenerateInvoiceDraft_UsesTaskServiceItemAndRejectsNonServiceAtDraftTime
 	}
 	if *line.ProductServiceID == fixture.taskLaborItemID {
 		t.Fatalf("expected custom service item, got TASK_LABOR %d", fixture.taskLaborItemID)
+	}
+	if line.LineUOM != "HOUR" || !line.LineUOMFactor.Equal(decimal.NewFromInt(1)) {
+		t.Fatalf("expected task invoice line to snapshot service unit HOUR/1, got %s/%s", line.LineUOM, line.LineUOMFactor)
 	}
 
 	staleServiceID := seedDraftProductServiceItem(t, db, fixture.companyID, "4101", "Later Non-Service", models.ProductServiceTypeService)
