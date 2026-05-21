@@ -2,6 +2,7 @@
 package pages
 
 import "net/url"
+import "strconv"
 import "github.com/shopspring/decimal"
 import "balanciz/internal/models"
 import "balanciz/internal/web/templates/layout"
@@ -121,8 +122,7 @@ templ bodyTasks(vm TasksVM) {
 							<th class="py-3 pr-4">Date</th>
 							<th class="py-3 pr-4">Status</th>
 							<th class="py-3 pr-4">Billing</th>
-							<th class="py-3 pr-4 text-right">Quantity</th>
-							<th class="py-3 pr-4 text-right">Rate</th>
+							<th class="py-3 pr-4 text-right">Service Lines</th>
 							<th class="py-3 pr-4 text-right">Amount</th>
 							<th class="py-3 pr-0 text-right">Actions</th>
 						</tr>
@@ -130,7 +130,7 @@ templ bodyTasks(vm TasksVM) {
 					<tbody class="text-text">
 						if len(vm.Tasks) == 0 {
 							<tr>
-								<td colspan="9" class="py-6 text-text-muted2">No tasks found for the selected filters.</td>
+								<td colspan="8" class="py-6 text-text-muted2">No tasks found for the selected filters.</td>
 							</tr>
 						}
 						for _, task := range vm.Tasks {
@@ -151,10 +151,7 @@ templ bodyTasks(vm TasksVM) {
 									}
 								</td>
 								<td class="py-3 pr-4 text-right tabular-nums">
-									{ task.Quantity.String() }
-								</td>
-								<td class="py-3 pr-4 text-right tabular-nums">
-									{ taskMoney(task.Rate, task.CurrencyCode) }
+									{ taskLineCountLabel(task) }
 								</td>
 								<td class="py-3 pr-4 text-right tabular-nums font-medium">
 									{ taskMoney(task.BillableAmount(), task.CurrencyCode) }
@@ -180,6 +177,17 @@ func taskMoney(amount decimal.Decimal, currency string) string {
 		return Money(amount)
 	}
 	return Money(amount) + " " + currency
+}
+
+func taskLineCountLabel(task models.Task) string {
+	count := len(task.Lines)
+	if count == 0 {
+		count = 1
+	}
+	if count == 1 {
+		return "1 line"
+	}
+	return strconv.Itoa(count) + " lines"
 }
 
 func taskStatusBadgeClass(status models.TaskStatus) string {

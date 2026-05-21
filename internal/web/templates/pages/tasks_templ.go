@@ -11,6 +11,7 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import "net/url"
+import "strconv"
 import "github.com/shopspring/decimal"
 import "balanciz/internal/models"
 import "balanciz/internal/web/templates/layout"
@@ -263,12 +264,12 @@ func bodyTasks(vm TasksVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</div><div class=\"mt-6 flex items-center justify-end\"><button type=\"submit\" class=\"rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover\">Apply Filter</button></div></form><div class=\"mt-6 rounded-lg border border-border bg-surface p-6\"><h2 class=\"text-section font-semibold text-text\">All Tasks</h2><div class=\"mt-4 overflow-x-auto\"><table class=\"w-full text-left text-body\"><thead class=\"text-small uppercase tracking-wider text-text-muted\"><tr class=\"border-b border-border\"><th class=\"py-3 pr-4\">Task</th><th class=\"py-3 pr-4\">Customer</th><th class=\"py-3 pr-4\">Date</th><th class=\"py-3 pr-4\">Status</th><th class=\"py-3 pr-4\">Billing</th><th class=\"py-3 pr-4 text-right\">Quantity</th><th class=\"py-3 pr-4 text-right\">Rate</th><th class=\"py-3 pr-4 text-right\">Amount</th><th class=\"py-3 pr-0 text-right\">Actions</th></tr></thead> <tbody class=\"text-text\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</div><div class=\"mt-6 flex items-center justify-end\"><button type=\"submit\" class=\"rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover\">Apply Filter</button></div></form><div class=\"mt-6 rounded-lg border border-border bg-surface p-6\"><h2 class=\"text-section font-semibold text-text\">All Tasks</h2><div class=\"mt-4 overflow-x-auto\"><table class=\"w-full text-left text-body\"><thead class=\"text-small uppercase tracking-wider text-text-muted\"><tr class=\"border-b border-border\"><th class=\"py-3 pr-4\">Task</th><th class=\"py-3 pr-4\">Customer</th><th class=\"py-3 pr-4\">Date</th><th class=\"py-3 pr-4\">Status</th><th class=\"py-3 pr-4\">Billing</th><th class=\"py-3 pr-4 text-right\">Service Lines</th><th class=\"py-3 pr-4 text-right\">Amount</th><th class=\"py-3 pr-0 text-right\">Actions</th></tr></thead> <tbody class=\"text-text\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if len(vm.Tasks) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<tr><td colspan=\"9\" class=\"py-6 text-text-muted2\">No tasks found for the selected filters.</td></tr>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<tr><td colspan=\"8\" class=\"py-6 text-text-muted2\">No tasks found for the selected filters.</td></tr>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -381,41 +382,28 @@ func bodyTasks(vm TasksVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var16 string
-			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(task.Quantity.String())
+			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(taskLineCountLabel(task))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/tasks.templ`, Line: 154, Col: 33}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/tasks.templ`, Line: 154, Col: 37}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "</td><td class=\"py-3 pr-4 text-right tabular-nums\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "</td><td class=\"py-3 pr-4 text-right tabular-nums font-medium\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var17 string
-			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(taskMoney(task.Rate, task.CurrencyCode))
+			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(taskMoney(task.BillableAmount(), task.CurrencyCode))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/tasks.templ`, Line: 157, Col: 50}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/tasks.templ`, Line: 157, Col: 62}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "</td><td class=\"py-3 pr-4 text-right tabular-nums font-medium\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var18 string
-			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(taskMoney(task.BillableAmount(), task.CurrencyCode))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/tasks.templ`, Line: 160, Col: 62}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "</td><td class=\"py-3 pr-0 text-right whitespace-nowrap\"><a href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "</td><td class=\"py-3 pr-0 text-right whitespace-nowrap\"><a href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -469,6 +457,17 @@ func taskMoney(amount decimal.Decimal, currency string) string {
 		return Money(amount)
 	}
 	return Money(amount) + " " + currency
+}
+
+func taskLineCountLabel(task models.Task) string {
+	count := len(task.Lines)
+	if count == 0 {
+		count = 1
+	}
+	if count == 1 {
+		return "1 line"
+	}
+	return strconv.Itoa(count) + " lines"
 }
 
 func taskStatusBadgeClass(status models.TaskStatus) string {

@@ -766,6 +766,56 @@ func TestTasksListFiltersByCustomerID(t *testing.T) {
 	}
 }
 
+func TestTasksListShowsServiceLineSummaryAndTotal(t *testing.T) {
+	db := testRouteDB(t)
+	companyID := seedCompany(t, db, "Task Line Summary Co")
+	user, rawToken := seedUserSession(t, db, &companyID)
+	seedMembership(t, db, user.ID, companyID)
+	customerID := seedValidationCustomer(t, db, companyID, "Task Customer")
+	taskID := seedTaskForWeb(t, db, companyID, customerID, models.TaskStatusOpen, "Multi line task")
+
+	lines := []models.TaskLine{
+		{
+			CompanyID:   companyID,
+			TaskID:      taskID,
+			Description: "First service",
+			Quantity:    decimal.RequireFromString("2"),
+			Rate:        decimal.RequireFromString("100.00"),
+			SortOrder:   1,
+			IsBillable:  true,
+		},
+		{
+			CompanyID:   companyID,
+			TaskID:      taskID,
+			Description: "Second service",
+			Quantity:    decimal.RequireFromString("3"),
+			Rate:        decimal.RequireFromString("50.00"),
+			SortOrder:   2,
+			IsBillable:  true,
+		},
+	}
+	if err := db.Create(&lines).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	app := testRouteApp(t, db)
+	resp := performRequest(t, app, "/tasks", rawToken)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected %d, got %d", http.StatusOK, resp.StatusCode)
+	}
+	body := readResponseBody(t, resp)
+	for _, expected := range []string{"Service Lines", "2 lines", "350.00 CAD"} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("expected tasks list to include %q, got %q", expected, body)
+		}
+	}
+	for _, legacyHeader := range []string{">Quantity</th>", ">Rate</th>"} {
+		if strings.Contains(body, legacyHeader) {
+			t.Fatalf("did not expect legacy task column header %q in body %q", legacyHeader, body)
+		}
+	}
+}
+
 func TestTasksListActionsUseTaskPermissions(t *testing.T) {
 	db := testRouteDB(t)
 	companyID := seedCompany(t, db, "Task Action Permissions Co")
