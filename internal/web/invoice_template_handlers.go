@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/gofiber/fiber/v2"
 	"balanciz/internal/models"
 	"balanciz/internal/services"
+	"github.com/gofiber/fiber/v2"
 )
 
 // handleInvoiceTemplatesList retrieves and displays all templates for a company.
@@ -87,10 +87,10 @@ func (s *Server) handleInvoiceTemplateCreate(c *fiber.Ctx) error {
 
 	// Parse request
 	type CreateRequest struct {
-		Name        string                  `json:"name"`
-		Description string                  `json:"description"`
+		Name        string                 `json:"name"`
+		Description string                 `json:"description"`
 		Config      *models.TemplateConfig `json:"config"`
-		IsDefault   bool                    `json:"is_default"`
+		IsDefault   bool                   `json:"is_default"`
 	}
 
 	var req CreateRequest
@@ -158,10 +158,10 @@ func (s *Server) handleInvoiceTemplateUpdate(c *fiber.Ctx) error {
 
 	// Parse request
 	type UpdateRequest struct {
-		Name        string                  `json:"name"`
-		Description string                  `json:"description"`
+		Name        string                 `json:"name"`
+		Description string                 `json:"description"`
 		Config      *models.TemplateConfig `json:"config"`
-		IsDefault   bool                    `json:"is_default"`
+		IsDefault   bool                   `json:"is_default"`
 	}
 
 	var req UpdateRequest
@@ -295,7 +295,7 @@ func (s *Server) handleSetDefaultInvoiceTemplate(c *fiber.Ctx) error {
 			"template_id": tmpl.ID,
 		})
 	}
-	return c.Redirect("/settings/company/templates?saved=1", fiber.StatusSeeOther)
+	return c.Redirect("/setting/company/templates?saved=1", fiber.StatusSeeOther)
 }
 
 // handleGetDefaultInvoiceTemplate retrieves the default template for a company.

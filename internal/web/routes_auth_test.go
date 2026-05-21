@@ -391,8 +391,8 @@ func TestPermissionedDashboardLinksMatchBackendGuards(t *testing.T) {
 		{name: "viewer cannot open channel settings", role: models.CompanyRoleViewer, path: "/settings/channels", wantStatus: http.StatusForbidden},
 		{name: "viewer cannot open ar ap control settings", role: models.CompanyRoleViewer, path: "/settings/ar-ap-control", wantStatus: http.StatusForbidden},
 		{name: "viewer cannot open ai connect settings", role: models.CompanyRoleViewer, path: "/settings/ai-connect", wantStatus: http.StatusForbidden},
-		{name: "viewer cannot open notification settings", role: models.CompanyRoleViewer, path: "/settings/company/notifications", wantStatus: http.StatusForbidden},
-		{name: "viewer cannot open security settings", role: models.CompanyRoleViewer, path: "/settings/company/security", wantStatus: http.StatusForbidden},
+		{name: "viewer cannot open notification settings", role: models.CompanyRoleViewer, path: "/setting/company/notifications", wantStatus: http.StatusForbidden},
+		{name: "viewer cannot open security settings", role: models.CompanyRoleViewer, path: "/setting/company/security", wantStatus: http.StatusForbidden},
 		{name: "viewer cannot open pdf template settings", role: models.CompanyRoleViewer, path: "/settings/templates", wantStatus: http.StatusForbidden},
 		{name: "viewer cannot open pdf templates direct route", role: models.CompanyRoleViewer, path: "/pdf-templates", wantStatus: http.StatusForbidden},
 		{name: "ap cannot open payment gateway settings", role: models.CompanyRoleAP, path: "/settings/payment-gateways", wantStatus: http.StatusForbidden},
@@ -429,7 +429,7 @@ func TestCompanyFeaturesPageEnablesTaskModule(t *testing.T) {
 	}
 	app := testRouteApp(t, db)
 
-	pageResp := performRequest(t, app, "/settings/company/features", rawToken)
+	pageResp := performRequest(t, app, "/setting/company/features", rawToken)
 	defer pageResp.Body.Close()
 	pageBody, _ := io.ReadAll(pageResp.Body)
 	body := string(pageBody)
@@ -446,7 +446,7 @@ func TestCompanyFeaturesPageEnablesTaskModule(t *testing.T) {
 	form.Set("typed_confirmation", "ENABLE TASK")
 	csrf := newCSRFToken(t)
 	form.Set(CSRFFormField, csrf)
-	req := httptest.NewRequest(http.MethodPost, "/settings/company/features/enable", bytes.NewReader([]byte(form.Encode())))
+	req := httptest.NewRequest(http.MethodPost, "/setting/company/features/enable", bytes.NewReader([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: rawToken, Path: "/"})
 	req.AddCookie(&http.Cookie{Name: CSRFCookieName, Value: csrf, Path: "/"})
@@ -478,6 +478,22 @@ func TestCompanyFeaturesPageEnablesTaskModule(t *testing.T) {
 	}
 	if !strings.Contains(follow, "Task access is controlled in Members") {
 		t.Fatalf("expected enabled task card to show permissions hint")
+	}
+}
+
+func TestLegacySettingsCompanyPathRedirectsToCanonicalSettingCompany(t *testing.T) {
+	db := testRouteDB(t)
+	companyID := seedCompany(t, db, "Legacy Settings Redirect Co")
+	user, rawToken := seedUserSession(t, db, &companyID)
+	seedMembership(t, db, user.ID, companyID)
+	app := testRouteApp(t, db)
+
+	resp := performRequest(t, app, "/settings/company/features?ok=task", rawToken)
+	if resp.StatusCode != http.StatusPermanentRedirect {
+		t.Fatalf("expected %d, got %d", http.StatusPermanentRedirect, resp.StatusCode)
+	}
+	if got, want := resp.Header.Get("Location"), "/setting/company/features?ok=task"; got != want {
+		t.Fatalf("expected redirect to %q, got %q", want, got)
 	}
 }
 

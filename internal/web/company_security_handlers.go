@@ -82,7 +82,7 @@ func (s *Server) handleCompanySecurityPost(c *fiber.Ctx) error {
 		&cid, &uid, nil, nil,
 	)
 
-	return c.Redirect("/settings/company/security?saved=1", fiber.StatusSeeOther)
+	return c.Redirect("/setting/company/security?saved=1", fiber.StatusSeeOther)
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────

@@ -98,7 +98,7 @@ func bodyCompanyExchangeRates(vm CompanyExchangeRatesVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"flex flex-wrap items-start justify-between gap-4\"><div class=\"min-w-0 flex-1\"><h1 class=\"text-title font-semibold\">Exchange Rates</h1><p class=\"mt-2 text-text-muted2\">Company-specific exchange rates used when posting foreign-currency invoices and bills. Rates are looked up by date — the most recent rate on or before the document date is used.</p></div><div class=\"shrink-0\"><a href=\"/settings/company/currency\" class=\"text-body text-primary hover:underline\">← Currency Settings</a></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"flex flex-wrap items-start justify-between gap-4\"><div class=\"min-w-0 flex-1\"><h1 class=\"text-title font-semibold\">Exchange Rates</h1><p class=\"mt-2 text-text-muted2\">Company-specific exchange rates used when posting foreign-currency invoices and bills. Rates are looked up by date — the most recent rate on or before the document date is used.</p></div><div class=\"shrink-0\"><a href=\"/setting/company/currency\" class=\"text-body text-primary hover:underline\">← Currency Settings</a></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -209,7 +209,7 @@ func bodyCompanyExchangeRates(vm CompanyExchangeRatesVM) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</td><td class=\"py-3 pr-0 text-right\"><form method=\"post\" action=\"/settings/company/exchange-rates/delete\" class=\"inline\"><input type=\"hidden\" name=\"id\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</td><td class=\"py-3 pr-0 text-right\"><form method=\"post\" action=\"/setting/company/exchange-rates/delete\" class=\"inline\"><input type=\"hidden\" name=\"id\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -227,7 +227,7 @@ func bodyCompanyExchangeRates(vm CompanyExchangeRatesVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</tbody></table></div></div><div class=\"mt-4 rounded-lg border border-border bg-surface p-6\"><h2 class=\"text-section font-semibold text-text\">Add / Update Rate</h2><p class=\"mt-1 text-body text-text-muted2\">If a rate for the same base, target, type, and date already exists it will be updated.</p><form method=\"post\" action=\"/settings/company/exchange-rates\" class=\"mt-4\"><div class=\"grid grid-cols-1 gap-4 md:grid-cols-5\"><div><label class=\"block text-body font-medium text-text\">Base *</label> <input type=\"text\" name=\"base\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</tbody></table></div></div><div class=\"mt-4 rounded-lg border border-border bg-surface p-6\"><h2 class=\"text-section font-semibold text-text\">Add / Update Rate</h2><p class=\"mt-1 text-body text-text-muted2\">If a rate for the same base, target, type, and date already exists it will be updated.</p><form method=\"post\" action=\"/setting/company/exchange-rates\" class=\"mt-4\"><div class=\"grid grid-cols-1 gap-4 md:grid-cols-5\"><div><label class=\"block text-body font-medium text-text\">Base *</label> <input type=\"text\" name=\"base\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

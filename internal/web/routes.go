@@ -39,54 +39,56 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	// ── 设置总入口 ────────────────────────────────────────────────────────────
 	// 单一 /settings hub 页，汇总所有公司级设置入口。GET 对所有成员开放。
 	app.Get("/settings", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleSettingsHub)
+	app.All("/settings/company", s.redirectLegacySettingsCompany)
+	app.All("/settings/company/*", s.redirectLegacySettingsCompany)
 
 	// ── 设置：公司档案 ───────────────────────────────────────────────────────────
 	// GET 页面对所有成员开放；POST 变更需要 manage_settings（owner / admin）
-	app.Get("/settings/company/profile", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCompanyProfileForm)
-	app.Post("/settings/company/profile", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanyProfileSubmit)
+	app.Get("/setting/company/profile", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCompanyProfileForm)
+	app.Post("/setting/company/profile", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanyProfileSubmit)
 	// Logo upload (settings permission) and protected serve (any member, prevents hotlinking).
-	app.Post("/settings/company/profile/logo", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanyLogoUpload)
+	app.Post("/setting/company/profile/logo", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanyLogoUpload)
 	app.Get("/company/logo", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCompanyLogoServe)
-	app.Get("/settings/company/templates", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCompanyTemplatesGet)
+	app.Get("/setting/company/templates", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCompanyTemplatesGet)
 	// Features — self-serve enablement of product feature families
 	// (Inventory Alpha, Task coming_soon, …). GET is open to any
 	// member (read-only for non-owners); POST enable/disable is
 	// owner-only via RequireRole, matching the prompt's backend-
 	// guard requirement.
-	app.Get("/settings/company/features", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCompanyFeaturesGet)
-	app.Post("/settings/company/features/enable", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequireRole(models.CompanyRoleOwner), s.handleCompanyFeatureEnable)
-	app.Post("/settings/company/features/disable", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequireRole(models.CompanyRoleOwner), s.handleCompanyFeatureDisable)
-	app.Get("/settings/company/sales-tax", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCompanySalesTaxGet)
-	app.Post("/settings/company/sales-tax", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleTaxCodeCreate)
-	app.Post("/settings/company/sales-tax/update", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleTaxCodeUpdate)
-	app.Post("/settings/company/sales-tax/deactivate", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleTaxCodeDeactivate)
-	app.Get("/settings/company/numbering", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleNumberingSettingsGet)
-	app.Post("/settings/company/numbering", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleNumberingSettingsPost)
-	app.Get("/settings/company/payment-terms", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handlePaymentTermsGet)
-	app.Post("/settings/company/payment-terms", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentTermCreate)
-	app.Post("/settings/company/payment-terms/update", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentTermUpdate)
-	app.Post("/settings/company/payment-terms/set-default", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentTermSetDefault)
-	app.Post("/settings/company/payment-terms/toggle", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentTermToggle)
-	app.Post("/settings/company/payment-terms/delete", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentTermDelete)
-	app.Get("/settings/company", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCompanyHub)
-	app.Post("/settings/company", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanyProfileSubmit)
+	app.Get("/setting/company/features", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCompanyFeaturesGet)
+	app.Post("/setting/company/features/enable", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequireRole(models.CompanyRoleOwner), s.handleCompanyFeatureEnable)
+	app.Post("/setting/company/features/disable", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequireRole(models.CompanyRoleOwner), s.handleCompanyFeatureDisable)
+	app.Get("/setting/company/sales-tax", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCompanySalesTaxGet)
+	app.Post("/setting/company/sales-tax", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleTaxCodeCreate)
+	app.Post("/setting/company/sales-tax/update", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleTaxCodeUpdate)
+	app.Post("/setting/company/sales-tax/deactivate", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleTaxCodeDeactivate)
+	app.Get("/setting/company/numbering", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleNumberingSettingsGet)
+	app.Post("/setting/company/numbering", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleNumberingSettingsPost)
+	app.Get("/setting/company/payment-terms", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handlePaymentTermsGet)
+	app.Post("/setting/company/payment-terms", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentTermCreate)
+	app.Post("/setting/company/payment-terms/update", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentTermUpdate)
+	app.Post("/setting/company/payment-terms/set-default", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentTermSetDefault)
+	app.Post("/setting/company/payment-terms/toggle", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentTermToggle)
+	app.Post("/setting/company/payment-terms/delete", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handlePaymentTermDelete)
+	app.Get("/setting/company", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCompanyHub)
+	app.Post("/setting/company", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanyProfileSubmit)
 	// ── 设置：多币种 ─────────────────────────────────────────────────────────
-	app.Get("/settings/company/currency", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCompanyCurrencyGet)
-	app.Post("/settings/company/currency/enable", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanyCurrencyEnableMulti)
-	app.Post("/settings/company/currency/add", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanyCurrencyAdd)
-	app.Get("/settings/company/exchange-rates", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleExchangeRatesGet)
-	app.Post("/settings/company/exchange-rates", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleExchangeRatesAdd)
-	app.Post("/settings/company/exchange-rates/delete", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleExchangeRatesDelete)
+	app.Get("/setting/company/currency", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleCompanyCurrencyGet)
+	app.Post("/setting/company/currency/enable", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanyCurrencyEnableMulti)
+	app.Post("/setting/company/currency/add", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanyCurrencyAdd)
+	app.Get("/setting/company/exchange-rates", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.handleExchangeRatesGet)
+	app.Post("/setting/company/exchange-rates", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleExchangeRatesAdd)
+	app.Post("/setting/company/exchange-rates/delete", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleExchangeRatesDelete)
 
 	// ── 设置：通知（SMTP / SMS）────────────────────────────────────────────────
-	app.Get("/settings/company/notifications", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsSensitiveView), s.handleCompanyNotificationsGet)
-	app.Post("/settings/company/notifications", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanyNotificationsPost)
-	app.Post("/settings/company/notifications/test-email", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanyNotificationsTestEmail)
-	app.Post("/settings/company/notifications/test-sms", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanyNotificationsTestSMS)
+	app.Get("/setting/company/notifications", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsSensitiveView), s.handleCompanyNotificationsGet)
+	app.Post("/setting/company/notifications", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanyNotificationsPost)
+	app.Post("/setting/company/notifications/test-email", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanyNotificationsTestEmail)
+	app.Post("/setting/company/notifications/test-sms", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanyNotificationsTestSMS)
 
 	// ── 设置：安全 ──────────────────────────────────────────────────────────────
-	app.Get("/settings/company/security", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsSensitiveView), s.handleCompanySecurityGet)
-	app.Post("/settings/company/security", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanySecurityPost)
+	app.Get("/setting/company/security", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsSensitiveView), s.handleCompanySecurityGet)
+	app.Post("/setting/company/security", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleCompanySecurityPost)
 
 	// ── 设置：销售渠道集成 ──────────────────────────────────────────────────────
 	app.Get("/settings/channels", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsSensitiveView), s.handleChannelAccounts)
@@ -142,7 +144,7 @@ func (s *Server) registerRoutes(app *fiber.App) {
 	// 向后兼容：旧编号 URL（POST 转发；GET 重定向到新路径）
 	app.Post("/settings/numbering", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), s.RequirePermission(ActionSettingsUpdate), s.handleNumberingSettingsPost)
 	app.Get("/settings/numbering", s.LoadSession(), s.RequireAuth(), s.ResolveActiveCompany(), s.RequireMembership(), func(c *fiber.Ctx) error {
-		return c.Redirect("/settings/company/numbering", fiber.StatusSeeOther)
+		return c.Redirect("/setting/company/numbering", fiber.StatusSeeOther)
 	})
 
 	// ── 设置：用户偏好（每位用户独立，无需公司权限）────────────────────────────────

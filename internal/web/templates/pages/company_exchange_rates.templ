@@ -48,7 +48,7 @@ templ bodyCompanyExchangeRates(vm CompanyExchangeRatesVM) {
 			</div>
 			<div class="shrink-0">
 				<a
-					href="/settings/company/currency"
+					href="/setting/company/currency"
 					class="text-body text-primary hover:underline"
 				>
 					← Currency Settings
@@ -101,7 +101,7 @@ templ bodyCompanyExchangeRates(vm CompanyExchangeRatesVM) {
 								<td class="py-3 pr-4">{ r.EffectiveDate.Format("2006-01-02") }</td>
 								<td class="py-3 pr-4 text-text-muted2">{ r.RateType }</td>
 								<td class="py-3 pr-0 text-right">
-									<form method="post" action="/settings/company/exchange-rates/delete" class="inline">
+									<form method="post" action="/setting/company/exchange-rates/delete" class="inline">
 										<input type="hidden" name="id" value={ Uitoa(r.ID) }/>
 										<button
 											type="submit"
@@ -124,7 +124,7 @@ templ bodyCompanyExchangeRates(vm CompanyExchangeRatesVM) {
 			<p class="mt-1 text-body text-text-muted2">
 				If a rate for the same base, target, type, and date already exists it will be updated.
 			</p>
-			<form method="post" action="/settings/company/exchange-rates" class="mt-4">
+			<form method="post" action="/setting/company/exchange-rates" class="mt-4">
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-5">
 					<div>
 						<label class="block text-body font-medium text-text">Base *</label>

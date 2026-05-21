@@ -78,5 +78,5 @@ func (s *Server) handleNumberingSettingsPost(c *fiber.Ctx) error {
 		"company_id": companyID,
 	}, &cid, &uid, beforeRules, rules)
 
-	return c.Redirect("/settings/company/numbering?saved=1", fiber.StatusSeeOther)
+	return c.Redirect("/setting/company/numbering?saved=1", fiber.StatusSeeOther)
 }

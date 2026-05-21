@@ -44,7 +44,7 @@ func (s *Server) handleCompanyCurrencyEnableMulti(c *fiber.Ctx) error {
 		vm.FormError = err.Error()
 		return pages.CompanyCurrency(vm).Render(c.Context(), c)
 	}
-	return c.Redirect("/settings/company/currency?enabled=1", fiber.StatusSeeOther)
+	return c.Redirect("/setting/company/currency?enabled=1", fiber.StatusSeeOther)
 }
 
 // handleCompanyCurrencyAdd adds a foreign currency to the company.
@@ -66,7 +66,7 @@ func (s *Server) handleCompanyCurrencyAdd(c *fiber.Ctx) error {
 		vm.AddError = err.Error()
 		return pages.CompanyCurrency(vm).Render(c.Context(), c)
 	}
-	return c.Redirect("/settings/company/currency?added=1", fiber.StatusSeeOther)
+	return c.Redirect("/setting/company/currency?added=1", fiber.StatusSeeOther)
 }
 
 func (s *Server) buildCurrencyVM(companyID uint) (pages.CompanyCurrencyVM, error) {
@@ -156,7 +156,7 @@ func (s *Server) handleExchangeRatesAdd(c *fiber.Ctx) error {
 		vm.FormError = err.Error()
 		return pages.CompanyExchangeRates(vm).Render(c.Context(), c)
 	}
-	return c.Redirect("/settings/company/exchange-rates?added=1", fiber.StatusSeeOther)
+	return c.Redirect("/setting/company/exchange-rates?added=1", fiber.StatusSeeOther)
 }
 
 // handleExchangeRatesDelete removes a company exchange rate by ID.
@@ -168,11 +168,11 @@ func (s *Server) handleExchangeRatesDelete(c *fiber.Ctx) error {
 	idRaw := strings.TrimSpace(c.FormValue("id"))
 	id, err := services.ParseUint(idRaw)
 	if err != nil || id == 0 {
-		return c.Redirect("/settings/company/exchange-rates", fiber.StatusSeeOther)
+		return c.Redirect("/setting/company/exchange-rates", fiber.StatusSeeOther)
 	}
 	cid := companyID
 	_ = services.DeleteExchangeRate(s.DB, &cid, uint(id))
-	return c.Redirect("/settings/company/exchange-rates?deleted=1", fiber.StatusSeeOther)
+	return c.Redirect("/setting/company/exchange-rates?deleted=1", fiber.StatusSeeOther)
 }
 
 func (s *Server) buildExchangeRatesVM(companyID uint) (pages.CompanyExchangeRatesVM, error) {

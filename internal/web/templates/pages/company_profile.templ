@@ -72,7 +72,7 @@ templ bodyCompanyProfile(vm CompanySettingsVM) {
 				<!-- Upload form (separate multipart form — independent of profile save) -->
 				<form
 					method="post"
-					action="/settings/company/profile/logo"
+					action="/setting/company/profile/logo"
 					enctype="multipart/form-data"
 					class="flex flex-wrap items-center gap-3"
 					x-data="{ fileName: '' }"
@@ -101,7 +101,7 @@ templ bodyCompanyProfile(vm CompanySettingsVM) {
 		</div>
 
 		<!-- ── Company profile form ──────────────────────────────────────────── -->
-		<form method="post" action="/settings/company/profile" class="mt-6 space-y-6">
+		<form method="post" action="/setting/company/profile" class="mt-6 space-y-6">
 			<div class="rounded-lg border border-border bg-surface p-6">
 				<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 					@textField("Company Name *", "company_name", vm.Values.CompanyName, vm.Errors.CompanyName, "e.g. ACME Corp.")

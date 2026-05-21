@@ -5,9 +5,9 @@ package web
 // under Settings → Company → Features.
 //
 // Three handlers:
-//   GET  /settings/company/features              — render page
-//   POST /settings/company/features/enable       — owner-only enable
-//   POST /settings/company/features/disable      — owner-only disable
+//   GET  /setting/company/features              — render page
+//   POST /setting/company/features/enable       — owner-only enable
+//   POST /setting/company/features/disable      — owner-only disable
 //
 // The GET handler is open to any company member (matches the rest of
 // Settings). The two POST handlers enforce owner role server-side
@@ -173,7 +173,7 @@ func (s *Server) handleCompanyFeatureDisable(c *fiber.Ctx) error {
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 func redirectFeaturesWithFlash(c *fiber.Ctx, success, errMsg string) error {
-	u := "/settings/company/features"
+	u := "/setting/company/features"
 	if success != "" {
 		u += "?ok=" + escapeQueryValue(success)
 	} else if errMsg != "" {
@@ -183,7 +183,7 @@ func redirectFeaturesWithFlash(c *fiber.Ctx, success, errMsg string) error {
 }
 
 func redirectFeaturesWithMemberCTA(c *fiber.Ctx, success string) error {
-	u := "/settings/company/features?ok=" + escapeQueryValue(success) + "&next=members"
+	u := "/setting/company/features?ok=" + escapeQueryValue(success) + "&next=members"
 	return c.Redirect(u, fiber.StatusSeeOther)
 }
 

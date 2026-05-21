@@ -71,7 +71,7 @@ func (s *Server) handlePaymentTermsGet(c *fiber.Ctx) error {
 	return pages.CompanyPaymentTerms(vm).Render(c.Context(), c)
 }
 
-// handlePaymentTermCreate processes POST /settings/company/payment-terms.
+// handlePaymentTermCreate processes POST /setting/company/payment-terms.
 func (s *Server) handlePaymentTermCreate(c *fiber.Ctx) error {
 	user := UserFromCtx(c)
 	if user == nil {
@@ -134,10 +134,10 @@ func (s *Server) handlePaymentTermCreate(c *fiber.Ctx) error {
 		"company_id": companyID,
 	}, &cid, &uid)
 
-	return c.Redirect("/settings/company/payment-terms?created=1", fiber.StatusSeeOther)
+	return c.Redirect("/setting/company/payment-terms?created=1", fiber.StatusSeeOther)
 }
 
-// handlePaymentTermUpdate processes POST /settings/company/payment-terms/update.
+// handlePaymentTermUpdate processes POST /setting/company/payment-terms/update.
 func (s *Server) handlePaymentTermUpdate(c *fiber.Ctx) error {
 	user := UserFromCtx(c)
 	if user == nil {
@@ -151,7 +151,7 @@ func (s *Server) handlePaymentTermUpdate(c *fiber.Ctx) error {
 	idRaw := strings.TrimSpace(c.FormValue("payment_term_id"))
 	id64, err := strconv.ParseUint(idRaw, 10, 64)
 	if err != nil || id64 == 0 {
-		return c.Redirect("/settings/company/payment-terms", fiber.StatusSeeOther)
+		return c.Redirect("/setting/company/payment-terms", fiber.StatusSeeOther)
 	}
 	termID := uint(id64)
 
@@ -206,10 +206,10 @@ func (s *Server) handlePaymentTermUpdate(c *fiber.Ctx) error {
 		"company_id": companyID,
 	}, &cid, &uid)
 
-	return c.Redirect("/settings/company/payment-terms?updated=1", fiber.StatusSeeOther)
+	return c.Redirect("/setting/company/payment-terms?updated=1", fiber.StatusSeeOther)
 }
 
-// handlePaymentTermSetDefault processes POST /settings/company/payment-terms/set-default.
+// handlePaymentTermSetDefault processes POST /setting/company/payment-terms/set-default.
 func (s *Server) handlePaymentTermSetDefault(c *fiber.Ctx) error {
 	companyID, ok := ActiveCompanyIDFromCtx(c)
 	if !ok {
@@ -218,15 +218,15 @@ func (s *Server) handlePaymentTermSetDefault(c *fiber.Ctx) error {
 	idRaw := strings.TrimSpace(c.FormValue("payment_term_id"))
 	id64, err := strconv.ParseUint(idRaw, 10, 64)
 	if err != nil || id64 == 0 {
-		return c.Redirect("/settings/company/payment-terms", fiber.StatusSeeOther)
+		return c.Redirect("/setting/company/payment-terms", fiber.StatusSeeOther)
 	}
 	if err := services.SetDefaultPaymentTerm(s.DB, companyID, uint(id64)); err != nil {
-		return c.Redirect("/settings/company/payment-terms?error=1", fiber.StatusSeeOther)
+		return c.Redirect("/setting/company/payment-terms?error=1", fiber.StatusSeeOther)
 	}
-	return c.Redirect("/settings/company/payment-terms?default=1", fiber.StatusSeeOther)
+	return c.Redirect("/setting/company/payment-terms?default=1", fiber.StatusSeeOther)
 }
 
-// handlePaymentTermToggle processes POST /settings/company/payment-terms/toggle.
+// handlePaymentTermToggle processes POST /setting/company/payment-terms/toggle.
 func (s *Server) handlePaymentTermToggle(c *fiber.Ctx) error {
 	companyID, ok := ActiveCompanyIDFromCtx(c)
 	if !ok {
@@ -235,15 +235,15 @@ func (s *Server) handlePaymentTermToggle(c *fiber.Ctx) error {
 	idRaw := strings.TrimSpace(c.FormValue("payment_term_id"))
 	id64, err := strconv.ParseUint(idRaw, 10, 64)
 	if err != nil || id64 == 0 {
-		return c.Redirect("/settings/company/payment-terms", fiber.StatusSeeOther)
+		return c.Redirect("/setting/company/payment-terms", fiber.StatusSeeOther)
 	}
 	if _, err := services.TogglePaymentTermActive(s.DB, companyID, uint(id64)); err != nil {
-		return c.Redirect("/settings/company/payment-terms?error=1", fiber.StatusSeeOther)
+		return c.Redirect("/setting/company/payment-terms?error=1", fiber.StatusSeeOther)
 	}
-	return c.Redirect("/settings/company/payment-terms?toggled=1", fiber.StatusSeeOther)
+	return c.Redirect("/setting/company/payment-terms?toggled=1", fiber.StatusSeeOther)
 }
 
-// handlePaymentTermDelete processes POST /settings/company/payment-terms/delete.
+// handlePaymentTermDelete processes POST /setting/company/payment-terms/delete.
 func (s *Server) handlePaymentTermDelete(c *fiber.Ctx) error {
 	companyID, ok := ActiveCompanyIDFromCtx(c)
 	if !ok {
@@ -252,7 +252,7 @@ func (s *Server) handlePaymentTermDelete(c *fiber.Ctx) error {
 	idRaw := strings.TrimSpace(c.FormValue("payment_term_id"))
 	id64, err := strconv.ParseUint(idRaw, 10, 64)
 	if err != nil || id64 == 0 {
-		return c.Redirect("/settings/company/payment-terms", fiber.StatusSeeOther)
+		return c.Redirect("/setting/company/payment-terms", fiber.StatusSeeOther)
 	}
 	if err := services.DeletePaymentTerm(s.DB, companyID, uint(id64)); err != nil {
 		// Show the error on the list page.
@@ -260,7 +260,7 @@ func (s *Server) handlePaymentTermDelete(c *fiber.Ctx) error {
 		vm.FormError = err.Error()
 		return pages.CompanyPaymentTerms(vm).Render(c.Context(), c)
 	}
-	return c.Redirect("/settings/company/payment-terms?deleted=1", fiber.StatusSeeOther)
+	return c.Redirect("/setting/company/payment-terms?deleted=1", fiber.StatusSeeOther)
 }
 
 // ptBaseVM builds a base VM with items loaded from DB.

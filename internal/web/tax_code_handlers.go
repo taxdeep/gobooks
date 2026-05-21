@@ -69,7 +69,7 @@ func (s *Server) handleCompanySalesTaxGet(c *fiber.Ctx) error {
 	return pages.CompanySalesTax(vm).Render(c.Context(), c)
 }
 
-// handleTaxCodeCreate processes POST /settings/company/sales-tax.
+// handleTaxCodeCreate processes POST /setting/company/sales-tax.
 func (s *Server) handleTaxCodeCreate(c *fiber.Ctx) error {
 	user := UserFromCtx(c)
 	if user == nil {
@@ -150,10 +150,10 @@ func (s *Server) handleTaxCodeCreate(c *fiber.Ctx) error {
 		"company_id": companyID,
 	}, &cid, &uid)
 
-	return c.Redirect("/settings/company/sales-tax?created=1", fiber.StatusSeeOther)
+	return c.Redirect("/setting/company/sales-tax?created=1", fiber.StatusSeeOther)
 }
 
-// handleTaxCodeUpdate processes POST /settings/company/sales-tax/update.
+// handleTaxCodeUpdate processes POST /setting/company/sales-tax/update.
 func (s *Server) handleTaxCodeUpdate(c *fiber.Ctx) error {
 	user := UserFromCtx(c)
 	if user == nil {
@@ -167,13 +167,13 @@ func (s *Server) handleTaxCodeUpdate(c *fiber.Ctx) error {
 	idRaw := strings.TrimSpace(c.FormValue("tax_code_id"))
 	id64, idErr := strconv.ParseUint(idRaw, 10, 64)
 	if idErr != nil || id64 == 0 {
-		return c.Redirect("/settings/company/sales-tax", fiber.StatusSeeOther)
+		return c.Redirect("/setting/company/sales-tax", fiber.StatusSeeOther)
 	}
 	taxCodeID := uint(id64)
 
 	var existing models.TaxCode
 	if err := s.DB.Where("id = ? AND company_id = ?", taxCodeID, companyID).First(&existing).Error; err != nil {
-		return c.Redirect("/settings/company/sales-tax", fiber.StatusSeeOther)
+		return c.Redirect("/setting/company/sales-tax", fiber.StatusSeeOther)
 	}
 
 	name, rateRaw, recoveryModeRaw, recoveryRateRaw, salesAcctRaw, purchaseAcctRaw := parseTaxCodeForm(c)
@@ -228,10 +228,10 @@ func (s *Server) handleTaxCodeUpdate(c *fiber.Ctx) error {
 		"company_id": companyID,
 	}, &cid, &uid)
 
-	return c.Redirect("/settings/company/sales-tax?updated=1", fiber.StatusSeeOther)
+	return c.Redirect("/setting/company/sales-tax?updated=1", fiber.StatusSeeOther)
 }
 
-// handleTaxCodeDeactivate processes POST /settings/company/sales-tax/deactivate.
+// handleTaxCodeDeactivate processes POST /setting/company/sales-tax/deactivate.
 func (s *Server) handleTaxCodeDeactivate(c *fiber.Ctx) error {
 	user := UserFromCtx(c)
 	if user == nil {
@@ -245,19 +245,19 @@ func (s *Server) handleTaxCodeDeactivate(c *fiber.Ctx) error {
 	idRaw := strings.TrimSpace(c.FormValue("tax_code_id"))
 	id64, idErr := strconv.ParseUint(idRaw, 10, 64)
 	if idErr != nil || id64 == 0 {
-		return c.Redirect("/settings/company/sales-tax", fiber.StatusSeeOther)
+		return c.Redirect("/setting/company/sales-tax", fiber.StatusSeeOther)
 	}
 
 	var tc models.TaxCode
 	if err := s.DB.Where("id = ? AND company_id = ?", uint(id64), companyID).First(&tc).Error; err != nil {
-		return c.Redirect("/settings/company/sales-tax", fiber.StatusSeeOther)
+		return c.Redirect("/setting/company/sales-tax", fiber.StatusSeeOther)
 	}
 	if !tc.IsActive {
-		return c.Redirect("/settings/company/sales-tax", fiber.StatusSeeOther)
+		return c.Redirect("/setting/company/sales-tax", fiber.StatusSeeOther)
 	}
 
 	if err := s.DB.Model(&tc).Update("is_active", false).Error; err != nil {
-		return c.Redirect("/settings/company/sales-tax", fiber.StatusSeeOther)
+		return c.Redirect("/setting/company/sales-tax", fiber.StatusSeeOther)
 	}
 
 	cid := companyID
@@ -271,7 +271,7 @@ func (s *Server) handleTaxCodeDeactivate(c *fiber.Ctx) error {
 		"company_id": companyID,
 	}, &cid, &uid)
 
-	return c.Redirect("/settings/company/sales-tax?inactive=1", fiber.StatusSeeOther)
+	return c.Redirect("/setting/company/sales-tax?inactive=1", fiber.StatusSeeOther)
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────

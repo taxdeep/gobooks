@@ -80,7 +80,7 @@ func bodyCompanyHub(vm CompanyHubVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = companyHubCard(
-			"/settings/company/profile",
+			"/setting/company/profile",
 			"Profile",
 			"Manage company name, address, business details, and fiscal year settings.",
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -88,7 +88,7 @@ func bodyCompanyHub(vm CompanyHubVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = companyHubCard(
-			"/settings/company/templates",
+			"/setting/company/templates",
 			"Templates",
 			"Configure invoice templates and future document layouts.",
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -96,7 +96,7 @@ func bodyCompanyHub(vm CompanyHubVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = companyHubCard(
-			"/settings/company/sales-tax",
+			"/setting/company/sales-tax",
 			"Sales Tax",
 			"Manage GST, PST, tax codes, and tax behavior.",
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -104,7 +104,7 @@ func bodyCompanyHub(vm CompanyHubVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = companyHubCard(
-			"/settings/company/payment-terms",
+			"/setting/company/payment-terms",
 			"Payment Terms",
 			"Define payment windows, early-payment discounts, and the company default.",
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -112,7 +112,7 @@ func bodyCompanyHub(vm CompanyHubVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = companyHubCard(
-			"/settings/company/numbering",
+			"/setting/company/numbering",
 			"Numbering",
 			"Configure visible document numbering rules.",
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -128,7 +128,7 @@ func bodyCompanyHub(vm CompanyHubVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = companyHubCard(
-			"/settings/company/currency",
+			"/setting/company/currency",
 			"Currency",
 			"Set base currency, enable multi-currency, manage foreign currencies and exchange rates.",
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -152,7 +152,7 @@ func bodyCompanyHub(vm CompanyHubVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = companyHubCard(
-			"/settings/company/notifications",
+			"/setting/company/notifications",
 			"Notifications",
 			"Configure email (SMTP) and SMS delivery for verification codes, reminders, and alerts.",
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -160,7 +160,7 @@ func bodyCompanyHub(vm CompanyHubVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = companyHubCard(
-			"/settings/company/security",
+			"/setting/company/security",
 			"Security",
 			"Set login alert preferences and future security rule defaults.",
 		).Render(ctx, templ_7745c5c3_Buffer)
@@ -168,7 +168,7 @@ func bodyCompanyHub(vm CompanyHubVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = companyHubCard(
-			"/settings/company/features",
+			"/setting/company/features",
 			"Features",
 			"Self-serve enablement for product feature families (Inventory Alpha, Task, and future modules). Owner-only.",
 		).Render(ctx, templ_7745c5c3_Buffer)

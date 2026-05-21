@@ -82,7 +82,7 @@ func bodySettingsHub(vm SettingsHubVM) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = settingsHubCard(
-			"/settings/company",
+			"/setting/company",
 			"Company",
 			"Profile, tax codes, numbering, templates, payment terms, currency, notifications, security.",
 		).Render(ctx, templ_7745c5c3_Buffer)

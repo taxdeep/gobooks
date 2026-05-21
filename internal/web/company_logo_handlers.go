@@ -33,7 +33,7 @@ func logoErrorMessage(code string) string {
 	}
 }
 
-// handleCompanyLogoUpload handles POST /settings/company/profile/logo.
+// handleCompanyLogoUpload handles POST /setting/company/profile/logo.
 //
 // Validation pipeline:
 //  1. File must be present.
@@ -55,7 +55,7 @@ func (s *Server) handleCompanyLogoUpload(c *fiber.Ctx) error {
 	}
 
 	redirect := func(errCode string) error {
-		return c.Redirect("/settings/company/profile?logo_error="+errCode, fiber.StatusSeeOther)
+		return c.Redirect("/setting/company/profile?logo_error="+errCode, fiber.StatusSeeOther)
 	}
 
 	fh, err := c.FormFile("logo")
@@ -140,7 +140,7 @@ func (s *Server) handleCompanyLogoUpload(c *fiber.Ctx) error {
 		"format":     ext,
 	}, &cid, &uid)
 
-	return c.Redirect("/settings/company/profile?saved=1", fiber.StatusSeeOther)
+	return c.Redirect("/setting/company/profile?saved=1", fiber.StatusSeeOther)
 }
 
 // handleCompanyLogoServe handles GET /company/logo.

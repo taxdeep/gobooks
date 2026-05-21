@@ -92,7 +92,7 @@ func bodyCompanyPaymentTerms(vm PaymentTermsVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"flex flex-wrap items-start justify-between gap-4\"><div class=\"min-w-0 flex-1\"><h1 class=\"text-title font-semibold\">Payment Terms</h1><p class=\"mt-2 text-text-muted2\">Define the payment terms applied to invoices and bills. Each term specifies the number of days until payment is due and an optional early-payment discount.</p></div><div class=\"shrink-0\"><a href=\"/settings/company/payment-terms?new=1\" class=\"inline-block rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover\">New Payment Term</a></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"flex flex-wrap items-start justify-between gap-4\"><div class=\"min-w-0 flex-1\"><h1 class=\"text-title font-semibold\">Payment Terms</h1><p class=\"mt-2 text-text-muted2\">Define the payment terms applied to invoices and bills. Each term specifies the number of days until payment is due and an optional early-payment discount.</p></div><div class=\"shrink-0\"><a href=\"/setting/company/payment-terms?new=1\" class=\"inline-block rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover\">New Payment Term</a></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -278,7 +278,7 @@ func bodyCompanyPaymentTerms(vm PaymentTermsVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var11 templ.SafeURL
-			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinURLErrs("/settings/company/payment-terms?edit=" + Uitoa(pt.ID))
+			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinURLErrs("/setting/company/payment-terms?edit=" + Uitoa(pt.ID))
 			if templ_7745c5c3_Err != nil {
 				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/company_payment_terms.templ`, Line: 136, Col: 71}
 			}
@@ -291,7 +291,7 @@ func bodyCompanyPaymentTerms(vm PaymentTermsVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			if !pt.IsDefault && pt.IsActive {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<span class=\"inline-block px-2 text-text-muted3\" aria-hidden=\"true\">|</span><form method=\"post\" action=\"/settings/company/payment-terms/set-default\" class=\"inline\"><input type=\"hidden\" name=\"payment_term_id\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<span class=\"inline-block px-2 text-text-muted3\" aria-hidden=\"true\">|</span><form method=\"post\" action=\"/setting/company/payment-terms/set-default\" class=\"inline\"><input type=\"hidden\" name=\"payment_term_id\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -309,7 +309,7 @@ func bodyCompanyPaymentTerms(vm PaymentTermsVM) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<span class=\"inline-block px-2 text-text-muted3\" aria-hidden=\"true\">|</span><form method=\"post\" action=\"/settings/company/payment-terms/toggle\" class=\"inline\"><input type=\"hidden\" name=\"payment_term_id\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<span class=\"inline-block px-2 text-text-muted3\" aria-hidden=\"true\">|</span><form method=\"post\" action=\"/setting/company/payment-terms/toggle\" class=\"inline\"><input type=\"hidden\" name=\"payment_term_id\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -342,7 +342,7 @@ func bodyCompanyPaymentTerms(vm PaymentTermsVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			if !pt.IsDefault {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<span class=\"inline-block px-2 text-text-muted3\" aria-hidden=\"true\">|</span><form method=\"post\" action=\"/settings/company/payment-terms/delete\" class=\"inline\" onsubmit=\"return confirm('Delete this payment term? This cannot be undone.')\"><input type=\"hidden\" name=\"payment_term_id\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<span class=\"inline-block px-2 text-text-muted3\" aria-hidden=\"true\">|</span><form method=\"post\" action=\"/setting/company/payment-terms/delete\" class=\"inline\" onsubmit=\"return confirm('Delete this payment term? This cannot be undone.')\"><input type=\"hidden\" name=\"payment_term_id\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -413,7 +413,7 @@ func ptCreateDrawerForm(vm PaymentTermsVM) templ.Component {
 			templ_7745c5c3_Var15 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<form method=\"post\" action=\"/settings/company/payment-terms\" class=\"flex min-h-0 flex-1 flex-col\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<form method=\"post\" action=\"/setting/company/payment-terms\" class=\"flex min-h-0 flex-1 flex-col\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -421,7 +421,7 @@ func ptCreateDrawerForm(vm PaymentTermsVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<div class=\"flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-border p-4\"><a href=\"/settings/company/payment-terms\" class=\"rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text\">Cancel</a>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<div class=\"flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-border p-4\"><a href=\"/setting/company/payment-terms\" class=\"rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text\">Cancel</a>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -458,7 +458,7 @@ func ptEditDrawerForm(vm PaymentTermsVM) templ.Component {
 			templ_7745c5c3_Var16 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "<form method=\"post\" action=\"/settings/company/payment-terms/update\" class=\"flex min-h-0 flex-1 flex-col\"><input type=\"hidden\" name=\"payment_term_id\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "<form method=\"post\" action=\"/setting/company/payment-terms/update\" class=\"flex min-h-0 flex-1 flex-col\"><input type=\"hidden\" name=\"payment_term_id\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -479,7 +479,7 @@ func ptEditDrawerForm(vm PaymentTermsVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<div class=\"flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-border p-4\"><a href=\"/settings/company/payment-terms\" class=\"rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text\">Cancel</a>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<div class=\"flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-border p-4\"><a href=\"/setting/company/payment-terms\" class=\"rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text\">Cancel</a>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

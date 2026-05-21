@@ -116,7 +116,7 @@ func bodyCompanySecuritySettings(vm CompanySecuritySettingsVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<form method=\"post\" action=\"/settings/company/security\" class=\"mt-6 space-y-6\"><fieldset")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<form method=\"post\" action=\"/setting/company/security\" class=\"mt-6 space-y-6\"><fieldset")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

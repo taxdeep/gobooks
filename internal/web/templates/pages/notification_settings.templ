@@ -62,7 +62,7 @@ templ bodyCompanyNotificationSettings(vm CompanyNotificationSettingsVM) {
 			</div>
 		}
 
-		<form method="post" action="/settings/company/notifications" class="mt-6 space-y-6">
+		<form method="post" action="/setting/company/notifications" class="mt-6 space-y-6">
 			<fieldset disabled?={ vm.ReadOnly || !vm.SystemAllowsOverride } class="min-w-0 space-y-6 border-0 p-0 m-0">
 
 			<!-- ── Email / SMTP ─────────────────────────────────────────────── -->
@@ -239,7 +239,7 @@ templ bodyCompanyNotificationSettings(vm CompanyNotificationSettingsVM) {
 				}
 				<form
 					method="post"
-					action="/settings/company/notifications/test-email"
+					action="/setting/company/notifications/test-email"
 					class="mt-4"
 					x-data="{ loading: false }"
 					@submit="loading = true"
@@ -287,7 +287,7 @@ templ bodyCompanyNotificationSettings(vm CompanyNotificationSettingsVM) {
 				}
 				<form
 					method="post"
-					action="/settings/company/notifications/test-sms"
+					action="/setting/company/notifications/test-sms"
 					class="mt-4"
 					x-data="{ loading: false }"
 					@submit="loading = true"

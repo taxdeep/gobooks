@@ -206,7 +206,7 @@ func (s *Server) handleCompanyProfileSubmit(c *fiber.Ctx) error {
 		"company_id": companyID,
 	}, &cid, &uid, before, after)
 
-	return c.Redirect("/settings/company/profile?saved=1", fiber.StatusSeeOther)
+	return c.Redirect("/setting/company/profile?saved=1", fiber.StatusSeeOther)
 }
 
 func (s *Server) handleCompanyTemplatesGet(c *fiber.Ctx) error {
@@ -227,4 +227,3 @@ func (s *Server) handleCompanyTemplatesGet(c *fiber.Ctx) error {
 		Saved:      c.Query("saved") == "1",
 	}).Render(c.Context(), c)
 }
-

@@ -155,7 +155,7 @@ func bodyCompanyCurrency(vm CompanyCurrencyVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<p class=\"mt-1 text-body text-text-muted2\">Enable multi-currency to record transactions in foreign currencies. This creates currency-specific AR and AP accounts automatically.</p><form method=\"post\" action=\"/settings/company/currency/enable\" class=\"mt-4\"><button type=\"submit\" class=\"rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover\">Enable Multi-Currency</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<p class=\"mt-1 text-body text-text-muted2\">Enable multi-currency to record transactions in foreign currencies. This creates currency-specific AR and AP accounts automatically.</p><form method=\"post\" action=\"/setting/company/currency/enable\" class=\"mt-4\"><button type=\"submit\" class=\"rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover\">Enable Multi-Currency</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -235,7 +235,7 @@ func bodyCompanyCurrency(vm CompanyCurrencyVM) templ.Component {
 					}
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</tbody></table></div><div class=\"mt-6 border-t border-border pt-6\"><h3 class=\"text-body font-semibold text-text\">Add Currency</h3><form method=\"post\" action=\"/settings/company/currency/add\" class=\"mt-4\"><div class=\"flex flex-wrap items-end gap-4\"><div><label class=\"block text-body font-medium text-text\">ISO 4217 Code</label> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</tbody></table></div><div class=\"mt-6 border-t border-border pt-6\"><h3 class=\"text-body font-semibold text-text\">Add Currency</h3><form method=\"post\" action=\"/setting/company/currency/add\" class=\"mt-4\"><div class=\"flex flex-wrap items-end gap-4\"><div><label class=\"block text-body font-medium text-text\">ISO 4217 Code</label> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

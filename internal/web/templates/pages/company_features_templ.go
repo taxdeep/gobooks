@@ -662,7 +662,7 @@ func featureEnableModal(feat FeatureCardVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "\" class=\"mx-4 w-full max-w-2xl rounded-lg border border-border bg-surface shadow-xl\"><form method=\"POST\" action=\"/settings/company/features/enable\" class=\"p-6\"><input type=\"hidden\" name=\"feature_key\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "\" class=\"mx-4 w-full max-w-2xl rounded-lg border border-border bg-surface shadow-xl\"><form method=\"POST\" action=\"/setting/company/features/enable\" class=\"p-6\"><input type=\"hidden\" name=\"feature_key\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -965,7 +965,7 @@ func featureDisableModal(feat FeatureCardVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "\" x-cloak class=\"fixed inset-0 z-50 flex items-center justify-center bg-black/50\" style=\"display:none\"><form method=\"POST\" action=\"/settings/company/features/disable\" class=\"mx-4 w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-xl\"><input type=\"hidden\" name=\"feature_key\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "\" x-cloak class=\"fixed inset-0 z-50 flex items-center justify-center bg-black/50\" style=\"display:none\"><form method=\"POST\" action=\"/setting/company/features/disable\" class=\"mx-4 w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-xl\"><input type=\"hidden\" name=\"feature_key\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -93,7 +93,7 @@ func bodyCompanySalesTax(vm SalesTaxVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"flex flex-wrap items-start justify-between gap-4\"><div class=\"min-w-0 flex-1\"><h1 class=\"text-title font-semibold\">Sales Tax</h1><p class=\"mt-2 text-text-muted2\">Define tax codes used on invoice and bill lines. Each code carries a rate, posting accounts, and recoverability rules.</p></div><div class=\"shrink-0\"><a href=\"/settings/company/sales-tax?new=1\" class=\"inline-block rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover\">New Tax Code</a></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"flex flex-wrap items-start justify-between gap-4\"><div class=\"min-w-0 flex-1\"><h1 class=\"text-title font-semibold\">Sales Tax</h1><p class=\"mt-2 text-text-muted2\">Define tax codes used on invoice and bill lines. Each code carries a rate, posting accounts, and recoverability rules.</p></div><div class=\"shrink-0\"><a href=\"/setting/company/sales-tax?new=1\" class=\"inline-block rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover\">New Tax Code</a></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -250,7 +250,7 @@ func bodyCompanySalesTax(vm SalesTaxVM) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var11 templ.SafeURL
-				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinURLErrs("/settings/company/sales-tax?edit=" + Uitoa(tc.ID))
+				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinURLErrs("/setting/company/sales-tax?edit=" + Uitoa(tc.ID))
 				if templ_7745c5c3_Err != nil {
 					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/company_sales_tax.templ`, Line: 111, Col: 68}
 				}
@@ -258,7 +258,7 @@ func bodyCompanySalesTax(vm SalesTaxVM) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\" class=\"text-small font-medium text-primary hover:text-primary-hover\">Edit</a> <span class=\"inline-block px-2 text-text-muted3\" aria-hidden=\"true\">|</span><form method=\"post\" action=\"/settings/company/sales-tax/deactivate\" class=\"inline\" onsubmit=\"return confirm('Deactivate this tax code? It will no longer appear in new invoice or bill lines, but existing lines are unaffected.');\"><input type=\"hidden\" name=\"tax_code_id\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\" class=\"text-small font-medium text-primary hover:text-primary-hover\">Edit</a> <span class=\"inline-block px-2 text-text-muted3\" aria-hidden=\"true\">|</span><form method=\"post\" action=\"/setting/company/sales-tax/deactivate\" class=\"inline\" onsubmit=\"return confirm('Deactivate this tax code? It will no longer appear in new invoice or bill lines, but existing lines are unaffected.');\"><input type=\"hidden\" name=\"tax_code_id\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -395,7 +395,7 @@ func stCreateDrawerForm(vm SalesTaxVM) templ.Component {
 			templ_7745c5c3_Var13 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<form method=\"post\" action=\"/settings/company/sales-tax\" class=\"flex min-h-0 flex-1 flex-col\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<form method=\"post\" action=\"/setting/company/sales-tax\" class=\"flex min-h-0 flex-1 flex-col\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -403,7 +403,7 @@ func stCreateDrawerForm(vm SalesTaxVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<div class=\"flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-border p-4\"><a href=\"/settings/company/sales-tax\" class=\"rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text\">Cancel</a>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<div class=\"flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-border p-4\"><a href=\"/setting/company/sales-tax\" class=\"rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text\">Cancel</a>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -440,7 +440,7 @@ func stEditDrawerForm(vm SalesTaxVM) templ.Component {
 			templ_7745c5c3_Var14 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<form method=\"post\" action=\"/settings/company/sales-tax/update\" class=\"flex min-h-0 flex-1 flex-col\"><input type=\"hidden\" name=\"tax_code_id\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<form method=\"post\" action=\"/setting/company/sales-tax/update\" class=\"flex min-h-0 flex-1 flex-col\"><input type=\"hidden\" name=\"tax_code_id\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -461,7 +461,7 @@ func stEditDrawerForm(vm SalesTaxVM) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<div class=\"flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-border p-4\"><a href=\"/settings/company/sales-tax\" class=\"rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text\">Cancel</a>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<div class=\"flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-border p-4\"><a href=\"/setting/company/sales-tax\" class=\"rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text\">Cancel</a>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

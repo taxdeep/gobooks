@@ -190,7 +190,7 @@ func bodyCompanyNotificationSettings(vm CompanyNotificationSettingsVM) templ.Com
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<form method=\"post\" action=\"/settings/company/notifications\" class=\"mt-6 space-y-6\"><fieldset")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<form method=\"post\" action=\"/setting/company/notifications\" class=\"mt-6 space-y-6\"><fieldset")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -449,7 +449,7 @@ func bodyCompanyNotificationSettings(vm CompanyNotificationSettingsVM) templ.Com
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "<form method=\"post\" action=\"/settings/company/notifications/test-email\" class=\"mt-4\" x-data=\"{ loading: false }\" @submit=\"loading = true\"><fieldset")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "<form method=\"post\" action=\"/setting/company/notifications/test-email\" class=\"mt-4\" x-data=\"{ loading: false }\" @submit=\"loading = true\"><fieldset")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -522,7 +522,7 @@ func bodyCompanyNotificationSettings(vm CompanyNotificationSettingsVM) templ.Com
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "<form method=\"post\" action=\"/settings/company/notifications/test-sms\" class=\"mt-4\" x-data=\"{ loading: false }\" @submit=\"loading = true\"><fieldset")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "<form method=\"post\" action=\"/setting/company/notifications/test-sms\" class=\"mt-4\" x-data=\"{ loading: false }\" @submit=\"loading = true\"><fieldset")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

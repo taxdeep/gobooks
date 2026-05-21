@@ -36,7 +36,7 @@ templ bodyCompanySalesTax(vm SalesTaxVM) {
 			</div>
 			<div class="shrink-0">
 				<a
-					href="/settings/company/sales-tax?new=1"
+					href="/setting/company/sales-tax?new=1"
 					class="inline-block rounded-md bg-primary px-4 py-2 text-body font-semibold text-onPrimary hover:bg-primary-hover"
 				>
 					New Tax Code
@@ -108,7 +108,7 @@ templ bodyCompanySalesTax(vm SalesTaxVM) {
 								<td class="py-3 pr-0 text-right whitespace-nowrap">
 									if tc.IsActive {
 										<a
-											href={ "/settings/company/sales-tax?edit=" + Uitoa(tc.ID) }
+											href={ "/setting/company/sales-tax?edit=" + Uitoa(tc.ID) }
 											class="text-small font-medium text-primary hover:text-primary-hover"
 										>
 											Edit
@@ -116,7 +116,7 @@ templ bodyCompanySalesTax(vm SalesTaxVM) {
 										<span class="inline-block px-2 text-text-muted3" aria-hidden="true">|</span>
 										<form
 											method="post"
-											action="/settings/company/sales-tax/deactivate"
+											action="/setting/company/sales-tax/deactivate"
 											class="inline"
 											onsubmit="return confirm('Deactivate this tax code? It will no longer appear in new invoice or bill lines, but existing lines are unaffected.');"
 										>
@@ -207,11 +207,11 @@ func stRecoveryLabel(tc models.TaxCode) string {
 }
 
 templ stCreateDrawerForm(vm SalesTaxVM) {
-	<form method="post" action="/settings/company/sales-tax" class="flex min-h-0 flex-1 flex-col">
+	<form method="post" action="/setting/company/sales-tax" class="flex min-h-0 flex-1 flex-col">
 		@stFormFields(vm)
 		<div class="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-border p-4">
 			<a
-				href="/settings/company/sales-tax"
+				href="/setting/company/sales-tax"
 				class="rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text"
 			>
 				Cancel
@@ -222,12 +222,12 @@ templ stCreateDrawerForm(vm SalesTaxVM) {
 }
 
 templ stEditDrawerForm(vm SalesTaxVM) {
-	<form method="post" action="/settings/company/sales-tax/update" class="flex min-h-0 flex-1 flex-col">
+	<form method="post" action="/setting/company/sales-tax/update" class="flex min-h-0 flex-1 flex-col">
 		<input type="hidden" name="tax_code_id" value={ Uitoa(vm.EditingID) }/>
 		@stFormFields(vm)
 		<div class="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-border p-4">
 			<a
-				href="/settings/company/sales-tax"
+				href="/setting/company/sales-tax"
 				class="rounded-md border border-border-input px-4 py-2 text-body font-semibold text-text-muted3 hover:bg-background hover:text-text"
 			>
 				Cancel

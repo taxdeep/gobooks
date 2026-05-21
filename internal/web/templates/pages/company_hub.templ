@@ -22,27 +22,27 @@ templ bodyCompanyHub(vm CompanyHubVM) {
 		// 功能卡片网格：桌面端两列布局，移动端单列
 		<div class="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
 			@companyHubCard(
-				"/settings/company/profile",
+				"/setting/company/profile",
 				"Profile",
 				"Manage company name, address, business details, and fiscal year settings.",
 			)
 			@companyHubCard(
-				"/settings/company/templates",
+				"/setting/company/templates",
 				"Templates",
 				"Configure invoice templates and future document layouts.",
 			)
 			@companyHubCard(
-				"/settings/company/sales-tax",
+				"/setting/company/sales-tax",
 				"Sales Tax",
 				"Manage GST, PST, tax codes, and tax behavior.",
 			)
 			@companyHubCard(
-				"/settings/company/payment-terms",
+				"/setting/company/payment-terms",
 				"Payment Terms",
 				"Define payment windows, early-payment discounts, and the company default.",
 			)
 			@companyHubCard(
-				"/settings/company/numbering",
+				"/setting/company/numbering",
 				"Numbering",
 				"Configure visible document numbering rules.",
 			)
@@ -53,7 +53,7 @@ templ bodyCompanyHub(vm CompanyHubVM) {
 				"Manage your product and service catalog used in invoices and bills.",
 			)
 			@companyHubCard(
-				"/settings/company/currency",
+				"/setting/company/currency",
 				"Currency",
 				"Set base currency, enable multi-currency, manage foreign currencies and exchange rates.",
 			)
@@ -68,17 +68,17 @@ templ bodyCompanyHub(vm CompanyHubVM) {
 				"Connect payment processors (Stripe, PayPal), configure accounting mappings, and track transactions.",
 			)
 			@companyHubCard(
-				"/settings/company/notifications",
+				"/setting/company/notifications",
 				"Notifications",
 				"Configure email (SMTP) and SMS delivery for verification codes, reminders, and alerts.",
 			)
 			@companyHubCard(
-				"/settings/company/security",
+				"/setting/company/security",
 				"Security",
 				"Set login alert preferences and future security rule defaults.",
 			)
 			@companyHubCard(
-				"/settings/company/features",
+				"/setting/company/features",
 				"Features",
 				"Self-serve enablement for product feature families (Inventory Alpha, Task, and future modules). Owner-only.",
 			)

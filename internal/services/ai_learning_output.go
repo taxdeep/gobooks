@@ -583,7 +583,7 @@ func companySetupTasks(db *gorm.DB, companyID uint, userID *uuid.UUID, now time.
 	}
 	out := []models.ActionCenterTask{}
 	if strings.TrimSpace(company.City) == "" || strings.TrimSpace(company.AddressLine) == "" {
-		out = append(out, newActionCenterTask(companyID, userID, "company_profile_incomplete", "settings_engine", "rule", "Complete company profile", "Company profile is missing address information used on documents and reports.", models.ActionTaskPriorityLow, "/settings/company/profile", "settings:company_profile_incomplete:v1", map[string]any{
+		out = append(out, newActionCenterTask(companyID, userID, "company_profile_incomplete", "settings_engine", "rule", "Complete company profile", "Company profile is missing address information used on documents and reports.", models.ActionTaskPriorityLow, "/setting/company/profile", "settings:company_profile_incomplete:v1", map[string]any{
 			"missing_city":    strings.TrimSpace(company.City) == "",
 			"missing_address": strings.TrimSpace(company.AddressLine) == "",
 		}))
@@ -591,7 +591,7 @@ func companySetupTasks(db *gorm.DB, companyID uint, userID *uuid.UUID, now time.
 	var notif models.CompanyNotificationSettings
 	err := db.Where("company_id = ?", companyID).First(&notif).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) || (!notif.EmailEnabled || !notif.EmailVerificationReady) {
-		out = append(out, newActionCenterTask(companyID, userID, "smtp_not_ready", "settings_engine", "rule", "Configure email delivery", "Company email delivery is not verified, so invoice sending and email reminders may not work.", models.ActionTaskPriorityLow, "/settings/company/notifications", "settings:smtp_not_ready:v1", map[string]any{
+		out = append(out, newActionCenterTask(companyID, userID, "smtp_not_ready", "settings_engine", "rule", "Configure email delivery", "Company email delivery is not verified, so invoice sending and email reminders may not work.", models.ActionTaskPriorityLow, "/setting/company/notifications", "settings:smtp_not_ready:v1", map[string]any{
 			"email_enabled":            notif.EmailEnabled,
 			"email_verification_ready": notif.EmailVerificationReady,
 		}))
