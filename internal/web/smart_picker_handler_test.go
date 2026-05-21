@@ -492,6 +492,41 @@ func TestSmartPickerHandler_TaskContextsRequireTaskFeature(t *testing.T) {
 	}
 }
 
+func TestSmartPickerHandler_TaskServiceItemSearchReturnsServiceCandidates(t *testing.T) {
+	db := testRouteDB(t)
+	companyID := seedCompany(t, db, "SP Task Service Search Co")
+	otherID := seedCompany(t, db, "SP Task Service Search Other Co")
+	user, rawToken := seedUserSession(t, db, &companyID)
+	seedMembership(t, db, user.ID, companyID)
+	revenueID := seedSPAccount(t, db, companyID, "4100", "Service Revenue", models.RootRevenue, true)
+	otherRevenueID := seedSPAccount(t, db, otherID, "4100", "Other Revenue", models.RootRevenue, true)
+	serviceID := seedSPProductService(t, db, companyID, revenueID, "Onsite Consulting", "ONSITE", models.ProductServiceTypeService, true)
+	nonServiceID := seedSPProductService(t, db, companyID, revenueID, "Onsite Hardware", "ONHW", models.ProductServiceTypeInventory, true)
+	otherServiceID := seedSPProductService(t, db, otherID, otherRevenueID, "Onsite Other Co", "ONOTHER", models.ProductServiceTypeService, true)
+	app := testRouteApp(t, db)
+
+	resp := performRequest(t, app, "/api/smart-picker/search?entity=product_service&context=task_form_service_item&q=On&limit=20", rawToken)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", resp.StatusCode, readResponseBody(t, resp))
+	}
+	var result SmartPickerResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Candidates) != 1 || result.Candidates[0].ID != fmt.Sprintf("%d", serviceID) {
+		t.Fatalf("expected only same-company active service item %d, got %+v", serviceID, result.Candidates)
+	}
+	ids := collectIDs(result.Candidates)
+	for _, notWant := range []uint{nonServiceID, otherServiceID} {
+		if ids[fmt.Sprintf("%d", notWant)] {
+			t.Fatalf("task service picker leaked item %d in response: %+v", notWant, result.Candidates)
+		}
+	}
+	if !result.RequiresBackendValidation {
+		t.Fatal("expected task service picker to require backend validation")
+	}
+}
+
 func TestSmartPickerHandler_ModuleContextsRequireMatchingPermission(t *testing.T) {
 	db := testRouteDB(t)
 	companyID := seedCompany(t, db, "SP Module Permission Co")

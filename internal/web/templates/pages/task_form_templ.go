@@ -708,7 +708,7 @@ func bodyTaskForm(vm TaskFormVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "<div class=\"mt-4 overflow-x-auto\"><table class=\"w-full text-left text-body\"><thead class=\"text-small uppercase tracking-wider text-text-muted\"><tr class=\"border-b border-border\"><th class=\"py-2 pr-3 min-w-64\">Service Item</th><th class=\"py-2 pr-3 min-w-72\">Description</th><th class=\"py-2 pr-3 w-28 text-right\">Qty</th><th class=\"py-2 pr-3 w-32 text-right\">Rate</th><th class=\"py-2 pr-3 w-32 text-right\">Amount</th><th class=\"py-2 pr-0 w-20\"></th></tr></thead> <tbody><template x-for=\"(line, idx) in lines\" :key=\"line._rowKey\"><tr class=\"border-b border-border-subtle align-top\"><td class=\"py-3 pr-3\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "<div class=\"mt-4 overflow-visible\"><table class=\"w-full text-left text-body\"><thead class=\"text-small uppercase tracking-wider text-text-muted\"><tr class=\"border-b border-border\"><th class=\"py-2 pr-3 min-w-64\">Service Item</th><th class=\"py-2 pr-3 min-w-72\">Description</th><th class=\"py-2 pr-3 w-28 text-right\">Qty</th><th class=\"py-2 pr-3 w-32 text-right\">Rate</th><th class=\"py-2 pr-3 w-32 text-right\">Amount</th><th class=\"py-2 pr-0 w-20\"></th></tr></thead> <tbody><template x-for=\"(line, idx) in lines\" :key=\"line._rowKey\"><tr class=\"border-b border-border-subtle align-top\"><td class=\"py-3 pr-3\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

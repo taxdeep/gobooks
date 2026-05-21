@@ -199,6 +199,7 @@ func TestTaskFormServiceItemHandlerIntegration(t *testing.T) {
 		`x-data="balancizTaskLines()"`,
 		`context: 'task_form_service_item'`,
 		`name="line_product_service_id"`,
+		`<div class="mt-4 overflow-visible"><table class="w-full text-left text-body">`,
 		`Service Lines`,
 	} {
 		if !strings.Contains(newBody, want) {
