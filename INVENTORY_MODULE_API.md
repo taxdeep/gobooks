@@ -1,4 +1,4 @@
-# Inventory Module — API Contract & Architecture
+﻿# Inventory Module — API Contract & Architecture
 
 **Status:** Design ratified; implementation in progress (Phase D.0+).
 **Owner area:** `internal/services/inventory/` (package to be created).
@@ -2032,7 +2032,7 @@ inbound (`ARReturnReceipt`) and buy-side outbound
 (`VendorReturnShipment`) mirrors of Receipt (H.3) / Shipment (I.3)
 in the return direction.
 
-Full scope, decisions, and rationale live in `PHASE_I6_CHARTER.md`
+Full scope, decisions, and rationale live in `docs/archive/phases/PHASE_I6_CHARTER.md`
 (scope-locked 2026-04-21, Q1–Q9 pinned). This section summarises
 the binding plan; the charter is authoritative.
 
@@ -2180,7 +2180,7 @@ rail is `true`.
    loud rejection at credit post; tracked-lot return; void +
    re-post.
 7. Pilot enablement docs per rail exist; operator runbook
-   (`PHASE_I6_RUNBOOK.md`) exists.
+   (`docs/archive/phases/PHASE_I6_RUNBOOK.md`) exists.
 8. `inventory.return.*` permission strings remain reserved in
    §11 — actual wiring deferred to Phase J.
 
@@ -2191,18 +2191,18 @@ signal; AP-first would contaminate AR observation):
 
 | Slice | Scope | Entry gate | Status |
 |---|---|---|---|
-| **I.6.0** | Charter adopted into this §7 Phase I subsection; all Q1–Q9 pinned; `PHASE_I6_CHARTER.md` is the authoritative reference. RULE4_RUNBOOK.md §10a / §10b placeholders repointed to charter. | Q1–Q9 locked | shipped (local) |
+| **I.6.0** | Charter adopted into this §7 Phase I subsection; all Q1–Q9 pinned; `docs/archive/phases/PHASE_I6_CHARTER.md` is the authoritative reference. RULE4_RUNBOOK.md §10a / §10b placeholders repointed to charter. | Q1–Q9 locked | shipped (local) |
 | **I.6a.1** | Migration + model for `ar_return_receipts` / `ar_return_receipt_lines`. Nullable FK `credit_note_line_id`. GORM registration. No service behaviour yet. | I.6.0 adopted | shipped (local) |
 | **I.6a.2** | Service layer — `CreateARReturnReceipt` / `PostARReturnReceipt` / `VoidARReturnReceipt`. Uses `inventory.ReceiveStock` at traced cost via `CreditNoteLine.OriginalInvoiceLineID` → Invoice (or Shipment-chain) movement. `source_type='ar_return_receipt'`. Posted-void reverses own movement (Q5 document-local). | I.6a.1 shipped | shipped (local) |
 | **I.6a.3** | CreditNote controlled-mode retrofit under `shipment_required=true`: stop rejecting stock lines; require exact per-line ARReturnReceipt coverage (Q6); book revenue-only JE. `Rule4DocCreditNote.IsMovementOwner` surrenders ownership to new `Rule4DocARReturnReceipt`. Rule #4 post-time invariant added on `PostARReturnReceipt`. | I.6a.2 shipped | shipped (local) |
 | **I.6a.4** | UI — ARReturnReceipt editor (list / detail / new / post / void / delete). "Create matching Return Receipt" shortcut on CreditNote detail (Q4 pattern, mirrors "Convert to refund" on VCN). Sidebar entry under Inventory + Customers mega-menu entry. | I.6a.3 shipped | shipped (local) |
-| **I.6a.5** | Pilot enablement doc (`PHASE_I6A_PILOT_ENABLEMENT.md`) + operator runbook (`PHASE_I6_RUNBOOK.md`) + smoke suite (`phase_i6a_smoke_test.go` — split return + void/repost; covers charter §7 #6 exit scenarios). Q9 stacking rule applies. | I.6a.4 shipped | shipped (local) |
+| **I.6a.5** | Pilot enablement doc (`docs/archive/phases/PHASE_I6A_PILOT_ENABLEMENT.md`) + operator runbook (`docs/archive/phases/PHASE_I6_RUNBOOK.md`) + smoke suite (`phase_i6a_smoke_test.go` — split return + void/repost; covers charter §7 #6 exit scenarios). Q9 stacking rule applies. | I.6a.4 shipped | shipped (local) |
 | **I.6b.1** | Migration + model for `vendor_return_shipments` / `vendor_return_shipment_lines`. Nullable FK `vendor_credit_note_line_id`. GORM registration. | I.6a.5 shipped | shipped (local) |
 | **I.6b.2a** | **Dedicated narrow-semantic inventory verb `IssueVendorReturn`** (final name pinned) for return-to-vendor traced-cost outflow (Q3). Caller passes `OriginalMovementID` + qty; module reads `unit_cost_base` internally and writes outflow at that exact cost. Writes no PPV leg; creates `inventory_movements` row with `movement_type='vendor_return'` + caller-supplied `SourceType`. Rejects reversal rows + outflow rows as cost anchors. Zero changes to `IssueStock`. 7 contract tests. | I.6b.1 shipped | shipped (local) |
 | **I.6b.2** | Service layer — `CreateVendorReturnShipment` / `PostVendorReturnShipment` / `VoidVendorReturnShipment`. Calls `inventory.IssueVendorReturn` per stock line. Rail-aware: under `receipt_required=true` books **Dr AP / Cr Inventory** (both legs — see break from AR symmetry in service file doc); under `=false` status-flip only. Q5 document-local void. `Rule4DocVendorReturnShipment` owner dispatch + post-time invariant. 7 contract tests. | I.6b.2a shipped | shipped (local) |
 | **I.6b.3** | VendorCreditNote controlled-mode retrofit: stop rejecting stock lines; require exact per-line VRS coverage (Q6); suppress stock-portion JE fragments (VRS owns Dr AP / Cr Inventory at traced cost) — VCN books Dr AP / Cr Offset only for the non-stock portion (0 if stock-only). `Rule4DocVendorCreditNote` surrenders ownership under controlled mode. Extended VCN posted-void for Q5 symmetry — controlled-mode only (legacy IN.6a's reversal rows can't be re-reversed; follow-on slice). Partial-qty AP returns now tractable via multiple VRS summing per line — closes IN.6a's deferred gap. 5 contract tests. | I.6b.2 shipped | shipped (local) |
 | **I.6b.4** | UI — VendorReturnShipment editor (list / detail / new / post / void / delete) at `/vendor-return-shipments`. "Create Return to Vendor" shortcut on VCN detail (Q2 UI label, Q4 shortcut pattern mirrors "Convert to refund" + "Create matching Return Receipt"). Sidebar entry under Inventory + Suppliers mega-menu entry. | I.6b.3 shipped | shipped (local) |
-| **I.6b.5** | Pilot enablement doc (`PHASE_I6B_PILOT_ENABLEMENT.md`) + operator runbook AP body (`PHASE_I6_RUNBOOK.md` §§9–15) + smoke suite (`phase_i6b_smoke_test.go` — split return + void/repost, closes IN.6a partial-qty gap). Q9 pilot stacking rule applies. | I.6b.4 shipped | shipped (local) |
+| **I.6b.5** | Pilot enablement doc (`docs/archive/phases/PHASE_I6B_PILOT_ENABLEMENT.md`) + operator runbook AP body (`docs/archive/phases/PHASE_I6_RUNBOOK.md` §§9–15) + smoke suite (`phase_i6b_smoke_test.go` — split return + void/repost, closes IN.6a partial-qty gap). Q9 pilot stacking rule applies. | I.6b.4 shipped | shipped (local) |
 
 **Expected slice count: 11.** Comparable to Phase H + Phase I
 main bodies given cross-rail symmetry. I.6a.1 through I.6a.5
@@ -2211,7 +2211,7 @@ per-rail pilot signal).
 
 #### Design decisions — Q1–Q9 summary
 
-Full rationale lives in `PHASE_I6_CHARTER.md` §5. One-line
+Full rationale lives in `docs/archive/phases/PHASE_I6_CHARTER.md` §5. One-line
 reminder of each locked choice:
 
 - **Q1** — Split AR (I.6a) and AP (I.6b); AR ships first.
@@ -2284,7 +2284,7 @@ reminder of each locked choice:
   documents — CreditNote, VendorCreditNote, ARReturnReceipt,
   VendorReturnShipment — plus their create / void rules.
   Runbook clarity matters; I.6a.5 / I.6b.5 explicitly include
-  a `PHASE_I6_RUNBOOK.md` deliverable.
+  a `docs/archive/phases/PHASE_I6_RUNBOOK.md` deliverable.
 - **Pilot stacking (Q9).** Serialised per company by CS
   runbook, not by code.
 

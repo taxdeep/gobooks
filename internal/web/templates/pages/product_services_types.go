@@ -12,7 +12,7 @@ type ProductServicesVM struct {
 	OtherChargeAccounts []models.Account // root_account_type IN ('cost_of_sales', 'expense') — for Other Charge items
 	COGSAccounts        []models.Account // root_account_type = 'cost_of_sales'
 	InventoryAccounts   []models.Account // detail_account_type = 'inventory' (asset)
-	TaxCodes         []models.TaxCode
+	TaxCodes            []models.TaxCode
 
 	// Component picker dropdown (inventory items only, for bundle component selection)
 	InventoryItems []models.ProductService
@@ -28,6 +28,7 @@ type ProductServicesVM struct {
 	Description        string
 	DefaultPrice       string
 	PurchasePrice      string
+	UnitType           string
 	RevenueAccountID   string
 	COGSAccountID      string
 	InventoryAccountID string
@@ -54,11 +55,11 @@ type ProductServicesVM struct {
 	ComponentError string
 
 	// Field-level errors
-	NameError              string
-	TypeError              string
-	DefaultPriceError      string
-	RevenueAccountIDError  string
-	COGSAccountIDError     string
+	NameError               string
+	TypeError               string
+	DefaultPriceError       string
+	RevenueAccountIDError   string
+	COGSAccountIDError      string
 	InventoryAccountIDError string
 
 	// Form-level error
@@ -83,7 +84,7 @@ type ProductServicesVM struct {
 
 	// Data to render the table (with balance info for inventory items)
 	Items      []models.ProductService
-	Balances   map[uint]string // item_id → qty_on_hand display string (legacy compat)
+	Balances   map[uint]string          // item_id → qty_on_hand display string (legacy compat)
 	Valuations map[uint]ItemValuationVM // item_id → full valuation data
 
 	// Filter state — echoed back into the filter bar so the URL fully

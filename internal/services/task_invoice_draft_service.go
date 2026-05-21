@@ -521,11 +521,15 @@ func buildDraftInvoiceLine(tx *gorm.DB, companyID uint, item *models.ProductServ
 		// If not found (purchase-only / inactive / cross-company): leave lineTaxCodeID nil.
 	}
 	psID := item.ID
+	uom := SnapshotLineUOM(tx, companyID, &psID, LineUOMSell, qty, "", decimal.Zero)
 	return models.InvoiceLine{
 		ProductServiceID: &psID,
 		Description:      description,
 		Qty:              qty,
 		UnitPrice:        unitPrice,
+		LineUOM:          uom.LineUOM,
+		LineUOMFactor:    uom.LineUOMFactor,
+		QtyInStockUOM:    uom.QtyInStockUOM,
 		TaxCodeID:        lineTaxCodeID,
 		LineNet:          lineNet,
 		LineTax:          lineTax,

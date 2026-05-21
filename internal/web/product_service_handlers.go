@@ -47,6 +47,7 @@ func (s *Server) handleProductServices(c *fiber.Ctx) error {
 	if c.Query("new") == "1" {
 		vm.DrawerOpen = true
 		vm.DrawerMode = "create"
+		vm.UnitType = "EA"
 	}
 
 	if editRaw := strings.TrimSpace(c.Query("edit")); editRaw != "" {
@@ -64,6 +65,7 @@ func (s *Server) handleProductServices(c *fiber.Ctx) error {
 				vm.Description = item.Description
 				vm.DefaultPrice = item.DefaultPrice.StringFixed(2)
 				vm.PurchasePrice = item.PurchasePrice.StringFixed(2)
+				vm.UnitType = productServiceDisplayUnitType(item)
 				vm.RevenueAccountID = strconv.FormatUint(uint64(item.RevenueAccountID), 10)
 				if item.COGSAccountID != nil {
 					vm.COGSAccountID = strconv.FormatUint(uint64(*item.COGSAccountID), 10)
@@ -125,7 +127,7 @@ func (s *Server) handleProductServiceCreate(c *fiber.Ctx) error {
 		return c.Redirect("/select-company", fiber.StatusSeeOther)
 	}
 
-	name, sku, typeRaw, structureType, description, priceRaw, purchasePriceRaw,
+	name, sku, typeRaw, structureType, description, priceRaw, purchasePriceRaw, unitTypeRaw,
 		revenueIDRaw, cogsIDRaw, invAcctIDRaw, taxCodeIDRaw, compRows := parseItemForm(c)
 
 	vm := pages.ProductServicesVM{
@@ -139,6 +141,7 @@ func (s *Server) handleProductServiceCreate(c *fiber.Ctx) error {
 		Description:        description,
 		DefaultPrice:       priceRaw,
 		PurchasePrice:      purchasePriceRaw,
+		UnitType:           productServiceDisplayUnitTypeRaw(unitTypeRaw),
 		RevenueAccountID:   revenueIDRaw,
 		COGSAccountID:      cogsIDRaw,
 		InventoryAccountID: invAcctIDRaw,
@@ -207,6 +210,7 @@ func (s *Server) handleProductServiceCreate(c *fiber.Ctx) error {
 		item.CanBeSold = true
 	}
 	item.ApplyTypeDefaults()
+	applyProductServiceUnitType(&item, unitTypeRaw)
 
 	// Validate bundle type + components if bundle.
 	var bundleComps []models.ItemComponent
@@ -287,8 +291,11 @@ func (s *Server) handleProductServiceUpdate(c *fiber.Ctx) error {
 		return c.Redirect("/products-services", fiber.StatusSeeOther)
 	}
 
-	name, sku, typeRaw, structureType, description, priceRaw, purchasePriceRaw,
+	name, sku, typeRaw, structureType, description, priceRaw, purchasePriceRaw, unitTypeRaw,
 		revenueIDRaw, cogsIDRaw, invAcctIDRaw, taxCodeIDRaw, compRows := parseItemForm(c)
+	if strings.TrimSpace(unitTypeRaw) == "" {
+		unitTypeRaw = productServiceDisplayUnitType(existing)
+	}
 
 	vm := pages.ProductServicesVM{
 		HasCompany:         true,
@@ -302,6 +309,7 @@ func (s *Server) handleProductServiceUpdate(c *fiber.Ctx) error {
 		Description:        description,
 		DefaultPrice:       priceRaw,
 		PurchasePrice:      purchasePriceRaw,
+		UnitType:           productServiceDisplayUnitTypeRaw(unitTypeRaw),
 		RevenueAccountID:   revenueIDRaw,
 		COGSAccountID:      cogsIDRaw,
 		InventoryAccountID: invAcctIDRaw,
@@ -391,6 +399,11 @@ func (s *Server) handleProductServiceUpdate(c *fiber.Ctx) error {
 		existing.CanBeSold = true
 	} else {
 		existing.ItemStructureType = models.ItemStructureSingle
+	}
+	if err := s.applyProductServiceUnitTypeForUpdate(companyID, &existing, unitTypeRaw); err != nil {
+		vm.FormError = err.Error()
+		s.loadItemsForVM(companyID, &vm)
+		return pages.ProductServices(vm).Render(c.Context(), c)
 	}
 
 	txErr := s.DB.Transaction(func(tx *gorm.DB) error {
@@ -607,7 +620,7 @@ func (s *Server) handleInventoryAdjustment(c *fiber.Ctx) error {
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
 
-func parseItemForm(c *fiber.Ctx) (name, sku, typeRaw, structureType, description, priceRaw, purchasePriceRaw, revenueIDRaw, cogsIDRaw, invAcctIDRaw, taxCodeIDRaw string, components []pages.BundleComponentRow) {
+func parseItemForm(c *fiber.Ctx) (name, sku, typeRaw, structureType, description, priceRaw, purchasePriceRaw, unitTypeRaw, revenueIDRaw, cogsIDRaw, invAcctIDRaw, taxCodeIDRaw string, components []pages.BundleComponentRow) {
 	name = strings.TrimSpace(c.FormValue("name"))
 	sku = strings.TrimSpace(c.FormValue("sku"))
 	typeRaw = strings.TrimSpace(c.FormValue("type"))
@@ -615,6 +628,7 @@ func parseItemForm(c *fiber.Ctx) (name, sku, typeRaw, structureType, description
 	description = strings.TrimSpace(c.FormValue("description"))
 	priceRaw = strings.TrimSpace(c.FormValue("default_price"))
 	purchasePriceRaw = strings.TrimSpace(c.FormValue("purchase_price"))
+	unitTypeRaw = strings.TrimSpace(c.FormValue("unit_type"))
 	revenueIDRaw = strings.TrimSpace(c.FormValue("revenue_account_id"))
 	cogsIDRaw = strings.TrimSpace(c.FormValue("cogs_account_id"))
 	invAcctIDRaw = strings.TrimSpace(c.FormValue("inventory_account_id"))
@@ -637,6 +651,55 @@ func parseItemForm(c *fiber.Ctx) (name, sku, typeRaw, structureType, description
 		}
 	}
 	return
+}
+
+func productServiceDisplayUnitType(item models.ProductService) string {
+	if item.Type == models.ProductServiceTypeInventory && item.StockUOM != "" {
+		return models.NormalizeUOM(item.StockUOM)
+	}
+	if item.SellUOM != "" {
+		return models.NormalizeUOM(item.SellUOM)
+	}
+	return "EA"
+}
+
+func productServiceDisplayUnitTypeRaw(unitTypeRaw string) string {
+	return models.NormalizeUOM(unitTypeRaw)
+}
+
+func applyProductServiceUnitType(item *models.ProductService, unitTypeRaw string) {
+	unitType := models.NormalizeUOM(unitTypeRaw)
+	one := decimal.NewFromInt(1)
+	if item.Type == models.ProductServiceTypeInventory && item.ItemStructureType != models.ItemStructureBundle {
+		item.StockUOM = unitType
+		item.SellUOM = unitType
+		item.PurchaseUOM = unitType
+	} else {
+		item.StockUOM = "EA"
+		item.SellUOM = unitType
+		item.PurchaseUOM = unitType
+	}
+	item.SellUOMFactor = one
+	item.PurchaseUOMFactor = one
+}
+
+func (s *Server) applyProductServiceUnitTypeForUpdate(companyID uint, item *models.ProductService, unitTypeRaw string) error {
+	unitType := models.NormalizeUOM(unitTypeRaw)
+	if item.Type == models.ProductServiceTypeInventory && item.ItemStructureType != models.ItemStructureBundle &&
+		models.NormalizeUOM(item.StockUOM) != unitType {
+		var sum struct{ Total float64 }
+		if err := s.DB.Model(&models.InventoryBalance{}).
+			Select("COALESCE(SUM(quantity_on_hand), 0) AS total").
+			Where("company_id = ? AND item_id = ?", companyID, item.ID).
+			Scan(&sum).Error; err != nil {
+			return fmt.Errorf("could not validate inventory unit type")
+		}
+		if sum.Total != 0 {
+			return fmt.Errorf("unit type cannot be changed while this inventory item has quantity on hand")
+		}
+	}
+	applyProductServiceUnitType(item, unitType)
+	return nil
 }
 
 func validateItemCommon(vm *pages.ProductServicesVM, name, typeRaw, priceRaw, revenueIDRaw string) (models.ProductServiceType, error) {

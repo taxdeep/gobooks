@@ -133,12 +133,12 @@ func TestProductServiceCreate_RejectsCrossCompanyTaxCode(t *testing.T) {
 	app := productServiceValidationApp(server, user, companyA)
 
 	resp := performFormRequest(t, app, http.MethodPost, "/products-services", url.Values{
-		"name":                 {"Consulting"},
-		"type":                 {string(models.ProductServiceTypeService)},
-		"structure_type":       {string(models.ItemStructureSingle)},
-		"default_price":        {"100.00"},
-		"revenue_account_id":   {fmt.Sprintf("%d", revenueAID)},
-		"default_tax_code_id":  {fmt.Sprintf("%d", taxBID)},
+		"name":                {"Consulting"},
+		"type":                {string(models.ProductServiceTypeService)},
+		"structure_type":      {string(models.ItemStructureSingle)},
+		"default_price":       {"100.00"},
+		"revenue_account_id":  {fmt.Sprintf("%d", revenueAID)},
+		"default_tax_code_id": {fmt.Sprintf("%d", taxBID)},
 	}, "")
 
 	if resp.StatusCode != http.StatusOK {
@@ -227,6 +227,7 @@ func TestProductServiceCreate_ValidCompanyScopeSucceeds(t *testing.T) {
 		"type":                {string(models.ProductServiceTypeService)},
 		"structure_type":      {string(models.ItemStructureSingle)},
 		"default_price":       {"250.00"},
+		"unit_type":           {"hour"},
 		"revenue_account_id":  {fmt.Sprintf("%d", revenueAID)},
 		"default_tax_code_id": {fmt.Sprintf("%d", taxAID)},
 	}, "")
@@ -249,6 +250,10 @@ func TestProductServiceCreate_ValidCompanyScopeSucceeds(t *testing.T) {
 	if item.DefaultTaxCodeID == nil || *item.DefaultTaxCodeID != taxAID {
 		t.Fatalf("expected tax code %d, got %v", taxAID, item.DefaultTaxCodeID)
 	}
+	if item.StockUOM != "EA" || item.SellUOM != "HOUR" || item.PurchaseUOM != "HOUR" {
+		t.Fatalf("expected service unit type to set sell/purchase UOM to HOUR with stock EA, got stock=%q sell=%q purchase=%q",
+			item.StockUOM, item.SellUOM, item.PurchaseUOM)
+	}
 }
 
 // ── Batch 2: invoice line ↔ product defaults ──────────────────────────────────
@@ -259,9 +264,9 @@ func TestProductServiceCreate_ValidCompanyScopeSucceeds(t *testing.T) {
 func TestBuildProductsJSON_IncludesDescription(t *testing.T) {
 	products := []models.ProductService{
 		{
-			ID:          1,
-			Name:        "Web Design",
-			Description: "Custom website design and development",
+			ID:           1,
+			Name:         "Web Design",
+			Description:  "Custom website design and development",
 			DefaultPrice: mustDecimal(t, "250.00"),
 		},
 		{
